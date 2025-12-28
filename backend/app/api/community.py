@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.community import PostCreate, PostResponse, CommentCreate, CommentResponse
-from app.crud.post import get_feed_posts, create_post, create_comment
+from app.crud.post import get_feed_posts, create_post, create_comment, get_compound_announcements
 from app.crud.listing import get_listings
 from app.crud.compound import get_compound_by_id
 from app.core.dependencies import get_current_approved_user, get_current_verified_user
@@ -176,4 +176,51 @@ async def create_comment_endpoint(
         content=comment.content,
         created_at=comment.created_at,
     )
+
+
+@router.get("/feed/announcements", response_model=List[PostResponse])
+async def get_announcements(
+    skip: int = 0,
+    limit: int = 50,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get compound announcements (posts from admins/moderators)."""
+    if current_user.compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must select a compound first"
+        )
+    
+    posts = await get_compound_announcements(
+        db=db,
+        compound_id=current_user.compound_id,
+        skip=skip,
+        limit=limit
+    )
+    
+    # Convert to response format
+    result = []
+    for post in posts:
+        result.append(PostResponse(
+            id=post.id,
+            compound_id=post.compound_id,
+            author_id=post.author_id,
+            author_name=post.author.name,
+            content=post.content,
+            created_at=post.created_at,
+            comments=[
+                CommentResponse(
+                    id=c.id,
+                    post_id=c.post_id,
+                    author_id=c.author_id,
+                    author_name=c.author.name,
+                    content=c.content,
+                    created_at=c.created_at,
+                )
+                for c in post.comments
+            ]
+        ))
+    
+    return result
 

@@ -22,6 +22,7 @@ class CompoundBase(BaseModel):
     city: Optional[str] = None
     country: str = "Egypt"
     is_public: bool = False
+    moderator_id: Optional[int] = None  # Compound-specific moderator
 
 
 class CompoundCreate(CompoundBase):
@@ -60,6 +61,7 @@ class CompoundUpdate(BaseModel):
     lng: Optional[Decimal] = None
     city: Optional[str] = None
     is_public: Optional[bool] = None
+    moderator_id: Optional[int] = None  # Assign a moderator to the compound
 
 
 class CompoundListResponse(BaseModel):

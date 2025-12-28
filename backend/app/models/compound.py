@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, Date, Index
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, Date, Index, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -27,11 +27,15 @@ class Compound(Base):
     country = Column(String, nullable=False, default="Egypt")
     is_public = Column(Boolean, default=False, nullable=False)
     
+    # Compound management
+    moderator_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Compound-specific moderator
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    users = relationship("User", back_populates="compound")
+    users = relationship("User", back_populates="compound", foreign_keys="User.compound_id")
+    moderator = relationship("User", foreign_keys=[moderator_id])
     posts = relationship("Post", back_populates="compound", cascade="all, delete-orphan")
     listings = relationship("Listing", back_populates="compound", cascade="all, delete-orphan")
     

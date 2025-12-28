@@ -19,7 +19,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
-    compound = relationship("Compound", back_populates="users")
+    compound = relationship("Compound", back_populates="users", foreign_keys=[compound_id])
     verification_documents = relationship(
         "VerificationDocument",
         foreign_keys="VerificationDocument.user_id",

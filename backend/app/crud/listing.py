@@ -2,9 +2,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
 from sqlalchemy.orm import selectinload
 from app.models.listing import Listing, Promotion
-from app.models.enums import ListingStatus, PromotionScope, PromotionStatus
+from app.models.enums import ListingStatus, PromotionScope, PromotionStatus, ListingCategory, ListingIntent
 from app.schemas.marketplace import ListingCreate, ListingUpdate
 from datetime import datetime, timedelta
+from typing import Optional
 
 
 async def get_listings(
@@ -12,13 +13,17 @@ async def get_listings(
     compound_id: int | None = None,
     scope: str = "compound",
     skip: int = 0,
-    limit: int = 50
+    limit: int = 50,
+    category: Optional[ListingCategory] = None,
+    intent: Optional[ListingIntent] = None
 ) -> list[Listing]:
     """
     Get listings based on scope:
     - compound: Only listings in user's compound
     - cross: Cross-compound promoted listings
     - public: Public promoted listings
+    
+    Can also filter by category and intent.
     """
     query = select(Listing).options(
         selectinload(Listing.compound),
@@ -49,6 +54,14 @@ async def get_listings(
                 Promotion.ends_at >= datetime.utcnow()
             )
         )
+    
+    # Apply category filter
+    if category:
+        query = query.where(Listing.category == category)
+    
+    # Apply intent filter
+    if intent:
+        query = query.where(Listing.intent == intent)
     
     query = query.order_by(Listing.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)

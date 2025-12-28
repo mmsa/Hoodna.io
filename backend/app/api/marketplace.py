@@ -35,11 +35,36 @@ async def list_listings(
     scope: str = "compound",
     skip: int = 0,
     limit: int = 50,
+    category: Optional[str] = None,
+    intent: Optional[str] = None,
     current_user: User = Depends(get_current_approved_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get listings based on scope (compound, cross, public)."""
+    """Get listings based on scope (compound, cross, public). Can filter by category and intent."""
+    from app.models.enums import ListingCategory, ListingIntent
+    
     compound_id = current_user.compound_id if scope == "compound" else None
+    
+    # Parse category and intent filters
+    category_filter = None
+    if category:
+        try:
+            category_filter = ListingCategory[category.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid category: {category}. Valid values: PROPERTY, CAR, ITEM, SERVICE"
+            )
+    
+    intent_filter = None
+    if intent:
+        try:
+            intent_filter = ListingIntent[intent.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid intent: {intent}. Valid values: SELL, RENT"
+            )
 
     listings = await get_listings(
         db=db,
@@ -47,6 +72,8 @@ async def list_listings(
         scope=scope,
         skip=skip,
         limit=limit,
+        category=category_filter,
+        intent=intent_filter,
     )
 
     result = []

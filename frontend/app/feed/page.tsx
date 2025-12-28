@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import api from "@/lib/api";
 import {
@@ -12,16 +12,9 @@ import {
   MessageCircle,
   Heart,
   Share2,
-  Users,
-  Sparkles,
-  Home,
-  MapPin,
-  Building2,
   ShoppingBag,
-  TrendingUp,
   Bell,
   Calendar,
-  User,
   Tag,
   DollarSign,
   Package,
@@ -30,6 +23,15 @@ import {
   Wrench,
   Plus,
   ArrowRight,
+  Tv,
+  Gamepad2,
+  Star,
+  User,
+  Users,
+  MapPin,
+  Building2,
+  CheckCircle,
+  Settings,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -74,8 +76,6 @@ interface FeedSummary {
   total_neighbors: number;
 }
 
-type FeedTab = "all" | "posts" | "marketplace" | "announcements";
-
 const getCategoryIcon = (category: string) => {
   switch (category.toUpperCase()) {
     case "PROPERTY":
@@ -91,18 +91,18 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-const getCategoryColor = (category: string) => {
+const getCategoryName = (category: string) => {
   switch (category.toUpperCase()) {
-    case "PROPERTY":
-      return "bg-blue-100 text-blue-700 border-blue-200";
     case "CAR":
-      return "bg-red-100 text-red-700 border-red-200";
+      return "Cars";
     case "ITEM":
-      return "bg-green-100 text-green-700 border-green-200";
+      return "Items";
+    case "PROPERTY":
+      return "Property";
     case "SERVICE":
-      return "bg-purple-100 text-purple-700 border-purple-200";
+      return "Services";
     default:
-      return "bg-gray-100 text-gray-700 border-gray-200";
+      return category;
   }
 };
 
@@ -112,7 +112,6 @@ export default function FeedPage() {
   const { user } = useAuth();
   const [newPost, setNewPost] = useState("");
   const [newComments, setNewComments] = useState<Record<number, string>>({});
-  const [activeTab, setActiveTab] = useState<FeedTab>("all");
   const queryClient = useQueryClient();
 
   // Fetch feed summary
@@ -129,13 +128,131 @@ export default function FeedPage() {
   const { data: recentListings } = useQuery<Listing[]>({
     queryKey: ["recent-listings"],
     queryFn: async () => {
-      const response = await api.get("/api/marketplace?scope=compound&limit=20");
+      const response = await api.get("/api/listings?scope=compound&limit=20");
       return response.data;
     },
     retry: false,
   });
 
-  const { data: posts, isLoading, error } = useQuery<Post[]>({
+  // Fetch latest items for sale
+  const { data: latestForSale } = useQuery<Listing[]>({
+    queryKey: ["latest-for-sale"],
+    queryFn: async () => {
+      const response = await api.get(
+        "/api/listings?scope=compound&intent=SELL&limit=10"
+      );
+      return response.data;
+    },
+    retry: false,
+  });
+
+  // Fetch latest items for rent
+  const { data: latestForRent } = useQuery<Listing[]>({
+    queryKey: ["latest-for-rent"],
+    queryFn: async () => {
+      const response = await api.get(
+        "/api/listings?scope=compound&intent=RENT&limit=10"
+      );
+      return response.data;
+    },
+    retry: false,
+  });
+
+  // Fetch latest services
+  const { data: latestServices } = useQuery<Listing[]>({
+    queryKey: ["latest-services"],
+    queryFn: async () => {
+      const response = await api.get(
+        "/api/listings?scope=compound&category=SERVICE&limit=10"
+      );
+      return response.data;
+    },
+    retry: false,
+  });
+
+  // Fetch featured items (promoted listings - cross-compound and public)
+  const { data: featuredItems } = useQuery<Listing[]>({
+    queryKey: ["featured-items"],
+    queryFn: async () => {
+      try {
+        // Try to get cross-compound promoted listings first
+        const crossResponse = await api.get(
+          "/api/listings?scope=cross&limit=6"
+        );
+        if (crossResponse.data && crossResponse.data.length > 0) {
+          return crossResponse.data;
+        }
+        // Fallback to public promoted listings
+        const publicResponse = await api.get(
+          "/api/listings?scope=public&limit=6"
+        );
+        return publicResponse.data || [];
+      } catch {
+        return [];
+      }
+    },
+    retry: false,
+  });
+
+  // Fetch compound announcements (from admins/moderators)
+  const { data: announcements } = useQuery<Post[]>({
+    queryKey: ["announcements"],
+    queryFn: async () => {
+      const response = await api.get("/api/feed/announcements?limit=5");
+      return response.data;
+    },
+    retry: false,
+  });
+
+  // Fetch user's own stats
+  const { data: userStats } = useQuery<{
+    posts_count: number;
+    listings_count: number;
+    saved_listings_count: number;
+  }>({
+    queryKey: ["user-stats"],
+    queryFn: async () => {
+      try {
+        // Get user's posts
+        const postsResponse = await api.get("/api/feed?limit=1000");
+        const userPosts = (postsResponse.data || []).filter(
+          (p: Post) => p.author_name === user?.name
+        );
+
+        // Get user's listings
+        const listingsResponse = await api.get(
+          "/api/listings?scope=compound&limit=1000"
+        );
+        const userListings = (listingsResponse.data || []).filter(
+          (l: Listing) => l.owner_name === user?.name
+        );
+
+        // Get saved listings
+        const savedResponse = await api.get("/api/saved-listings");
+        const savedListings = savedResponse.data || [];
+
+        return {
+          posts_count: userPosts.length,
+          listings_count: userListings.length,
+          saved_listings_count: savedListings.length,
+        };
+      } catch {
+        return {
+          posts_count: 0,
+          listings_count: 0,
+          saved_listings_count: 0,
+        };
+      }
+    },
+    enabled: !!user,
+    retry: false,
+  });
+
+  const {
+    data: posts,
+    isLoading,
+    error,
+  } = useQuery<Post[]>({
     queryKey: ["feed"],
     queryFn: async () => {
       const response = await api.get("/api/feed");
@@ -150,10 +267,7 @@ export default function FeedPage() {
       const errorResponse = (error as any).response;
       const errorDetail = errorResponse?.data?.detail || "";
 
-      if (
-        errorResponse?.status === 400 &&
-        errorDetail.includes("compound")
-      ) {
+      if (errorResponse?.status === 400 && errorDetail.includes("compound")) {
         router.push("/onboarding/compound-select");
       } else if (
         errorResponse?.status === 403 &&
@@ -189,7 +303,13 @@ export default function FeedPage() {
   });
 
   const createCommentMutation = useMutation({
-    mutationFn: async ({ postId, content }: { postId: number; content: string }) => {
+    mutationFn: async ({
+      postId,
+      content,
+    }: {
+      postId: number;
+      content: string;
+    }) => {
       const response = await api.post(`/api/posts/${postId}/comments`, {
         content,
       });
@@ -221,351 +341,103 @@ export default function FeedPage() {
     }
   };
 
-  // Filter content based on active tab
-  const filteredListings = recentListings?.filter((listing) => {
-    if (activeTab === "marketplace") return true;
-    if (activeTab === "all") return true;
-    return false;
-  }) || [];
-
-  const filteredPosts = posts?.filter(() => {
-    if (activeTab === "posts") return true;
-    if (activeTab === "all") return true;
-    return false;
-  }) || [];
-
-  // Combine posts and listings for "all" tab
-  const allContent = activeTab === "all" ? [
-    ...(posts || []).map((post) => ({ type: "post" as const, data: post })),
-    ...(recentListings || []).map((listing) => ({ type: "listing" as const, data: listing })),
-  ].sort((a, b) => {
-    const dateA = a.type === "post" ? new Date(a.data.created_at).getTime() : new Date(a.data.created_at).getTime();
-    const dateB = b.type === "post" ? new Date(b.data.created_at).getTime() : new Date(b.data.created_at).getTime();
-    return dateB - dateA;
-  }) : [];
+  // Group listings by category for "For Sale" section
+  const groupedListings =
+    latestForSale?.reduce((acc, listing) => {
+      const category = listing.category.toUpperCase();
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(listing);
+      return acc;
+    }, {} as Record<string, Listing[]>) || {};
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading community feed...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading feed...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Welcome Banner */}
-        {user && feedSummary && (
-          <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white shadow-lg animate-fade-in">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">
-                  Welcome back, {user.name.split(' ')[0]}! 👋
-                </h2>
-                <p className="text-blue-100">
-                  {feedSummary.compound_name ? (
-                    <>You're connected to <strong>{feedSummary.compound_name}</strong> community</>
-                  ) : (
-                    "Connect with your verified neighbors"
-                  )}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex gap-6">
+          {/* Sidebar - Profile */}
+          <aside className="hidden lg:block w-80 flex-shrink-0">
+            <ProfileSidebar
+              user={user}
+              feedSummary={feedSummary}
+              userStats={userStats}
+            />
+          </aside>
+
+          {/* Main Content */}
+          <div className="flex-1 min-w-0">
+            {/* Header - User Name and Location (Mobile) */}
+            {user && feedSummary && (
+              <div className="mb-6 lg:hidden">
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                  {user.name}
+                </h1>
+                <p className="text-gray-600 text-sm">
+                  {feedSummary.compound_name}
+                  {feedSummary.compound_area &&
+                    ` (${feedSummary.compound_area})`}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Link href="/marketplace/new">
-                  <Button variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Listing
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Compound Info Card */}
-            {feedSummary?.compound_name && (
-              <Card className="shadow-lg border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
-                      <Home className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl text-gray-900">
-                        {feedSummary.compound_name}
-                      </CardTitle>
-                      {feedSummary.compound_area && (
-                        <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3" />
-                          {feedSummary.compound_area}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {feedSummary.compound_developer && (
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Building2 className="w-4 h-4 text-gray-500" />
-                      <span>{feedSummary.compound_developer}</span>
-                    </div>
-                  )}
-                  {feedSummary.compound_status && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                        {feedSummary.compound_status}
-                      </span>
-                    </div>
-                  )}
-                  <div className="pt-3 border-t border-gray-200 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Neighbors</span>
-                      <span className="font-semibold text-gray-900">
-                        {feedSummary.total_neighbors}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Posts</span>
-                      <span className="font-semibold text-gray-900">
-                        {feedSummary.recent_posts_count}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Listings</span>
-                      <span className="font-semibold text-gray-900">
-                        {feedSummary.recent_listings_count}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             )}
 
-            {/* User Profile Card */}
-            {user && (
-              <Card className="shadow-lg border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-md">
-                      <span className="text-white font-bold text-lg">
-                        {user.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-gray-900">
-                        {user.name}
-                      </CardTitle>
-                      <p className="text-xs text-gray-500">{user.email}</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Link href="/profile">
-                    <Button
-                      variant="outline"
-                      className="w-full border-purple-200 hover:bg-purple-50"
-                    >
-                      <User className="w-4 h-4 mr-2" />
-                      View Profile
-                    </Button>
-                  </Link>
-                  <Link href="/marketplace/new">
-                    <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Sell Something
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Links */}
-            <Card className="shadow-lg border-2 border-gray-200">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Quick Links</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Link href="/marketplace">
-                  <Button variant="outline" className="w-full justify-start">
-                    <ShoppingBag className="w-4 h-4 mr-2" />
-                    Browse Marketplace
+            {/* Create Post Input - At the top */}
+            <Card className="mb-6 border border-gray-200 shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="What's on your mind?"
+                    value={newPost}
+                    onChange={(e) => setNewPost(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && handleCreatePost()}
+                    className="flex-1 border-gray-300"
+                  />
+                  <Button
+                    onClick={handleCreatePost}
+                    disabled={createPostMutation.isPending || !newPost.trim()}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {createPostMutation.isPending ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </Button>
-                </Link>
-                <Link href="/marketplace?intent=SELL">
-                  <Button variant="outline" className="w-full justify-start">
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    For Sale
-                  </Button>
-                </Link>
-                <Link href="/marketplace?intent=RENT">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Tag className="w-4 h-4 mr-2" />
-                    For Rent
-                  </Button>
-                </Link>
+                </div>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Main Feed */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Header */}
-            <div className="text-center mb-6 animate-fade-in">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 shadow-lg">
-                <Users className="w-8 h-8 text-white" />
-              </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                Community Feed
-              </h1>
-              <p className="text-gray-600">
-                Connect with your neighbors in {feedSummary?.compound_name || "your community"}
-              </p>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2 border-b-2 border-gray-200 pb-2">
-              <Button
-                variant={activeTab === "all" ? "default" : "ghost"}
-                onClick={() => setActiveTab("all")}
-                className={`${
-                  activeTab === "all"
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "hover:bg-gray-100"
-                }`}
-              >
-                All
-              </Button>
-              <Button
-                variant={activeTab === "posts" ? "default" : "ghost"}
-                onClick={() => setActiveTab("posts")}
-                className={`${
-                  activeTab === "posts"
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "hover:bg-gray-100"
-                }`}
-              >
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Posts
-              </Button>
-              <Button
-                variant={activeTab === "marketplace" ? "default" : "ghost"}
-                onClick={() => setActiveTab("marketplace")}
-                className={`${
-                  activeTab === "marketplace"
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "hover:bg-gray-100"
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4 mr-2" />
-                Marketplace
-              </Button>
-            </div>
-
-            {/* Create Post - Show only for posts/all tabs */}
-            {(activeTab === "all" || activeTab === "posts") && (
-              <Card className="shadow-xl border-2 border-gray-200 hover:shadow-2xl transition-all duration-300 animate-fade-in">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">Share something</h3>
-                      <p className="text-sm text-gray-500">What's on your mind?</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Share your thoughts with the community..."
-                      value={newPost}
-                      onChange={(e) => setNewPost(e.target.value)}
-                      onKeyPress={(e) =>
-                        e.key === "Enter" && handleCreatePost()
-                      }
-                      className="flex-1 border-2 focus:border-blue-400 transition-colors"
-                    />
+            {/* Latest Posts Section */}
+            {posts && posts.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5 text-purple-600" />
+                    Latest Posts
+                  </h2>
+                  <Link href="/feed?tab=posts">
                     <Button
-                      onClick={handleCreatePost}
-                      disabled={
-                        createPostMutation.isPending || !newPost.trim()
-                      }
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
-                      size="lg"
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-600"
                     >
-                      {createPostMutation.isPending ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
+                      View all →
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Content based on active tab */}
-            {activeTab === "all" && (
-              <div className="space-y-6">
-                {allContent.length === 0 ? (
-                  <Card className="shadow-lg border-2 border-dashed border-gray-300">
-                    <CardContent className="p-12 text-center">
-                      <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                        No content yet
-                      </h3>
-                      <p className="text-gray-500">
-                        Be the first to share something with your community!
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  allContent.map((item, index) => {
-                    if (item.type === "post") {
-                      const post = item.data as Post;
-                      return (
-                        <PostCard
-                          key={`post-${post.id}`}
-                          post={post}
-                          newComments={newComments}
-                          setNewComments={setNewComments}
-                          handleCreateComment={handleCreateComment}
-                          createCommentMutation={createCommentMutation}
-                        />
-                      );
-                    } else {
-                      const listing = item.data as Listing;
-                      return (
-                        <ListingCard key={`listing-${listing.id}`} listing={listing} />
-                      );
-                    }
-                  })
-                )}
-              </div>
-            )}
-
-            {activeTab === "posts" && (
-              <div className="space-y-6">
-                {filteredPosts.length === 0 ? (
-                  <Card className="shadow-lg border-2 border-dashed border-gray-300">
-                    <CardContent className="p-12 text-center">
-                      <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                        No posts yet
-                      </h3>
-                      <p className="text-gray-500">
-                        Be the first to share something with your community!
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  filteredPosts.map((post) => (
+                  </Link>
+                </div>
+                <div className="space-y-4">
+                  {posts.slice(0, 3).map((post) => (
                     <PostCard
                       key={post.id}
                       post={post}
@@ -574,39 +446,339 @@ export default function FeedPage() {
                       handleCreateComment={handleCreateComment}
                       createCommentMutation={createCommentMutation}
                     />
-                  ))
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Compound Announcements by Moderation */}
+            {announcements && announcements.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-yellow-600" />
+                    Announcements by Compound Moderation
+                  </h2>
+                  <Link href="/feed?tab=announcements">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-600"
+                    >
+                      View all →
+                    </Button>
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {announcements.slice(0, 3).map((post) => (
+                    <div
+                      key={post.id}
+                      className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
+                      onClick={() => {
+                        document
+                          .getElementById(`post-${post.id}`)
+                          ?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0">
+                          <span className="text-white text-xs font-bold">
+                            {post.author_name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-sm text-gray-900">
+                              {post.author_name}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 bg-yellow-200 text-yellow-800 rounded-full font-medium">
+                              Management
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(post.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 line-clamp-2">
+                            {post.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Featured Items Section */}
+            {featuredItems && featuredItems.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                    Featured Items
+                  </h2>
+                  <Link href="/marketplace?scope=cross">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-600"
+                    >
+                      View all →
+                    </Button>
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {featuredItems.slice(0, 4).map((listing) => (
+                    <Link key={listing.id} href={`/marketplace/${listing.id}`}>
+                      <Card className="hover:shadow-lg transition-all cursor-pointer border-2 border-yellow-300 bg-gradient-to-br from-yellow-50 to-white relative">
+                        <div className="absolute top-2 right-2 z-10">
+                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                        </div>
+                        {listing.image_urls && listing.image_urls.length > 0 ? (
+                          <img
+                            src={listing.image_urls[0]}
+                            alt={listing.title}
+                            className="w-full h-32 object-cover rounded-t-lg"
+                          />
+                        ) : (
+                          <div className="w-full h-32 bg-gradient-to-br from-yellow-100 to-yellow-50 rounded-t-lg flex items-center justify-center">
+                            {getCategoryIcon(listing.category)}
+                          </div>
+                        )}
+                        <CardContent className="p-2.5">
+                          <h4 className="font-medium text-xs line-clamp-2 mb-1 text-gray-900">
+                            {listing.title}
+                          </h4>
+                          <p className="text-xs font-semibold text-purple-600">
+                            {listing.currency} {listing.price}
+                          </p>
+                          {listing.compound_name && (
+                            <p className="text-xs text-gray-500 mt-1 truncate">
+                              {listing.compound_name}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Latest Marketplace Section */}
+            {((latestForSale && latestForSale.length > 0) ||
+              (latestForRent && latestForRent.length > 0) ||
+              (latestServices && latestServices.length > 0)) && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-purple-600" />
+                    Latest Marketplace
+                  </h2>
+                  <Link href="/marketplace">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-600"
+                    >
+                      View all →
+                    </Button>
+                  </Link>
+                </div>
+
+                {/* For Sale */}
+                {latestForSale && latestForSale.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-gray-800 flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-purple-600" />
+                        For Sale
+                      </h3>
+                      <Link href="/marketplace?intent=SELL">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-purple-600 h-7 text-xs"
+                        >
+                          View all →
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {latestForSale.slice(0, 4).map((listing) => (
+                        <Link
+                          key={listing.id}
+                          href={`/marketplace/${listing.id}`}
+                        >
+                          <Card className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200">
+                            {listing.image_urls &&
+                            listing.image_urls.length > 0 ? (
+                              <img
+                                src={listing.image_urls[0]}
+                                alt={listing.title}
+                                className="w-full h-28 object-cover rounded-t-lg"
+                              />
+                            ) : (
+                              <div className="w-full h-28 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                                {getCategoryIcon(listing.category)}
+                              </div>
+                            )}
+                            <CardContent className="p-2.5">
+                              <h4 className="font-medium text-xs line-clamp-2 mb-1 text-gray-900">
+                                {listing.title}
+                              </h4>
+                              <p className="text-xs font-semibold text-purple-600">
+                                {listing.currency} {listing.price}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* For Rent */}
+                {latestForRent && latestForRent.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-gray-800 flex items-center gap-2">
+                        <HomeIcon className="w-4 h-4 text-blue-600" />
+                        For Rent
+                      </h3>
+                      <Link href="/marketplace?intent=RENT">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-purple-600 h-7 text-xs"
+                        >
+                          View all →
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {latestForRent.slice(0, 4).map((listing) => (
+                        <Link
+                          key={listing.id}
+                          href={`/marketplace/${listing.id}`}
+                        >
+                          <Card className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200">
+                            {listing.image_urls &&
+                            listing.image_urls.length > 0 ? (
+                              <img
+                                src={listing.image_urls[0]}
+                                alt={listing.title}
+                                className="w-full h-28 object-cover rounded-t-lg"
+                              />
+                            ) : (
+                              <div className="w-full h-28 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                                <HomeIcon className="w-8 h-8 text-gray-400" />
+                              </div>
+                            )}
+                            <CardContent className="p-2.5">
+                              <h4 className="font-medium text-xs line-clamp-2 mb-1 text-gray-900">
+                                {listing.title}
+                              </h4>
+                              <p className="text-xs font-semibold text-blue-600">
+                                {listing.currency} {listing.price}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Services */}
+                {latestServices && latestServices.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-gray-800 flex items-center gap-2">
+                        <Wrench className="w-4 h-4 text-purple-600" />
+                        Services
+                      </h3>
+                      <Link href="/marketplace?category=SERVICE">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-purple-600 h-7 text-xs"
+                        >
+                          View all →
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {latestServices.slice(0, 4).map((listing) => (
+                        <Link
+                          key={listing.id}
+                          href={`/marketplace/${listing.id}`}
+                        >
+                          <Card className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200">
+                            {listing.image_urls &&
+                            listing.image_urls.length > 0 ? (
+                              <img
+                                src={listing.image_urls[0]}
+                                alt={listing.title}
+                                className="w-full h-28 object-cover rounded-t-lg"
+                              />
+                            ) : (
+                              <div className="w-full h-28 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                                <Wrench className="w-8 h-8 text-gray-400" />
+                              </div>
+                            )}
+                            <CardContent className="p-2.5">
+                              <h4 className="font-medium text-xs line-clamp-2 mb-1 text-gray-900">
+                                {listing.title}
+                              </h4>
+                              {listing.price && (
+                                <p className="text-xs font-semibold text-purple-600">
+                                  {listing.currency} {listing.price}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
 
-            {activeTab === "marketplace" && (
-              <div className="space-y-6">
-                {filteredListings.length === 0 ? (
-                  <Card className="shadow-lg border-2 border-dashed border-gray-300">
-                    <CardContent className="p-12 text-center">
-                      <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                        No listings yet
-                      </h3>
-                      <p className="text-gray-500 mb-4">
-                        Be the first to list something for sale or rent!
-                      </p>
-                      <Link href="/marketplace/new">
-                        <Button className="bg-gradient-to-r from-green-500 to-emerald-600">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Create Listing
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {filteredListings.map((listing) => (
-                      <ListingCard key={listing.id} listing={listing} />
-                    ))}
-                  </div>
-                )}
+            {/* All Posts - Full Feed */}
+            {posts && posts.length > 3 && (
+              <div className="border-t border-gray-200 pt-8">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  All Posts
+                </h2>
+                <div className="space-y-4">
+                  {posts.slice(3).map((post) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      newComments={newComments}
+                      setNewComments={setNewComments}
+                      handleCreateComment={handleCreateComment}
+                      createCommentMutation={createCommentMutation}
+                    />
+                  ))}
+                </div>
               </div>
+            )}
+
+            {posts && posts.length === 0 && (
+              <Card className="border border-gray-200">
+                <CardContent className="p-12 text-center">
+                  <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    No posts yet
+                  </h3>
+                  <p className="text-gray-500">
+                    Be the first to share something with your community!
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
@@ -615,7 +787,191 @@ export default function FeedPage() {
   );
 }
 
-// Post Card Component
+// Profile Sidebar Component
+function ProfileSidebar({
+  user,
+  feedSummary,
+  userStats,
+}: {
+  user: any;
+  feedSummary: FeedSummary | undefined;
+  userStats:
+    | {
+        posts_count: number;
+        listings_count: number;
+        saved_listings_count: number;
+      }
+    | undefined;
+}) {
+  if (!user) return null;
+
+  return (
+    <div className="space-y-4 sticky top-6">
+      {/* Profile Card */}
+      <Card className="border border-gray-200 shadow-sm">
+        <CardContent className="p-6">
+          {/* Avatar and Name */}
+          <div className="flex flex-col items-center mb-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center mb-3 shadow-lg">
+              <span className="text-white text-2xl font-bold">
+                {user.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              {user.name}
+            </h3>
+            {user.status === "APPROVED" && (
+              <div className="flex items-center gap-1 text-xs text-green-600 mb-2">
+                <CheckCircle className="w-3 h-3" />
+                <span>Verified</span>
+              </div>
+            )}
+            {user.role === "ADMIN" || user.role === "MODERATOR" ? (
+              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">
+                {user.role}
+              </span>
+            ) : null}
+          </div>
+
+          {/* Stats */}
+          {userStats && (
+            <div className="grid grid-cols-3 gap-3 mb-4 pt-4 border-t border-gray-200">
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-900">
+                  {userStats.posts_count}
+                </div>
+                <div className="text-xs text-gray-500">Posts</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-900">
+                  {userStats.listings_count}
+                </div>
+                <div className="text-xs text-gray-500">Listings</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-900">
+                  {userStats.saved_listings_count}
+                </div>
+                <div className="text-xs text-gray-500">Saved</div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="space-y-2 pt-4 border-t border-gray-200">
+            <Link href="/marketplace/create">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Listing
+              </Button>
+            </Link>
+            <Link href="/profile">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                size="sm"
+              >
+                <User className="w-4 h-4 mr-2" />
+                View Profile
+              </Button>
+            </Link>
+            <Link href="/saved-listings">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                size="sm"
+              >
+                <Star className="w-4 h-4 mr-2" />
+                Saved Items
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Compound Info Card */}
+      {feedSummary && feedSummary.compound_name && (
+        <Card className="border border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="w-5 h-5 text-purple-600" />
+              <h4 className="font-semibold text-gray-900">My Compound</h4>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {feedSummary.compound_name}
+                  </div>
+                  {feedSummary.compound_area && (
+                    <div className="text-gray-500 text-xs">
+                      {feedSummary.compound_area}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {feedSummary.compound_developer && (
+                <div className="flex items-center gap-2 text-gray-600">
+                  <Building2 className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs">
+                    {feedSummary.compound_developer}
+                  </span>
+                </div>
+              )}
+              {feedSummary.compound_status && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span className="text-xs text-gray-600">
+                    {feedSummary.compound_status}
+                  </span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Community Stats Card */}
+      {feedSummary && (
+        <Card className="border border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-5 h-5 text-purple-600" />
+              <h4 className="font-semibold text-gray-900">Community</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Neighbors</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {feedSummary.total_neighbors || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Recent Posts</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {feedSummary.recent_posts_count || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Listings</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {feedSummary.recent_listings_count || 0}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// Post Card Component - Simplified
 function PostCard({
   post,
   newComments,
@@ -630,69 +986,72 @@ function PostCard({
   createCommentMutation: any;
 }) {
   return (
-    <Card className="shadow-lg border-2 border-gray-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.01] animate-fade-in">
-      <CardContent className="p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-lg">
+    <Card id={`post-${post.id}`} className="border border-gray-200">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-semibold text-sm">
               {post.author_name.charAt(0).toUpperCase()}
             </span>
           </div>
           <div className="flex-1">
-            <div className="font-bold text-lg text-gray-900">
+            <div className="font-semibold text-sm text-gray-900 mb-1">
               {post.author_name}
             </div>
-            <div className="text-sm text-gray-500 flex items-center gap-2">
+            <div className="text-xs text-gray-500 flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {new Date(post.created_at).toLocaleString()}
+              {new Date(post.created_at).toLocaleDateString()} at{" "}
+              {new Date(post.created_at).toLocaleTimeString()}
             </div>
           </div>
         </div>
-        <p className="mb-6 text-gray-800 leading-relaxed">{post.content}</p>
+        <p className="text-gray-800 mb-4 leading-relaxed">{post.content}</p>
 
-        <div className="flex items-center gap-4 mb-4 pb-4 border-b">
-          <button className="flex items-center gap-2 text-gray-600 hover:text-red-500 transition-colors">
-            <Heart className="w-5 h-5" />
-            <span className="text-sm">Like</span>
+        <div className="flex items-center gap-4 mb-4 pb-3 border-b border-gray-200">
+          <button className="flex items-center gap-1 text-gray-600 hover:text-red-500 transition-colors text-sm">
+            <Heart className="w-4 h-4" />
+            <span>Like</span>
           </button>
-          <button className="flex items-center gap-2 text-gray-600 hover:text-blue-500 transition-colors">
-            <MessageCircle className="w-5 h-5" />
-            <span className="text-sm">{post.comments?.length || 0} Comments</span>
+          <button className="flex items-center gap-1 text-gray-600 hover:text-blue-500 transition-colors text-sm">
+            <MessageCircle className="w-4 h-4" />
+            <span>{post.comments?.length || 0} Comments</span>
           </button>
-          <button className="flex items-center gap-2 text-gray-600 hover:text-green-500 transition-colors">
-            <Share2 className="w-5 h-5" />
-            <span className="text-sm">Share</span>
+          <button className="flex items-center gap-1 text-gray-600 hover:text-green-500 transition-colors text-sm">
+            <Share2 className="w-4 h-4" />
+            <span>Share</span>
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {post.comments && post.comments.length > 0 && (
-            <div className="space-y-3 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {post.comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="pl-4 border-l-4 border-blue-200 bg-blue-50 rounded-r-lg p-3 animate-fade-in"
+                  className="pl-3 border-l-2 border-purple-200 bg-purple-50 rounded-r p-2"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-purple-400 flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
                         {comment.author_name.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <div className="font-semibold text-sm text-gray-900">
+                    <span className="font-semibold text-xs text-gray-900">
                       {comment.author_name}
-                    </div>
-                    <div className="text-xs text-gray-500">
+                    </span>
+                    <span className="text-xs text-gray-500">
                       {new Date(comment.created_at).toLocaleDateString()}
-                    </div>
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-700 ml-8">{comment.content}</p>
+                  <p className="text-sm text-gray-700 ml-8">
+                    {comment.content}
+                  </p>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2">
             <Input
               placeholder="Write a comment..."
               value={newComments[post.id] || ""}
@@ -705,7 +1064,7 @@ function PostCard({
               onKeyPress={(e) =>
                 e.key === "Enter" && handleCreateComment(post.id)
               }
-              className="text-sm border-2 focus:border-blue-400 transition-colors"
+              className="text-sm border-gray-300 flex-1"
             />
             <Button
               size="sm"
@@ -713,7 +1072,7 @@ function PostCard({
               disabled={
                 createCommentMutation.isPending || !newComments[post.id]?.trim()
               }
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              className="bg-purple-600 hover:bg-purple-700"
             >
               {createCommentMutation.isPending ? (
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
@@ -725,74 +1084,5 @@ function PostCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// Listing Card Component
-function ListingCard({ listing }: { listing: Listing }) {
-  return (
-    <Link href={`/marketplace/${listing.id}`}>
-      <Card className="shadow-lg border-2 border-gray-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer group">
-        <div className="relative">
-          {listing.image_urls && listing.image_urls.length > 0 ? (
-            <img
-              src={listing.image_urls[0]}
-              alt={listing.title}
-              className="w-full h-48 object-cover rounded-t-lg"
-            />
-          ) : (
-            <div className="w-full h-48 bg-gradient-to-br from-green-400 to-blue-500 rounded-t-lg flex items-center justify-center">
-              <ShoppingBag className="w-16 h-16 text-white opacity-50" />
-            </div>
-          )}
-          <div className="absolute top-3 right-3">
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-medium border ${getCategoryColor(
-                listing.category
-              )}`}
-            >
-              <span className="flex items-center gap-1">
-                {getCategoryIcon(listing.category)}
-                {listing.category}
-              </span>
-            </span>
-          </div>
-          {listing.intent && (
-            <div className="absolute top-3 left-3">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  listing.intent === "SELL"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-blue-100 text-blue-700"
-                }`}
-              >
-                {listing.intent === "SELL" ? "For Sale" : "For Rent"}
-              </span>
-            </div>
-          )}
-        </div>
-        <CardContent className="p-5">
-          <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-            {listing.title}
-          </h3>
-          {listing.description && (
-            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-              {listing.description}
-            </p>
-          )}
-          <div className="flex items-center justify-between pt-3 border-t">
-            <div>
-              <p className="text-2xl font-bold text-green-600">
-                {listing.currency} {listing.price}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                by {listing.owner_name}
-              </p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }

@@ -82,6 +82,7 @@ export default function AdminVerificationsPage() {
   const [requestMoreNotes, setRequestMoreNotes] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [groupByCompound, setGroupByCompound] = useState<boolean>(false);
+  const [groupByUser, setGroupByUser] = useState<boolean>(false);
   const [previewDoc, setPreviewDoc] = useState<VerificationDocument | null>(
     null
   );
@@ -374,17 +375,35 @@ export default function AdminVerificationsPage() {
             </Button>
           </div>
 
-          {/* Group By Compound Toggle */}
-          <Button
-            variant={groupByCompound ? "default" : "outline"}
-            onClick={() => setGroupByCompound(!groupByCompound)}
-            className={
-              groupByCompound ? "bg-purple-600 hover:bg-purple-700" : ""
-            }
-          >
-            <Grid3x3 className="w-4 h-4 mr-2" />
-            {groupByCompound ? "Ungroup" : "Group by Compound"}
-          </Button>
+          {/* Group By Toggles */}
+          <div className="flex gap-2">
+            <Button
+              variant={groupByCompound ? "default" : "outline"}
+              onClick={() => {
+                setGroupByCompound(!groupByCompound);
+                if (!groupByCompound) setGroupByUser(false); // Disable user grouping when enabling compound grouping
+              }}
+              className={
+                groupByCompound ? "bg-purple-600 hover:bg-purple-700" : ""
+              }
+            >
+              <Home className="w-4 h-4 mr-2" />
+              {groupByCompound ? "Ungroup" : "Group by Compound"}
+            </Button>
+            <Button
+              variant={groupByUser ? "default" : "outline"}
+              onClick={() => {
+                setGroupByUser(!groupByUser);
+                if (!groupByUser) setGroupByCompound(false); // Disable compound grouping when enabling user grouping
+              }}
+              className={
+                groupByUser ? "bg-blue-600 hover:bg-blue-700" : ""
+              }
+            >
+              <User className="w-4 h-4 mr-2" />
+              {groupByUser ? "Ungroup" : "Group by User"}
+            </Button>
+          </div>
         </div>
 
         {/* Documents List */}
@@ -402,21 +421,7 @@ export default function AdminVerificationsPage() {
           </Card>
         ) : (
           (() => {
-            // Group documents by compound if enabled
-            const groupedDocs =
-              groupByCompound && documents
-                ? documents.reduce((acc, doc) => {
-                    const compoundKey =
-                      doc.user?.compound_name || "No Compound";
-                    if (!acc[compoundKey]) {
-                      acc[compoundKey] = [];
-                    }
-                    acc[compoundKey].push(doc);
-                    return acc;
-                  }, {} as Record<string, VerificationDocument[]>)
-                : null;
-
-            // Render document card component
+            // Render document card component - Define first so it can be used in grouping
             const renderDocumentCard = (doc: VerificationDocument) => (
               <Card
                 key={doc.id}
@@ -497,57 +502,43 @@ export default function AdminVerificationsPage() {
                         <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-l-purple-500 rounded-r-lg p-3">
                           <div className="flex items-start gap-2">
                             <Sparkles className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-semibold text-purple-900">
-                                  AI Verification
-                                </span>
-                                {doc.llm_confidence !== undefined && (
-                                  <span className="text-xs text-gray-600">
-                                    ({Math.round(doc.llm_confidence * 100)}%
-                                    confidence)
-                                  </span>
-                                )}
+                            <div className="flex-1 text-xs">
+                              <div className="font-semibold text-purple-900 mb-1">
+                                AI Verification ({doc.llm_recommendation || "PENDING"})
                               </div>
+                              {doc.llm_confidence && (
+                                <div className="text-purple-700 mb-1">
+                                  Confidence: {Math.round(doc.llm_confidence * 100)}%
+                                </div>
+                              )}
                               {doc.llm_reasoning && (
-                                <p className="text-xs text-gray-700 line-clamp-2">
+                                <p className="text-purple-600 line-clamp-2">
                                   {doc.llm_reasoning}
                                 </p>
-                              )}
-                              {doc.llm_issues && doc.llm_issues.length > 0 && (
-                                <div className="mt-1">
-                                  <span className="text-xs font-medium text-red-700">
-                                    Issues:{" "}
-                                  </span>
-                                  <span className="text-xs text-gray-600">
-                                    {doc.llm_issues.join(", ")}
-                                  </span>
-                                </div>
                               )}
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Notes if exists */}
+                      {/* Notes */}
                       {doc.notes && (
-                        <div className="bg-yellow-50 border-l-4 border-l-yellow-500 rounded-r-lg p-3">
-                          <p className="text-xs font-medium text-yellow-900 mb-1">
-                            Admin Notes:
+                        <div className="bg-yellow-50 border-l-4 border-l-yellow-400 rounded-r-lg p-3">
+                          <p className="text-sm text-yellow-900">
+                            <strong>Notes:</strong> {doc.notes}
                           </p>
-                          <p className="text-xs text-yellow-800">{doc.notes}</p>
                         </div>
                       )}
 
-                      {/* Document Preview Button */}
-                      <div className="flex items-center gap-2 pt-2">
+                      {/* File Preview */}
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setPreviewDoc(doc)}
-                          className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 border-blue-200"
+                          className="text-sm"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4 mr-2" />
                           Preview Document
                         </Button>
                         <a
@@ -687,28 +678,60 @@ export default function AdminVerificationsPage() {
               </Card>
             );
 
-            // If grouping, render grouped; otherwise render flat list
-            if (groupedDocs) {
+            // Group documents by compound if enabled
+            const groupedByCompound =
+              groupByCompound && documents
+                ? documents.reduce((acc, doc) => {
+                    const compoundKey =
+                      doc.user?.compound_name || "No Compound";
+                    if (!acc[compoundKey]) {
+                      acc[compoundKey] = [];
+                    }
+                    acc[compoundKey].push(doc);
+                    return acc;
+                  }, {} as Record<string, VerificationDocument[]>)
+                : null;
+
+            // Group documents by user if enabled
+            const groupedByUser =
+              groupByUser && documents
+                ? documents.reduce((acc, doc) => {
+                    const userKey = doc.user
+                      ? `${doc.user.name} (${doc.user.email})`
+                      : `User ${doc.user_id}`;
+                    if (!acc[userKey]) {
+                      acc[userKey] = [];
+                    }
+                    acc[userKey].push(doc);
+                    return acc;
+                  }, {} as Record<string, VerificationDocument[]>)
+                : null;
+
+            // Render grouped by compound
+            if (groupedByCompound) {
               return (
                 <div className="space-y-6">
-                  {Object.entries(groupedDocs)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([compoundName, docs]) => (
-                      <div key={compoundName} className="space-y-4">
-                        {/* Compound Header */}
-                        <div className="flex items-center gap-3 pb-3 border-b-2 border-gray-300 bg-white rounded-lg p-4 shadow-sm">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                            <Home className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h2 className="text-lg font-semibold text-gray-900">
-                              {compoundName}
-                            </h2>
-                            {docs[0]?.user?.compound_area && (
-                              <p className="text-sm text-gray-500">
-                                {docs[0].user.compound_area}
-                              </p>
-                            )}
+                  {Object.entries(groupedByCompound).map(
+                    ([compoundName, docs]) => (
+                      <div
+                        key={compoundName}
+                        className="bg-white rounded-lg shadow-md p-6 border-l-4 border-l-purple-500"
+                      >
+                        <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                              <Home className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h2 className="text-lg font-semibold text-gray-900">
+                                {compoundName}
+                              </h2>
+                              {docs[0]?.user?.compound_area && (
+                                <p className="text-sm text-gray-500">
+                                  {docs[0].user.compound_area}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                             {docs.length} document{docs.length !== 1 ? "s" : ""}
@@ -720,7 +743,57 @@ export default function AdminVerificationsPage() {
                           {docs.map((doc) => renderDocumentCard(doc))}
                         </div>
                       </div>
-                    ))}
+                    )
+                  )}
+                </div>
+              );
+            }
+
+            // Render grouped by user
+            if (groupedByUser) {
+              return (
+                <div className="space-y-6">
+                  {Object.entries(groupedByUser).map(([userKey, docs]) => {
+                    const firstDoc = docs[0];
+                    return (
+                      <div
+                        key={userKey}
+                        className="bg-white rounded-lg shadow-md p-6 border-l-4 border-l-blue-500"
+                      >
+                        <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                              <User className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <h2 className="text-lg font-semibold text-gray-900">
+                                {firstDoc.user?.name || `User ${firstDoc.user_id}`}
+                              </h2>
+                              <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                                <span>{firstDoc.user?.email}</span>
+                                {firstDoc.user?.phone && (
+                                  <span>• {firstDoc.user.phone}</span>
+                                )}
+                                {firstDoc.user?.compound_name && (
+                                  <span className="text-blue-600">
+                                    • {firstDoc.user.compound_name}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                            {docs.length} document{docs.length !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+
+                        {/* Documents for this user */}
+                        <div className="space-y-4 pl-2">
+                          {docs.map((doc) => renderDocumentCard(doc))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }
