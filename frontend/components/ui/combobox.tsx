@@ -46,6 +46,16 @@ export function Combobox({
   const [open, setOpen] = React.useState(false)
 
   const selectedOption = options.find((option) => option.value === value)
+  
+  // Create a map of search values to option values for reliable lookup
+  const valueMap = React.useMemo(() => {
+    const map = new Map<string, string | number>()
+    options.forEach((option) => {
+      const searchValue = `${option.label} ${option.description || ''}`.trim()
+      map.set(searchValue.toLowerCase(), option.value)
+    })
+    return map
+  }, [options])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -79,15 +89,38 @@ export function Combobox({
             <CommandGroup>
               {options.map((option) => {
                 // Use the label and description for search/filtering
-                const searchValue = `${option.label} ${option.description || ''}`
+                const searchValue = `${option.label} ${option.description || ''}`.trim()
                 // Capture the option value in closure for reliable selection
                 const optionValue = option.value
                 return (
                   <CommandItem
                     key={option.value}
                     value={searchValue}
-                    onSelect={() => {
-                      // Use closure to get the actual option value
+                    keywords={[option.label, option.description || ''].filter(Boolean)}
+                    onSelect={(selectedValue) => {
+                      console.log('onSelect fired:', selectedValue)
+                      // cmdk passes the search value, look it up in our map
+                      const actualValue = valueMap.get(selectedValue.toLowerCase())
+                      if (actualValue !== undefined) {
+                        onValueChange(actualValue)
+                        setOpen(false)
+                      } else {
+                        // Fallback: use closure value
+                        onValueChange(optionValue)
+                        setOpen(false)
+                      }
+                    }}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      console.log('onClick fired on CommandItem')
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onValueChange(optionValue)
+                      setOpen(false)
+                    }}
+                    onMouseDown={(e) => {
+                      console.log('onMouseDown fired')
+                      // Don't preventDefault - let the click event fire
                       onValueChange(optionValue)
                       setOpen(false)
                     }}
@@ -98,7 +131,16 @@ export function Combobox({
                         value === option.value ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <div className="flex flex-col">
+                    <div 
+                      className="flex flex-col flex-1"
+                      onClick={(e) => {
+                        console.log('onClick fired on inner div')
+                        e.preventDefault()
+                        e.stopPropagation()
+                        onValueChange(optionValue)
+                        setOpen(false)
+                      }}
+                    >
                       <span>{option.label}</span>
                       {option.description && (
                         <span className="text-xs text-muted-foreground">
