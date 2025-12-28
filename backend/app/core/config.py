@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for email links
     
+    # OpenAI (for LLM verification)
+    OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

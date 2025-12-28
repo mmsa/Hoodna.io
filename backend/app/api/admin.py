@@ -7,8 +7,11 @@ from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
 from app.schemas.compound import CompoundResponse, CompoundUpdate
 from app.crud.verification import (
-    get_pending_documents, approve_document, reject_document
+    get_pending_documents, approve_document, reject_document, request_more_details_document
 )
+from app.services.llm_verification import verify_document_with_llm
+from app.models.verification import VerificationDocument
+from datetime import datetime
 from app.crud.user import update_user_status
 from app.crud.listing import archive_listing
 from app.crud.post import delete_post
@@ -21,7 +24,7 @@ from typing import List
 router = APIRouter()
 
 
-@router.get("/verifications", response_model=List[VerificationDocumentResponse])
+@router.get("/verifications")
 async def list_pending_verifications(
     status_filter: str = "PENDING",
     skip: int = 0,
@@ -29,14 +32,28 @@ async def list_pending_verifications(
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get pending verification documents."""
+    """Get pending verification documents with user information."""
     if status_filter == "PENDING":
         docs = await get_pending_documents(db, skip=skip, limit=limit)
     else:
         # For MVP, just return pending. Can extend later
         docs = await get_pending_documents(db, skip=skip, limit=limit)
     
-    return [VerificationDocumentResponse.model_validate(doc) for doc in docs]
+    # Include user information with each document
+    result = []
+    for doc in docs:
+        user = await db.get(User, doc.user_id)
+        doc_dict = VerificationDocumentResponse.model_validate(doc).model_dump()
+        doc_dict["user"] = {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "phone": user.phone,
+            "compound_id": user.compound_id,
+        } if user else None
+        result.append(doc_dict)
+    
+    return result
 
 
 @router.post("/verifications/{doc_id}/approve", response_model=VerificationDocumentResponse)
@@ -54,6 +71,7 @@ async def approve_verification_document(
             reviewer_id=current_user.id,
             notes=review_data.notes,
         )
+        await db.commit()
         return VerificationDocumentResponse.model_validate(doc)
     except ValueError as e:
         raise HTTPException(
@@ -77,12 +95,84 @@ async def reject_verification_document(
             reviewer_id=current_user.id,
             notes=review_data.notes,
         )
+        await db.commit()
         return VerificationDocumentResponse.model_validate(doc)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+
+
+@router.post("/verifications/{doc_id}/request-more-details", response_model=VerificationDocumentResponse)
+async def request_more_details_document_endpoint(
+    doc_id: int,
+    review_data: DocumentReviewRequest,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Request more details for a verification document."""
+    try:
+        doc = await request_more_details_document(
+            db=db,
+            doc_id=doc_id,
+            reviewer_id=current_user.id,
+            notes=review_data.notes,
+        )
+        await db.commit()
+        return VerificationDocumentResponse.model_validate(doc)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@router.post("/verifications/{doc_id}/verify-with-llm")
+async def verify_document_with_llm_endpoint(
+    doc_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger LLM verification for a document."""
+    doc = await db.get(VerificationDocument, doc_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    user = await db.get(User, doc.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Run LLM verification
+    llm_result = await verify_document_with_llm(
+        file_url=doc.file_url,
+        document_type=doc.type.value,
+        user_name=user.name,
+        user_email=user.email
+    )
+    
+    # Update document with LLM results
+    doc.llm_verified = 1 if llm_result["verified"] else 0
+    doc.llm_confidence = llm_result["confidence"]
+    doc.llm_recommendation = llm_result["recommendation"]
+    doc.llm_reasoning = llm_result["reasoning"]
+    doc.llm_issues = llm_result["issues"]
+    doc.llm_extracted_info = llm_result["extracted_info"]
+    doc.llm_verified_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(doc)
+    
+    return {
+        "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
+        "llm_result": llm_result
+    }
 
 
 @router.post("/users/{user_id}/approve", response_model=UserResponse)

@@ -121,6 +121,26 @@ async def reject_document(
     return doc
 
 
+async def request_more_details_document(
+    db: AsyncSession,
+    doc_id: int,
+    reviewer_id: int,
+    notes: str | None = None
+) -> VerificationDocument:
+    """Request more details for a verification document."""
+    doc = await db.get(VerificationDocument, doc_id)
+    if not doc:
+        raise ValueError("Document not found")
+    
+    doc.status = DocumentStatus.REQUEST_MORE_DETAILS
+    doc.reviewer_id = reviewer_id
+    doc.notes = notes
+    
+    await db.flush()
+    await db.refresh(doc)
+    return doc
+
+
 async def get_pending_documents(
     db: AsyncSession,
     skip: int = 0,

@@ -23,6 +23,7 @@ class DocumentStatus(str, Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    REQUEST_MORE_DETAILS = "REQUEST_MORE_DETAILS"
 
 
 class ListingCategory(str, Enum):

@@ -22,10 +22,19 @@ class DocumentSubmit(BaseModel):
 
 class VerificationDocumentResponse(BaseModel):
     id: int
+    user_id: int
     type: DocumentType
     file_url: str
     status: DocumentStatus
+    reviewer_id: Optional[int] = None
     notes: Optional[str] = None
+    llm_verified: Optional[bool] = None
+    llm_confidence: Optional[float] = None
+    llm_recommendation: Optional[str] = None
+    llm_reasoning: Optional[str] = None
+    llm_issues: Optional[list[str]] = None
+    llm_extracted_info: Optional[dict] = None
+    llm_verified_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
