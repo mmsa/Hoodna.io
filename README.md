@@ -95,6 +95,25 @@ FRONTEND_URL=http://localhost:3000  # Frontend URL for email links
 OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
+### Running Smoke Tests
+
+After starting the backend, you can run smoke tests to verify everything is working:
+
+```bash
+# From project root
+cd backend
+python scripts/smoke_test.py
+
+# Or set custom API URL
+API_URL=http://localhost:8000 python scripts/smoke_test.py
+```
+
+The smoke test will verify:
+- Health check endpoint
+- Authentication flow (signup, login)
+- Protected endpoints
+- Basic API functionality
+
 ### Running with Docker Compose
 
 1. **Start all services:**

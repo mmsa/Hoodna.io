@@ -258,6 +258,34 @@ export default function FeedPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Welcome Banner */}
+        {user && feedSummary && (
+          <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white shadow-lg animate-fade-in">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">
+                  Welcome back, {user.name.split(' ')[0]}! 👋
+                </h2>
+                <p className="text-blue-100">
+                  {feedSummary.compound_name ? (
+                    <>You're connected to <strong>{feedSummary.compound_name}</strong> community</>
+                  ) : (
+                    "Connect with your verified neighbors"
+                  )}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/marketplace/new">
+                  <Button variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Listing
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left Sidebar */}
           <div className="lg:col-span-1 space-y-6">

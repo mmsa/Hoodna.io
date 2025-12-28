@@ -56,8 +56,24 @@ if use_local_storage():
                 detail="Local storage is not enabled"
             )
         
+        # Validate file type
+        ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"}
+        if file.content_type and file.content_type.lower() not in [t.lower() for t in ALLOWED_TYPES]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_TYPES)}"
+            )
+        
         # Read file content
         content = await file.read()
+        
+        # Validate file size (10MB max for documents, 5MB for images)
+        MAX_SIZE = 10 * 1024 * 1024  # 10MB
+        if len(content) > MAX_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size: {MAX_SIZE / (1024*1024):.0f}MB"
+            )
         
         # Determine file path
         if file_path:

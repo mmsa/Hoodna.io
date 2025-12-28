@@ -173,18 +173,62 @@ async def update_listing_endpoint(
     )
 
 
+# File upload validation constants for marketplace images
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg", "image/jpg", "image/png", "image/webp"
+}
+MAX_IMAGE_SIZE_MB = 5
+MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
+
+
+def validate_image_upload(file_name: str, file_type: str) -> None:
+    """Validate image upload for marketplace listings."""
+    # Check file type
+    if file_type.lower() not in [t.lower() for t in ALLOWED_IMAGE_TYPES]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_IMAGE_TYPES)}"
+        )
+    
+    # Check file extension matches MIME type
+    file_ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
+    ext_to_mime = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp'
+    }
+    
+    if file_ext and file_ext in ext_to_mime:
+        expected_mime = ext_to_mime[file_ext]
+        if file_type.lower() != expected_mime.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File extension '{file_ext}' does not match MIME type '{file_type}'"
+            )
+
+
 @router.post("/images/presign", response_model=PresignResponse)
 async def get_listing_image_presigned_url(
     request: ImagePresignRequest,
     current_user: User = Depends(get_current_approved_user),
 ):
     """Get a pre-signed URL for uploading a listing image."""
-    presigned_url, file_url = generate_presigned_put_url(
-        file_name=request.file_name,
-        file_type=request.file_type,
-    )
-    return PresignResponse(
-        presigned_url=presigned_url,
-        file_url=file_url
-    )
+    # Validate image upload
+    validate_image_upload(request.file_name, request.file_type)
+    
+    try:
+        presigned_url, file_url = generate_presigned_put_url(
+            file_name=request.file_name,
+            file_type=request.file_type,
+        )
+        return PresignResponse(
+            presigned_url=presigned_url,
+            file_url=file_url
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate presigned URL: {str(e)}"
+        )
 

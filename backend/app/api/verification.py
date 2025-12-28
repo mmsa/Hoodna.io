@@ -12,8 +12,45 @@ from app.crud.verification import (
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.enums import DocumentType, UserStatus
+import os
 
 router = APIRouter()
+
+# File upload validation constants
+ALLOWED_DOCUMENT_TYPES = {
+    "image/jpeg", "image/jpg", "image/png", "image/webp",
+    "application/pdf"
+}
+MAX_FILE_SIZE_MB = 10
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+
+def validate_file_upload(file_name: str, file_type: str) -> None:
+    """Validate file upload for verification documents."""
+    # Check file type
+    if file_type.lower() not in [t.lower() for t in ALLOWED_DOCUMENT_TYPES]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_DOCUMENT_TYPES)}"
+        )
+    
+    # Check file extension matches MIME type
+    file_ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
+    ext_to_mime = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'pdf': 'application/pdf'
+    }
+    
+    if file_ext and file_ext in ext_to_mime:
+        expected_mime = ext_to_mime[file_ext]
+        if file_type.lower() != expected_mime.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File extension '{file_ext}' does not match MIME type '{file_type}'"
+            )
 
 
 @router.post("/presign", response_model=PresignResponse)
@@ -22,6 +59,9 @@ async def get_presigned_url(
     current_user: User = Depends(get_current_user),
 ):
     """Get a pre-signed URL for uploading a verification document."""
+    # Validate file upload
+    validate_file_upload(request.file_name, request.file_type)
+    
     try:
         presigned_url, file_url = generate_presigned_put_url(
             file_name=request.file_name,
