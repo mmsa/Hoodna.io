@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_
+from sqlalchemy import select, or_, and_, func, desc, asc
 from sqlalchemy.orm import selectinload
 from app.models.listing import Listing, Promotion
 from app.models.enums import ListingStatus, PromotionScope, PromotionStatus, ListingCategory, ListingIntent
@@ -15,7 +15,11 @@ async def get_listings(
     skip: int = 0,
     limit: int = 50,
     category: Optional[ListingCategory] = None,
-    intent: Optional[ListingIntent] = None
+    intent: Optional[ListingIntent] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None
 ) -> list[Listing]:
     """
     Get listings based on scope:
@@ -63,7 +67,33 @@ async def get_listings(
     if intent:
         query = query.where(Listing.intent == intent)
     
-    query = query.order_by(Listing.created_at.desc()).offset(skip).limit(limit)
+    # Apply search filter (search in title and description)
+    if search:
+        search_term = f"%{search.lower()}%"
+        query = query.where(
+            or_(
+                func.lower(Listing.title).like(search_term),
+                func.lower(Listing.description).like(search_term)
+            )
+        )
+    
+    # Apply price range filters
+    if min_price is not None:
+        query = query.where(Listing.price >= min_price)
+    if max_price is not None:
+        query = query.where(Listing.price <= max_price)
+    
+    # Apply sorting
+    if sort_by == "price_asc":
+        query = query.order_by(asc(Listing.price))
+    elif sort_by == "price_desc":
+        query = query.order_by(desc(Listing.price))
+    elif sort_by == "date_asc":
+        query = query.order_by(asc(Listing.created_at))
+    else:  # Default: newest first
+        query = query.order_by(desc(Listing.created_at))
+    
+    query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     return list(result.scalars().all())
 

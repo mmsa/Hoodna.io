@@ -37,10 +37,14 @@ async def list_listings(
     limit: int = 50,
     category: Optional[str] = None,
     intent: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
     current_user: User = Depends(get_current_approved_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get listings based on scope (compound, cross, public). Can filter by category and intent."""
+    """Get listings based on scope (compound, cross, public). Can filter by category, intent, search, sort, and price range."""
     from app.models.enums import ListingCategory, ListingIntent
     
     compound_id = current_user.compound_id if scope == "compound" else None
@@ -65,6 +69,14 @@ async def list_listings(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid intent: {intent}. Valid values: SELL, RENT"
             )
+    
+    # Validate sort_by
+    valid_sorts = ["price_asc", "price_desc", "date_asc", "date_desc"]
+    if sort_by and sort_by not in valid_sorts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sort_by: {sort_by}. Valid values: {', '.join(valid_sorts)}"
+        )
 
     listings = await get_listings(
         db=db,
@@ -74,6 +86,10 @@ async def list_listings(
         limit=limit,
         category=category_filter,
         intent=intent_filter,
+        search=search,
+        sort_by=sort_by,
+        min_price=min_price,
+        max_price=max_price,
     )
 
     result = []

@@ -26,9 +26,11 @@ import {
   Bookmark,
   PlusCircle,
   MessageCircle,
+  Bell,
 } from 'lucide-react'
 import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'
+import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 
 export function Header() {
@@ -43,6 +45,39 @@ export function Header() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Fetch unread messages count
+  const { data: conversations } = useQuery<Array<{ unread_count: number }>>({
+    queryKey: ['conversations'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/api/conversations')
+        return response.data || []
+      } catch {
+        return []
+      }
+    },
+    enabled: mounted && isAuthenticated,
+    refetchInterval: 30000, // Poll every 30 seconds
+  })
+
+  const unreadMessagesCount = conversations?.reduce((sum, conv) => sum + (conv.unread_count || 0), 0) || 0
+
+  // Fetch saved listings count
+  const { data: savedListings } = useQuery<Array<{ id: number }>>({
+    queryKey: ['saved-listings'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/api/saved-listings')
+        return response.data || []
+      } catch {
+        return []
+      }
+    },
+    enabled: mounted && isAuthenticated,
+  })
+
+  const savedCount = savedListings?.length || 0
 
   const handleLogout = async () => {
     try {
@@ -102,6 +137,15 @@ export function Header() {
                   Marketplace
                 </Button>
               </Link>
+              <Link href="/marketplace/new">
+                <Button
+                  variant="ghost"
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                >
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  Create Listing
+                </Button>
+              </Link>
               {isAdmin && (
                 <Link href="/admin/verifications">
                   <Button
@@ -122,11 +166,43 @@ export function Header() {
               <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
             ) : isAuthenticated && user ? (
               <>
+                {/* Messages Button */}
+                <Link href="/messages">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    {unreadMessagesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
+                        {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+
+                {/* Saved Items Button */}
+                <Link href="/saved-listings">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10"
+                  >
+                    <Bookmark className="h-5 w-5" />
+                    {savedCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-yellow-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
+                        {savedCount > 99 ? '99+' : savedCount}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+
                 {/* User Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                     </Button>
@@ -264,6 +340,42 @@ export function Header() {
               >
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 Marketplace
+              </Button>
+            </Link>
+            <Link href="/messages" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start relative"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Messages
+                {unreadMessagesCount > 0 && (
+                  <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+            <Link href="/saved-listings" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start relative"
+              >
+                <Bookmark className="w-4 h-4 mr-2" />
+                Saved Items
+                {savedCount > 0 && (
+                  <span className="ml-auto px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full">
+                    {savedCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+            <Link href="/marketplace/new" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                className="w-full justify-start bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+              >
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Create Listing
               </Button>
             </Link>
             <Link href="/verification" onClick={() => setMobileMenuOpen(false)}>

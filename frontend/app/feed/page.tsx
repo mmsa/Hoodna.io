@@ -37,6 +37,8 @@ import {
   Clock,
   ThumbsUp,
   Smile,
+  Loader2,
+  ArrowDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -343,18 +345,51 @@ export default function FeedPage() {
     retry: false,
   });
 
+  const [postsLimit, setPostsLimit] = useState(15); // Initial limit
+  const [allPosts, setAllPosts] = useState<Post[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+
   const {
-    data: posts,
+    data: postsData,
     isLoading,
     error,
   } = useQuery<Post[]>({
-    queryKey: ["feed"],
+    queryKey: ["feed", postsLimit],
     queryFn: async () => {
-      const response = await api.get("/api/feed");
+      const response = await api.get(`/api/feed?limit=${postsLimit}`);
       return response.data;
     },
     retry: false,
   });
+
+  // Update posts when data changes
+  useEffect(() => {
+    if (postsData) {
+      setAllPosts(postsData);
+      // If we got fewer posts than requested, there are no more
+      setHasMorePosts(postsData.length >= postsLimit);
+    }
+  }, [postsData, postsLimit]);
+
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMorePosts) return;
+
+    setIsLoadingMore(true);
+    try {
+      const newLimit = postsLimit + 15;
+      const response = await api.get(`/api/feed?limit=${newLimit}`);
+      setAllPosts(response.data);
+      setPostsLimit(newLimit);
+      setHasMorePosts(response.data.length >= newLimit);
+    } catch (error) {
+      console.error("Failed to load more posts:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const posts = allPosts;
 
   // Redirect based on error type
   useEffect(() => {
@@ -554,6 +589,129 @@ export default function FeedPage() {
                     </h3>
                     <p className="text-sm text-gray-600">
                       Check back later for updates from compound management
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Latest Posts from Community Users */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 flex items-center justify-center shadow-sm">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Latest Posts from Community
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      What your neighbors are sharing
+                      {posts && posts.length > 0 && (
+                        <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-semibold">
+                          {posts.length} {posts.length === 1 ? "post" : "posts"}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {posts && posts.length > 0 ? (
+                <div className="space-y-4">
+                  {posts.map((post) => {
+                    // Highlight recent posts (within last hour) and posts with many comments
+                    const isRecent = (() => {
+                      const postDate = new Date(post.created_at);
+                      const now = new Date();
+                      const diffHours =
+                        (now.getTime() - postDate.getTime()) / 3600000;
+                      return diffHours < 1;
+                    })();
+                    const hasManyComments =
+                      post.comments && post.comments.length >= 5;
+                    const isHighlighted = isRecent || hasManyComments;
+
+                    return (
+                      <div
+                        key={post.id}
+                        className={`transition-all ${
+                          isHighlighted
+                            ? "ring-2 ring-purple-300 ring-offset-2 rounded-xl p-1"
+                            : ""
+                        }`}
+                      >
+                        {isRecent && (
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                              Just now
+                            </span>
+                          </div>
+                        )}
+                        {hasManyComments && !isRecent && (
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3" />
+                              Hot discussion ({post.comments.length} comments)
+                            </span>
+                          </div>
+                        )}
+                        <PostCard
+                          post={post}
+                          newComments={newComments}
+                          setNewComments={setNewComments}
+                          handleCreateComment={handleCreateComment}
+                          createCommentMutation={createCommentMutation}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {/* Load More Button */}
+                  {hasMorePosts && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        onClick={loadMorePosts}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="border-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            Load More Posts
+                            <ArrowDown className="w-4 h-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {!hasMorePosts && posts.length > 15 && (
+                    <div className="text-center pt-4">
+                      <p className="text-sm text-gray-500">
+                        You've reached the end! 🎉
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Card className="border border-gray-200 rounded-xl bg-white">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-3">
+                      <MessageCircle className="w-8 h-8 text-purple-400" />
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">
+                      No posts yet
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Be the first to share something with your community! 👋
                     </p>
                   </CardContent>
                 </Card>
