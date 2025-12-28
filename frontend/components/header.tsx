@@ -24,6 +24,8 @@ import {
   X,
   FileText,
   Bookmark,
+  PlusCircle,
+  MessageCircle,
 } from 'lucide-react'
 import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'

@@ -4,8 +4,24 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.core.config import settings
-from app.api import auth, compounds, verification, community, marketplace, promotions, admin, webhooks, saved_listings, messages
-from app.services.storage import use_local_storage, save_file_locally, get_local_file_path, LOCAL_STORAGE_DIR
+from app.api import (
+    auth,
+    compounds,
+    verification,
+    community,
+    marketplace,
+    promotions,
+    admin,
+    webhooks,
+    saved_listings,
+    messages,
+)
+from app.services.storage import (
+    use_local_storage,
+    save_file_locally,
+    get_local_file_path,
+    LOCAL_STORAGE_DIR,
+)
 
 app = FastAPI(
     title="Hoodna.io API",
@@ -25,7 +41,9 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(compounds.router, prefix="/api/compounds", tags=["compounds"])
-app.include_router(verification.router, prefix="/api/verification", tags=["verification"])
+app.include_router(
+    verification.router, prefix="/api/verification", tags=["verification"]
+)
 app.include_router(community.router, prefix="/api", tags=["community"])
 app.include_router(marketplace.router, prefix="/api/listings", tags=["marketplace"])
 app.include_router(promotions.router, prefix="/api/promotions", tags=["promotions"])
@@ -41,10 +59,12 @@ if use_local_storage():
     async def serve_uploaded_file(file_path: str):
         """Serve uploaded files from local storage."""
         full_path = LOCAL_STORAGE_DIR / file_path
-        if not full_path.exists() or not str(full_path).startswith(str(LOCAL_STORAGE_DIR)):
+        if not full_path.exists() or not str(full_path).startswith(
+            str(LOCAL_STORAGE_DIR)
+        ):
             raise HTTPException(status_code=404, detail="File not found")
         return FileResponse(full_path)
-    
+
     # Handle file uploads for local storage
     @app.post("/api/uploads/upload")
     async def upload_file(
@@ -55,43 +75,52 @@ if use_local_storage():
         if not use_local_storage():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Local storage is not enabled"
+                detail="Local storage is not enabled",
             )
-        
+
         # Validate file type
-        ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"}
-        if file.content_type and file.content_type.lower() not in [t.lower() for t in ALLOWED_TYPES]:
+        ALLOWED_TYPES = {
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "application/pdf",
+        }
+        if file.content_type and file.content_type.lower() not in [
+            t.lower() for t in ALLOWED_TYPES
+        ]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_TYPES)}"
+                detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_TYPES)}",
             )
-        
+
         # Read file content
         content = await file.read()
-        
+
         # Validate file size (10MB max for documents, 5MB for images)
         MAX_SIZE = 10 * 1024 * 1024  # 10MB
         if len(content) > MAX_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size: {MAX_SIZE / (1024*1024):.0f}MB"
+                detail=f"File too large. Maximum size: {MAX_SIZE / (1024*1024):.0f}MB",
             )
-        
+
         # Determine file path
         if file_path:
             save_path = LOCAL_STORAGE_DIR / file_path
         else:
             from app.services.storage import generate_local_file_path
+
             save_path, _ = generate_local_file_path(file.filename or "file")
-        
+
         # Save file
         save_file_locally(save_path, content)
-        
+
         # Return the file URL (absolute)
         relative_path = save_path.relative_to(LOCAL_STORAGE_DIR)
-        base_url = settings.FRONTEND_URL.replace(':3000', ':8000')  # Backend URL
+        base_url = settings.FRONTEND_URL.replace(":3000", ":8000")  # Backend URL
         file_url = f"{base_url}/api/uploads/{relative_path}"
-        
+
         return {"file_url": file_url, "message": "File uploaded successfully"}
 
 
@@ -103,4 +132,3 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
-
