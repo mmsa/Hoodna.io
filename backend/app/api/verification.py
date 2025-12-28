@@ -110,12 +110,44 @@ async def get_verification_status(
     national_id = docs[DocumentType.NATIONAL_ID]
     contract = docs[DocumentType.CONTRACT]
     
-    # Check if user can post (both documents approved)
-    can_post = (
-        current_user.status == UserStatus.APPROVED and
-        national_id and national_id.status.value == "APPROVED" and
-        contract and contract.status.value == "APPROVED"
-    )
+    # Check if user can post based on new rules:
+    # 1. National ID approved + has compound name → sufficient
+    # 2. Contract approved (name match + compound match) → sufficient
+    # 3. Both documents approved → sufficient
+    def _has_compound_name(doc):
+        if not doc or not doc.llm_extracted_info:
+            return False
+        if isinstance(doc.llm_extracted_info, dict):
+            compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
+            address_match = doc.llm_extracted_info.get("address_match", "")
+            return compound_found or address_match == "MATCH"
+        return False
+    
+    can_post = False
+    if current_user.status == UserStatus.APPROVED:
+        # Rule 1: National ID approved + has compound name
+        if (
+            national_id 
+            and national_id.status.value == "APPROVED" 
+            and _has_compound_name(national_id)
+        ):
+            can_post = True
+        # Rule 2: Contract approved + name match + compound match
+        elif (
+            contract
+            and contract.status.value == "APPROVED"
+            and contract.llm_extracted_info
+            and isinstance(contract.llm_extracted_info, dict)
+        ):
+            name_match = contract.llm_extracted_info.get("name_match", "")
+            if name_match == "MATCH" and _has_compound_name(contract):
+                can_post = True
+        # Rule 3: Both documents approved
+        elif (
+            national_id and national_id.status.value == "APPROVED" and
+            contract and contract.status.value == "APPROVED"
+        ):
+            can_post = True
     
     return VerificationStatusResponse(
         national_id=VerificationDocumentResponse.model_validate(national_id) if national_id else None,

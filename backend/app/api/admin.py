@@ -239,16 +239,42 @@ async def verify_document_with_llm_endpoint(
     doc.llm_reasoning = llm_result["reasoning"]
     doc.llm_issues = llm_result["issues"]
     
-    # Store name_match and address_match in extracted_info
+    # Store name_match, address_match, and compound_name_in_address in extracted_info
     extracted_info = llm_result.get("extracted_info", {})
     extracted_info["name_match"] = llm_result.get("name_match", "UNCLEAR")
     extracted_info["address_match"] = llm_result.get("address_match", "UNCLEAR")
+    # Check if compound name was found in address (from extracted_info or address_match)
+    address_match = llm_result.get("address_match", "")
+    compound_name_found = (
+        extracted_info.get("compound_name_in_address", False) or
+        address_match == "MATCH"
+    )
+    extracted_info["compound_name_in_address"] = compound_name_found
     doc.llm_extracted_info = extracted_info
     
     # Auto-update status if confidence >= 80% and recommendation is clear
     # Only auto-update if document is still PENDING (not manually reviewed)
     if llm_result["confidence"] >= 0.8 and doc.status == DocumentStatus.PENDING:
+        name_match = llm_result.get("name_match", "")
+        
+        # Auto-approve if:
+        # - For National ID: name matches AND (address matches OR compound name found)
+        # - For Contract: name matches AND address matches (compound name required)
+        should_auto_approve = False
         if llm_result["recommendation"] == "APPROVE":
+            if doc.type == DocumentType.NATIONAL_ID:
+                # National ID: name match + compound name in address
+                should_auto_approve = (
+                    name_match == "MATCH" and 
+                    (address_match == "MATCH" or compound_name_found)
+                )
+            else:  # CONTRACT
+                # Contract: name match + address match (compound name required)
+                should_auto_approve = (
+                    name_match == "MATCH" and address_match == "MATCH"
+                )
+        
+        if should_auto_approve:
             doc.status = DocumentStatus.APPROVED
             doc.reviewer_id = current_user.id
             # Add note about auto-approval
@@ -256,7 +282,45 @@ async def verify_document_with_llm_endpoint(
                 doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
             else:
                 doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]"
-        elif llm_result["recommendation"] == "REJECT":
+            
+            # Check if user can now be approved (using the same logic as approve_document)
+            await db.flush()
+            from app.crud.verification import get_user_documents, has_compound_name_in_document
+            from app.models.enums import DocumentType, UserStatus
+            
+            docs = await get_user_documents(db, doc.user_id)
+            national_id = docs[DocumentType.NATIONAL_ID]
+            contract = docs[DocumentType.CONTRACT]
+            
+            user = await db.get(User, doc.user_id)
+            if user and user.status == UserStatus.PENDING_VERIFICATION:
+                # Rule 1: National ID approved + has compound name → sufficient alone
+                if (
+                    national_id
+                    and national_id.status == DocumentStatus.APPROVED
+                    and has_compound_name_in_document(national_id)
+                ):
+                    user.status = UserStatus.APPROVED
+                # Rule 2: Contract approved + name match + compound match → sufficient alone
+                elif (
+                    contract
+                    and contract.status == DocumentStatus.APPROVED
+                    and contract.llm_extracted_info
+                    and isinstance(contract.llm_extracted_info, dict)
+                ):
+                    contract_name_match = contract.llm_extracted_info.get("name_match", "")
+                    if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
+                        user.status = UserStatus.APPROVED
+                # Rule 3: Both documents approved → approve user
+                elif (
+                    national_id
+                    and national_id.status == DocumentStatus.APPROVED
+                    and contract
+                    and contract.status == DocumentStatus.APPROVED
+                ):
+                    user.status = UserStatus.APPROVED
+                await db.flush()
+        elif llm_result["recommendation"] == "REJECT" or name_match == "NO_MATCH" or address_match == "NO_MATCH":
             doc.status = DocumentStatus.REJECTED
             doc.reviewer_id = current_user.id
             # Add note about auto-rejection

@@ -321,9 +321,36 @@ export default function VerificationPage() {
               </div>
             </div>
           )}
-          <p className="text-gray-600 text-lg">
-            Upload your documents to get verified and unlock all features
+          <p className="text-gray-600 text-lg mb-4">
+            Upload <span className="font-semibold text-blue-600">one document</span> to get verified
           </p>
+          <div className="max-w-2xl mx-auto bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">!</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-blue-900 mb-2">
+                  Important: Your document must include:
+                </p>
+                <ul className="text-sm text-blue-800 space-y-1.5">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <span><strong>Your name</strong> (must match your account name - flexible matching for Arabic/English variations)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <span><strong>Compound name "{compound?.name || 'your compound'}"</strong> clearly visible in the document</span>
+                  </li>
+                </ul>
+                <p className="text-xs text-blue-700 mt-3 pt-3 border-t border-blue-200">
+                  <strong>Choose one:</strong> Upload either your National ID (if it shows the compound address) OR your Contract/Proof of Residency (if it shows your name and compound name).
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Progress indicator */}
@@ -351,10 +378,10 @@ export default function VerificationPage() {
           <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
             <CardTitle className="text-2xl flex items-center gap-2">
               <FileCheck className="w-6 h-6" />
-              Required Documents
+              Upload One Document
             </CardTitle>
             <CardDescription className="text-blue-100">
-              Upload one or both documents, then click "Submit Documents" when ready
+              Choose either National ID or Contract - whichever shows your name and compound name clearly
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
@@ -381,7 +408,10 @@ export default function VerificationPage() {
                     <div>
                       <h3 className="font-bold text-lg">National ID</h3>
                       <p className="text-sm text-gray-600">
-                        Upload a clear photo of your national ID
+                        Upload your National ID if the address shows "{compound?.name || 'your compound'}"
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        ✓ Must show your name (matches account) • ✓ Must show compound name in address
                       </p>
                     </div>
                   </div>
@@ -473,6 +503,16 @@ export default function VerificationPage() {
               </label>
             </div>
 
+            {/* OR Separator */}
+            <div className="relative flex items-center justify-center my-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t-2 border-dashed border-gray-300"></div>
+              </div>
+              <div className="relative bg-white px-4 py-2 rounded-full border-2 border-gray-300 shadow-sm">
+                <span className="text-sm font-bold text-gray-600">OR</span>
+              </div>
+            </div>
+
             {/* Contract */}
             <div className={`border-2 rounded-xl p-6 transition-all duration-300 ${
               uploading === "contract" 
@@ -498,7 +538,10 @@ export default function VerificationPage() {
                         Residency/Ownership Contract
                       </h3>
                       <p className="text-sm text-gray-600">
-                        Upload your contract or proof of residency
+                        Upload your contract or proof of residency for "{compound?.name || 'your compound'}"
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        ✓ Must show your name (matches account) • ✓ Must show compound name in document
                       </p>
                     </div>
                   </div>
@@ -602,21 +645,24 @@ export default function VerificationPage() {
                   {submitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Submitting Documents...
+                      Submitting Document...
                     </>
                   ) : (
                     <>
                       <FileCheck className="w-5 h-5 mr-2" />
-                      Submit Documents for Review
+                      Submit Document for Review
                     </>
                   )}
                 </Button>
                 <p className="text-xs text-gray-500 mt-2 text-center">
                   {pendingNationalId && pendingContract
-                    ? "Both documents will be submitted"
+                    ? "Both documents will be submitted (only one is required)"
                     : pendingNationalId
-                    ? "National ID will be submitted"
-                    : "Contract will be submitted"}
+                    ? "National ID will be submitted for verification"
+                    : "Contract will be submitted for verification"}
+                </p>
+                <p className="text-xs text-blue-600 mt-1 text-center font-medium">
+                  Make sure the document clearly shows your name and "{compound?.name || 'compound name'}"
                 </p>
               </div>
             )}

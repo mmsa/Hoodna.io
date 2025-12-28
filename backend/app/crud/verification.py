@@ -72,6 +72,21 @@ async def check_and_update_user_status(db: AsyncSession, user_id: int):
         pass
 
 
+def has_compound_name_in_document(doc: VerificationDocument) -> bool:
+    """Check if document's LLM extracted info indicates compound name was found."""
+    if not doc.llm_extracted_info or not isinstance(doc.llm_extracted_info, dict):
+        return False
+    
+    # Check for compound_name_in_address field
+    compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
+    if compound_found:
+        return True
+    
+    # Also check address_match field
+    address_match = doc.llm_extracted_info.get("address_match", "")
+    return address_match == "MATCH"
+
+
 async def approve_document(
     db: AsyncSession, doc_id: int, reviewer_id: int, notes: str | None = None
 ) -> VerificationDocument:
@@ -86,17 +101,53 @@ async def approve_document(
 
     await db.flush()
 
-    # Check if both documents are approved, then approve user
+    # Check if user can be approved based on new rules:
+    # 1. National ID approved + has compound name → approve user
+    # 2. Contract approved (name match + compound match) → approve user  
+    # 3. Both documents approved → approve user
     docs = await get_user_documents(db, doc.user_id)
+    national_id = docs[DocumentType.NATIONAL_ID]
+    contract = docs[DocumentType.CONTRACT]
+    
+    user = await db.get(User, doc.user_id)
+    if not user or user.status != UserStatus.PENDING_VERIFICATION:
+        await db.refresh(doc)
+        return doc
+    
+    # Rule 1: National ID approved + has compound name → sufficient alone
     if (
-        docs[DocumentType.NATIONAL_ID]
-        and docs[DocumentType.NATIONAL_ID].status == DocumentStatus.APPROVED
-        and docs[DocumentType.CONTRACT]
-        and docs[DocumentType.CONTRACT].status == DocumentStatus.APPROVED
+        national_id
+        and national_id.status == DocumentStatus.APPROVED
+        and has_compound_name_in_document(national_id)
     ):
-        user = await db.get(User, doc.user_id)
-        if user and user.status == UserStatus.PENDING_VERIFICATION:
+        user.status = UserStatus.APPROVED
+        await db.flush()
+        await db.refresh(doc)
+        return doc
+    
+    # Rule 2: Contract approved + name match + compound match → sufficient alone
+    if (
+        contract
+        and contract.status == DocumentStatus.APPROVED
+        and contract.llm_extracted_info
+        and isinstance(contract.llm_extracted_info, dict)
+    ):
+        name_match = contract.llm_extracted_info.get("name_match", "")
+        if name_match == "MATCH" and has_compound_name_in_document(contract):
             user.status = UserStatus.APPROVED
+            await db.flush()
+            await db.refresh(doc)
+            return doc
+    
+    # Rule 3: Both documents approved → approve user
+    if (
+        national_id
+        and national_id.status == DocumentStatus.APPROVED
+        and contract
+        and contract.status == DocumentStatus.APPROVED
+    ):
+        user.status = UserStatus.APPROVED
+        await db.flush()
 
     await db.refresh(doc)
     return doc
@@ -155,21 +206,54 @@ async def update_document_status(
 
     await db.flush()
 
-    # Check if both documents are approved, then approve user
+    # Check if user can be approved based on new rules:
+    # 1. National ID approved + has compound name → approve user
+    # 2. Contract approved (name match + compound match) → approve user  
+    # 3. Both documents approved → approve user
     if new_status == DocumentStatus.APPROVED:
         docs = await get_user_documents(db, doc.user_id)
+        national_id = docs[DocumentType.NATIONAL_ID]
+        contract = docs[DocumentType.CONTRACT]
+        
+        user = await db.get(User, doc.user_id)
+        if not user or user.status != UserStatus.PENDING_VERIFICATION:
+            await db.refresh(doc)
+            return doc
+        
+        # Rule 1: National ID approved + has compound name → sufficient alone
         if (
-            docs[DocumentType.NATIONAL_ID]
-            and docs[DocumentType.NATIONAL_ID].status == DocumentStatus.APPROVED
-            and docs[DocumentType.CONTRACT]
-            and docs[DocumentType.CONTRACT].status == DocumentStatus.APPROVED
+            national_id
+            and national_id.status == DocumentStatus.APPROVED
+            and has_compound_name_in_document(national_id)
         ):
-            from app.models.user import User
-            from app.models.enums import UserStatus
-
-            user = await db.get(User, doc.user_id)
-            if user and user.status == UserStatus.PENDING_VERIFICATION:
+            user.status = UserStatus.APPROVED
+            await db.flush()
+            await db.refresh(doc)
+            return doc
+        
+        # Rule 2: Contract approved + name match + compound match → sufficient alone
+        if (
+            contract
+            and contract.status == DocumentStatus.APPROVED
+            and contract.llm_extracted_info
+            and isinstance(contract.llm_extracted_info, dict)
+        ):
+            name_match = contract.llm_extracted_info.get("name_match", "")
+            if name_match == "MATCH" and has_compound_name_in_document(contract):
                 user.status = UserStatus.APPROVED
+                await db.flush()
+                await db.refresh(doc)
+                return doc
+        
+        # Rule 3: Both documents approved → approve user
+        if (
+            national_id
+            and national_id.status == DocumentStatus.APPROVED
+            and contract
+            and contract.status == DocumentStatus.APPROVED
+        ):
+            user.status = UserStatus.APPROVED
+            await db.flush()
 
     await db.refresh(doc)
     return doc
