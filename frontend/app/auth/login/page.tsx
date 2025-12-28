@@ -59,15 +59,50 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      // Clear any existing cookies first to prevent cross-user issues
+      Cookies.remove('access_token', { path: '/' })
+      Cookies.remove('refresh_token', { path: '/' })
+
       const response = await api.post('/api/auth/login', data)
       const { access_token, refresh_token } = response.data
 
-      Cookies.set('access_token', access_token)
-      Cookies.set('refresh_token', refresh_token)
+      // Verify we got valid tokens
+      if (!access_token || !refresh_token) {
+        setError('Failed to receive authentication tokens')
+        return
+      }
 
-      router.push('/feed')
+      // Set cookies with proper options to prevent cross-user issues
+      Cookies.set('access_token', access_token, {
+        expires: 30, // 30 days
+        path: '/',
+        sameSite: 'lax',
+      })
+      Cookies.set('refresh_token', refresh_token, {
+        expires: 30, // 30 days
+        path: '/',
+        sameSite: 'lax',
+      })
+
+      // Verify token was stored correctly
+      const storedToken = Cookies.get('access_token')
+      if (!storedToken || storedToken !== access_token) {
+        setError('Failed to store authentication token')
+        return
+      }
+
+      // Force a hard refresh to clear all React Query caches and state
+      // This ensures we don't show stale user data from a previous session
+      if (typeof window !== 'undefined') {
+        window.location.href = '/feed'
+      } else {
+        router.push('/feed')
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed')
+      // Clear cookies on error
+      Cookies.remove('access_token', { path: '/' })
+      Cookies.remove('refresh_token', { path: '/' })
     } finally {
       setLoading(false)
     }

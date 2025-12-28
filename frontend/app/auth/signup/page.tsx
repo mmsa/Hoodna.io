@@ -63,6 +63,10 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
+      // Clear any existing cookies first to prevent cross-user issues
+      Cookies.remove('access_token', { path: '/' })
+      Cookies.remove('refresh_token', { path: '/' })
+
       const response = await api.post('/api/auth/signup', data)
       const { access_token, refresh_token } = response.data
 
@@ -71,20 +75,36 @@ export default function SignupPage() {
         return
       }
 
-      // Store tokens in cookies
-      Cookies.set('access_token', access_token, { expires: 7 }) // 7 days
-      Cookies.set('refresh_token', refresh_token, { expires: 30 }) // 30 days
+      // Store tokens in cookies with proper options
+      Cookies.set('access_token', access_token, {
+        expires: 30, // 30 days
+        path: '/',
+        sameSite: 'lax',
+      })
+      Cookies.set('refresh_token', refresh_token, {
+        expires: 30, // 30 days
+        path: '/',
+        sameSite: 'lax',
+      })
 
-      // Verify token was stored
+      // Verify token was stored correctly
       const storedToken = Cookies.get('access_token')
-      if (!storedToken) {
+      if (!storedToken || storedToken !== access_token) {
         setError('Failed to store authentication token')
         return
       }
 
-      router.push('/onboarding/compound-select')
+      // Force a hard refresh to clear all React Query caches
+      if (typeof window !== 'undefined') {
+        window.location.href = '/onboarding/compound-select'
+      } else {
+        router.push('/onboarding/compound-select')
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Signup failed')
+      // Clear cookies on error
+      Cookies.remove('access_token', { path: '/' })
+      Cookies.remove('refresh_token', { path: '/' })
     } finally {
       setLoading(false)
     }

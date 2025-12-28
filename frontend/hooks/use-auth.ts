@@ -1,8 +1,9 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import Cookies from 'js-cookie'
+import { useEffect } from 'react'
 
 interface User {
   id: number
@@ -15,29 +16,52 @@ interface User {
 }
 
 export function useAuth() {
+  const queryClient = useQueryClient()
   const token = typeof window !== 'undefined' ? Cookies.get('access_token') : null
   const isAuthenticated = !!token
 
+  // Invalidate user cache when token changes to prevent stale data
+  useEffect(() => {
+    if (token) {
+      // Invalidate cache to force fresh fetch with new token
+      queryClient.invalidateQueries({ queryKey: ['current-user'] })
+    } else {
+      // Clear cache if no token
+      queryClient.setQueryData(['current-user'], null)
+    }
+  }, [token, queryClient])
+
   const { data: user, isLoading, error } = useQuery<User | null>({
-    queryKey: ['current-user'],
+    queryKey: ['current-user', token], // Include token in query key to prevent stale data
     queryFn: async () => {
       if (!token) return null
       try {
         const response = await api.get('/api/auth/me')
-        return response.data
+        const userData = response.data
+        // Verify the token matches the user (safety check)
+        if (userData && typeof window !== 'undefined') {
+          const currentToken = Cookies.get('access_token')
+          if (!currentToken || currentToken !== token) {
+            // Token changed, return null to force re-fetch
+            return null
+          }
+        }
+        return userData
       } catch (error) {
         // If 401, user is not authenticated
         if ((error as any).response?.status === 401) {
-          Cookies.remove('access_token')
-          Cookies.remove('refresh_token')
+          Cookies.remove('access_token', { path: '/' })
+          Cookies.remove('refresh_token', { path: '/' })
+          queryClient.setQueryData(['current-user'], null)
           return null
         }
         throw error
       }
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!token,
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache user data
   })
 
   return {
