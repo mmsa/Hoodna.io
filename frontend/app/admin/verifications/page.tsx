@@ -21,6 +21,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -173,6 +180,42 @@ export default function AdminVerificationsPage() {
       setSelectedDoc(null);
       setRequestMoreNotes("");
       refetch();
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({
+      docId,
+      status,
+      notes,
+    }: {
+      docId: number;
+      status: string;
+      notes?: string;
+    }) => {
+      const response = await api.patch(
+        `/api/admin/verifications/${docId}/status`,
+        {
+          status,
+          notes,
+        }
+      );
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Status Updated",
+        description: `Document status changed to ${data.status}`,
+        variant: "success",
+      });
+      refetch();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Status Update Failed",
+        description: error?.response?.data?.detail || "Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -519,9 +562,39 @@ export default function AdminVerificationsPage() {
                     </div>
 
                     {/* Right Column - Actions */}
-                    <div className="lg:w-64 flex-shrink-0">
-                      {doc.status === "PENDING" ? (
-                        <div className="space-y-2">
+                    <div className="lg:w-64 flex-shrink-0 space-y-3">
+                      {/* Status Change Dropdown */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-700">
+                          Change Status
+                        </label>
+                        <Select
+                          value={doc.status}
+                          onValueChange={(newStatus: string) => {
+                            updateStatusMutation.mutate({
+                              docId: doc.id,
+                              status: newStatus,
+                            });
+                          }}
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PENDING">Pending</SelectItem>
+                            <SelectItem value="APPROVED">Approved</SelectItem>
+                            <SelectItem value="REJECTED">Rejected</SelectItem>
+                            <SelectItem value="REQUEST_MORE_DETAILS">
+                              Request More Details
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Quick Actions for PENDING documents */}
+                      {doc.status === "PENDING" && (
+                        <div className="space-y-2 pt-2 border-t">
                           {!doc.llm_verified_at && (
                             <Button
                               variant="outline"
@@ -558,7 +631,7 @@ export default function AdminVerificationsPage() {
                             ) : (
                               <>
                                 <CheckCircle className="w-4 h-4 mr-2" />
-                                Approve
+                                Quick Approve
                               </>
                             )}
                           </Button>
@@ -577,7 +650,7 @@ export default function AdminVerificationsPage() {
                             ) : (
                               <>
                                 <XCircle className="w-4 h-4 mr-2" />
-                                Reject
+                                Quick Reject
                               </>
                             )}
                           </Button>
@@ -592,14 +665,18 @@ export default function AdminVerificationsPage() {
                             Request More Details
                           </Button>
                         </div>
-                      ) : (
-                        <div className="text-center py-4">
-                          <p className="text-sm text-gray-500">
-                            Status: {doc.status}
+                      )}
+
+                      {/* Status Info for non-pending */}
+                      {doc.status !== "PENDING" && (
+                        <div className="text-center py-2 pt-2 border-t">
+                          <p className="text-xs text-gray-500 mb-1">
+                            Current Status
                           </p>
+                          {getStatusBadge(doc.status)}
                           {doc.reviewer_id && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Reviewed
+                            <p className="text-xs text-gray-400 mt-2">
+                              Reviewed by Admin
                             </p>
                           )}
                         </div>
