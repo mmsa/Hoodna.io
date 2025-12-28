@@ -19,11 +19,29 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle token refresh on 401
+// Handle token refresh on 401 and redirect to compound selection on 400 (no compound)
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+
+    // Handle compound selection requirement
+    if (error.response?.status === 400 && error.response?.data?.detail?.includes('compound')) {
+      // Only redirect if we're not already on the compound selection page
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/onboarding/compound-select')) {
+        window.location.href = '/onboarding/compound-select'
+        return Promise.reject(error)
+      }
+    }
+
+    // Handle verification requirement
+    if (error.response?.status === 403 && (error.response?.data?.detail?.includes('verified') || error.response?.data?.detail?.includes('approved'))) {
+      // Only redirect if we're not already on the verification page
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/verification')) {
+        window.location.href = '/verification'
+        return Promise.reject(error)
+      }
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true

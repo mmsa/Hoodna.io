@@ -36,6 +36,7 @@ Hoodna.io is a verified neighborhood community and marketplace platform for comp
 - Docker and Docker Compose
 - Stripe account (for payments)
 - AWS S3 bucket (or S3-compatible service like MinIO)
+- AWS SES (Simple Email Service) configured with verified sender email
 
 ### Environment Variables
 
@@ -54,12 +55,32 @@ REFRESH_TOKEN_EXPIRE_DAYS=30
 # CORS
 CORS_ORIGINS=["http://localhost:3000"]
 
-# AWS S3
-AWS_ACCESS_KEY_ID=your-access-key-id
-AWS_SECRET_ACCESS_KEY=your-secret-access-key
+# File Storage
+# For local development: Leave AWS credentials empty to use local file storage
+# Files will be stored in backend/uploads/ directory
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=hoodna-uploads
-S3_ENDPOINT_URL=  # Leave empty for AWS S3, or use endpoint for S3-compatible services
+S3_ENDPOINT_URL=
+
+# For production/staging with AWS S3:
+# AWS_ACCESS_KEY_ID=your-access-key-id
+# AWS_SECRET_ACCESS_KEY=your-secret-access-key
+# AWS_REGION=us-east-1
+# S3_BUCKET_NAME=hoodna-uploads
+# S3_ENDPOINT_URL=  # Leave empty for AWS S3
+
+# For local development with MinIO (optional, included in docker-compose.yml):
+# AWS_ACCESS_KEY_ID=minioadmin
+# AWS_SECRET_ACCESS_KEY=minioadmin
+# AWS_REGION=us-east-1
+# S3_BUCKET_NAME=hoodna-uploads
+# S3_ENDPOINT_URL=http://minio:9000  # Use http://localhost:9000 if running backend locally
+
+# AWS SES (for email sending)
+SES_FROM_EMAIL=noreply@hoodna.io  # Must be verified in AWS SES
+SES_FROM_NAME=Hoodna.io
 
 # Stripe
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
@@ -68,6 +89,7 @@ STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
 
 # App
 ENVIRONMENT=development
+FRONTEND_URL=http://localhost:3000  # Frontend URL for email links
 ```
 
 ### Running with Docker Compose
@@ -81,8 +103,14 @@ ENVIRONMENT=development
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
    - API Docs: http://localhost:8000/docs
+   - MinIO Console: http://localhost:9001 (username: `minioadmin`, password: `minioadmin`)
 
-3. **Default admin credentials:**
+3. **Configure MinIO for file uploads:**
+   - MinIO is automatically set up with the bucket `hoodna-uploads`
+   - If running backend locally (not in Docker), set `S3_ENDPOINT_URL=http://localhost:9000` in your `.env`
+   - If running backend in Docker, set `S3_ENDPOINT_URL=http://minio:9000` in your `.env`
+
+4. **Default admin credentials:**
    - Email: `admin@hoodna.io`
    - Password: `admin123`
 
@@ -152,6 +180,50 @@ ENVIRONMENT=development
    npm run dev
    ```
 
+## AWS SES Setup (for Email Sending)
+
+The application uses AWS SES (Simple Email Service) to send password reset emails and other transactional emails.
+
+### Setup Steps
+
+1. **Create AWS SES Account:**
+   - Sign up for AWS and navigate to SES console
+   - Verify your sender email address (the `SES_FROM_EMAIL` in your `.env`)
+   - In sandbox mode, you can only send to verified email addresses
+   - To send to any email, request production access
+
+2. **Get AWS Credentials:**
+   - Create an IAM user with SES permissions
+   - Generate access key ID and secret access key
+   - Add these to your `.env` file (same credentials used for S3)
+
+3. **Configure Environment Variables:**
+   ```env
+   AWS_ACCESS_KEY_ID=your-access-key-id
+   AWS_SECRET_ACCESS_KEY=your-secret-access-key
+   AWS_REGION=us-east-1  # Your SES region
+   SES_FROM_EMAIL=noreply@hoodna.io  # Must be verified in SES
+   SES_FROM_NAME=Hoodna.io
+   FRONTEND_URL=http://localhost:3000  # For production, use your domain
+   ```
+
+4. **Verify Email Address:**
+   - In AWS SES console, go to "Verified identities"
+   - Click "Create identity" → "Email address"
+   - Enter your sender email and verify it
+   - Check your email and click the verification link
+
+5. **Request Production Access (Optional):**
+   - In SES console, go to "Account dashboard"
+   - Click "Request production access"
+   - Fill out the form (for production use)
+
+### Testing Email Sending
+
+- If AWS credentials are not configured, the system will log the reset link to the console instead of sending email
+- In development, you can check the backend console for password reset links
+- In production, emails will be sent via AWS SES
+
 ## Testing Stripe Webhooks Locally
 
 To test Stripe webhooks during development:
@@ -192,6 +264,9 @@ To test Stripe webhooks during development:
 - `POST /api/auth/refresh` - Refresh access token
 - `POST /api/auth/logout` - Logout (client-side token removal)
 - `GET /api/auth/me` - Get current user info
+- `PATCH /api/auth/me` - Update current user info (e.g., compound_id)
+- `POST /api/auth/forgot-password` - Request password reset (sends email)
+- `POST /api/auth/reset-password` - Reset password using reset token
 
 ### Compounds
 - `GET /api/compounds` - List compounds with filters (area, q, status, developer, category, limit, offset)

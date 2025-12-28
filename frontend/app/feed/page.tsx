@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,17 +25,36 @@ interface Comment {
 }
 
 export default function FeedPage() {
+  const router = useRouter()
   const [newPost, setNewPost] = useState('')
   const [newComments, setNewComments] = useState<Record<number, string>>({})
   const queryClient = useQueryClient()
 
-  const { data: posts, isLoading } = useQuery<Post[]>({
+  const { data: posts, isLoading, error } = useQuery<Post[]>({
     queryKey: ['feed'],
     queryFn: async () => {
       const response = await api.get('/api/feed')
       return response.data
     },
+    retry: false,
   })
+
+  // Redirect based on error type
+  useEffect(() => {
+    if (error) {
+      const errorResponse = (error as any).response
+      const errorDetail = errorResponse?.data?.detail || ''
+      
+      // Redirect to compound selection if compound not selected
+      if (errorResponse?.status === 400 && errorDetail.includes('compound')) {
+        router.push('/onboarding/compound-select')
+      }
+      // Redirect to verification if user not verified
+      else if (errorResponse?.status === 403 && (errorDetail.includes('verified') || errorDetail.includes('approved'))) {
+        router.push('/verification')
+      }
+    }
+  }, [error, router])
 
   const createPostMutation = useMutation({
     mutationFn: async (content: string) => {

@@ -12,7 +12,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import api from "@/lib/api";
-import { Upload, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface VerificationStatus {
   national_id: {
@@ -35,9 +36,11 @@ interface VerificationStatus {
 
 export default function VerificationPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [uploading, setUploading] = useState<"national_id" | "contract" | null>(
     null
   );
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const { data: status, refetch } = useQuery<VerificationStatus>({
     queryKey: ["verification-status"],
@@ -64,37 +67,85 @@ export default function VerificationPage() {
 
       const { presigned_url, file_url } = presignResponse.data;
 
-      // Upload to S3
-      await fetch(presigned_url, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
+      if (!presigned_url || !file_url) {
+        throw new Error("Failed to get upload URL from server");
+      }
+
+      // Check if this is a local storage upload (presigned_url contains /api/uploads/upload)
+      const isLocalStorage = presigned_url.includes('/api/uploads/upload');
+      
+      let uploadResponse: Response;
+      try {
+        if (isLocalStorage) {
+          // Local storage: use FormData and POST
+          const formData = new FormData();
+          formData.append('file', file);
+          // Extract file_path from URL if present
+          const urlParams = new URL(presigned_url).searchParams;
+          const filePath = urlParams.get('file_path');
+          if (filePath) {
+            formData.append('file_path', filePath);
+          }
+          
+          uploadResponse = await fetch(presigned_url, {
+            method: "POST",
+            body: formData,
+          });
+        } else {
+          // S3: use PUT with file as body
+          uploadResponse = await fetch(presigned_url, {
+            method: "PUT",
+            body: file,
+            headers: {
+              "Content-Type": file.type,
+            },
+          });
+        }
+      } catch (fetchError: any) {
+        throw new Error(`Failed to upload file: ${fetchError?.message || 'Network error'}`);
+      }
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text().catch(() => 'Unable to read error response');
+        throw new Error(`Upload failed (${uploadResponse.status} ${uploadResponse.statusText}): ${errorText || 'Unknown error'}`);
+      }
 
       // Submit document
+      setUploadProgress(80);
       await api.post("/api/verification/submit", {
         file_url,
         document_type: documentType,
       });
 
+      setUploadProgress(100);
       await refetch();
-    } catch (error) {
+      
+      toast({
+        title: "Document uploaded successfully! 🎉",
+        description: `${type === "national_id" ? "National ID" : "Contract"} has been submitted for review.`,
+        variant: "success",
+      });
+    } catch (error: any) {
       console.error("Upload failed:", error);
-      alert("Upload failed. Please try again.");
+      const errorMessage = error?.response?.data?.detail || error?.message || "Upload failed. Please try again.";
+      toast({
+        title: "Upload failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setUploading(null);
+      setUploadProgress(0);
     }
   };
 
   const getStatusIcon = (docStatus: string | undefined) => {
-    if (!docStatus) return <Clock className="w-5 h-5 text-gray-400" />;
+    if (!docStatus) return <Clock className="w-5 h-5 text-gray-400 animate-pulse" />;
     if (docStatus === "APPROVED")
-      return <CheckCircle className="w-5 h-5 text-green-500" />;
+      return <CheckCircle className="w-5 h-5 text-green-500 animate-in zoom-in duration-300" />;
     if (docStatus === "REJECTED")
       return <XCircle className="w-5 h-5 text-red-500" />;
-    return <Clock className="w-5 h-5 text-yellow-500" />;
+    return <Clock className="w-5 h-5 text-yellow-500 animate-spin" />;
   };
 
   const getStatusText = (docStatus: string | undefined) => {
@@ -102,6 +153,13 @@ export default function VerificationPage() {
     if (docStatus === "APPROVED") return "Approved";
     if (docStatus === "REJECTED") return "Rejected";
     return "Pending review";
+  };
+
+  const getStatusBadgeClass = (docStatus: string | undefined) => {
+    if (!docStatus) return "bg-gray-100 text-gray-700";
+    if (docStatus === "APPROVED") return "bg-green-100 text-green-700 border-green-300";
+    if (docStatus === "REJECTED") return "bg-red-100 text-red-700 border-red-300";
+    return "bg-yellow-100 text-yellow-700 border-yellow-300";
   };
 
   return (

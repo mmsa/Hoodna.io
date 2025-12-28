@@ -7,8 +7,10 @@ from app.models.enums import UserStatus
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    """Get user by email."""
-    result = await db.execute(select(User).where(User.email == email))
+    """Get user by email (case-insensitive)."""
+    # Normalize email to lowercase for lookup
+    email_lower = email.lower().strip()
+    result = await db.execute(select(User).where(User.email.ilike(email_lower)))
     return result.scalar_one_or_none()
 
 

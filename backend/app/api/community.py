@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.community import PostCreate, PostResponse, CommentCreate, CommentResponse
 from app.crud.post import get_feed_posts, create_post, create_comment
-from app.core.dependencies import get_current_approved_user
+from app.core.dependencies import get_current_approved_user, get_current_verified_user
 from app.models.user import User
 from typing import List
 
@@ -15,17 +15,18 @@ async def get_feed(
     compound_id: int = None,
     skip: int = 0,
     limit: int = 50,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get feed posts. If compound_id not provided, uses user's compound."""
+    """Get feed posts. If compound_id not provided, uses user's compound. Requires verified user."""
     if compound_id is None:
         compound_id = current_user.compound_id
     
+    # This check should never fail due to get_current_verified_user, but keep for safety
     if compound_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must be assigned to a compound"
+            detail="User must select a compound first"
         )
     
     posts = await get_feed_posts(db, compound_id=compound_id, skip=skip, limit=limit)

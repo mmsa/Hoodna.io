@@ -6,14 +6,19 @@ from app.models.user import User
 from app.models.enums import UserRole, UserStatus
 from app.core.security import decode_token
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Get the current authenticated user."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication credentials",
+        )
     token = credentials.credentials
     payload = decode_token(token)
     
@@ -29,6 +34,16 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
         )
+    
+    # Convert user_id to int if it's a string (from JWT - python-jose converts to string)
+    if isinstance(user_id, str):
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user ID in token",
+            )
     
     user = await db.get(User, user_id)
     if user is None:
@@ -54,6 +69,35 @@ async def get_current_approved_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User must be approved to perform this action",
+        )
+    return current_user
+
+
+async def get_current_user_with_compound(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Get the current user, ensuring they have selected a compound."""
+    if current_user.compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must select a compound first",
+        )
+    return current_user
+
+
+async def get_current_verified_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Get the current user, ensuring they are verified (approved status)."""
+    if current_user.status != UserStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must be verified to access the community. Please complete verification first.",
+        )
+    if current_user.compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must select a compound first",
         )
     return current_user
 

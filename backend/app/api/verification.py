@@ -22,14 +22,25 @@ async def get_presigned_url(
     current_user: User = Depends(get_current_user),
 ):
     """Get a pre-signed URL for uploading a verification document."""
-    presigned_url, file_url = generate_presigned_put_url(
-        file_name=request.file_name,
-        file_type=request.file_type,
-    )
-    return PresignResponse(
-        presigned_url=presigned_url,
-        file_url=file_url
-    )
+    try:
+        presigned_url, file_url = generate_presigned_put_url(
+            file_name=request.file_name,
+            file_type=request.file_type,
+        )
+        return PresignResponse(
+            presigned_url=presigned_url,
+            file_url=file_url
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate presigned URL: {str(e)}"
+        )
 
 
 @router.post("/submit", response_model=VerificationDocumentResponse, status_code=status.HTTP_201_CREATED)

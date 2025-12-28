@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import api from '@/lib/api'
 import Link from 'next/link'
+import Cookies from 'js-cookie'
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -62,7 +63,25 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      await api.post('/api/auth/signup', data)
+      const response = await api.post('/api/auth/signup', data)
+      const { access_token, refresh_token } = response.data
+
+      if (!access_token || !refresh_token) {
+        setError('Failed to receive authentication tokens')
+        return
+      }
+
+      // Store tokens in cookies
+      Cookies.set('access_token', access_token, { expires: 7 }) // 7 days
+      Cookies.set('refresh_token', refresh_token, { expires: 30 }) // 30 days
+
+      // Verify token was stored
+      const storedToken = Cookies.get('access_token')
+      if (!storedToken) {
+        setError('Failed to store authentication token')
+        return
+      }
+
       router.push('/onboarding/compound-select')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Signup failed')

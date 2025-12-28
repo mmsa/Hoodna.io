@@ -1,8 +1,12 @@
+"""
+Storage service that supports both local file storage (development) and S3 (production).
+"""
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from typing import Optional
+from typing import Optional, Tuple
 from app.core.config import settings
+from app.services.storage import use_local_storage, generate_local_file_path, get_local_file_path, LOCAL_STORAGE_DIR
 import uuid
 from datetime import timedelta
 
@@ -33,9 +37,23 @@ def generate_presigned_put_url(
     expiration: int = 3600
 ) -> tuple[str, str]:
     """
-    Generate a pre-signed URL for uploading a file to S3.
+    Generate a pre-signed URL for uploading a file.
+    Uses local storage if AWS credentials are not configured, otherwise uses S3.
     Returns: (presigned_url, file_url)
     """
+    # Use local storage if AWS credentials are not configured
+    if use_local_storage():
+        # For local storage, return a direct upload endpoint URL
+        file_path, file_url_path = generate_local_file_path(file_name)
+        # The presigned_url will be the upload endpoint
+        base_url = settings.FRONTEND_URL.replace(':3000', ':8000')  # Backend URL
+        relative_path = file_path.relative_to(LOCAL_STORAGE_DIR)
+        presigned_url = f"{base_url}/api/uploads/upload?file_path={relative_path}"
+        # Make file_url absolute
+        file_url = f"{base_url}{file_url_path}"
+        return presigned_url, file_url
+    
+    # Use S3
     s3_client = get_s3_client()
     
     # Generate unique file name

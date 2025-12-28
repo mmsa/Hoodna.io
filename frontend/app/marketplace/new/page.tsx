@@ -59,14 +59,33 @@ export default function NewListingPage() {
 
       const { presigned_url, file_url } = presignResponse.data
 
-      // Upload to S3
-      await fetch(presigned_url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      })
+      // Check if this is a local storage upload
+      const isLocalStorage = presigned_url.includes('/api/uploads/upload')
+      
+      if (isLocalStorage) {
+        // Local storage: use FormData and POST
+        const formData = new FormData()
+        formData.append('file', file)
+        const urlParams = new URL(presigned_url).searchParams
+        const filePath = urlParams.get('file_path')
+        if (filePath) {
+          formData.append('file_path', filePath)
+        }
+        
+        await fetch(presigned_url, {
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        // S3: use PUT with file as body
+        await fetch(presigned_url, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        })
+      }
 
       // Add file_url to images array
       setImages([...images, file_url])

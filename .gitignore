@@ -43,3 +43,7 @@ Thumbs.db
 
 # Docker
 *.pid
+
+# Local uploads directory (development)
+backend/uploads/
+uploads/

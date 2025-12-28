@@ -27,8 +27,13 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""  # For frontend reference
     
+    # AWS SES
+    SES_FROM_EMAIL: str = "noreply@hoodna.io"  # Must be verified in AWS SES
+    SES_FROM_NAME: str = "Hoodna.io"
+    
     # App
     ENVIRONMENT: str = "development"
+    FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for email links
     
     class Config:
         env_file = ".env"
