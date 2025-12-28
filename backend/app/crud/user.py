@@ -14,6 +14,11 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
+async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
+    """Get user by ID."""
+    return await db.get(User, user_id)
+
+
 async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     """Create a new user."""
     hashed_password = get_password_hash(user_data.password)

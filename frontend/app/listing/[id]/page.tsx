@@ -18,21 +18,10 @@ import {
   TrendingUp,
   Share2,
   MessageCircle,
-  Mail,
-  Phone,
-  X,
   Heart,
   Bookmark
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 
 interface Listing {
@@ -88,7 +77,6 @@ export default function ListingPage({ params }: { params: { id: string } }) {
   const { user } = useAuth()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const [contactDialogOpen, setContactDialogOpen] = useState(false)
 
   const { data: listing, isLoading } = useQuery<Listing>({
     queryKey: ['listing', listingId],
@@ -286,14 +274,15 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                 {/* Actions */}
                 <div className="space-y-3">
                   {!isOwner && (
-                    <Button 
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                      size="lg"
-                      onClick={() => setContactDialogOpen(true)}
-                    >
-                      <MessageCircle className="w-5 h-5 mr-2" />
-                      Message Seller
-                    </Button>
+                    <Link href={`/messages/new?recipient_id=${listing.owner_id}&listing_id=${listing.id}`}>
+                      <Button 
+                        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                        size="lg"
+                      >
+                        <MessageCircle className="w-5 h-5 mr-2" />
+                        Message Seller
+                      </Button>
+                    </Link>
                   )}
                   
                   {/* Save/Unsave Button */}
@@ -364,121 +353,6 @@ export default function ListingPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
-
-      {/* Contact Seller Dialog */}
-      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-blue-600" />
-              Contact {listing.owner_name}
-            </DialogTitle>
-            <DialogDescription>
-              Get in touch with the seller about "{listing.title}"
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {listing.owner_email && (
-              <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-1">Email</p>
-                  <a 
-                    href={`mailto:${listing.owner_email}?subject=Inquiry about ${encodeURIComponent(listing.title)}`}
-                    className="text-blue-600 hover:text-blue-700 font-medium break-all"
-                  >
-                    {listing.owner_email}
-                  </a>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(listing.owner_email!)
-                    toast({
-                      title: "Email copied!",
-                      description: "Email address copied to clipboard",
-                    })
-                  }}
-                  className="h-8 w-8"
-                >
-                  <Mail className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-            
-            {listing.owner_phone && (
-              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <Phone className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-1">Phone</p>
-                  <a 
-                    href={`tel:${listing.owner_phone}`}
-                    className="text-green-600 hover:text-green-700 font-medium"
-                  >
-                    {listing.owner_phone}
-                  </a>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    navigator.clipboard.writeText(listing.owner_phone!)
-                    toast({
-                      title: "Phone copied!",
-                      description: "Phone number copied to clipboard",
-                    })
-                  }}
-                  className="h-8 w-8"
-                >
-                  <Phone className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-            
-            {!listing.owner_email && !listing.owner_phone && (
-              <div className="text-center py-8">
-                <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600">
-                  Contact information not available. Please check back later.
-                </p>
-              </div>
-            )}
-            
-            <div className="pt-4 border-t">
-              <p className="text-xs text-gray-500 text-center">
-                💡 Tip: Click on email or phone to contact directly
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setContactDialogOpen(false)}
-            >
-              Close
-            </Button>
-            {listing.owner_email && (
-              <Button
-                onClick={() => {
-                  window.location.href = `mailto:${listing.owner_email}?subject=Inquiry about ${encodeURIComponent(listing.title)}&body=Hi ${listing.owner_name},%0D%0A%0D%0AI'm interested in your listing: ${encodeURIComponent(listing.title)}`
-                  setContactDialogOpen(false)
-                }}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-              >
-                <Mail className="w-4 h-4 mr-2" />
-                Send Email
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
