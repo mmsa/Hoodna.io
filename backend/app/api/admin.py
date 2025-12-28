@@ -319,7 +319,6 @@ async def verify_document_with_llm_endpoint(
             # Check if user can now be approved (using the same logic as approve_document)
             await db.flush()
             from app.crud.verification import get_user_documents, has_compound_name_in_document
-            from app.models.enums import DocumentType, UserStatus
             
             docs = await get_user_documents(db, doc.user_id)
             national_id = docs[DocumentType.NATIONAL_ID]
@@ -528,7 +527,6 @@ async def bulk_verify_documents_with_llm(
                     # Check if user can now be approved
                     await db.flush()
                     from app.crud.verification import get_user_documents, has_compound_name_in_document
-                    from app.models.enums import DocumentType, UserStatus
                     
                     docs_check = await get_user_documents(db, doc.user_id)
                     national_id = docs_check[DocumentType.NATIONAL_ID]
