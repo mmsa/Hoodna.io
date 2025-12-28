@@ -1,5 +1,9 @@
 """
-Seed compounds from CSV file.
+Seed compounds from CSV file (ONE-TIME INITIAL DATA POPULATION).
+
+This script is for initial seeding only. After this, users request compounds
+via POST /api/compounds/request, and admins complete the details via
+PATCH /api/admin/compounds/{compound_id}.
 
 Reads egypt_compounds_2025.csv and upserts compounds by compound_id.
 """

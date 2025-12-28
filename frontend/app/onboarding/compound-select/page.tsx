@@ -12,7 +12,8 @@ import api from '@/lib/api'
 interface Compound {
   id: number
   name: string
-  city: string
+  area?: string
+  city?: string
   country: string
 }
 
@@ -21,21 +22,24 @@ export default function CompoundSelectPage() {
   const [selectedCompoundId, setSelectedCompoundId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
-  const { data: compounds, isLoading } = useQuery<Compound[]>({
+  const { data: compoundsData, isLoading } = useQuery<{ items: Compound[]; total: number }>({
     queryKey: ['compounds'],
     queryFn: async () => {
-      const response = await api.get('/api/compounds')
+      // Fetch all compounds (limit=200 is max allowed)
+      const response = await api.get('/api/compounds?limit=200')
       return response.data
     },
   })
 
+  const compounds = compoundsData?.items || []
+
   // Transform compounds to combobox options
   const compoundOptions: ComboboxOption[] = useMemo(() => {
-    if (!compounds) return []
+    if (!compounds || compounds.length === 0) return []
     return compounds.map((compound) => ({
       value: compound.id,
       label: compound.name,
-      description: `${compound.city}, ${compound.country}`,
+      description: `${compound.area || compound.city || ''}, ${compound.country}`,
     }))
   }, [compounds])
 
@@ -110,7 +114,7 @@ export default function CompoundSelectPage() {
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Start typing to search through {compounds?.length || 0} available compounds
+                Start typing to search through {compoundsData?.total || 0} available compounds
               </p>
             </div>
 

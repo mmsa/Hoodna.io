@@ -229,6 +229,8 @@ To test Stripe webhooks during development:
 - `POST /api/admin/users/{user_id}/ban` - Ban user
 - `POST /api/admin/listings/{id}/archive` - Archive listing
 - `POST /api/admin/posts/{id}/remove` - Remove post
+- `GET /api/admin/compounds/pending` - List compounds needing admin completion
+- `PATCH /api/admin/compounds/{compound_id}` - Complete compound details (add CSV fields)
 
 ## Seeding Compounds from CSV
 
@@ -286,6 +288,17 @@ The seed script is idempotent:
 - Compounds are upserted by `compound_id`
 - Existing compounds are updated with new data
 - No duplicates are created
+
+### User-Requested Compounds Workflow
+
+After initial CSV seeding:
+1. **User requests compound**: `POST /api/compounds/request` with `{ name, city, country }`
+2. **Compound created**: With minimal info (CSV fields are NULL)
+3. **Admin reviews**: `GET /api/admin/compounds/pending` to see compounds needing completion
+4. **Admin completes**: `PATCH /api/admin/compounds/{compound_id}` to add:
+   - `compound_id` (auto-generated from name if not provided)
+   - `area`, `sub_area`, `category`, `developer`, `status_2025`, etc.
+5. **Compound becomes available**: Once completed, it appears in `GET /api/compounds` for user selection
 
 ### API Usage
 

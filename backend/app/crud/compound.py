@@ -19,8 +19,15 @@ async def get_compounds(
     query = select(Compound)
     count_query = select(func.count(Compound.id))
     
+    # Always filter out compounds with NULL required fields
+    base_conditions = [
+        Compound.compound_id.isnot(None),
+        Compound.area.isnot(None),
+        Compound.status_2025.isnot(None),
+    ]
+    
     # Apply filters
-    conditions = []
+    conditions = base_conditions.copy()
     
     if area:
         conditions.append(Compound.area.ilike(f"%{area}%"))
@@ -42,10 +49,10 @@ async def get_compounds(
         )
         conditions.append(search_condition)
     
-    if conditions:
-        for condition in conditions:
-            query = query.where(condition)
-            count_query = count_query.where(condition)
+    # Apply all conditions
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
     
     # Get total count
     total_result = await db.execute(count_query)
@@ -79,4 +86,44 @@ async def create_compound(db: AsyncSession, compound_data: CompoundCreate) -> Co
     await db.flush()
     await db.refresh(db_compound)
     return db_compound
+
+
+async def get_all_compounds(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+) -> tuple[list[Compound], int]:
+    """Get all compounds including incomplete ones (admin use)."""
+    query = select(Compound)
+    count_query = select(func.count(Compound.id))
+    
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Apply pagination and execute
+    query = query.order_by(Compound.name).offset(skip).limit(limit)
+    result = await db.execute(query)
+    compounds = list(result.scalars().all())
+    
+    return compounds, total
+
+
+async def update_compound(
+    db: AsyncSession,
+    compound_id: int,
+    update_data: dict
+) -> Compound | None:
+    """Update compound details (admin use)."""
+    compound = await get_compound_by_id(db, compound_id)
+    if not compound:
+        return None
+    
+    for key, value in update_data.items():
+        if value is not None:
+            setattr(compound, key, value)
+    
+    await db.flush()
+    await db.refresh(compound)
+    return compound
 

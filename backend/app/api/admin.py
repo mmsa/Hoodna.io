@@ -1,15 +1,18 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.admin import DocumentReviewRequest, UserStatusUpdate
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
+from app.schemas.compound import CompoundResponse, CompoundUpdate
 from app.crud.verification import (
     get_pending_documents, approve_document, reject_document
 )
 from app.crud.user import update_user_status
 from app.crud.listing import archive_listing
 from app.crud.post import delete_post
+from app.crud.compound import get_all_compounds, update_compound, get_compound_by_id
 from app.core.dependencies import get_current_admin
 from app.models.user import User
 from app.models.enums import UserStatus, DocumentStatus
@@ -165,4 +168,73 @@ async def remove_post(
             detail="Post not found"
         )
     return {"message": "Post removed successfully"}
+
+
+@router.get("/compounds/pending", response_model=List[CompoundResponse])
+async def list_pending_compounds(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List compounds that need admin completion (user-requested, missing full details)."""
+    # Get ALL compounds (including incomplete ones)
+    all_compounds, total = await get_all_compounds(
+        db,
+        skip=skip,
+        limit=limit,
+    )
+    
+    # Filter to only compounds missing full details (user-requested, not yet admin-completed)
+    pending = [
+        c for c in all_compounds
+        if not c.compound_id or not c.area or not c.status_2025
+    ]
+    
+    return pending
+
+
+@router.patch("/compounds/{compound_id}", response_model=CompoundResponse)
+async def update_compound_details(
+    compound_id: int,
+    update_data: CompoundUpdate,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update compound details (admin completes user-requested compounds).
+    
+    Admin can fill in: compound_id, area, sub_area, category, developer, status_2025, etc.
+    If compound_id is not provided, it will be auto-generated from name.
+    """
+    update_dict = update_data.model_dump(exclude_unset=True)
+    
+    # If compound_id not provided but name is being updated, generate slug from name
+    if 'compound_id' not in update_dict and 'name' in update_dict:
+        name = update_dict['name']
+        # Generate slug: lowercase, replace spaces with hyphens, remove special chars
+        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+        update_dict['compound_id'] = slug
+    
+    # If compound_id still not provided, get current name and generate slug
+    if 'compound_id' not in update_dict:
+        compound = await get_compound_by_id(db, compound_id)
+        if compound and compound.name:
+            slug = re.sub(r'[^a-z0-9]+', '-', compound.name.lower()).strip('-')
+            update_dict['compound_id'] = slug
+    
+    compound = await update_compound(
+        db,
+        compound_id,
+        update_dict
+    )
+    
+    if not compound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Compound not found"
+        )
+    
+    await db.commit()
+    return compound
 

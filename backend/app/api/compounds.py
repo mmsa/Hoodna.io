@@ -3,10 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from app.db.session import get_db
-from app.schemas.compound import CompoundResponse, CompoundRequest, CompoundListResponse
-from app.crud.compound import get_compounds, create_compound, get_compound_by_slug
+from app.schemas.compound import CompoundResponse, CompoundRequest, CompoundListResponse, CompoundUpdate
+from app.crud.compound import get_compounds, create_compound, get_compound_by_slug, get_compound_by_id, update_compound
 from app.core.dependencies import get_current_approved_user
 from app.models.user import User
+from app.models.compound import Compound
 from app.models.enums import CompoundStatus2025
 
 router = APIRouter()
@@ -25,6 +26,9 @@ async def list_compounds(
 ):
     """
     Get compounds with optional filters.
+    
+    **Note**: Only returns fully-completed compounds (with compound_id, area, status_2025).
+    User-requested compounds (pending admin completion) are excluded.
     
     - **area**: Filter by area (case-insensitive partial match)
     - **q**: Search in compound name or compound_id (case-insensitive partial match)
@@ -54,6 +58,7 @@ async def list_compounds(
         category=category,
     )
     
+    # Compounds are already filtered in CRUD to exclude NULL required fields
     return CompoundListResponse(
         items=compounds,
         total=total,
@@ -83,14 +88,28 @@ async def request_compound(
     current_user: User = Depends(get_current_approved_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Request a new compound (creates compound and assigns user to it)."""
-    # Create compound
-    compound = await create_compound(db, compound_data)
+    """
+    Request a new compound (creates compound with minimal info).
+    
+    User provides: name, city, country
+    Admin will later complete: compound_id, area, sub_area, category, developer, status_2025, etc.
+    """
+    # Create compound with minimal data (user-requested, not yet admin-approved)
+    compound = Compound(
+        name=compound_data.name,
+        city=compound_data.city,
+        country=compound_data.country,
+        # All CSV fields remain NULL until admin completes them
+    )
+    db.add(compound)
+    await db.flush()
+    await db.refresh(compound)
     
     # Assign user to compound if not already assigned
     if not current_user.compound_id:
         current_user.compound_id = compound.id
         await db.flush()
     
+    await db.commit()
     return compound
 
