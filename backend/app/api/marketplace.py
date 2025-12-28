@@ -2,13 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.marketplace import (
-    ListingCreate, ListingUpdate, ListingResponse,
-    PromotionCheckout, CheckoutSessionResponse
+    ListingCreate,
+    ListingUpdate,
+    ListingResponse,
+    PromotionCheckout,
+    CheckoutSessionResponse,
 )
 from app.schemas.verification import PresignResponse
 from app.crud.listing import (
-    get_listings, get_listing_by_id, create_listing, update_listing
+    get_listings,
+    get_listing_by_id,
+    create_listing,
+    update_listing,
 )
+from app.crud.saved_listing import is_listing_saved
 from app.core.dependencies import get_current_approved_user
 from app.services.s3 import generate_presigned_put_url
 from app.models.user import User
@@ -33,7 +40,7 @@ async def list_listings(
 ):
     """Get listings based on scope (compound, cross, public)."""
     compound_id = current_user.compound_id if scope == "compound" else None
-    
+
     listings = await get_listings(
         db=db,
         compound_id=compound_id,
@@ -41,26 +48,28 @@ async def list_listings(
         skip=skip,
         limit=limit,
     )
-    
+
     result = []
     for listing in listings:
-        result.append(ListingResponse(
-            id=listing.id,
-            compound_id=listing.compound_id,
-            compound_name=listing.compound.name,
-            owner_id=listing.owner_id,
-            owner_name=listing.owner.name,
-            category=listing.category,
-            title=listing.title,
-            description=listing.description,
-            price=listing.price,
-            currency=listing.currency,
-            intent=listing.intent,
-            image_urls=listing.image_urls or [],
-            status=listing.status,
-            created_at=listing.created_at,
-        ))
-    
+        result.append(
+            ListingResponse(
+                id=listing.id,
+                compound_id=listing.compound_id,
+                compound_name=listing.compound.name,
+                owner_id=listing.owner_id,
+                owner_name=listing.owner.name,
+                category=listing.category,
+                title=listing.title,
+                description=listing.description,
+                price=listing.price,
+                currency=listing.currency,
+                intent=listing.intent,
+                image_urls=listing.image_urls or [],
+                status=listing.status,
+                created_at=listing.created_at,
+            )
+        )
+
     return result
 
 
@@ -74,17 +83,16 @@ async def get_listing(
     listing = await get_listing_by_id(db, listing_id)
     if not listing:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Listing not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found"
         )
-    
+
     # Include owner contact info (email and phone) for verified users
     owner_email = listing.owner.email if listing.owner else None
     owner_phone = listing.owner.phone if listing.owner else None
-    
+
     # Check if listing is saved by current user
     is_saved = await is_listing_saved(db, current_user.id, listing_id)
-    
+
     response = ListingResponse(
         id=listing.id,
         compound_id=listing.compound_id,
@@ -103,7 +111,7 @@ async def get_listing(
         status=listing.status,
         created_at=listing.created_at,
     )
-    
+
     # Add saved status to response (using model_dump and adding field)
     response_dict = response.model_dump()
     response_dict["is_saved"] = is_saved
@@ -120,16 +128,16 @@ async def create_listing_endpoint(
     if current_user.compound_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must be assigned to a compound"
+            detail="User must be assigned to a compound",
         )
-    
+
     listing = await create_listing(
         db=db,
         compound_id=current_user.compound_id,
         owner_id=current_user.id,
         listing_data=listing_data,
     )
-    
+
     return ListingResponse(
         id=listing.id,
         compound_id=listing.compound_id,
@@ -165,10 +173,14 @@ async def update_listing_endpoint(
         )
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND if "not found" in str(e).lower() else status.HTTP_403_FORBIDDEN,
-            detail=str(e)
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+                if "not found" in str(e).lower()
+                else status.HTTP_403_FORBIDDEN
+            ),
+            detail=str(e),
         )
-    
+
     return ListingResponse(
         id=listing.id,
         compound_id=listing.compound_id,
@@ -188,9 +200,7 @@ async def update_listing_endpoint(
 
 
 # File upload validation constants for marketplace images
-ALLOWED_IMAGE_TYPES = {
-    "image/jpeg", "image/jpg", "image/png", "image/webp"
-}
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE_MB = 5
 MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
 
@@ -201,24 +211,24 @@ def validate_image_upload(file_name: str, file_type: str) -> None:
     if file_type.lower() not in [t.lower() for t in ALLOWED_IMAGE_TYPES]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_IMAGE_TYPES)}"
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_IMAGE_TYPES)}",
         )
-    
+
     # Check file extension matches MIME type
-    file_ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
+    file_ext = file_name.split(".")[-1].lower() if "." in file_name else ""
     ext_to_mime = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp'
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
     }
-    
+
     if file_ext and file_ext in ext_to_mime:
         expected_mime = ext_to_mime[file_ext]
         if file_type.lower() != expected_mime.lower():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File extension '{file_ext}' does not match MIME type '{file_type}'"
+                detail=f"File extension '{file_ext}' does not match MIME type '{file_type}'",
             )
 
 
@@ -230,19 +240,15 @@ async def get_listing_image_presigned_url(
     """Get a pre-signed URL for uploading a listing image."""
     # Validate image upload
     validate_image_upload(request.file_name, request.file_type)
-    
+
     try:
         presigned_url, file_url = generate_presigned_put_url(
             file_name=request.file_name,
             file_type=request.file_type,
         )
-        return PresignResponse(
-            presigned_url=presigned_url,
-            file_url=file_url
-        )
+        return PresignResponse(presigned_url=presigned_url, file_url=file_url)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate presigned URL: {str(e)}"
+            detail=f"Failed to generate presigned URL: {str(e)}",
         )
-
