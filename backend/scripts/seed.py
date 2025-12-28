@@ -22,7 +22,7 @@ async def seed_admin():
     
     async with async_session() as session:
         # Create admin user
-        admin_email = "admin@hoodna.io"
+        admin_email = "admin@admin.com"
         result = await session.execute(
             select(User).where(User.email == admin_email)
         )
@@ -32,15 +32,20 @@ async def seed_admin():
             admin_user = User(
                 name="Admin User",
                 email=admin_email,
-                password_hash=get_password_hash("admin123"),
+                password_hash=get_password_hash("mmsammsa1234"),
                 role=UserRole.ADMIN,
                 status=UserStatus.APPROVED,
             )
             session.add(admin_user)
             await session.flush()
-            print(f"✅ Created admin user: {admin_email} / admin123")
+            print(f"✅ Created admin user: {admin_email} / mmsammsa1234")
         else:
-            print(f"ℹ️  Admin user already exists: {admin_email}")
+            # Update existing admin user with new password
+            admin_user.password_hash = get_password_hash("mmsammsa1234")
+            admin_user.role = UserRole.ADMIN
+            admin_user.status = UserStatus.APPROVED
+            await session.flush()
+            print(f"✅ Updated admin user: {admin_email} / mmsammsa1234")
         
         await session.commit()
         print("Admin user seeding completed!")
@@ -48,8 +53,4 @@ async def seed_admin():
 
 if __name__ == "__main__":
     asyncio.run(seed_admin())
-
-
-if __name__ == "__main__":
-    asyncio.run(seed_data())
 

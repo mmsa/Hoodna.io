@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
@@ -34,6 +34,12 @@ export function Header() {
   const { user, isAuthenticated, isLoading, isAdmin } = useAuth()
   const { toast } = useToast()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering auth-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -73,7 +79,7 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          {isAuthenticated && (
+          {mounted && isAuthenticated && (
             <nav className="hidden md:flex items-center gap-1">
               <Link href="/feed">
                 <Button
@@ -109,7 +115,7 @@ export function Header() {
 
           {/* Right Side */}
           <div className="flex items-center gap-2">
-            {isLoading ? (
+            {!mounted || isLoading ? (
               <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
             ) : isAuthenticated && user ? (
               <>
@@ -199,7 +205,7 @@ export function Header() {
         </div>
 
         {/* Mobile Menu */}
-        {mobileMenuOpen && isAuthenticated && (
+        {mounted && mobileMenuOpen && isAuthenticated && (
           <div className="md:hidden border-t py-4 space-y-2 animate-fade-in">
             <Link href="/feed" onClick={() => setMobileMenuOpen(false)}>
               <Button

@@ -7,7 +7,8 @@ from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
 from app.schemas.compound import CompoundResponse, CompoundUpdate
 from app.crud.verification import (
-    get_pending_documents, approve_document, reject_document, request_more_details_document
+    get_pending_documents, approve_document, reject_document, request_more_details_document,
+    get_documents_with_status
 )
 from app.services.llm_verification import verify_document_with_llm
 from app.models.verification import VerificationDocument
@@ -25,31 +26,51 @@ router = APIRouter()
 
 
 @router.get("/verifications")
-async def list_pending_verifications(
-    status_filter: str = "PENDING",
+async def list_verifications(
+    status_filter: str | None = None,
     skip: int = 0,
     limit: int = 100,
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get pending verification documents with user information."""
-    if status_filter == "PENDING":
-        docs = await get_pending_documents(db, skip=skip, limit=limit)
-    else:
-        # For MVP, just return pending. Can extend later
-        docs = await get_pending_documents(db, skip=skip, limit=limit)
+    """Get verification documents with optional status filter. If status_filter is None or "ALL", returns all documents."""
+    # Parse status filter
+    doc_status = None
+    if status_filter and status_filter.upper() != "ALL":
+        try:
+            doc_status = DocumentStatus[status_filter.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status filter: {status_filter}. Valid values: PENDING, APPROVED, REJECTED, REQUEST_MORE_DETAILS, ALL"
+            )
     
-    # Include user information with each document
+    # Get documents with status filter
+    docs = await get_documents_with_status(db, status_filter=doc_status, skip=skip, limit=limit)
+    
+    # Include user information with compound details for each document
     result = []
     for doc in docs:
         user = await db.get(User, doc.user_id)
         doc_dict = VerificationDocumentResponse.model_validate(doc).model_dump()
+        
+        compound_name = None
+        compound_area = None
+        if user and user.compound_id:
+            from app.models.compound import Compound
+            compound = await db.get(Compound, user.compound_id)
+            if compound:
+                compound_name = compound.name
+                compound_area = compound.area
+        
         doc_dict["user"] = {
             "id": user.id,
             "name": user.name,
             "email": user.email,
             "phone": user.phone,
             "compound_id": user.compound_id,
+            "compound_name": compound_name,
+            "compound_area": compound_area,
         } if user else None
         result.append(doc_dict)
     

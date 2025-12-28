@@ -35,15 +35,26 @@ async def verify_document_with_llm(
         }
     """
     # Check if OpenAI API key is configured
-    openai_api_key = app_settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
+    # Try multiple sources: settings, environment variable, and .env file
+    openai_api_key = (
+        app_settings.OPENAI_API_KEY or 
+        os.getenv("OPENAI_API_KEY") or 
+        os.getenv("OPENAI_KEY")
+    )
+    
+    # Log for debugging
+    logger.info(f"Checking OpenAI API key: settings.OPENAI_API_KEY={'SET' if app_settings.OPENAI_API_KEY else 'NOT SET'}, "
+                f"env OPENAI_API_KEY={'SET' if os.getenv('OPENAI_API_KEY') else 'NOT SET'}")
+    
+    if not openai_api_key or openai_api_key.strip() == "":
         logger.warning("OPENAI_API_KEY not configured. Skipping LLM verification.")
+        logger.warning(f"Settings value: '{app_settings.OPENAI_API_KEY}', Env value: '{os.getenv('OPENAI_API_KEY')}'")
         return {
             "verified": False,
             "confidence": 0.0,
-            "issues": ["LLM verification not configured"],
+            "issues": ["LLM verification not configured - OpenAI API key not found"],
             "recommendation": "REQUEST_MORE_DETAILS",
-            "reasoning": "LLM verification service is not available. Manual review required.",
+            "reasoning": "LLM verification service is not available. Please set OPENAI_API_KEY in your .env file or environment variables. Manual review required.",
             "extracted_info": {}
         }
     

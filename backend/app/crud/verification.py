@@ -141,6 +141,40 @@ async def request_more_details_document(
     return doc
 
 
+async def update_document_status(
+    db: AsyncSession,
+    doc_id: int,
+    new_status: DocumentStatus,
+    reviewer_id: int,
+    notes: str | None = None
+) -> VerificationDocument:
+    """Update document status to any valid status."""
+    doc = await db.get(VerificationDocument, doc_id)
+    if not doc:
+        raise ValueError("Document not found")
+    
+    doc.status = new_status
+    doc.reviewer_id = reviewer_id
+    if notes is not None:
+        doc.notes = notes
+    
+    await db.flush()
+    
+    # Check if both documents are approved, then approve user
+    if new_status == DocumentStatus.APPROVED:
+        docs = await get_user_documents(db, doc.user_id)
+        if (docs[DocumentType.NATIONAL_ID] and docs[DocumentType.NATIONAL_ID].status == DocumentStatus.APPROVED and
+            docs[DocumentType.CONTRACT] and docs[DocumentType.CONTRACT].status == DocumentStatus.APPROVED):
+            from app.models.user import User
+            from app.models.enums import UserStatus
+            user = await db.get(User, doc.user_id)
+            if user and user.status == UserStatus.PENDING_VERIFICATION:
+                user.status = UserStatus.APPROVED
+    
+    await db.refresh(doc)
+    return doc
+
+
 async def get_pending_documents(
     db: AsyncSession,
     skip: int = 0,
@@ -153,5 +187,22 @@ async def get_pending_documents(
         .offset(skip)
         .limit(limit)
     )
+    return list(result.scalars().all())
+
+
+async def get_documents_with_status(
+    db: AsyncSession,
+    status_filter: DocumentStatus | None = None,
+    skip: int = 0,
+    limit: int = 100
+) -> list[VerificationDocument]:
+    """Get verification documents with optional status filter. If status_filter is None, returns all documents."""
+    query = select(VerificationDocument).order_by(VerificationDocument.created_at.desc())
+    
+    if status_filter is not None:
+        query = query.where(VerificationDocument.status == status_filter)
+    
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
     return list(result.scalars().all())
 

@@ -90,6 +90,9 @@ STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
 # App
 ENVIRONMENT=development
 FRONTEND_URL=http://localhost:3000  # Frontend URL for email links
+
+# OpenAI (for LLM-powered document verification)
+OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
 ### Running with Docker Compose
