@@ -277,15 +277,77 @@ async def get_documents_with_status(
     status_filter: DocumentStatus | None = None,
     skip: int = 0,
     limit: int = 100,
-) -> list[VerificationDocument]:
-    """Get verification documents with optional status filter. If status_filter is None, returns all documents."""
-    query = select(VerificationDocument).order_by(
-        VerificationDocument.created_at.desc()
-    )
-
+    search_query: str | None = None,
+    document_type: str | None = None,
+    compound_id: int | None = None,
+    sort_by: str = "created_at_desc",
+) -> tuple[list[VerificationDocument], int]:
+    """
+    Get verification documents with optional filters, search, and sorting.
+    Returns (documents, total_count).
+    """
+    from sqlalchemy import or_, func, desc, asc
+    from app.models.user import User
+    from app.models.enums import DocumentType
+    
+    # Base query with joins for search
+    query = select(VerificationDocument).join(User, VerificationDocument.user_id == User.id)
+    count_query = select(func.count()).select_from(VerificationDocument).join(User, VerificationDocument.user_id == User.id)
+    
+    # Apply filters
     if status_filter is not None:
         query = query.where(VerificationDocument.status == status_filter)
-
+        count_query = count_query.where(VerificationDocument.status == status_filter)
+    
+    if document_type:
+        try:
+            doc_type = DocumentType[document_type.upper()]
+            query = query.where(VerificationDocument.type == doc_type)
+            count_query = count_query.where(VerificationDocument.type == doc_type)
+        except KeyError:
+            pass  # Invalid type, ignore filter
+    
+    if compound_id:
+        query = query.where(User.compound_id == compound_id)
+        count_query = count_query.where(User.compound_id == compound_id)
+    
+    # Apply search
+    if search_query:
+        search_pattern = f"%{search_query.lower()}%"
+        search_filter = or_(
+            User.name.ilike(search_pattern),
+            User.email.ilike(search_pattern),
+            VerificationDocument.notes.ilike(search_pattern),
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+    
+    # Apply sorting
+    if sort_by == "created_at_asc":
+        query = query.order_by(asc(VerificationDocument.created_at))
+    elif sort_by == "created_at_desc":
+        query = query.order_by(desc(VerificationDocument.created_at))
+    elif sort_by == "user_name_asc":
+        query = query.order_by(asc(User.name))
+    elif sort_by == "user_name_desc":
+        query = query.order_by(desc(User.name))
+    elif sort_by == "status_asc":
+        query = query.order_by(asc(VerificationDocument.status))
+    elif sort_by == "status_desc":
+        query = query.order_by(desc(VerificationDocument.status))
+    else:
+        # Default: newest first
+        query = query.order_by(desc(VerificationDocument.created_at))
+    
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Apply pagination
     query = query.offset(skip).limit(limit)
+    
+    # Execute query
     result = await db.execute(query)
-    return list(result.scalars().all())
+    documents = list(result.scalars().all())
+    
+    return documents, total

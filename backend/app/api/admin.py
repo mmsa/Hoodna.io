@@ -1,7 +1,9 @@
 import re
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
+from typing import Optional
+from pydantic import BaseModel
 from app.schemas.admin import DocumentReviewRequest, UserStatusUpdate
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
@@ -23,21 +25,32 @@ from app.crud.post import delete_post
 from app.crud.compound import get_all_compounds, update_compound, get_compound_by_id
 from app.core.dependencies import get_current_admin
 from app.models.user import User
-from app.models.enums import UserStatus, DocumentStatus
+from app.models.enums import UserStatus, DocumentStatus, DocumentType
 from typing import List
 
 router = APIRouter()
 
 
-@router.get("/verifications")
+class VerificationListResponse(BaseModel):
+    items: list[dict]
+    total: int
+    skip: int
+    limit: int
+
+
+@router.get("/verifications", response_model=VerificationListResponse)
 async def list_verifications(
-    status_filter: str | None = None,
-    skip: int = 0,
-    limit: int = 100,
+    status_filter: Optional[str] = Query(None, description="Filter by status: PENDING, APPROVED, REJECTED, REQUEST_MORE_DETAILS, ALL"),
+    skip: int = Query(0, ge=0, description="Offset for pagination"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of results"),
+    search: Optional[str] = Query(None, description="Search in user name, email, or document notes"),
+    document_type: Optional[str] = Query(None, description="Filter by document type: NATIONAL_ID, CONTRACT"),
+    compound_id: Optional[int] = Query(None, description="Filter by compound ID"),
+    sort_by: Optional[str] = Query("created_at_desc", description="Sort order: created_at_desc, created_at_asc, user_name_asc, user_name_desc, status_asc, status_desc"),
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get verification documents with optional status filter. If status_filter is None or "ALL", returns all documents."""
+    """Get verification documents with pagination, search, filters, and sorting."""
     # Parse status filter
     doc_status = None
     if status_filter and status_filter.upper() != "ALL":
@@ -49,9 +62,24 @@ async def list_verifications(
                 detail=f"Invalid status filter: {status_filter}. Valid values: PENDING, APPROVED, REJECTED, REQUEST_MORE_DETAILS, ALL",
             )
 
-    # Get documents with status filter
-    docs = await get_documents_with_status(
-        db, status_filter=doc_status, skip=skip, limit=limit
+    # Validate sort_by
+    valid_sorts = ["created_at_desc", "created_at_asc", "user_name_asc", "user_name_desc", "status_asc", "status_desc"]
+    if sort_by not in valid_sorts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sort_by: {sort_by}. Valid values: {', '.join(valid_sorts)}"
+        )
+
+    # Get documents with filters, search, and sorting
+    docs, total = await get_documents_with_status(
+        db,
+        status_filter=doc_status,
+        skip=skip,
+        limit=limit,
+        search_query=search,
+        document_type=document_type,
+        compound_id=compound_id,
+        sort_by=sort_by,
     )
 
     # Include user information with compound details for each document
@@ -85,7 +113,12 @@ async def list_verifications(
         )
         result.append(doc_dict)
 
-    return result
+    return VerificationListResponse(
+        items=result,
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post(
@@ -374,6 +407,221 @@ async def verify_document_with_llm_endpoint(
         "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
         "llm_result": llm_result,
     }
+
+
+class BulkVerifyResponse(BaseModel):
+    total_processed: int
+    successful: int
+    failed: int
+    results: list[dict]
+
+
+@router.post("/verifications/bulk-verify-with-llm", response_model=BulkVerifyResponse)
+async def bulk_verify_documents_with_llm(
+    status_filter: Optional[str] = Query("PENDING", description="Only verify documents with this status"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of documents to process"),
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk verify multiple pending documents with LLM."""
+    # Parse status filter
+    doc_status = DocumentStatus.PENDING
+    if status_filter and status_filter.upper() != "PENDING":
+        try:
+            doc_status = DocumentStatus[status_filter.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status filter: {status_filter}. Valid values: PENDING, APPROVED, REJECTED, REQUEST_MORE_DETAILS",
+            )
+    
+    # Get pending documents
+    docs, total = await get_documents_with_status(
+        db,
+        status_filter=doc_status,
+        skip=0,
+        limit=limit,
+    )
+    
+    if not docs:
+        return BulkVerifyResponse(
+            total_processed=0,
+            successful=0,
+            failed=0,
+            results=[],
+        )
+    
+    successful = 0
+    failed = 0
+    results = []
+    
+    # Process each document
+    for doc in docs:
+        try:
+            user = await db.get(User, doc.user_id)
+            if not user:
+                failed += 1
+                results.append({
+                    "document_id": doc.id,
+                    "status": "failed",
+                    "error": "User not found",
+                })
+                continue
+            
+            # Get compound name if user has a compound
+            compound_name = None
+            if user.compound_id:
+                from app.models.compound import Compound
+                compound = await db.get(Compound, user.compound_id)
+                if compound:
+                    compound_name = compound.name
+            
+            # Run LLM verification
+            llm_result = await verify_document_with_llm(
+                file_url=doc.file_url,
+                document_type=doc.type.value,
+                user_name=user.name,
+                user_email=user.email,
+                compound_name=compound_name,
+            )
+            
+            # Update document with LLM results
+            doc.llm_verified = 1 if llm_result["verified"] else 0
+            doc.llm_confidence = llm_result["confidence"]
+            doc.llm_recommendation = llm_result["recommendation"]
+            doc.llm_reasoning = llm_result["reasoning"]
+            doc.llm_issues = llm_result["issues"]
+            
+            # Store name_match, address_match, and compound_name_in_address
+            extracted_info = llm_result.get("extracted_info", {})
+            extracted_info["name_match"] = llm_result.get("name_match", "UNCLEAR")
+            extracted_info["address_match"] = llm_result.get("address_match", "UNCLEAR")
+            address_match = llm_result.get("address_match", "")
+            compound_name_found = (
+                extracted_info.get("compound_name_in_address", False) or
+                address_match == "MATCH"
+            )
+            extracted_info["compound_name_in_address"] = compound_name_found
+            doc.llm_extracted_info = extracted_info
+            
+            # Auto-update status if confidence >= 80%
+            if llm_result["confidence"] >= 0.8 and doc.status == DocumentStatus.PENDING:
+                name_match = llm_result.get("name_match", "")
+                
+                should_auto_approve = False
+                if llm_result["recommendation"] == "APPROVE":
+                    if doc.type == DocumentType.NATIONAL_ID:
+                        should_auto_approve = (
+                            name_match == "MATCH" and 
+                            (address_match == "MATCH" or compound_name_found)
+                        )
+                    else:  # CONTRACT
+                        should_auto_approve = (
+                            name_match == "MATCH" and address_match == "MATCH"
+                        )
+                
+                if should_auto_approve:
+                    doc.status = DocumentStatus.APPROVED
+                    doc.reviewer_id = current_user.id
+                    doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]"
+                    
+                    # Check if user can now be approved
+                    await db.flush()
+                    from app.crud.verification import get_user_documents, has_compound_name_in_document
+                    from app.models.enums import DocumentType, UserStatus
+                    
+                    docs_check = await get_user_documents(db, doc.user_id)
+                    national_id = docs_check[DocumentType.NATIONAL_ID]
+                    contract = docs_check[DocumentType.CONTRACT]
+                    
+                    user_check = await db.get(User, doc.user_id)
+                    if user_check and user_check.status == UserStatus.PENDING_VERIFICATION:
+                        if (
+                            national_id
+                            and national_id.status == DocumentStatus.APPROVED
+                            and has_compound_name_in_document(national_id)
+                        ):
+                            user_check.status = UserStatus.APPROVED
+                        elif (
+                            contract
+                            and contract.status == DocumentStatus.APPROVED
+                            and contract.llm_extracted_info
+                            and isinstance(contract.llm_extracted_info, dict)
+                        ):
+                            contract_name_match = contract.llm_extracted_info.get("name_match", "")
+                            if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
+                                user_check.status = UserStatus.APPROVED
+                        elif (
+                            national_id
+                            and national_id.status == DocumentStatus.APPROVED
+                            and contract
+                            and contract.status == DocumentStatus.APPROVED
+                        ):
+                            user_check.status = UserStatus.APPROVED
+                        await db.flush()
+                elif llm_result["recommendation"] == "REJECT" or name_match == "NO_MATCH" or address_match == "NO_MATCH":
+                    doc.status = DocumentStatus.REJECTED
+                    doc.reviewer_id = current_user.id
+                    doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]"
+            
+            # Set verified_at timestamp
+            issues = llm_result.get("issues", [])
+            reasoning = llm_result.get("reasoning", "").lower()
+            
+            api_key_missing = any(
+                "api key" in str(issue).lower() or 
+                "not configured" in str(issue).lower() or
+                "not available" in str(issue).lower()
+                for issue in issues
+            )
+            
+            api_error = any(
+                "400" in str(issue) or
+                "404" in str(issue) or
+                "bad request" in str(issue).lower() or
+                "not found" in str(issue).lower() or
+                "api error" in str(issue).lower() or
+                "openai api" in str(issue).lower()
+                for issue in issues
+            )
+            
+            has_error = (
+                api_key_missing or 
+                api_error or
+                "not available" in reasoning or
+                "not configured" in reasoning or
+                "manual review required" in reasoning or
+                "failed to verify" in reasoning
+            )
+            
+            if not has_error and llm_result.get("verified") is not None:
+                doc.llm_verified_at = datetime.utcnow()
+            
+            await db.flush()
+            successful += 1
+            results.append({
+                "document_id": doc.id,
+                "status": "success",
+                "recommendation": llm_result["recommendation"],
+                "confidence": llm_result["confidence"],
+            })
+        except Exception as e:
+            failed += 1
+            results.append({
+                "document_id": doc.id,
+                "status": "failed",
+                "error": str(e),
+            })
+            continue
+    
+    await db.commit()
+    
+    return BulkVerifyResponse(
+        total_processed=len(docs),
+        successful=successful,
+        failed=failed,
+        results=results,
+    )
 
 
 @router.post("/users/{user_id}/approve", response_model=UserResponse)

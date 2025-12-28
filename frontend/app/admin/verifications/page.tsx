@@ -42,7 +42,13 @@ import {
   Grid3x3,
   Eye,
   X,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Zap,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 interface VerificationDocument {
@@ -81,27 +87,48 @@ export default function AdminVerificationsPage() {
   const [requestMoreDialogOpen, setRequestMoreDialogOpen] = useState(false);
   const [requestMoreNotes, setRequestMoreNotes] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [documentTypeFilter, setDocumentTypeFilter] = useState<string>("ALL");
+  const [compoundFilter, setCompoundFilter] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("created_at_desc");
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [groupByCompound, setGroupByCompound] = useState<boolean>(false);
   const [groupByUser, setGroupByUser] = useState<boolean>(false);
   const [previewDoc, setPreviewDoc] = useState<VerificationDocument | null>(
     null
   );
+  const [bulkVerifying, setBulkVerifying] = useState<boolean>(false);
+
+  // Build query parameters
+  const buildQueryParams = () => {
+    const params = new URLSearchParams();
+    if (statusFilter !== "ALL") params.append("status_filter", statusFilter);
+    if (documentTypeFilter !== "ALL") params.append("document_type", documentTypeFilter);
+    if (compoundFilter !== "ALL") params.append("compound_id", compoundFilter);
+    if (searchQuery) params.append("search", searchQuery);
+    params.append("sort_by", sortBy);
+    params.append("skip", String((page - 1) * pageSize));
+    params.append("limit", String(pageSize));
+    return params.toString();
+  };
 
   const {
-    data: documents,
+    data: documentsData,
     isLoading,
     refetch,
-  } = useQuery<VerificationDocument[]>({
-    queryKey: ["admin-verifications", statusFilter],
+  } = useQuery<{ items: VerificationDocument[]; total: number; skip: number; limit: number }>({
+    queryKey: ["admin-verifications", statusFilter, documentTypeFilter, compoundFilter, searchQuery, sortBy, page, pageSize],
     queryFn: async () => {
-      const url =
-        statusFilter === "ALL"
-          ? "/api/admin/verifications"
-          : `/api/admin/verifications?status_filter=${statusFilter}`;
+      const url = `/api/admin/verifications?${buildQueryParams()}`;
       const response = await api.get(url);
       return response.data;
     },
   });
+
+  const documents = documentsData?.items || [];
+  const totalDocuments = documentsData?.total || 0;
+  const totalPages = Math.ceil(totalDocuments / pageSize);
 
   const llmVerifyMutation = useMutation({
     mutationFn: async (docId: number) => {
@@ -126,6 +153,42 @@ export default function AdminVerificationsPage() {
       });
     },
   });
+
+  const bulkVerifyMutation = useMutation({
+    mutationFn: async () => {
+      const params = new URLSearchParams();
+      params.append("status_filter", "PENDING");
+      params.append("limit", "100");
+      const response = await api.post(
+        `/api/admin/verifications/bulk-verify-with-llm?${params.toString()}`
+      );
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Bulk Verification Complete! 🤖",
+        description: `Processed ${data.total_processed} documents. ${data.successful} successful, ${data.failed} failed.`,
+        variant: "success",
+      });
+      refetch();
+      setBulkVerifying(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Bulk Verification Failed",
+        description: error?.response?.data?.detail || "Please try again.",
+        variant: "destructive",
+      });
+      setBulkVerifying(false);
+    },
+  });
+
+  const handleBulkVerify = () => {
+    if (window.confirm(`This will verify all PENDING documents with AI (up to 100). Continue?`)) {
+      setBulkVerifying(true);
+      bulkVerifyMutation.mutate();
+    }
+  };
 
   const approveMutation = useMutation({
     mutationFn: async (docId: number) => {
@@ -316,92 +379,195 @@ export default function AdminVerificationsPage() {
           <p className="text-gray-600">Review and verify user documents</p>
         </div>
 
+        {/* Search, Filters, Sort, and Bulk Actions */}
+        <Card className="shadow-lg mb-6">
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="flex gap-4 items-center">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    type="text"
+                    placeholder="Search by user name, email, or notes..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1); // Reset to first page on search
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  onClick={handleBulkVerify}
+                  disabled={bulkVerifying || statusFilter !== "PENDING"}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                >
+                  {bulkVerifying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Verify All Pending with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Status Filter */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Status</Label>
+                  <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Statuses</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                      <SelectItem value="REQUEST_MORE_DETAILS">More Details</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Document Type Filter */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Document Type</Label>
+                  <Select value={documentTypeFilter} onValueChange={(value) => { setDocumentTypeFilter(value); setPage(1); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      <SelectItem value="NATIONAL_ID">National ID</SelectItem>
+                      <SelectItem value="CONTRACT">Contract</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sort */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Sort By</Label>
+                  <Select value={sortBy} onValueChange={(value) => { setSortBy(value); setPage(1); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="created_at_desc">Newest First</SelectItem>
+                      <SelectItem value="created_at_asc">Oldest First</SelectItem>
+                      <SelectItem value="user_name_asc">User Name (A-Z)</SelectItem>
+                      <SelectItem value="user_name_desc">User Name (Z-A)</SelectItem>
+                      <SelectItem value="status_asc">Status (A-Z)</SelectItem>
+                      <SelectItem value="status_desc">Status (Z-A)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Page Size */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Per Page</Label>
+                  <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="200">200</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Group By Toggles */}
+              <div className="flex gap-2 pt-2 border-t">
+                <Button
+                  variant={groupByCompound ? "default" : "outline"}
+                  onClick={() => {
+                    setGroupByCompound(!groupByCompound);
+                    if (!groupByCompound) setGroupByUser(false);
+                  }}
+                  className={groupByCompound ? "bg-purple-600 hover:bg-purple-700" : ""}
+                  size="sm"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  {groupByCompound ? "Ungroup" : "Group by Compound"}
+                </Button>
+                <Button
+                  variant={groupByUser ? "default" : "outline"}
+                  onClick={() => {
+                    setGroupByUser(!groupByUser);
+                    if (!groupByUser) setGroupByCompound(false);
+                  }}
+                  className={groupByUser ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  size="sm"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  {groupByUser ? "Ungroup" : "Group by User"}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Results Summary */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-600">
+            Showing <span className="font-semibold">{documents.length}</span> of{" "}
+            <span className="font-semibold">{totalDocuments}</span> documents
+          </p>
+        </div>
+
         {/* Filters and Grouping */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Status Filter Tabs */}
+          {/* Status Filter Tabs (Quick Access) */}
           <div className="flex flex-wrap gap-2 flex-1">
             <Button
               variant={statusFilter === "ALL" ? "default" : "outline"}
-              onClick={() => setStatusFilter("ALL")}
-              className={
-                statusFilter === "ALL" ? "bg-blue-600 hover:bg-blue-700" : ""
-              }
+              onClick={() => { setStatusFilter("ALL"); setPage(1); }}
+              className={statusFilter === "ALL" ? "bg-blue-600 hover:bg-blue-700" : ""}
+              size="sm"
             >
-              All Documents ({documents?.length || 0})
+              All ({totalDocuments})
             </Button>
             <Button
               variant={statusFilter === "PENDING" ? "default" : "outline"}
-              onClick={() => setStatusFilter("PENDING")}
-              className={
-                statusFilter === "PENDING"
-                  ? "bg-yellow-600 hover:bg-yellow-700"
-                  : ""
-              }
+              onClick={() => { setStatusFilter("PENDING"); setPage(1); }}
+              className={statusFilter === "PENDING" ? "bg-yellow-600 hover:bg-yellow-700" : ""}
+              size="sm"
             >
               Pending
             </Button>
             <Button
               variant={statusFilter === "APPROVED" ? "default" : "outline"}
-              onClick={() => setStatusFilter("APPROVED")}
-              className={
-                statusFilter === "APPROVED"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : ""
-              }
+              onClick={() => { setStatusFilter("APPROVED"); setPage(1); }}
+              className={statusFilter === "APPROVED" ? "bg-green-600 hover:bg-green-700" : ""}
+              size="sm"
             >
               Approved
             </Button>
             <Button
               variant={statusFilter === "REJECTED" ? "default" : "outline"}
-              onClick={() => setStatusFilter("REJECTED")}
-              className={
-                statusFilter === "REJECTED" ? "bg-red-600 hover:bg-red-700" : ""
-              }
+              onClick={() => { setStatusFilter("REJECTED"); setPage(1); }}
+              className={statusFilter === "REJECTED" ? "bg-red-600 hover:bg-red-700" : ""}
+              size="sm"
             >
               Rejected
             </Button>
             <Button
-              variant={
-                statusFilter === "REQUEST_MORE_DETAILS" ? "default" : "outline"
-              }
-              onClick={() => setStatusFilter("REQUEST_MORE_DETAILS")}
-              className={
-                statusFilter === "REQUEST_MORE_DETAILS"
-                  ? "bg-orange-600 hover:bg-orange-700"
-                  : ""
-              }
+              variant={statusFilter === "REQUEST_MORE_DETAILS" ? "default" : "outline"}
+              onClick={() => { setStatusFilter("REQUEST_MORE_DETAILS"); setPage(1); }}
+              className={statusFilter === "REQUEST_MORE_DETAILS" ? "bg-orange-600 hover:bg-orange-700" : ""}
+              size="sm"
             >
-              More Details Requested
-            </Button>
-          </div>
-
-          {/* Group By Toggles */}
-          <div className="flex gap-2">
-            <Button
-              variant={groupByCompound ? "default" : "outline"}
-              onClick={() => {
-                setGroupByCompound(!groupByCompound);
-                if (!groupByCompound) setGroupByUser(false); // Disable user grouping when enabling compound grouping
-              }}
-              className={
-                groupByCompound ? "bg-purple-600 hover:bg-purple-700" : ""
-              }
-            >
-              <Home className="w-4 h-4 mr-2" />
-              {groupByCompound ? "Ungroup" : "Group by Compound"}
-            </Button>
-            <Button
-              variant={groupByUser ? "default" : "outline"}
-              onClick={() => {
-                setGroupByUser(!groupByUser);
-                if (!groupByUser) setGroupByCompound(false); // Disable compound grouping when enabling user grouping
-              }}
-              className={
-                groupByUser ? "bg-blue-600 hover:bg-blue-700" : ""
-              }
-            >
-              <User className="w-4 h-4 mr-2" />
-              {groupByUser ? "Ungroup" : "Group by User"}
+              More Details
             </Button>
           </div>
         </div>
@@ -883,6 +1049,65 @@ export default function AdminVerificationsPage() {
               </div>
             );
           })()
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Card className="shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Page <span className="font-semibold">{page}</span> of{" "}
+                  <span className="font-semibold">{totalPages}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page === 1}
+                    size="sm"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (page <= 3) {
+                        pageNum = i + 1;
+                      } else if (page >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = page - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={page === pageNum ? "default" : "outline"}
+                          onClick={() => setPage(pageNum)}
+                          size="sm"
+                          className={page === pageNum ? "bg-blue-600 hover:bg-blue-700" : ""}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page === totalPages}
+                    size="sm"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Request More Details Dialog */}
