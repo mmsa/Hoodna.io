@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
     
     class Config:
-        env_file = ".env"
+        env_file = [".env", "../.env"]  # Look in current dir and parent dir
         case_sensitive = True
 
 

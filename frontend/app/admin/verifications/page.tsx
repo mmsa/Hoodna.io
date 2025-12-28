@@ -586,7 +586,11 @@ export default function AdminVerificationsPage() {
                       {/* Quick Actions for PENDING documents */}
                       {doc.status === "PENDING" && (
                         <div className="space-y-2 pt-2 border-t">
-                          {!doc.llm_verified_at && (
+                          {/* Show button if no successful LLM verification yet, or if there was an error */}
+                          {(!doc.llm_verified_at || (doc.llm_issues && doc.llm_issues.some((issue: string) => 
+                            issue.toLowerCase().includes("api key") || 
+                            issue.toLowerCase().includes("not configured")
+                          ))) && (
                             <Button
                               variant="outline"
                               onClick={() => llmVerifyMutation.mutate(doc.id)}

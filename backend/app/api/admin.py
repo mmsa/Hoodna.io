@@ -230,7 +230,20 @@ async def verify_document_with_llm_endpoint(
     doc.llm_reasoning = llm_result["reasoning"]
     doc.llm_issues = llm_result["issues"]
     doc.llm_extracted_info = llm_result["extracted_info"]
-    doc.llm_verified_at = datetime.utcnow()
+    
+    # Only set llm_verified_at if verification was actually attempted successfully
+    # (not if API key was missing or there was a configuration error)
+    issues = llm_result.get("issues", [])
+    api_key_missing = any(
+        "api key" in str(issue).lower() or 
+        "not configured" in str(issue).lower() or
+        "not available" in str(issue).lower()
+        for issue in issues
+    )
+    
+    # Only set verified_at if we actually got a real verification result (not an error)
+    if not api_key_missing and llm_result.get("reasoning") and "not available" not in llm_result.get("reasoning", "").lower():
+        doc.llm_verified_at = datetime.utcnow()
 
     await db.commit()
     await db.refresh(doc)
