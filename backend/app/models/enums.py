@@ -56,3 +56,9 @@ class PromotionStatus(str, Enum):
     ACTIVE = "ACTIVE"
     EXPIRED = "EXPIRED"
 
+
+class CompoundStatus2025(str, Enum):
+    READY_TO_MOVE = "Ready to Move"
+    UNDER_CONSTRUCTION = "Under Construction"
+    MIXED_PHASED = "Mixed/Phased"
+

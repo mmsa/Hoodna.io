@@ -116,7 +116,12 @@ ENVIRONMENT=development
 
 5. **Seed database:**
    ```bash
+   # Seed admin user
    python scripts/seed.py
+   
+   # Seed compounds from CSV (optional, for comprehensive compound database)
+   make seed-compounds
+   # Or: python scripts/seed_compounds.py
    ```
 
 6. **Run backend:**
@@ -189,7 +194,8 @@ To test Stripe webhooks during development:
 - `GET /api/auth/me` - Get current user info
 
 ### Compounds
-- `GET /api/compounds` - List all compounds
+- `GET /api/compounds` - List compounds with filters (area, q, status, developer, category, limit, offset)
+- `GET /api/compounds/{compound_id}` - Get compound by compound_id slug
 - `POST /api/compounds/request` - Request new compound
 
 ### Verification
@@ -223,6 +229,87 @@ To test Stripe webhooks during development:
 - `POST /api/admin/users/{user_id}/ban` - Ban user
 - `POST /api/admin/listings/{id}/archive` - Archive listing
 - `POST /api/admin/posts/{id}/remove` - Remove post
+
+## Seeding Compounds from CSV
+
+The application supports seeding compounds from a CSV file (`egypt_compounds_2025.csv`). This provides a comprehensive database of Egyptian compounds with detailed information.
+
+### CSV Format
+
+The CSV file should have the following headers:
+- `compound_id` (required): Unique slug/identifier
+- `compound_name` (required): Display name
+- `area` (required): Area name (e.g., "New Cairo", "Sheikh Zayed")
+- `sub_area` (optional): Sub-area or settlement
+- `category` (optional): Category (e.g., "Integrated Mini-Cities", "Other")
+- `developer` (optional): Developer name
+- `status_2025` (required): One of "Ready to Move", "Under Construction", "Mixed/Phased"
+- `delivery_notes` (optional): Notes about delivery status
+- `source_hint` (optional): Source of the data
+- `last_verified_date` (optional): Date in YYYY-MM-DD format
+- `lat` (optional): Latitude as decimal
+- `lng` (optional): Longitude as decimal
+
+### Running the Seed Script
+
+1. **Place CSV file:**
+   - Default location: `backend/data/compounds/egypt_compounds_2025.csv`
+   - Or set `COMPOUNDS_CSV_PATH` environment variable to custom path
+
+2. **Run migration first:**
+   ```bash
+   alembic upgrade head
+   ```
+
+3. **Seed compounds:**
+   ```bash
+   # Using Makefile (recommended)
+   make seed-compounds
+   
+   # Or directly with Python
+   python scripts/seed_compounds.py
+   
+   # Using custom path
+   COMPOUNDS_CSV_PATH=/path/to/your/file.csv python scripts/seed_compounds.py
+   ```
+
+4. **Verify:**
+   The script will print a summary:
+   - Inserted: New compounds added
+   - Updated: Existing compounds updated (by compound_id)
+   - Skipped: Invalid rows that were skipped
+
+### Idempotency
+
+The seed script is idempotent:
+- Running it multiple times is safe
+- Compounds are upserted by `compound_id`
+- Existing compounds are updated with new data
+- No duplicates are created
+
+### API Usage
+
+After seeding, you can query compounds via the API:
+
+```bash
+# List all compounds
+GET /api/compounds
+
+# Search by name or compound_id
+GET /api/compounds?q=madinaty
+
+# Filter by area
+GET /api/compounds?area=New Cairo
+
+# Filter by status
+GET /api/compounds?status=Ready to Move
+
+# Filter by developer
+GET /api/compounds?developer=SODIC
+
+# Combine filters
+GET /api/compounds?area=New Cairo&status=Ready to Move&limit=20&offset=0
+```
 
 ## Database Migrations
 
