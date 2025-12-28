@@ -114,6 +114,26 @@ The smoke test will verify:
 - Protected endpoints
 - Basic API functionality
 
+### Seeding Sample Data
+
+To seed La Mirada compound with a test user and sample listings:
+
+```bash
+# Make sure compounds are seeded first
+cd backend
+python scripts/seed_compounds.py
+
+# Then seed La Mirada with test data
+python scripts/seed_la_mirada.py
+```
+
+This will create:
+- Test user: `test@lamirada.com` / `test123`
+- 8 sample listings (items, car, property, services)
+- 4 sample community posts
+
+The test user is already approved, so you can log in and see the listings immediately.
+
 ### Running with Docker Compose
 
 1. **Start all services:**
