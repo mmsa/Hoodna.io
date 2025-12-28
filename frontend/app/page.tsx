@@ -10,7 +10,6 @@ import {
   MessageCircle, 
   CheckCircle, 
   ArrowRight,
-  Home,
   Sparkles,
   Lock,
   TrendingUp,
@@ -218,7 +217,7 @@ export default function Home() {
                 <h3 className="text-xl font-bold mb-2 text-gray-900">{step.title}</h3>
                 <p className="text-gray-600">{step.description}</p>
                 {index < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-8 left-full w-full h-0.5 bg-gradient-to-r from-blue-300 to-purple-300 transform translate-x-4"></div>
+                  <div className="hidden lg:block absolute top-8 left-full w-1/2 h-0.5 bg-gradient-to-r from-blue-300 to-purple-300 -z-10"></div>
                 )}
               </div>
             ))}
