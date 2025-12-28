@@ -1,0 +1,113 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_db
+from app.schemas.community import PostCreate, PostResponse, CommentCreate, CommentResponse
+from app.crud.post import get_feed_posts, create_post, create_comment
+from app.core.dependencies import get_current_approved_user
+from app.models.user import User
+from typing import List
+
+router = APIRouter()
+
+
+@router.get("/feed", response_model=List[PostResponse])
+async def get_feed(
+    compound_id: int = None,
+    skip: int = 0,
+    limit: int = 50,
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get feed posts. If compound_id not provided, uses user's compound."""
+    if compound_id is None:
+        compound_id = current_user.compound_id
+    
+    if compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be assigned to a compound"
+        )
+    
+    posts = await get_feed_posts(db, compound_id=compound_id, skip=skip, limit=limit)
+    
+    # Convert to response format
+    result = []
+    for post in posts:
+        result.append(PostResponse(
+            id=post.id,
+            compound_id=post.compound_id,
+            author_id=post.author_id,
+            author_name=post.author.name,
+            content=post.content,
+            created_at=post.created_at,
+            comments=[
+                CommentResponse(
+                    id=c.id,
+                    post_id=c.post_id,
+                    author_id=c.author_id,
+                    author_name=c.author.name,
+                    content=c.content,
+                    created_at=c.created_at,
+                )
+                for c in post.comments
+            ]
+        ))
+    
+    return result
+
+
+@router.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+async def create_post_endpoint(
+    post_data: PostCreate,
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new post."""
+    if current_user.compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must be assigned to a compound"
+        )
+    
+    post = await create_post(
+        db=db,
+        compound_id=current_user.compound_id,
+        author_id=current_user.id,
+        post_data=post_data,
+    )
+    
+    return PostResponse(
+        id=post.id,
+        compound_id=post.compound_id,
+        author_id=post.author_id,
+        author_name=current_user.name,
+        content=post.content,
+        created_at=post.created_at,
+        comments=[],
+    )
+
+
+@router.post("/posts/{post_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
+async def create_comment_endpoint(
+    post_id: int,
+    comment_data: CommentCreate,
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a comment on a post."""
+    comment = await create_comment(
+        db=db,
+        post_id=post_id,
+        author_id=current_user.id,
+        comment_data=comment_data,
+    )
+    
+    return CommentResponse(
+        id=comment.id,
+        post_id=comment.post_id,
+        author_id=comment.author_id,
+        author_name=current_user.name,
+        content=comment.content,
+        created_at=comment.created_at,
+    )
+
