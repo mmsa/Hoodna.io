@@ -10,7 +10,7 @@ class NotificationBase(BaseModel):
     message: str
     related_id: Optional[int] = None
     related_type: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
 
 
 class NotificationCreate(NotificationBase):
@@ -27,7 +27,7 @@ class NotificationResponse(BaseModel):
     read_at: Optional[datetime]
     related_id: Optional[int]
     related_type: Optional[str]
-    metadata: Optional[Dict[str, Any]]
+    extra_data: Optional[Dict[str, Any]]
     created_at: datetime
 
     class Config:

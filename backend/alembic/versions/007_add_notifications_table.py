@@ -44,7 +44,7 @@ def upgrade() -> None:
         sa.Column('read_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('related_id', sa.Integer(), nullable=True),
         sa.Column('related_type', sa.String(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('extra_data', sa.JSON(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('id')

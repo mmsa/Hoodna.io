@@ -4,6 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.core.config import settings
+
+# Import all models to ensure SQLAlchemy relationships are properly set up
+from app.models import notification  # noqa: F401
+
 from app.api import (
     auth,
     compounds,

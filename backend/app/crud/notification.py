@@ -18,7 +18,7 @@ async def create_notification(
         message=notification_data.message,
         related_id=notification_data.related_id,
         related_type=notification_data.related_type,
-        metadata=notification_data.metadata,
+        extra_data=notification_data.extra_data,
     )
     db.add(notification)
     await db.flush()

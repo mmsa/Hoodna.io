@@ -32,7 +32,7 @@ interface Notification {
   read_at: string | null;
   related_id: number | null;
   related_type: string | null;
-  metadata: Record<string, any> | null;
+  extra_data: Record<string, any> | null;
   created_at: string;
 }
 

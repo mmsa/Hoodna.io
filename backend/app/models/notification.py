@@ -19,7 +19,7 @@ class Notification(Base):
     # Optional metadata for linking to related entities
     related_id = Column(Integer, nullable=True)  # ID of related post, listing, message, etc.
     related_type = Column(String, nullable=True)  # Type: "post", "listing", "message", "comment", etc.
-    metadata = Column(JSON, nullable=True)  # Additional data (e.g., sender name, listing title)
+    extra_data = Column(JSON, nullable=True)  # Additional data (e.g., sender name, listing title) - renamed from metadata to avoid SQLAlchemy conflict
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 

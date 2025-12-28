@@ -20,7 +20,7 @@ async def notify_verification_approved(
             title="Verification Approved! ✅",
             message="Your account has been verified. You can now post, comment, and create listings in your community.",
             related_type="verification",
-            metadata={"action": "approved"},
+            extra_data={"action": "approved"},
         ),
     )
 
@@ -43,7 +43,7 @@ async def notify_verification_rejected(
             title="Verification Rejected",
             message=message,
             related_type="verification",
-            metadata={"action": "rejected", "reason": reason},
+            extra_data={"action": "rejected", "reason": reason},
         ),
     )
 
@@ -66,7 +66,7 @@ async def notify_verification_request_more(
             title="More Information Needed",
             message=message,
             related_type="verification",
-            metadata={"action": "request_more", "details": details},
+            extra_data={"action": "request_more", "details": details},
         ),
     )
 
@@ -92,7 +92,7 @@ async def notify_new_message(
             message=message,
             related_id=conversation_id,
             related_type="message",
-            metadata={"sender_name": sender_name, "preview": preview},
+            extra_data={"sender_name": sender_name, "preview": preview},
         ),
     )
 
@@ -114,7 +114,7 @@ async def notify_listing_inquiry(
             message=f"{inquirer_name} is interested in your listing.",
             related_id=listing_id,
             related_type="listing",
-            metadata={"inquirer_name": inquirer_name, "listing_title": listing_title},
+            extra_data={"inquirer_name": inquirer_name, "listing_title": listing_title},
         ),
     )
 
