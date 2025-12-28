@@ -122,6 +122,9 @@ async def approve_document(
     ):
         user.status = UserStatus.APPROVED
         await db.flush()
+        # Send notification
+        from app.services.notifications import notify_verification_approved
+        await notify_verification_approved(db, user.id)
         await db.refresh(doc)
         return doc
     
@@ -136,6 +139,9 @@ async def approve_document(
         if name_match == "MATCH" and has_compound_name_in_document(contract):
             user.status = UserStatus.APPROVED
             await db.flush()
+            # Send notification
+            from app.services.notifications import notify_verification_approved
+            await notify_verification_approved(db, user.id)
             await db.refresh(doc)
             return doc
     
@@ -148,6 +154,9 @@ async def approve_document(
     ):
         user.status = UserStatus.APPROVED
         await db.flush()
+        # Send notification
+        from app.services.notifications import notify_verification_approved
+        await notify_verification_approved(db, user.id)
 
     await db.refresh(doc)
     return doc
@@ -166,6 +175,11 @@ async def reject_document(
     doc.notes = notes
 
     await db.flush()
+    
+    # Send notification
+    from app.services.notifications import notify_verification_rejected
+    await notify_verification_rejected(db, doc.user_id, notes)
+    
     await db.refresh(doc)
     return doc
 
@@ -183,6 +197,11 @@ async def request_more_details_document(
     doc.notes = notes
 
     await db.flush()
+    
+    # Send notification
+    from app.services.notifications import notify_verification_request_more
+    await notify_verification_request_more(db, doc.user_id, notes)
+    
     await db.refresh(doc)
     return doc
 

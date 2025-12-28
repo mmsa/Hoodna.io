@@ -15,6 +15,7 @@ from app.api import (
     webhooks,
     saved_listings,
     messages,
+    notifications,
 )
 from app.services.storage import (
     use_local_storage,
@@ -49,6 +50,7 @@ app.include_router(marketplace.router, prefix="/api/listings", tags=["marketplac
 app.include_router(promotions.router, prefix="/api/promotions", tags=["promotions"])
 app.include_router(saved_listings.router, prefix="/api", tags=["saved-listings"])
 app.include_router(messages.router, prefix="/api", tags=["messages"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 

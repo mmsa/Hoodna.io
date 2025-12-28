@@ -28,6 +28,7 @@ import {
   MessageCircle,
   Bell,
 } from 'lucide-react'
+import { NotificationsDropdown } from './notifications-dropdown'
 import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'
 import { useQuery } from '@tanstack/react-query'
@@ -182,6 +183,9 @@ export function Header() {
                   </Button>
                 </Link>
 
+                {/* Notifications Dropdown */}
+                <NotificationsDropdown />
+
                 {/* Saved Items Button */}
                 <Link href="/saved-listings">
                   <Button
@@ -245,6 +249,12 @@ export function Header() {
                       <Link href="/messages" className="flex items-center">
                         <MessageCircle className="mr-2 h-4 w-4" />
                         <span>Messages</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/notifications" className="flex items-center">
+                        <Bell className="mr-2 h-4 w-4" />
+                        <span>Notifications</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -340,6 +350,12 @@ export function Header() {
               >
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 Marketplace
+              </Button>
+            </Link>
+            <Link href="/notifications" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant="ghost" className="w-full justify-start relative">
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
               </Button>
             </Link>
             <Link href="/messages" onClick={() => setMobileMenuOpen(false)}>

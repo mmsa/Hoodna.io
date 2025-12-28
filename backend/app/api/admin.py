@@ -333,6 +333,10 @@ async def verify_document_with_llm_endpoint(
                     and has_compound_name_in_document(national_id)
                 ):
                     user.status = UserStatus.APPROVED
+                    await db.flush()
+                    # Send notification
+                    from app.services.notifications import notify_verification_approved
+                    await notify_verification_approved(db, user.id)
                 # Rule 2: Contract approved + name match + compound match → sufficient alone
                 elif (
                     contract
@@ -343,6 +347,10 @@ async def verify_document_with_llm_endpoint(
                     contract_name_match = contract.llm_extracted_info.get("name_match", "")
                     if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
                         user.status = UserStatus.APPROVED
+                        await db.flush()
+                        # Send notification
+                        from app.services.notifications import notify_verification_approved
+                        await notify_verification_approved(db, user.id)
                 # Rule 3: Both documents approved → approve user
                 elif (
                     national_id
@@ -351,7 +359,12 @@ async def verify_document_with_llm_endpoint(
                     and contract.status == DocumentStatus.APPROVED
                 ):
                     user.status = UserStatus.APPROVED
-                await db.flush()
+                    await db.flush()
+                    # Send notification
+                    from app.services.notifications import notify_verification_approved
+                    await notify_verification_approved(db, user.id)
+                else:
+                    await db.flush()
         elif llm_result["recommendation"] == "REJECT" or name_match == "NO_MATCH" or address_match == "NO_MATCH":
             doc.status = DocumentStatus.REJECTED
             doc.reviewer_id = current_user.id
