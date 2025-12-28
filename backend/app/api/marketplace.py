@@ -78,12 +78,21 @@ async def get_listing(
             detail="Listing not found"
         )
     
-    return ListingResponse(
+    # Include owner contact info (email and phone) for verified users
+    owner_email = listing.owner.email if listing.owner else None
+    owner_phone = listing.owner.phone if listing.owner else None
+    
+    # Check if listing is saved by current user
+    is_saved = await is_listing_saved(db, current_user.id, listing_id)
+    
+    response = ListingResponse(
         id=listing.id,
         compound_id=listing.compound_id,
         compound_name=listing.compound.name,
         owner_id=listing.owner_id,
         owner_name=listing.owner.name,
+        owner_email=owner_email,
+        owner_phone=owner_phone,
         category=listing.category,
         title=listing.title,
         description=listing.description,
@@ -94,6 +103,11 @@ async def get_listing(
         status=listing.status,
         created_at=listing.created_at,
     )
+    
+    # Add saved status to response (using model_dump and adding field)
+    response_dict = response.model_dump()
+    response_dict["is_saved"] = is_saved
+    return response_dict
 
 
 @router.post("", response_model=ListingResponse, status_code=status.HTTP_201_CREATED)

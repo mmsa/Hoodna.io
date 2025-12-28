@@ -29,6 +29,8 @@ class ListingResponse(BaseModel):
     compound_name: str
     owner_id: int
     owner_name: str
+    owner_email: Optional[str] = None  # Only included if current user is viewing
+    owner_phone: Optional[str] = None  # Only included if current user is viewing
     category: ListingCategory
     title: str
     description: Optional[str] = None

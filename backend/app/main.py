@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.core.config import settings
-from app.api import auth, compounds, verification, community, marketplace, promotions, admin, webhooks
+from app.api import auth, compounds, verification, community, marketplace, promotions, admin, webhooks, saved_listings
 from app.services.storage import use_local_storage, save_file_locally, get_local_file_path, LOCAL_STORAGE_DIR
 
 app = FastAPI(
@@ -29,6 +29,7 @@ app.include_router(verification.router, prefix="/api/verification", tags=["verif
 app.include_router(community.router, prefix="/api", tags=["community"])
 app.include_router(marketplace.router, prefix="/api/listings", tags=["marketplace"])
 app.include_router(promotions.router, prefix="/api/promotions", tags=["promotions"])
+app.include_router(saved_listings.router, prefix="/api", tags=["saved-listings"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 

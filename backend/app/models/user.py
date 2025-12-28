@@ -29,4 +29,5 @@ class User(Base):
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
     listings = relationship("Listing", back_populates="owner", cascade="all, delete-orphan")
+    saved_listings = relationship("SavedListing", back_populates="user", cascade="all, delete-orphan")
 
