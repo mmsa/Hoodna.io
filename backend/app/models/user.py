@@ -20,7 +20,12 @@ class User(Base):
 
     # Relationships
     compound = relationship("Compound", back_populates="users")
-    verification_documents = relationship("VerificationDocument", back_populates="user", cascade="all, delete-orphan")
+    verification_documents = relationship(
+        "VerificationDocument",
+        foreign_keys="VerificationDocument.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
     posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="author", cascade="all, delete-orphan")
     listings = relationship("Listing", back_populates="owner", cascade="all, delete-orphan")

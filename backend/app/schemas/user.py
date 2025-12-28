@@ -14,6 +14,10 @@ class UserCreate(UserBase):
     password: str
 
 
+class UserUpdate(BaseModel):
+    compound_id: Optional[int] = None
+
+
 class UserResponse(UserBase):
     id: int
     role: UserRole

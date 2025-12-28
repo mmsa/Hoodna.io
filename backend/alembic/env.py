@@ -27,6 +27,10 @@ target_metadata = Base.metadata
 
 
 def get_url():
+    # Use alembic.ini URL for migrations, fallback to settings for Docker
+    url = config.get_main_option("sqlalchemy.url")
+    if url:
+        return url
     return settings.DATABASE_URL
 
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -23,8 +23,24 @@ type SignupForm = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Security: Remove sensitive data from URL immediately
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      const hasSensitiveData = url.searchParams.has('password')
+      
+      if (hasSensitiveData) {
+        // Remove password and other sensitive params from URL
+        url.searchParams.delete('password')
+        // Replace URL without sensitive data
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [])
 
   const {
     register,
@@ -32,6 +48,13 @@ export default function SignupPage() {
     formState: { errors },
   } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
+    defaultValues: {
+      // Only pre-fill safe fields (name, email, phone) - NEVER password
+      name: searchParams.get('name') || '',
+      email: searchParams.get('email') || '',
+      phone: searchParams.get('phone') || '',
+      password: '', // Always empty - never from URL
+    },
   })
 
   const onSubmit = async (data: SignupForm) => {

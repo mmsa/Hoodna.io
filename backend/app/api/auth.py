@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.auth import UserSignup, UserLogin, TokenResponse, RefreshTokenRequest
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, UserUpdate
 from app.crud.user import get_user_by_email, create_user
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token
 from app.core.dependencies import get_current_user
@@ -95,5 +95,28 @@ async def logout(current_user: User = Depends(get_current_user)):
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information."""
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update current user information."""
+    if user_update.compound_id is not None:
+        # Verify compound exists
+        from app.crud.compound import get_compound_by_id
+        compound = await get_compound_by_id(db, user_update.compound_id)
+        if not compound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Compound not found"
+            )
+        current_user.compound_id = user_update.compound_id
+    
+    await db.flush()
+    await db.refresh(current_user)
     return current_user
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -22,8 +22,24 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Security: Remove sensitive data from URL immediately
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      const hasSensitiveData = url.searchParams.has('password')
+      
+      if (hasSensitiveData) {
+        // Remove password from URL
+        url.searchParams.delete('password')
+        // Replace URL without sensitive data
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [])
 
   const {
     register,
@@ -31,6 +47,11 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      // Only pre-fill email - NEVER password
+      email: searchParams.get('email') || '',
+      password: '', // Always empty - never from URL
+    },
   })
 
   const onSubmit = async (data: LoginForm) => {
