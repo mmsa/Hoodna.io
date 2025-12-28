@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   FileText,
+  Bookmark,
 } from 'lucide-react'
 import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'
@@ -152,8 +153,14 @@ export function Header() {
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/marketplace/new" className="flex items-center">
-                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        <PlusCircle className="mr-2 h-4 w-4" />
                         <span>Create Listing</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/saved" className="flex items-center">
+                        <Bookmark className="mr-2 h-4 w-4" />
+                        <span>Saved Listings</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

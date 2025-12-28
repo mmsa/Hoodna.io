@@ -87,6 +87,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
   const listingId = parseInt(params.id)
   const { user } = useAuth()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [contactDialogOpen, setContactDialogOpen] = useState(false)
 
   const { data: listing, isLoading } = useQuery<Listing>({
@@ -94,6 +95,35 @@ export default function ListingPage({ params }: { params: { id: string } }) {
     queryFn: async () => {
       const response = await api.get(`/api/listings/${listingId}`)
       return response.data
+    },
+  })
+
+  // Save/Unsave mutation
+  const saveMutation = useMutation({
+    mutationFn: async (saved: boolean) => {
+      if (saved) {
+        await api.delete(`/api/listings/${listingId}/save`)
+      } else {
+        await api.post(`/api/listings/${listingId}/save`)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listing', listingId] })
+      queryClient.invalidateQueries({ queryKey: ['saved-listings'] })
+      toast({
+        title: listing?.is_saved ? "Removed from saved" : "Saved!",
+        description: listing?.is_saved 
+          ? "Listing removed from your saved list" 
+          : "Listing saved to your list",
+        variant: "success",
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.response?.data?.detail || "Failed to update saved status",
+        variant: "destructive",
+      })
     },
   })
 
@@ -265,6 +295,27 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                       Message Seller
                     </Button>
                   )}
+                  
+                  {/* Save/Unsave Button */}
+                  <Button 
+                    variant={listing.is_saved ? "default" : "outline"}
+                    className={`w-full ${listing.is_saved ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
+                    size="lg"
+                    onClick={() => saveMutation.mutate(listing.is_saved || false)}
+                    disabled={saveMutation.isPending}
+                  >
+                    {listing.is_saved ? (
+                      <>
+                        <Heart className="w-5 h-5 mr-2 fill-current" />
+                        Saved
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="w-5 h-5 mr-2" />
+                        Save Listing
+                      </>
+                    )}
+                  </Button>
                   
                   {isOwner && (
                     <Link href={`/promote/${listing.id}`}>
