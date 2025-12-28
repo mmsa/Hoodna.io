@@ -92,37 +92,23 @@ export function Combobox({
                 const searchValue = `${option.label} ${option.description || ''}`.trim()
                 // Capture the option value in closure for reliable selection
                 const optionValue = option.value
+                const handleSelect = () => {
+                  onValueChange(optionValue)
+                  setOpen(false)
+                }
                 return (
                   <CommandItem
                     key={option.value}
                     value={searchValue}
                     keywords={[option.label, option.description || ''].filter(Boolean)}
-                    onSelect={(selectedValue) => {
-                      console.log('onSelect fired:', selectedValue)
-                      // cmdk passes the search value, look it up in our map
-                      const actualValue = valueMap.get(selectedValue.toLowerCase())
-                      if (actualValue !== undefined) {
-                        onValueChange(actualValue)
-                        setOpen(false)
-                      } else {
-                        // Fallback: use closure value
-                        onValueChange(optionValue)
-                        setOpen(false)
-                      }
-                    }}
+                    onSelect={handleSelect}
                     className="cursor-pointer"
-                    onClick={(e) => {
-                      console.log('onClick fired on CommandItem')
-                      e.preventDefault()
-                      e.stopPropagation()
-                      onValueChange(optionValue)
-                      setOpen(false)
-                    }}
                     onMouseDown={(e) => {
-                      console.log('onMouseDown fired')
-                      // Don't preventDefault - let the click event fire
-                      onValueChange(optionValue)
-                      setOpen(false)
+                      // Handle mouse clicks - cmdk's onSelect may not fire on click
+                      if (e.button === 0) {
+                        e.preventDefault()
+                        handleSelect()
+                      }
                     }}
                   >
                     <Check
@@ -131,16 +117,7 @@ export function Combobox({
                         value === option.value ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <div 
-                      className="flex flex-col flex-1"
-                      onClick={(e) => {
-                        console.log('onClick fired on inner div')
-                        e.preventDefault()
-                        e.stopPropagation()
-                        onValueChange(optionValue)
-                        setOpen(false)
-                      }}
-                    >
+                    <div className="flex flex-col flex-1">
                       <span>{option.label}</span>
                       {option.description && (
                         <span className="text-xs text-muted-foreground">
