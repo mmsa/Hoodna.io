@@ -206,32 +206,59 @@ const detectPostType = (
 export default function FeedPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: userLoading } = useAuth();
   const [newPost, setNewPost] = useState("");
   const [newComments, setNewComments] = useState<Record<number, string>>({});
   const queryClient = useQueryClient();
 
-  // Fetch feed summary
+  // Proactively check compound selection first, then verification
+  // This must happen BEFORE any API calls to prevent wrong redirects
+  const shouldFetchData = !!(
+    user &&
+    user.compound_id &&
+    user.status === "APPROVED"
+  );
+
+  useEffect(() => {
+    if (userLoading) return; // Wait for user data to load
+    if (!user) return; // Wait for user to load
+
+    // First priority: Check if compound is selected
+    if (!user.compound_id) {
+      router.push("/onboarding/compound-select");
+      return;
+    }
+
+    // Second priority: Check if user is verified (only if compound is selected)
+    if (user.compound_id && user.status !== "APPROVED") {
+      router.push("/verification");
+      return;
+    }
+  }, [user, userLoading, router]);
+
+  // Fetch feed summary - only if compound is selected and user is verified
   const { data: feedSummary } = useQuery<FeedSummary>({
     queryKey: ["feed-summary"],
     queryFn: async () => {
       const response = await api.get("/api/feed/summary");
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
-  // Fetch recent listings
+  // Fetch recent listings - only if compound is selected and user is verified
   const { data: recentListings } = useQuery<Listing[]>({
     queryKey: ["recent-listings"],
     queryFn: async () => {
       const response = await api.get("/api/listings?scope=compound&limit=20");
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
-  // Fetch latest items for sale
+  // Fetch latest items for sale - only if compound is selected and user is verified
   const { data: latestForSale } = useQuery<Listing[]>({
     queryKey: ["latest-for-sale"],
     queryFn: async () => {
@@ -240,10 +267,11 @@ export default function FeedPage() {
       );
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
-  // Fetch latest items for rent
+  // Fetch latest items for rent - only if compound is selected and user is verified
   const { data: latestForRent } = useQuery<Listing[]>({
     queryKey: ["latest-for-rent"],
     queryFn: async () => {
@@ -252,10 +280,11 @@ export default function FeedPage() {
       );
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
-  // Fetch latest services
+  // Fetch latest services - only if compound is selected and user is verified
   const { data: latestServices } = useQuery<Listing[]>({
     queryKey: ["latest-services"],
     queryFn: async () => {
@@ -264,10 +293,12 @@ export default function FeedPage() {
       );
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
   // Fetch featured items (promoted listings - cross-compound and public)
+  // Only if compound is selected and user is verified
   const { data: featuredItems } = useQuery<Listing[]>({
     queryKey: ["featured-items"],
     queryFn: async () => {
@@ -288,20 +319,23 @@ export default function FeedPage() {
         return [];
       }
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
   // Fetch compound announcements (from admins/moderators)
+  // Only if compound is selected and user is verified
   const { data: announcements } = useQuery<Post[]>({
     queryKey: ["announcements"],
     queryFn: async () => {
       const response = await api.get("/api/feed/announcements?limit=5");
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
-  // Fetch user's own stats
+  // Fetch user's own stats - only if compound is selected and user is verified
   const { data: userStats } = useQuery<{
     posts_count: number;
     listings_count: number;
@@ -341,7 +375,7 @@ export default function FeedPage() {
         };
       }
     },
-    enabled: !!user,
+    enabled: shouldFetchData,
     retry: false,
   });
 
@@ -360,6 +394,7 @@ export default function FeedPage() {
       const response = await api.get(`/api/feed?limit=${postsLimit}`);
       return response.data;
     },
+    enabled: shouldFetchData,
     retry: false,
   });
 
@@ -391,22 +426,71 @@ export default function FeedPage() {
 
   const posts = allPosts;
 
-  // Redirect based on error type
+  // Early return: Don't render anything if user doesn't meet requirements
+  // This prevents any API calls from being made
+  if (!userLoading && user) {
+    if (!user.compound_id) {
+      // Redirect will happen in useEffect, but return early to prevent rendering
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">
+              Redirecting to compound selection...
+            </p>
+          </div>
+        </div>
+      );
+    }
+    if (user.compound_id && user.status !== "APPROVED") {
+      // Redirect will happen in useEffect, but return early to prevent rendering
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Redirecting to verification...</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Show loading while user data is being fetched
+  if (userLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect based on error type (fallback for API errors)
+  // Note: Compound check happens first in the useEffect above
   useEffect(() => {
     if (error) {
       const errorResponse = (error as any).response;
       const errorDetail = errorResponse?.data?.detail || "";
 
+      // Check compound first (400 error)
       if (errorResponse?.status === 400 && errorDetail.includes("compound")) {
         router.push("/onboarding/compound-select");
-      } else if (
+        return;
+      }
+
+      // Only check verification if compound is already selected
+      // (to avoid redirecting to verification when compound is missing)
+      if (
+        user?.compound_id &&
         errorResponse?.status === 403 &&
         (errorDetail.includes("verified") || errorDetail.includes("approved"))
       ) {
         router.push("/verification");
       }
     }
-  }, [error, router]);
+  }, [error, user, router]);
 
   const createPostMutation = useMutation({
     mutationFn: async (content: string) => {

@@ -35,9 +35,12 @@ api.interceptors.response.use(
     }
 
     // Handle verification requirement
+    // BUT: Don't redirect if user is on compound-select page (they need to select compound first)
     if (error.response?.status === 403 && (error.response?.data?.detail?.includes('verified') || error.response?.data?.detail?.includes('approved'))) {
-      // Only redirect if we're not already on the verification page
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/verification')) {
+      // Only redirect if we're not already on the verification page AND not on compound-select page
+      if (typeof window !== 'undefined' && 
+          !window.location.pathname.includes('/verification') &&
+          !window.location.pathname.includes('/onboarding/compound-select')) {
         window.location.href = '/verification'
         return Promise.reject(error)
       }

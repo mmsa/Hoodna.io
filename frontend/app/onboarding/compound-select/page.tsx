@@ -46,19 +46,23 @@ export default function CompoundSelectPage() {
   const updateUserMutation = useMutation({
     mutationFn: async (compoundId: number) => {
       // Update user's compound via API
-      await api.patch('/api/auth/me', { compound_id: compoundId })
-      return { compoundId }
+      const response = await api.patch('/api/auth/me', { compound_id: compoundId })
+      return { compoundId, userData: response.data }
     },
-    onSuccess: () => {
-      router.push('/verification')
-    },
-    onError: (err: any) => {
-      // If endpoint doesn't exist yet, just proceed
-      if (err.response?.status === 404) {
+    onSuccess: (data) => {
+      // Only redirect to verification after successful compound selection
+      // Verify the compound was actually set
+      if (data.userData?.compound_id || data.compoundId) {
         router.push('/verification')
       } else {
-        setError(err.response?.data?.detail || 'Failed to update compound')
+        setError('Compound selection failed. Please try again.')
       }
+    },
+    onError: (err: any) => {
+      // Don't redirect on error - show error message instead
+      const errorMessage = err.response?.data?.detail || 'Failed to update compound. Please try again.'
+      setError(errorMessage)
+      console.error('Compound selection error:', err)
     },
   })
 

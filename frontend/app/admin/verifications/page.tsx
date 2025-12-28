@@ -497,24 +497,103 @@ export default function AdminVerificationsPage() {
                         </div>
                       )}
 
-                      {/* LLM Results - Compact */}
+                      {/* LLM Results - Structured Display */}
                       {doc.llm_verified_at && (
-                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-l-purple-500 rounded-r-lg p-3">
-                          <div className="flex items-start gap-2">
+                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-l-4 border-l-purple-500 rounded-r-lg p-4">
+                          <div className="flex items-start gap-2 mb-3">
                             <Sparkles className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1 text-xs">
-                              <div className="font-semibold text-purple-900 mb-1">
-                                AI Verification ({doc.llm_recommendation || "PENDING"})
+                            <div className="flex-1">
+                              <div className="font-semibold text-purple-900 mb-2 text-sm">
+                                AI Verification Results
                               </div>
-                              {doc.llm_confidence && (
-                                <div className="text-purple-700 mb-1">
-                                  Confidence: {Math.round(doc.llm_confidence * 100)}%
+                              
+                              {/* Confidence Display */}
+                              {doc.llm_confidence !== undefined && doc.llm_confidence !== null && (
+                                <div className="mb-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-medium text-purple-700">Confidence:</span>
+                                    <span className={`text-sm font-bold ${
+                                      doc.llm_confidence >= 0.8 
+                                        ? "text-green-600" 
+                                        : doc.llm_confidence >= 0.5 
+                                        ? "text-yellow-600" 
+                                        : "text-red-600"
+                                    }`}>
+                                      {Math.round(doc.llm_confidence * 100)}%
+                                    </span>
+                                    {doc.llm_confidence >= 0.8 && (
+                                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                        Auto-Selected
+                                      </span>
+                                    )}
+                                  </div>
+                                  {/* Confidence bar */}
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className={`h-2 rounded-full transition-all ${
+                                        doc.llm_confidence >= 0.8 
+                                          ? "bg-green-500" 
+                                          : doc.llm_confidence >= 0.5 
+                                          ? "bg-yellow-500" 
+                                          : "bg-red-500"
+                                      }`}
+                                      style={{ width: `${doc.llm_confidence * 100}%` }}
+                                    />
+                                  </div>
                                 </div>
                               )}
+
+                              {/* Name Match */}
+                              {doc.llm_extracted_info?.name_match && (
+                                <div className="mb-2 flex items-center gap-2">
+                                  <span className="text-xs font-medium text-gray-600 w-20">Name:</span>
+                                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                                    doc.llm_extracted_info.name_match === "MATCH"
+                                      ? "bg-green-100 text-green-700"
+                                      : doc.llm_extracted_info.name_match === "NO_MATCH"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}>
+                                    {doc.llm_extracted_info.name_match === "MATCH" ? "✓ MATCH" :
+                                     doc.llm_extracted_info.name_match === "NO_MATCH" ? "✗ NO MATCH" :
+                                     "? UNCLEAR"}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Address Match */}
+                              {doc.llm_extracted_info?.address_match && doc.llm_extracted_info.address_match !== "N/A" && (
+                                <div className="mb-2 flex items-center gap-2">
+                                  <span className="text-xs font-medium text-gray-600 w-20">Address:</span>
+                                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                                    doc.llm_extracted_info.address_match === "MATCH"
+                                      ? "bg-green-100 text-green-700"
+                                      : doc.llm_extracted_info.address_match === "NO_MATCH"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}>
+                                    {doc.llm_extracted_info.address_match === "MATCH" ? "✓ MATCH" :
+                                     doc.llm_extracted_info.address_match === "NO_MATCH" ? "✗ NO MATCH" :
+                                     "? UNCLEAR"}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Recommendation */}
+                              {doc.llm_recommendation && (
+                                <div className="mb-2 flex items-center gap-2">
+                                  <span className="text-xs font-medium text-gray-600 w-20">Status:</span>
+                                  {getLLMRecommendationBadge(doc.llm_recommendation)}
+                                </div>
+                              )}
+
+                              {/* Reasoning */}
                               {doc.llm_reasoning && (
-                                <p className="text-purple-600 line-clamp-2">
-                                  {doc.llm_reasoning}
-                                </p>
+                                <div className="mt-3 pt-3 border-t border-purple-200">
+                                  <p className="text-xs text-purple-600 line-clamp-3">
+                                    {doc.llm_reasoning}
+                                  </p>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -586,31 +665,26 @@ export default function AdminVerificationsPage() {
                       {/* Quick Actions for PENDING documents */}
                       {doc.status === "PENDING" && (
                         <div className="space-y-2 pt-2 border-t">
-                          {/* Show button if no successful LLM verification yet, or if there was an error */}
-                          {(!doc.llm_verified_at || (doc.llm_issues && doc.llm_issues.some((issue: string) => 
-                            issue.toLowerCase().includes("api key") || 
-                            issue.toLowerCase().includes("not configured")
-                          ))) && (
-                            <Button
-                              variant="outline"
-                              onClick={() => llmVerifyMutation.mutate(doc.id)}
-                              disabled={llmVerifyMutation.isPending}
-                              className="w-full justify-start"
-                              size="sm"
-                            >
-                              {llmVerifyMutation.isPending ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Verifying...
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="w-4 h-4 mr-2" />
-                                  Verify with AI
-                                </>
-                              )}
-                            </Button>
-                          )}
+                          {/* Always show Verify with AI button - allows retry even after successful verification */}
+                          <Button
+                            variant="outline"
+                            onClick={() => llmVerifyMutation.mutate(doc.id)}
+                            disabled={llmVerifyMutation.isPending}
+                            className="w-full justify-start"
+                            size="sm"
+                          >
+                            {llmVerifyMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Verifying...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                {doc.llm_verified_at ? "Verify with AI (Retry)" : "Verify with AI"}
+                              </>
+                            )}
+                          </Button>
                           <Button
                             variant="default"
                             onClick={() => approveMutation.mutate(doc.id)}

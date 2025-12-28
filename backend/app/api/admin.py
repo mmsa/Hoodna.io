@@ -215,12 +215,21 @@ async def verify_document_with_llm_endpoint(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
+    # Get compound name if user has a compound
+    compound_name = None
+    if user.compound_id:
+        from app.models.compound import Compound
+        compound = await db.get(Compound, user.compound_id)
+        if compound:
+            compound_name = compound.name
+
     # Run LLM verification
     llm_result = await verify_document_with_llm(
         file_url=doc.file_url,
         document_type=doc.type.value,
         user_name=user.name,
         user_email=user.email,
+        compound_name=compound_name,
     )
 
     # Update document with LLM results
@@ -229,11 +238,39 @@ async def verify_document_with_llm_endpoint(
     doc.llm_recommendation = llm_result["recommendation"]
     doc.llm_reasoning = llm_result["reasoning"]
     doc.llm_issues = llm_result["issues"]
-    doc.llm_extracted_info = llm_result["extracted_info"]
+    
+    # Store name_match and address_match in extracted_info
+    extracted_info = llm_result.get("extracted_info", {})
+    extracted_info["name_match"] = llm_result.get("name_match", "UNCLEAR")
+    extracted_info["address_match"] = llm_result.get("address_match", "UNCLEAR")
+    doc.llm_extracted_info = extracted_info
+    
+    # Auto-update status if confidence >= 80% and recommendation is clear
+    # Only auto-update if document is still PENDING (not manually reviewed)
+    if llm_result["confidence"] >= 0.8 and doc.status == DocumentStatus.PENDING:
+        if llm_result["recommendation"] == "APPROVE":
+            doc.status = DocumentStatus.APPROVED
+            doc.reviewer_id = current_user.id
+            # Add note about auto-approval
+            if doc.notes:
+                doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
+            else:
+                doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]"
+        elif llm_result["recommendation"] == "REJECT":
+            doc.status = DocumentStatus.REJECTED
+            doc.reviewer_id = current_user.id
+            # Add note about auto-rejection
+            if doc.notes:
+                doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
+            else:
+                doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]"
     
     # Only set llm_verified_at if verification was actually attempted successfully
-    # (not if API key was missing or there was a configuration error)
+    # (not if API key was missing, configuration error, or API error occurred)
     issues = llm_result.get("issues", [])
+    reasoning = llm_result.get("reasoning", "").lower()
+    
+    # Check for various error conditions
     api_key_missing = any(
         "api key" in str(issue).lower() or 
         "not configured" in str(issue).lower() or
@@ -241,17 +278,28 @@ async def verify_document_with_llm_endpoint(
         for issue in issues
     )
     
-    # Only set verified_at if verification was actually attempted successfully
-    # (not if API key was missing or there was a configuration error)
-    reasoning = llm_result.get("reasoning", "").lower()
+    # Check for API errors (400, 404, etc.)
+    api_error = any(
+        "400" in str(issue) or
+        "404" in str(issue) or
+        "bad request" in str(issue).lower() or
+        "not found" in str(issue).lower() or
+        "api error" in str(issue).lower() or
+        "openai api" in str(issue).lower()
+        for issue in issues
+    )
+    
     has_error = (
         api_key_missing or 
+        api_error or
         "not available" in reasoning or
         "not configured" in reasoning or
-        "manual review required" in reasoning
+        "manual review required" in reasoning or
+        "failed to verify" in reasoning
     )
     
     # Only set verified_at if we actually got a real verification result (not an error)
+    # This ensures the button doesn't disappear on errors
     if not has_error and llm_result.get("verified") is not None:
         doc.llm_verified_at = datetime.utcnow()
 

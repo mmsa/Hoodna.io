@@ -97,8 +97,8 @@ if use_local_storage():
         # Read file content
         content = await file.read()
 
-        # Validate file size (10MB max for documents, 5MB for images)
-        MAX_SIZE = 10 * 1024 * 1024  # 10MB
+        # Validate file size (15MB max for documents, 5MB for images)
+        MAX_SIZE = 15 * 1024 * 1024  # 15MB - increased to accommodate multi-page scanned contracts
         if len(content) > MAX_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

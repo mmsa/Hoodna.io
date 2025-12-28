@@ -21,7 +21,7 @@ ALLOWED_DOCUMENT_TYPES = {
     "image/jpeg", "image/jpg", "image/png", "image/webp",
     "application/pdf"
 }
-MAX_FILE_SIZE_MB = 10
+MAX_FILE_SIZE_MB = 15  # Increased to accommodate multi-page scanned contracts
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 

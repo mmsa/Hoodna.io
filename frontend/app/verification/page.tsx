@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import api from "@/lib/api";
-import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface VerificationStatus {
   national_id: {
@@ -37,10 +38,45 @@ interface VerificationStatus {
 export default function VerificationPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoading: userLoading } = useAuth();
   const [uploading, setUploading] = useState<"national_id" | "contract" | null>(
     null
   );
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  // Store uploaded file URLs before submission
+  const [pendingNationalId, setPendingNationalId] = useState<string | null>(null);
+  const [pendingContract, setPendingContract] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Check if compound is selected first - redirect if not
+  useEffect(() => {
+    if (userLoading) return; // Wait for user data to load
+    if (!user) return; // Wait for user to load
+    
+    // First priority: Check if compound is selected
+    if (!user.compound_id) {
+      router.push("/onboarding/compound-select");
+      return;
+    }
+  }, [user, userLoading, router]);
+
+  // Only fetch verification status if compound is selected
+  const shouldFetchStatus = !!(user && user.compound_id);
+
+  // Fetch compound details to display name
+  const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({
+    queryKey: ["compound", user?.compound_id],
+    queryFn: async () => {
+      if (!user?.compound_id) return null;
+      // Fetch compounds list and find the one matching the user's compound_id
+      const response = await api.get(`/api/compounds?limit=200`);
+      const compounds = response.data.items || [];
+      const foundCompound = compounds.find((c: any) => c.id === user.compound_id);
+      return foundCompound || null;
+    },
+    enabled: shouldFetchStatus,
+    retry: false,
+  });
 
   const { data: status, refetch } = useQuery<VerificationStatus>({
     queryKey: ["verification-status"],
@@ -48,7 +84,19 @@ export default function VerificationPage() {
       const response = await api.get("/api/verification/status");
       return response.data;
     },
+    enabled: shouldFetchStatus,
+    retry: false,
   });
+
+  // Clear pending uploads if documents are already submitted
+  useEffect(() => {
+    if (status?.national_id?.status) {
+      setPendingNationalId(null);
+    }
+    if (status?.contract?.status) {
+      setPendingContract(null);
+    }
+  }, [status]);
 
   const uploadDocument = async (
     type: "national_id" | "contract",
@@ -110,19 +158,17 @@ export default function VerificationPage() {
         throw new Error(`Upload failed (${uploadResponse.status} ${uploadResponse.statusText}): ${errorText || 'Unknown error'}`);
       }
 
-      // Submit document
-      setUploadProgress(80);
-      await api.post("/api/verification/submit", {
-        file_url,
-        document_type: documentType,
-      });
-
+      // Store the file URL for later submission (don't submit yet)
       setUploadProgress(100);
-      await refetch();
+      if (type === "national_id") {
+        setPendingNationalId(file_url);
+      } else {
+        setPendingContract(file_url);
+      }
       
       toast({
-        title: "Document uploaded successfully! 🎉",
-        description: `${type === "national_id" ? "National ID" : "Contract"} has been submitted for review.`,
+        title: "Document uploaded! 📄",
+        description: `${type === "national_id" ? "National ID" : "Contract"} has been uploaded. Click "Submit Documents" when ready.`,
         variant: "success",
       });
     } catch (error: any) {
@@ -162,10 +208,93 @@ export default function VerificationPage() {
     return "bg-yellow-100 text-yellow-700 border-yellow-300";
   };
 
+  // Early return: Don't render anything if user doesn't have compound selected
+  // This prevents any API calls from being made
+  if (!userLoading && user && !user.compound_id) {
+    // Redirect will happen in useEffect, but return early to prevent rendering
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Please select a compound first...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while user data is being fetched
+  if (userLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   const nationalIdStatus = status?.national_id?.status;
   const contractStatus = status?.contract?.status;
   const bothUploaded = nationalIdStatus && contractStatus;
   const bothApproved = nationalIdStatus === "APPROVED" && contractStatus === "APPROVED";
+  
+  // Check if there are pending uploads ready to submit
+  const hasPendingUploads = pendingNationalId || pendingContract;
+  const canSubmit = hasPendingUploads && !submitting;
+
+  // Submit all pending documents
+  const submitDocuments = async () => {
+    if (!hasPendingUploads) return;
+    
+    setSubmitting(true);
+    try {
+      const submissions = [];
+      
+      if (pendingNationalId) {
+        submissions.push(
+          api.post("/api/verification/submit", {
+            file_url: pendingNationalId,
+            document_type: "NATIONAL_ID",
+          })
+        );
+      }
+      
+      if (pendingContract) {
+        submissions.push(
+          api.post("/api/verification/submit", {
+            file_url: pendingContract,
+            document_type: "CONTRACT",
+          })
+        );
+      }
+      
+      await Promise.all(submissions);
+      
+      // Clear pending uploads
+      setPendingNationalId(null);
+      setPendingContract(null);
+      
+      // Refresh status
+      await refetch();
+      
+      toast({
+        title: "Documents submitted! 🎉",
+        description: "Your documents have been submitted for review. You'll be notified once verification is complete.",
+        variant: "success",
+      });
+    } catch (error: any) {
+      console.error("Submission failed:", error);
+      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to submit documents. Please try again.";
+      toast({
+        title: "Submission failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-16">
@@ -178,6 +307,20 @@ export default function VerificationPage() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Verification Documents
           </h1>
+          {compound && (
+            <div className="mb-3 inline-block px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 text-gray-700">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                <span className="text-sm text-gray-500">Verifying for</span>
+                <span className="text-lg font-semibold text-gray-800">
+                  {compound.name}
+                </span>
+                {compound.area && (
+                  <span className="text-sm text-gray-500">• {compound.area}</span>
+                )}
+              </div>
+            </div>
+          )}
           <p className="text-gray-600 text-lg">
             Upload your documents to get verified and unlock all features
           </p>
@@ -211,7 +354,7 @@ export default function VerificationPage() {
               Required Documents
             </CardTitle>
             <CardDescription className="text-blue-100">
-              Both documents are required for verification
+              Upload one or both documents, then click "Submit Documents" when ready
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
@@ -290,12 +433,22 @@ export default function VerificationPage() {
                 className="hidden"
                 id="national-id-upload"
               />
+              {/* Show pending upload indicator */}
+              {pendingNationalId && !nationalIdStatus && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Document uploaded and ready to submit
+                  </p>
+                </div>
+              )}
+              
               <label htmlFor="national-id-upload">
                 <Button
                   variant={nationalIdStatus === "APPROVED" ? "outline" : "default"}
-                  disabled={uploading === "national_id"}
+                  disabled={uploading === "national_id" || nationalIdStatus === "APPROVED"}
                   className={`w-full transition-all duration-200 ${
-                    uploading === "national_id"
+                    uploading === "national_id" || nationalIdStatus === "APPROVED"
                       ? "opacity-75 cursor-not-allowed"
                       : "hover:scale-[1.02] hover:shadow-md"
                   }`}
@@ -310,7 +463,7 @@ export default function VerificationPage() {
                     ) : (
                       <>
                         <Upload className="w-4 h-4 mr-2" />
-                        {status?.national_id
+                        {status?.national_id || pendingNationalId
                           ? "Replace Document"
                           : "Upload Document"}
                       </>
@@ -397,12 +550,22 @@ export default function VerificationPage() {
                 className="hidden"
                 id="contract-upload"
               />
+              {/* Show pending upload indicator */}
+              {pendingContract && !contractStatus && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Document uploaded and ready to submit
+                  </p>
+                </div>
+              )}
+              
               <label htmlFor="contract-upload">
                 <Button
                   variant={contractStatus === "APPROVED" ? "outline" : "default"}
-                  disabled={uploading === "contract"}
+                  disabled={uploading === "contract" || contractStatus === "APPROVED"}
                   className={`w-full transition-all duration-200 ${
-                    uploading === "contract"
+                    uploading === "contract" || contractStatus === "APPROVED"
                       ? "opacity-75 cursor-not-allowed"
                       : "hover:scale-[1.02] hover:shadow-md"
                   }`}
@@ -417,7 +580,7 @@ export default function VerificationPage() {
                     ) : (
                       <>
                         <Upload className="w-4 h-4 mr-2" />
-                        {status?.contract
+                        {status?.contract || pendingContract
                           ? "Replace Document"
                           : "Upload Document"}
                       </>
@@ -426,6 +589,37 @@ export default function VerificationPage() {
                 </Button>
               </label>
             </div>
+
+            {/* Submit Documents Button */}
+            {hasPendingUploads && (
+              <div className="pt-4 border-t-2 border-gray-200">
+                <Button
+                  onClick={submitDocuments}
+                  disabled={!canSubmit}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  size="lg"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Submitting Documents...
+                    </>
+                  ) : (
+                    <>
+                      <FileCheck className="w-5 h-5 mr-2" />
+                      Submit Documents for Review
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  {pendingNationalId && pendingContract
+                    ? "Both documents will be submitted"
+                    : pendingNationalId
+                    ? "National ID will be submitted"
+                    : "Contract will be submitted"}
+                </p>
+              </div>
+            )}
 
             {status?.can_post && (
               <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl shadow-lg animate-fade-in">
