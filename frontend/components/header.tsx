@@ -139,6 +139,25 @@ export function Header() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
+                      <Link href="/feed" className="flex items-center">
+                        <Home className="mr-2 h-4 w-4" />
+                        <span>Community Feed</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/marketplace" className="flex items-center">
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        <span>Marketplace</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/marketplace/new" className="flex items-center">
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        <span>Create Listing</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
                       <Link href="/verification" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
                         <span>Verification</span>
@@ -154,6 +173,13 @@ export function Header() {
                       <Link href="/settings" className="flex items-center">
                         <Settings className="mr-2 h-4 w-4" />
                         <span>Settings</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/features" className="flex items-center">
+                        <Home className="mr-2 h-4 w-4" />
+                        <span>All Features</span>
                       </Link>
                     </DropdownMenuItem>
                     {isAdmin && (

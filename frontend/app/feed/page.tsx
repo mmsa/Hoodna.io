@@ -348,7 +348,7 @@ export default function FeedPage() {
                       View Profile
                     </Button>
                   </Link>
-                  <Link href="/marketplace/create">
+                  <Link href="/marketplace/new">
                     <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700">
                       <Plus className="w-4 h-4 mr-2" />
                       Sell Something
@@ -563,7 +563,7 @@ export default function FeedPage() {
                       <p className="text-gray-500 mb-4">
                         Be the first to list something for sale or rent!
                       </p>
-                      <Link href="/marketplace/create">
+                      <Link href="/marketplace/new">
                         <Button className="bg-gradient-to-r from-green-500 to-emerald-600">
                           <Plus className="w-4 h-4 mr-2" />
                           Create Listing
