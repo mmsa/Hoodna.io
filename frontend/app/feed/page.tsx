@@ -32,6 +32,11 @@ import {
   Building2,
   CheckCircle,
   Settings,
+  HelpCircle,
+  Search,
+  Clock,
+  ThumbsUp,
+  Smile,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -104,6 +109,96 @@ const getCategoryName = (category: string) => {
     default:
       return category;
   }
+};
+
+// Time formatting utility - "2h ago" style
+const formatTimeAgo = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return "just now";
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 604800)
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+// Post type detection
+const detectPostType = (
+  content: string
+): {
+  type: "help" | "lost" | "event" | "marketplace" | "general";
+  icon: any;
+  color: string;
+  badge: string;
+} => {
+  const lowerContent = content.toLowerCase();
+
+  if (
+    lowerContent.includes("lost") ||
+    lowerContent.includes("found") ||
+    lowerContent.includes("missing")
+  ) {
+    return {
+      type: "lost",
+      icon: Search,
+      color: "pink",
+      badge: "LOST & FOUND",
+    };
+  }
+
+  if (
+    lowerContent.includes("help") ||
+    lowerContent.includes("need") ||
+    lowerContent.includes("urgent") ||
+    lowerContent.includes("plumber") ||
+    lowerContent.includes("electrician")
+  ) {
+    return {
+      type: "help",
+      icon: HelpCircle,
+      color: "amber",
+      badge: "HELP REQUEST",
+    };
+  }
+
+  if (
+    lowerContent.includes("event") ||
+    lowerContent.includes("gathering") ||
+    lowerContent.includes("meeting") ||
+    lowerContent.includes("weekend") ||
+    lowerContent.includes("party")
+  ) {
+    return {
+      type: "event",
+      icon: Calendar,
+      color: "indigo",
+      badge: "COMMUNITY EVENT",
+    };
+  }
+
+  if (
+    lowerContent.includes("sell") ||
+    lowerContent.includes("buy") ||
+    lowerContent.includes("for sale") ||
+    lowerContent.includes("for rent")
+  ) {
+    return {
+      type: "marketplace",
+      icon: ShoppingBag,
+      color: "green",
+      badge: "MARKETPLACE",
+    };
+  }
+
+  return {
+    type: "general",
+    icon: MessageCircle,
+    color: "gray",
+    badge: "",
+  };
 };
 
 export default function FeedPage() {
@@ -364,10 +459,11 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#FAFAFA]">
+      {/* Responsive layout - wider feed on desktop */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6">
-          {/* Sidebar - Profile */}
+          {/* Sidebar - Profile (hidden on mobile, visible on large screens) */}
           <aside className="hidden lg:block w-80 flex-shrink-0">
             <ProfileSidebar
               user={user}
@@ -376,8 +472,8 @@ export default function FeedPage() {
             />
           </aside>
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
+          {/* Main Content - Feed (wider, more comfortable) */}
+          <div className="flex-1 min-w-0 lg:max-w-3xl">
             {/* Header - User Name and Location (Mobile) */}
             {user && feedSummary && (
               <div className="mb-6 lg:hidden">
@@ -393,7 +489,7 @@ export default function FeedPage() {
             )}
 
             {/* Create Post Input - At the top */}
-            <Card className="mb-6 border border-gray-200 shadow-sm">
+            <Card className="mb-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-xl bg-white">
               <CardContent className="p-4">
                 <div className="flex gap-2">
                   <Input
@@ -401,12 +497,12 @@ export default function FeedPage() {
                     value={newPost}
                     onChange={(e) => setNewPost(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && handleCreatePost()}
-                    className="flex-1 border-gray-300"
+                    className="flex-1 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-200"
                   />
                   <Button
                     onClick={handleCreatePost}
                     disabled={createPostMutation.isPending || !newPost.trim()}
-                    className="bg-purple-600 hover:bg-purple-700"
+                    className="bg-purple-600 hover:bg-purple-700 rounded-lg"
                   >
                     {createPostMutation.isPending ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -418,26 +514,25 @@ export default function FeedPage() {
               </CardContent>
             </Card>
 
-            {/* Latest Posts Section */}
-            {posts && posts.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <MessageCircle className="w-5 h-5 text-purple-600" />
-                    Latest Posts
-                  </h2>
-                  <Link href="/feed?tab=posts">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-purple-600"
-                    >
-                      View all →
-                    </Button>
-                  </Link>
+            {/* Compound Announcements Section - Moderator Only (Always visible) */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center shadow-sm">
+                  <Bell className="w-5 h-5 text-white" />
                 </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Compound Announcements
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Official updates from compound management
+                  </p>
+                </div>
+              </div>
+
+              {announcements && announcements.length > 0 ? (
                 <div className="space-y-4">
-                  {posts.slice(0, 3).map((post) => (
+                  {announcements.map((post) => (
                     <PostCard
                       key={post.id}
                       post={post}
@@ -448,66 +543,22 @@ export default function FeedPage() {
                     />
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Compound Announcements by Moderation */}
-            {announcements && announcements.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-yellow-600" />
-                    Announcements by Compound Moderation
-                  </h2>
-                  <Link href="/feed?tab=announcements">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-purple-600"
-                    >
-                      View all →
-                    </Button>
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {announcements.slice(0, 3).map((post) => (
-                    <div
-                      key={post.id}
-                      className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
-                      onClick={() => {
-                        document
-                          .getElementById(`post-${post.id}`)
-                          ?.scrollIntoView({ behavior: "smooth" });
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0">
-                          <span className="text-white text-xs font-bold">
-                            {post.author_name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-sm text-gray-900">
-                              {post.author_name}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 bg-yellow-200 text-yellow-800 rounded-full font-medium">
-                              Management
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(post.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 line-clamp-2">
-                            {post.content}
-                          </p>
-                        </div>
-                      </div>
+              ) : (
+                <Card className="border border-gray-200 rounded-xl bg-gradient-to-br from-yellow-50 to-amber-50/30">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-3">
+                      <Bell className="w-8 h-8 text-yellow-500" />
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    <h3 className="text-base font-semibold text-gray-900 mb-1">
+                      No announcements
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Check back later for updates from compound management
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
             {/* Featured Items Section */}
             {featuredItems && featuredItems.length > 0 && (
@@ -746,27 +797,6 @@ export default function FeedPage() {
               </div>
             )}
 
-            {/* All Posts - Full Feed */}
-            {posts && posts.length > 3 && (
-              <div className="border-t border-gray-200 pt-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  All Posts
-                </h2>
-                <div className="space-y-4">
-                  {posts.slice(3).map((post) => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      newComments={newComments}
-                      setNewComments={setNewComments}
-                      handleCreateComment={handleCreateComment}
-                      createCommentMutation={createCommentMutation}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {posts && posts.length === 0 && (
               <Card className="border border-gray-200">
                 <CardContent className="p-12 text-center">
@@ -923,14 +953,6 @@ function ProfileSidebar({
                   </span>
                 </div>
               )}
-              {feedSummary.compound_status && (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <span className="text-xs text-gray-600">
-                    {feedSummary.compound_status}
-                  </span>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -971,7 +993,7 @@ function ProfileSidebar({
   );
 }
 
-// Post Card Component - Simplified
+// Post Card Component - Redesigned for warmth and engagement
 function PostCard({
   post,
   newComments,
@@ -985,65 +1007,133 @@ function PostCard({
   handleCreateComment: (postId: number) => void;
   createCommentMutation: any;
 }) {
+  const postType = detectPostType(post.content);
+  const timeAgo = formatTimeAgo(post.created_at);
+  const isNew =
+    new Date().getTime() - new Date(post.created_at).getTime() < 3600000; // Less than 1 hour
+
+  // Color mapping for post types
+  const colorClasses = {
+    help: "border-l-amber-500 bg-amber-50/30",
+    lost: "border-l-pink-500 bg-pink-50/30",
+    event: "border-l-indigo-500 bg-indigo-50/30",
+    marketplace: "border-l-green-500 bg-green-50/30",
+    general: "border-l-gray-200",
+  };
+
+  const badgeColors = {
+    help: "bg-amber-100 text-amber-800 border-amber-200",
+    lost: "bg-pink-100 text-pink-800 border-pink-200",
+    event: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    marketplace: "bg-green-100 text-green-800 border-green-200",
+    general: "",
+  };
+
+  const IconComponent = postType.icon;
+
   return (
-    <Card id={`post-${post.id}`} className="border border-gray-200">
-      <CardContent className="p-4">
+    <Card
+      id={`post-${post.id}`}
+      className={`border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 bg-white ${
+        colorClasses[postType.type]
+      }`}
+    >
+      <CardContent className="p-5">
+        {/* Header: Avatar + Name + Time */}
         <div className="flex items-start gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-semibold text-sm">
-              {post.author_name.charAt(0).toUpperCase()}
-            </span>
+          {/* Larger avatar - 48px for more human connection */}
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 ring-2 ring-purple-100">
+              <span className="text-white font-semibold text-base">
+                {post.author_name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            {isNew && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
+            )}
           </div>
-          <div className="flex-1">
-            <div className="font-semibold text-sm text-gray-900 mb-1">
-              {post.author_name}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="font-semibold text-base text-gray-900">
+                {post.author_name}
+              </div>
+              {postType.badge && (
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                    badgeColors[postType.type]
+                  }`}
+                >
+                  <IconComponent className="w-3 h-3 inline mr-1" />
+                  {postType.badge}
+                </span>
+              )}
             </div>
             <div className="text-xs text-gray-500 flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {new Date(post.created_at).toLocaleDateString()} at{" "}
-              {new Date(post.created_at).toLocaleTimeString()}
+              <Clock className="w-3 h-3" />
+              {timeAgo}
             </div>
           </div>
         </div>
-        <p className="text-gray-800 mb-4 leading-relaxed">{post.content}</p>
 
-        <div className="flex items-center gap-4 mb-4 pb-3 border-b border-gray-200">
-          <button className="flex items-center gap-1 text-gray-600 hover:text-red-500 transition-colors text-sm">
-            <Heart className="w-4 h-4" />
-            <span>Like</span>
-          </button>
-          <button className="flex items-center gap-1 text-gray-600 hover:text-blue-500 transition-colors text-sm">
+        {/* Content */}
+        <p className="text-[15px] text-gray-800 mb-4 leading-relaxed">
+          {post.content}
+        </p>
+
+        {/* Inline Reactions - Facebook/WhatsApp style */}
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+          {/* Reaction buttons */}
+          <div className="flex items-center gap-1">
+            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-red-500">
+              <span className="text-lg">❤️</span>
+            </button>
+            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-blue-500">
+              <span className="text-lg">👍</span>
+            </button>
+            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-yellow-500">
+              <span className="text-lg">😮</span>
+            </button>
+            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-purple-500">
+              <span className="text-lg">🙏</span>
+            </button>
+          </div>
+
+          {/* Comment button */}
+          <button className="flex items-center gap-1 text-gray-600 hover:text-blue-500 transition-colors text-sm ml-2 px-2 py-1 rounded-lg hover:bg-blue-50">
             <MessageCircle className="w-4 h-4" />
-            <span>{post.comments?.length || 0} Comments</span>
+            <span>{post.comments?.length || 0}</span>
           </button>
-          <button className="flex items-center gap-1 text-gray-600 hover:text-green-500 transition-colors text-sm">
+
+          {/* Share button */}
+          <button className="flex items-center gap-1 text-gray-600 hover:text-green-500 transition-colors text-sm px-2 py-1 rounded-lg hover:bg-green-50 ml-auto">
             <Share2 className="w-4 h-4" />
-            <span>Share</span>
+            <span className="hidden sm:inline">Share</span>
           </button>
         </div>
 
+        {/* Comments Section */}
         <div className="space-y-3">
           {post.comments && post.comments.length > 0 && (
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {post.comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="pl-3 border-l-2 border-purple-200 bg-purple-50 rounded-r p-2"
+                  className="pl-3 border-l-2 border-purple-200 bg-purple-50/50 rounded-r-lg p-2.5 hover:bg-purple-50 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-full bg-purple-400 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 flex items-center justify-center ring-1 ring-purple-200">
                       <span className="text-white text-xs font-bold">
                         {comment.author_name.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <span className="font-semibold text-xs text-gray-900">
+                    <span className="font-semibold text-sm text-gray-900">
                       {comment.author_name}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(comment.created_at).toLocaleDateString()}
+                      {formatTimeAgo(comment.created_at)}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700 ml-8">
+                  <p className="text-sm text-gray-700 ml-9 leading-relaxed">
                     {comment.content}
                   </p>
                 </div>
@@ -1051,7 +1141,8 @@ function PostCard({
             </div>
           )}
 
-          <div className="flex gap-2">
+          {/* Comment Input - More conversational */}
+          <div className="flex gap-2 pt-2">
             <Input
               placeholder="Write a comment..."
               value={newComments[post.id] || ""}
@@ -1064,7 +1155,7 @@ function PostCard({
               onKeyPress={(e) =>
                 e.key === "Enter" && handleCreateComment(post.id)
               }
-              className="text-sm border-gray-300 flex-1"
+              className="text-sm border-gray-300 flex-1 rounded-lg focus:ring-2 focus:ring-purple-200 bg-gray-50 focus:bg-white transition-colors"
             />
             <Button
               size="sm"
@@ -1072,7 +1163,7 @@ function PostCard({
               disabled={
                 createCommentMutation.isPending || !newComments[post.id]?.trim()
               }
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-purple-600 hover:bg-purple-700 rounded-lg"
             >
               {createCommentMutation.isPending ? (
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>

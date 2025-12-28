@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from app.models.saved_listing import SavedListing
 from app.models.listing import Listing
 from typing import List
@@ -76,6 +77,10 @@ async def get_saved_listings(
     """Get all saved listings for a user."""
     result = await db.execute(
         select(Listing)
+        .options(
+            selectinload(Listing.compound),
+            selectinload(Listing.owner)
+        )
         .join(SavedListing, Listing.id == SavedListing.listing_id)
         .where(SavedListing.user_id == user_id)
         .order_by(SavedListing.created_at.desc())
