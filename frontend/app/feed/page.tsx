@@ -236,6 +236,30 @@ export default function FeedPage() {
     }
   }, [user, userLoading, router]);
 
+  // Block REJECTED users from accessing the feed
+  if (!userLoading && user && user.status === "REJECTED") {
+    return (
+      <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-32 h-32 mx-auto mb-8 bg-red-100 rounded-full flex items-center justify-center">
+            <span className="text-6xl">🚫</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Verification Not Granted
+          </h1>
+          <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+            Your verification request has been rejected. You cannot access the community feed at this time.
+          </p>
+          <Link href="/verification">
+            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              Review Verification Status
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch feed summary - only if compound is selected and user is verified
   const { data: feedSummary } = useQuery<FeedSummary>({
     queryKey: ["feed-summary"],

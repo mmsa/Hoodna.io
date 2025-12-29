@@ -6,7 +6,7 @@ export default function AuthSelectionScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F7F2' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }}>
       <ScrollView 
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
@@ -16,19 +16,27 @@ export default function AuthSelectionScreen() {
           <View style={{ alignItems: 'center', marginBottom: 48 }}>
             <View
               style={{
-                width: 80,
-                height: 80,
-                borderRadius: 24,
-                backgroundColor: '#2D6A4F',
+                width: 64,
+                height: 64,
+                borderRadius: 16,
+                backgroundColor: '#3B82F6',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 24,
+                shadowColor: '#9333EA',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 4,
               }}
             >
-              <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#FFFFFF' }}>H</Text>
+              <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' }}>🏠</Text>
             </View>
-            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
-              Welcome to Hoodna
+            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#2563EB', marginBottom: 8 }}>
+              Hoodna.io
+            </Text>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: '#1B1B1B', marginBottom: 4 }}>
+              Welcome to your community
             </Text>
             <Text style={{ fontSize: 16, color: '#6C757D', textAlign: 'center', lineHeight: 24 }}>
               Your community, your neighborhood
@@ -39,12 +47,12 @@ export default function AuthSelectionScreen() {
           <View style={{ marginBottom: 24 }}>
             <TouchableOpacity
               style={{
-                backgroundColor: '#2D6A4F',
+                backgroundColor: '#3B82F6',
                 borderRadius: 12,
                 paddingVertical: 18,
                 alignItems: 'center',
                 marginBottom: 16,
-                shadowColor: '#2D6A4F',
+                shadowColor: '#3B82F6',
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.1,
                 shadowRadius: 8,
@@ -65,7 +73,7 @@ export default function AuthSelectionScreen() {
                 paddingVertical: 18,
                 alignItems: 'center',
                 borderWidth: 1.5,
-                borderColor: '#2D6A4F',
+                borderColor: '#3B82F6',
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.05,
@@ -75,7 +83,7 @@ export default function AuthSelectionScreen() {
               onPress={() => router.push("/auth/phone-login")}
               activeOpacity={0.8}
             >
-              <Text style={{ color: '#2D6A4F', fontSize: 16, fontWeight: '600' }}>
+              <Text style={{ color: '#3B82F6', fontSize: 16, fontWeight: '600' }}>
                 Continue with Phone
               </Text>
             </TouchableOpacity>
@@ -87,7 +95,7 @@ export default function AuthSelectionScreen() {
               Don't have an account?
             </Text>
             <TouchableOpacity onPress={() => router.push("/auth/signup")}>
-              <Text style={{ fontSize: 14, color: '#2D6A4F', fontWeight: '600' }}>
+              <Text style={{ fontSize: 14, color: '#3B82F6', fontWeight: '600' }}>
                 Sign up
               </Text>
             </TouchableOpacity>

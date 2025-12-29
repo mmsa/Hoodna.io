@@ -104,7 +104,7 @@ export default function SearchScreen() {
   const hasResults = searchResults.posts.length > 0 || searchResults.listings.length > 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
       <View style={{ flex: 1 }}>
         {/* Header with Logo */}
         <Header showLogo={true} />
@@ -142,7 +142,7 @@ export default function SearchScreen() {
             />
             <TouchableOpacity
               style={{
-                backgroundColor: "#2D6A4F",
+                backgroundColor: "#3B82F6",
                 borderRadius: 12,
                 paddingHorizontal: 20,
                 justifyContent: "center",
@@ -333,7 +333,7 @@ export default function SearchScreen() {
                           style={{
                             fontSize: 18,
                             fontWeight: "bold",
-                            color: "#2D6A4F",
+                            color: "#3B82F6",
                             marginTop: 4,
                           }}
                         >

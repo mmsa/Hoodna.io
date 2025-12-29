@@ -38,7 +38,7 @@ export default function PhoneLoginScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F7F2' }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -90,7 +90,7 @@ export default function PhoneLoginScreen() {
 
       <TouchableOpacity
         style={{
-          backgroundColor: '#2D6A4F',
+          backgroundColor: '#3B82F6',
           borderRadius: 12,
           paddingVertical: 16,
           alignItems: 'center',
@@ -116,7 +116,8 @@ export default function PhoneLoginScreen() {
           Or sign in with email
         </Text>
       </TouchableOpacity>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 

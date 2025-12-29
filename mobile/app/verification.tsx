@@ -208,8 +208,8 @@ export default function VerificationScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={{ marginTop: 16, color: "#6C757D" }}>Loading...</Text>
       </SafeAreaView>
     );
@@ -221,7 +221,7 @@ export default function VerificationScreen() {
   const canSubmit = hasPendingUploads && !submitting;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{

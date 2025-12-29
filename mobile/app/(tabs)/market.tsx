@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Listing } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
+import { colors } from "@/constants/colors";
 
 const CATEGORIES = [
   { value: "", label: "All Categories", icon: "🛒" },
@@ -38,13 +39,13 @@ function getCategoryIcon(category: string): string {
 }
 
 function getCategoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    ITEM: "#3B82F6",
-    CAR: "#10B981",
-    PROPERTY: "#8B5CF6",
-    SERVICE: "#F59E0B",
+  const categoryColors: Record<string, string> = {
+    ITEM: colors.primary,
+    CAR: colors.success,
+    PROPERTY: colors.purple,
+    SERVICE: colors.accent,
   };
-  return colors[category] || "#6B7280";
+  return categoryColors[category] || colors.textMuted;
 }
 
 function ListingCard({ listing, router }: { listing: Listing; router: any }) {
@@ -54,17 +55,18 @@ function ListingCard({ listing, router }: { listing: Listing; router: any }) {
   return (
     <TouchableOpacity
       style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: 12,
+        backgroundColor: colors.backgroundCard,
+        borderRadius: 16,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "#E5E7EB",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderColor: colors.border,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
       }}
+      activeOpacity={0.8}
       onPress={() => router.push(`/listing/${listing.id}`)}
       activeOpacity={0.9}
     >
@@ -135,7 +137,7 @@ function ListingCard({ listing, router }: { listing: Listing; router: any }) {
           style={{
             fontSize: 16,
             fontWeight: "bold",
-            color: "#2D6A4F",
+            color: "#3B82F6",
             marginTop: 4,
           }}
         >
@@ -201,6 +203,53 @@ export default function MarketScreen() {
 
   const canCreateListing = user?.can_create_listing || false;
   const hasActiveFilters = selectedCategory || selectedIntent || minPrice || maxPrice || searchQuery;
+  const verificationStatus = user?.verification_status || "UNVERIFIED";
+
+  // Block REJECTED users from accessing the marketplace
+  if (verificationStatus === "REJECTED") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+        <Header showLogo={true} />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }}>
+          <View
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              backgroundColor: colors.errorLight + "30",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 24,
+            }}
+          >
+            <Text style={{ fontSize: 64 }}>🚫</Text>
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
+            Verification Not Granted
+          </Text>
+          <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24, marginBottom: 32 }}>
+            Your verification request has been rejected. You cannot access the marketplace at this time.
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onPress={() => router.push("/verification")}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
+              Review Verification Status
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Group listings into rows of 2
   const renderRow = (rowItems: Listing[]) => {
@@ -223,18 +272,23 @@ export default function MarketScreen() {
 
   if (loading && listings.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
+        <View style={{ alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
+            Loading marketplace... 🛒
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <FlatList
         data={listingRows}
         keyExtractor={(_, index) => `row-${index}`}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2D6A4F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3B82F6" />}
         ListHeaderComponent={
           <View>
             {/* Header with Logo */}
@@ -281,7 +335,7 @@ export default function MarketScreen() {
                 />
                 <TouchableOpacity
                   style={{
-                    backgroundColor: "#2D6A4F",
+                    backgroundColor: "#3B82F6",
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     borderRadius: 12,
@@ -361,7 +415,7 @@ export default function MarketScreen() {
                       <TouchableOpacity
                         key={opt.value}
                         style={{
-                          backgroundColor: sortBy === opt.value ? "#2D6A4F" : "#F3F4F6",
+                          backgroundColor: sortBy === opt.value ? "#3B82F6" : "#F3F4F6",
                           paddingHorizontal: 12,
                           paddingVertical: 6,
                           borderRadius: 8,
@@ -457,7 +511,7 @@ export default function MarketScreen() {
 
                     <TouchableOpacity
                       style={{
-                        backgroundColor: "#2D6A4F",
+                        backgroundColor: "#3B82F6",
                         borderRadius: 12,
                         paddingVertical: 14,
                         alignItems: "center",

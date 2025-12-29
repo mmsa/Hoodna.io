@@ -70,15 +70,105 @@
     }
   }
   
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+    }
+  }
+  
+  @keyframes bounce-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.8) translateY(10px);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+  
   .animate-fade-in {
     animation: fade-in 0.5s ease-out;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out;
+  }
+  
+  .animate-bounce-in {
+    animation: bounce-in 0.5s ease-out;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background: linear-gradient(
+      to right,
+      #f6f7f8 0%,
+      #edeef1 20%,
+      #f6f7f8 40%,
+      #f6f7f8 100%
+    );
+    background-size: 1000px 100%;
   }
 
   .bg-grid-pattern {
     background-image: 
-      linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+      linear-gradient(to right, rgba(99, 102, 241, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(99, 102, 241, 0.1) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+  
+  .bg-gradient-vibrant {
+    background: linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%);
+  }
+  
+  .bg-gradient-soft {
+    background: linear-gradient(135deg, #F0F4FF 0%, #FFFFFF 50%, #F8FAFF 100%);
+  }
+  
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.15);
+  }
+  
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
   }
 }
 

@@ -90,8 +90,8 @@ export default function PostDetailScreen() {
 
   if (loading || !post) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
       </SafeAreaView>
     );
   }
@@ -100,7 +100,7 @@ export default function PostDetailScreen() {
   const initials = getInitials(post.author_name);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -225,7 +225,7 @@ export default function PostDetailScreen() {
               />
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#2D6A4F",
+                  backgroundColor: "#3B82F6",
                   borderRadius: 12,
                   paddingVertical: 12,
                   alignItems: "center",

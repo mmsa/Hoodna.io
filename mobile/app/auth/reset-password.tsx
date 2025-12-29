@@ -65,15 +65,15 @@ export default function ResetPasswordScreen() {
 
   if (!token && !error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={{ marginTop: 16, color: "#6C757D" }}>Loading...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
@@ -206,11 +206,11 @@ export default function ResetPasswordScreen() {
               {/* Submit Button */}
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#2D6A4F",
+                  backgroundColor: "#3B82F6",
                   borderRadius: 12,
                   paddingVertical: 16,
                   alignItems: "center",
-                  shadowColor: "#2D6A4F",
+                  shadowColor: "#3B82F6",
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.1,
                   shadowRadius: 8,
@@ -232,7 +232,7 @@ export default function ResetPasswordScreen() {
               {/* Back to Login */}
               <View style={{ alignItems: "center", marginTop: 24 }}>
                 <TouchableOpacity onPress={() => router.push("/auth/login")}>
-                  <Text style={{ fontSize: 14, color: "#2D6A4F", fontWeight: "600" }}>
+                  <Text style={{ fontSize: 14, color: "#3B82F6", fontWeight: "600" }}>
                     Back to login
                   </Text>
                 </TouchableOpacity>

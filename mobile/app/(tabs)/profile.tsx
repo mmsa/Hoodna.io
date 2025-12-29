@@ -40,14 +40,14 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
       {/* Header with Logo */}
       <Header showLogo={true} />
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -204,7 +204,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: "#2D6A4F",
+                  backgroundColor: "#3B82F6",
                   borderRadius: 12,
                   paddingVertical: 12,
                   alignItems: "center",

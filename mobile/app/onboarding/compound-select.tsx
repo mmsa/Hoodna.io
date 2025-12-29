@@ -46,14 +46,14 @@ export default function CompoundSelectScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9F7F2' }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F7F2' }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -94,7 +94,7 @@ export default function CompoundSelectScreen() {
               padding: 16,
               marginBottom: 12,
               borderWidth: 2,
-              borderColor: selectedId === item.id ? '#2D6A4F' : 'transparent',
+              borderColor: selectedId === item.id ? '#3B82F6' : 'transparent',
             }}
             onPress={() => handleSelect(item.id)}
             disabled={selectedId !== null}

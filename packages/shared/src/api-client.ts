@@ -184,6 +184,29 @@ export class ApiClient {
     });
   }
 
+  async saveListing(listingId: number): Promise<{ message: string; saved: boolean }> {
+    return this.request<{ message: string; saved: boolean }>(`/api/listings/${listingId}/save`, {
+      method: "POST",
+    });
+  }
+
+  async unsaveListing(listingId: number): Promise<{ message: string; saved: boolean }> {
+    return this.request<{ message: string; saved: boolean }>(`/api/listings/${listingId}/save`, {
+      method: "DELETE",
+    });
+  }
+
+  async sendMessage(data: {
+    recipient_id: number;
+    content: string;
+    listing_id?: number | null;
+  }): Promise<any> {
+    return this.request("/api/messages", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   // Compounds
   async getCompounds(params?: {
     area?: string;

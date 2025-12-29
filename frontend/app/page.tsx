@@ -93,103 +93,129 @@ export default function Home() {
   ]
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Hero Section */}
+    <main className="min-h-screen bg-gradient-soft">
+      {/* Hero Section - More Emotional & Engaging */}
       <section className="relative overflow-hidden pt-20 pb-32 px-4">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center max-w-4xl mx-auto animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full text-blue-700 text-sm font-medium mb-6">
-              <Sparkles className="w-4 h-4" />
-              <span>Verified Neighborhood Community</span>
+        {/* Animated gradient orbs */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+        <div className="absolute top-40 right-10 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '4s' }}></div>
+        
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <div className="text-center max-w-4xl mx-auto animate-slide-up">
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full text-indigo-700 text-sm font-semibold mb-8 shadow-lg hover:scale-105 transition-transform duration-200">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              <span>✨ Verified Neighborhood Community</span>
             </div>
             
-            <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
-              Your Compound,<br />Your Community
+            <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold mb-8 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight tracking-tight">
+              Your Compound,<br />
+              <span className="bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Your Community
+              </span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Connect with verified neighbors, buy and sell safely, and build a thriving community within your compound.
+            <p className="text-xl md:text-2xl lg:text-3xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed font-medium">
+              Connect with verified neighbors, buy and sell safely, and build a thriving community within your compound. 
+              <span className="text-indigo-600 font-semibold"> No agents. No fees. Just real connections.</span> 💫
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center mb-16">
               {isAuthenticated ? (
                 <>
                   <Link href="/feed">
-                    <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 px-8 py-6 text-lg">
-                      Go to Feed
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                    <Button size="lg" className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 px-10 py-7 text-lg font-bold rounded-2xl group">
+                      <span className="flex items-center gap-2">
+                        Go to Feed
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </span>
                     </Button>
                   </Link>
                   <Link href="/marketplace">
-                    <Button size="lg" variant="outline" className="border-2 px-8 py-6 text-lg">
-                      Browse Marketplace
+                    <Button size="lg" variant="outline" className="border-3 border-indigo-300 hover:border-indigo-500 px-10 py-7 text-lg font-semibold rounded-2xl hover:bg-indigo-50 transition-all duration-300 hover:scale-105">
+                      Browse Marketplace 🛒
                     </Button>
                   </Link>
                 </>
               ) : (
                 <>
                   <Link href="/auth/signup">
-                    <Button size="lg" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 px-8 py-6 text-lg">
-                      Get Started Free
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                    <Button size="lg" className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 px-10 py-7 text-lg font-bold rounded-2xl group animate-pulse-glow">
+                      <span className="flex items-center gap-2">
+                        Get Started Free 🚀
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </span>
                     </Button>
                   </Link>
                   <Link href="/auth/login">
-                    <Button size="lg" variant="outline" className="border-2 px-8 py-6 text-lg">
-                      Sign In
+                    <Button size="lg" variant="outline" className="border-3 border-indigo-300 hover:border-indigo-500 px-10 py-7 text-lg font-semibold rounded-2xl hover:bg-indigo-50 transition-all duration-300 hover:scale-105">
+                      Sign In ✨
                     </Button>
                   </Link>
                 </>
               )}
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 max-w-2xl mx-auto pt-8 border-t">
-              <div>
-                <div className="text-3xl font-bold text-blue-600">100%</div>
-                <div className="text-sm text-gray-600 mt-1">Verified</div>
+            {/* Stats - More Engaging */}
+            <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto pt-12 border-t-2 border-indigo-200">
+              <div className="group hover:scale-110 transition-transform duration-300 cursor-default">
+                <div className="text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                  100%
+                </div>
+                <div className="text-base font-semibold text-slate-700">Verified ✨</div>
+                <div className="text-xs text-slate-500 mt-1">All neighbors checked</div>
               </div>
-              <div>
-                <div className="text-3xl font-bold text-purple-600">0%</div>
-                <div className="text-sm text-gray-600 mt-1">Agent Fees</div>
+              <div className="group hover:scale-110 transition-transform duration-300 cursor-default">
+                <div className="text-5xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+                  $0
+                </div>
+                <div className="text-base font-semibold text-slate-700">Agent Fees 💰</div>
+                <div className="text-xs text-slate-500 mt-1">Direct deals only</div>
               </div>
-              <div>
-                <div className="text-3xl font-bold text-pink-600">∞</div>
-                <div className="text-sm text-gray-600 mt-1">Possibilities</div>
+              <div className="group hover:scale-110 transition-transform duration-300 cursor-default">
+                <div className="text-5xl font-extrabold bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+                  ∞
+                </div>
+                <div className="text-base font-semibold text-slate-700">Possibilities 🎯</div>
+                <div className="text-xs text-slate-500 mt-1">Endless connections</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 px-4 bg-white">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Everything You Need
+      {/* Features Section - More Engaging */}
+      <section className="py-24 px-4 bg-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-pink-50/50"></div>
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <div className="text-center mb-20 animate-slide-up">
+            <h2 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 bg-gradient-to-r from-indigo-900 via-purple-900 to-pink-900 bg-clip-text text-transparent">
+              Everything You Need 🎁
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              A complete platform for your compound community
+            <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto font-medium">
+              A complete platform designed for your compound community. 
+              <span className="text-indigo-600 font-semibold"> Built with love, powered by trust.</span> 💙
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon
               return (
                 <Card 
                   key={index} 
-                  className="border-2 hover:shadow-xl transition-all duration-300 hover:scale-105 animate-fade-in"
+                  className="border-2 border-slate-200 hover:border-indigo-300 hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:-translate-y-2 animate-fade-in group bg-white/80 backdrop-blur-sm"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <CardContent className="p-6">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4`}>
-                      <Icon className="w-6 h-6 text-white" />
+                  <CardContent className="p-8">
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                      <Icon className="w-8 h-8 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900">{feature.title}</h3>
-                    <p className="text-gray-600">{feature.description}</p>
+                    <h3 className="text-2xl font-bold mb-3 text-gray-900 group-hover:text-indigo-600 transition-colors">
+                      {feature.title}
+                    </h3>
+                    <p className="text-slate-600 leading-relaxed text-base">{feature.description}</p>
                   </CardContent>
                 </Card>
               )

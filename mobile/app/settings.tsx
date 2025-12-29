@@ -39,7 +39,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -143,7 +143,7 @@ export default function SettingsScreen() {
             {/* Save Button */}
             <TouchableOpacity
               style={{
-                backgroundColor: "#2D6A4F",
+                backgroundColor: "#3B82F6",
                 borderRadius: 12,
                 paddingVertical: 14,
                 alignItems: "center",

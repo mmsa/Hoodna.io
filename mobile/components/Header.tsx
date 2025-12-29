@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { colors } from "@/constants/colors";
 
 interface HeaderProps {
   title?: string;
@@ -27,22 +27,10 @@ export function Header({ title, showLogo = true, rightAction }: HeaderProps) {
             onPress={() => router.push("/(tabs)/home")}
             activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={["#3B82F6", "#9333EA"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoBox}
-            >
+            <View style={styles.logoBox}>
               <Ionicons name="home" size={20} color="#FFFFFF" />
-            </LinearGradient>
-            <LinearGradient
-              colors={["#2563EB", "#9333EA"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.logoTextContainer}
-            >
-              <Text style={styles.logoText}>Hoodna.io</Text>
-            </LinearGradient>
+            </View>
+            <Text style={styles.logoText}>Hoodna.io</Text>
           </TouchableOpacity>
         )}
 
@@ -100,16 +88,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
+    backgroundColor: colors.primary, // Blue-500
     alignItems: "center",
     justifyContent: "center",
-  },
-  logoTextContainer: {
-    paddingHorizontal: 0,
+    // Gradient effect using shadow
+    shadowColor: colors.purple,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   logoText: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#2563EB",
+    color: colors.primaryDark, // Blue-600
   },
   title: {
     fontSize: 28,
@@ -118,7 +110,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rightButton: {
-    backgroundColor: "#3B82F6",
+    backgroundColor: colors.primary, // Blue-500 (matching web app)
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,

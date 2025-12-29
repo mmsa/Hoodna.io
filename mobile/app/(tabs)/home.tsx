@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Post } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
+import { colors } from "@/constants/colors";
 
 const POST_LABELS = [
   { value: "", label: "All Posts", icon: "📋" },
@@ -153,13 +154,13 @@ function PostCard({
   const initials = getInitials(post.author_name);
   const postType = detectPostType(post.content);
 
-  // Background color based on post type
+  // Background color based on post type (using new vibrant colors)
   const bgColors = {
-    help: "#FEF3C7",
-    lost: "#FCE7F3",
-    event: "#E0E7FF",
-    marketplace: "#D1FAE5",
-    general: "#FFFFFF",
+    help: colors.help,
+    lost: colors.lost,
+    event: colors.event,
+    marketplace: colors.marketplace,
+    general: colors.backgroundCard,
   };
 
   return (
@@ -171,9 +172,9 @@ function PostCard({
         borderRadius: 16,
         padding: 16,
         borderWidth: isHighlighted ? 2 : 1,
-        borderLeftWidth: 4,
+        borderLeftWidth: 5,
         borderLeftColor: postType.color,
-        borderColor: isHighlighted ? "#8B5CF6" : "#E5E7EB",
+        borderColor: isHighlighted ? colors.purple : colors.border,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -588,44 +589,102 @@ export default function HomeScreen() {
   const canPost = user?.can_post || false;
   const verificationStatus = user?.verification_status || "UNVERIFIED";
 
+  // Block REJECTED users from accessing the feed
+  if (verificationStatus === "REJECTED") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+        <Header showLogo={true} />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }}>
+          <View
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              backgroundColor: colors.errorLight + "30",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 24,
+            }}
+          >
+            <Text style={{ fontSize: 64 }}>🚫</Text>
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
+            Verification Not Granted
+          </Text>
+          <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24, marginBottom: 32 }}>
+            Your verification request has been rejected. You cannot access the community feed at this time.
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onPress={() => router.push("/verification")}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
+              Review Verification Status
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (loading && posts.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#2D6A4F" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
+        <View style={{ alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
+            Loading your community... ✨
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
-      {/* Verification Banner */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      {/* Verification Banner - More Engaging */}
       {verificationStatus !== "APPROVED" && (
         <View
           style={{
-            backgroundColor: verificationStatus === "PENDING" ? "#FFB400" : "#FEE2E2",
+            backgroundColor: verificationStatus === "PENDING" ? colors.accent : colors.errorLight,
             paddingHorizontal: 16,
-            paddingVertical: 12,
+            paddingVertical: 14,
+            borderBottomWidth: 2,
+            borderBottomColor: verificationStatus === "PENDING" ? colors.accentLight : colors.error,
           }}
         >
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: "500",
-              color: verificationStatus === "PENDING" ? "#1F2937" : "#DC2626",
-              textAlign: "center",
-            }}
-          >
-            {verificationStatus === "PENDING"
-              ? "⏳ Your verification is pending review"
-              : "🔒 Verify to participate in the community"}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Text style={{ fontSize: 20 }}>
+              {verificationStatus === "PENDING" ? "⏳" : "🔒"}
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: "600",
+                color: verificationStatus === "PENDING" ? colors.textMain : "#FFFFFF",
+                textAlign: "center",
+              }}
+            >
+              {verificationStatus === "PENDING"
+                ? "Your verification is being reviewed - hang tight! ✨"
+                : "Verify your account to unlock all features 🚀"}
+            </Text>
+          </View>
         </View>
       )}
 
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id.toString()}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2D6A4F" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary, colors.purple]} />}
         ListHeaderComponent={
           <View>
             {/* Header with Logo */}
@@ -739,20 +798,26 @@ export default function HomeScreen() {
                     <TouchableOpacity
                       key={label.value}
                       style={{
-                        backgroundColor: selectedLabel === label.value ? "#2D6A4F" : "#FFFFFF",
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: selectedLabel === label.value ? "#2D6A4F" : "#E5E7EB",
+                        backgroundColor: selectedLabel === label.value ? colors.primary : colors.backgroundCard,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 24,
+                        borderWidth: 2,
+                        borderColor: selectedLabel === label.value ? colors.primary : colors.border,
+                        shadowColor: selectedLabel === label.value ? colors.primary : "transparent",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: selectedLabel === label.value ? 0.3 : 0,
+                        shadowRadius: 4,
+                        elevation: selectedLabel === label.value ? 3 : 0,
                       }}
                       onPress={() => setSelectedLabel(label.value)}
+                      activeOpacity={0.7}
                     >
                       <Text
                         style={{
-                          fontSize: 13,
-                          fontWeight: "600",
-                          color: selectedLabel === label.value ? "#FFFFFF" : "#111827",
+                          fontSize: 14,
+                          fontWeight: "700",
+                          color: selectedLabel === label.value ? "#FFFFFF" : colors.textMain,
                         }}
                       >
                         {label.icon} {label.label}
@@ -776,14 +841,48 @@ export default function HomeScreen() {
           />
         )}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 60 }}>
-            <Text style={{ fontSize: 16, color: "#6B7280", marginBottom: 8 }}>📭</Text>
-            <Text style={{ fontSize: 16, color: "#6B7280" }}>
-              {selectedLabel ? `No ${POST_LABELS.find((l) => l.value === selectedLabel)?.label.toLowerCase()} posts` : "No posts yet"}
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 }}>
+            <View
+              style={{
+                width: 120,
+                height: 120,
+                borderRadius: 60,
+                backgroundColor: colors.purpleLight + "20",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 24,
+              }}
+            >
+              <Text style={{ fontSize: 64 }}>📭</Text>
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: 8, textAlign: "center" }}>
+              {selectedLabel ? `No ${POST_LABELS.find((l) => l.value === selectedLabel)?.label.toLowerCase()} posts yet` : "Your feed is waiting! 🎉"}
             </Text>
-            <Text style={{ fontSize: 14, color: "#9CA3AF", marginTop: 4 }}>
-              {selectedLabel ? "Try a different filter" : "Be the first to share something!"}
+            <Text style={{ fontSize: 15, color: colors.textMuted, marginTop: 4, textAlign: "center", lineHeight: 22 }}>
+              {selectedLabel 
+                ? "Try a different filter or be the first to post! ✨" 
+                : "Share something awesome with your community! Your neighbors are waiting to connect. 💫"}
             </Text>
+            {!selectedLabel && canPost && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 24,
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 24,
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+                onPress={() => router.push("/create-post")}
+              >
+                <Text style={{ fontSize: 18 }}>✨</Text>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
+                  Create Your First Post
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
         contentContainerStyle={{ paddingTop: 0, paddingBottom: 20 }}

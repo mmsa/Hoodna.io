@@ -46,7 +46,7 @@ export default function LoginScreen() {
 
   return (
     <ScrollView 
-      style={{ flex: 1, backgroundColor: '#F9F7F2' }}
+      style={{ flex: 1, backgroundColor: '#EFF6FF' }}
       contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 80, paddingBottom: 40 }}
     >
       <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
@@ -107,7 +107,7 @@ export default function LoginScreen() {
           }}
           onPress={() => setShowPassword(!showPassword)}
         >
-          <Text style={{ color: '#2D6A4F', fontSize: 14, fontWeight: '500' }}>
+          <Text style={{ color: '#3B82F6', fontSize: 14, fontWeight: '500' }}>
             {showPassword ? "Hide" : "Show"}
           </Text>
         </TouchableOpacity>
@@ -115,7 +115,7 @@ export default function LoginScreen() {
 
       <TouchableOpacity
         style={{
-          backgroundColor: '#2D6A4F',
+          backgroundColor: '#3B82F6',
           borderRadius: 12,
           paddingVertical: 16,
           alignItems: 'center',
@@ -138,7 +138,7 @@ export default function LoginScreen() {
         }}
         onPress={() => router.push("/auth/forgot-password")}
       >
-        <Text style={{ color: '#2D6A4F', fontSize: 14, fontWeight: '600' }}>
+        <Text style={{ color: '#3B82F6', fontSize: 14, fontWeight: '600' }}>
           Forgot Password?
         </Text>
       </TouchableOpacity>
@@ -159,7 +159,7 @@ export default function LoginScreen() {
         <Text style={{ fontSize: 14, color: '#6C757D' }}>
           Don't have an account?{' '}
           <Text
-            style={{ color: '#2D6A4F', fontWeight: '600' }}
+            style={{ color: '#3B82F6', fontWeight: '600' }}
             onPress={() => router.push("/auth/signup")}
           >
             Sign up

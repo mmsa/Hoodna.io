@@ -57,7 +57,7 @@ export default function CreateListingScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -123,11 +123,11 @@ export default function CreateListingScreen() {
                 key={int.value}
                 style={{
                   flex: 1,
-                  backgroundColor: intent === int.value ? "#2D6A4F" : "#FFFFFF",
+                  backgroundColor: intent === int.value ? "#3B82F6" : "#FFFFFF",
                   paddingVertical: 12,
                   borderRadius: 12,
                   borderWidth: 2,
-                  borderColor: intent === int.value ? "#2D6A4F" : "#E5E7EB",
+                  borderColor: intent === int.value ? "#3B82F6" : "#E5E7EB",
                   alignItems: "center",
                 }}
                 onPress={() => setIntent(int.value as any)}
@@ -219,7 +219,7 @@ export default function CreateListingScreen() {
           {/* Submit Button */}
           <TouchableOpacity
             style={{
-              backgroundColor: "#2D6A4F",
+              backgroundColor: "#3B82F6",
               borderRadius: 12,
               paddingVertical: 16,
               alignItems: "center",

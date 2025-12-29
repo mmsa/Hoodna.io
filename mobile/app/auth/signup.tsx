@@ -53,7 +53,7 @@ export default function SignupScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
@@ -65,7 +65,7 @@ export default function SignupScreen() {
               onPress={() => router.back()}
               style={{ marginBottom: 24 }}
             >
-              <Text style={{ fontSize: 16, color: "#2D6A4F" }}>← Back</Text>
+              <Text style={{ fontSize: 16, color: "#3B82F6" }}>← Back</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 32, fontWeight: "bold", color: "#1B1B1B", marginBottom: 8 }}>
               Create Account
@@ -220,11 +220,11 @@ export default function SignupScreen() {
             {/* Sign Up Button */}
             <TouchableOpacity
               style={{
-                backgroundColor: "#2D6A4F",
+                backgroundColor: "#3B82F6",
                 borderRadius: 12,
                 paddingVertical: 16,
                 alignItems: "center",
-                shadowColor: "#2D6A4F",
+                shadowColor: "#3B82F6",
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.1,
                 shadowRadius: 8,
@@ -249,7 +249,7 @@ export default function SignupScreen() {
             <Text style={{ fontSize: 14, color: "#6C757D" }}>
               Already have an account?{" "}
               <Text
-                style={{ color: "#2D6A4F", fontWeight: "600" }}
+                style={{ color: "#3B82F6", fontWeight: "600" }}
                 onPress={() => router.push("/auth/login")}
               >
                 Sign in

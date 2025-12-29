@@ -22,9 +22,27 @@ export default function SplashScreen() {
   }, [loading, user]);
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9F7F2' }}>
-      <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#2D6A4F', marginBottom: 16 }}>Hoodna</Text>
-      <ActivityIndicator size="large" color="#2D6A4F" />
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' }}>
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 16,
+          backgroundColor: '#3B82F6',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 16,
+          shadowColor: '#9333EA',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 4,
+        }}
+      >
+        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#FFFFFF' }}>🏠</Text>
+      </View>
+      <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#2563EB', marginBottom: 16 }}>Hoodna.io</Text>
+      <ActivityIndicator size="large" color="#3B82F6" />
     </View>
   );
 }
