@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
-import { ApiClient, User } from "../../packages/shared/src/index";
+import { ApiClient, User } from "@hoodna/shared";
 import Constants from "expo-constants";
 
 // Get API URL from expo config or default to localhost

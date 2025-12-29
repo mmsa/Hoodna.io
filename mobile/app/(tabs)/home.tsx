@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { Post } from "../../../packages/shared/src/index";
+import { Post } from "@hoodna/shared";
 
 export default function HomeScreen() {
   const [posts, setPosts] = useState<Post[]>([]);

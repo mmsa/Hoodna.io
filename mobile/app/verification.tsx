@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/contexts/AuthContext";
-import { DocumentType } from "../../packages/shared/src/index";
+import { DocumentType } from "@hoodna/shared";
 
 export default function VerificationScreen() {
   const { apiClient } = useAuth();

@@ -8,7 +8,9 @@ export default function OTPVerifyScreen() {
     phone: string;
     otpCode?: string;
   }>();
-  const [otp, setOtp] = useState(otpCode || "");
+  // Initialize OTP state - only use otpCode if it's a valid 6-digit code
+  const initialOtp = otpCode && /^\d{6}$/.test(otpCode) ? otpCode : "";
+  const [otp, setOtp] = useState(initialOtp);
   const [name, setName] = useState("");
   const [showNameInput, setShowNameInput] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,19 +54,30 @@ export default function OTPVerifyScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background px-6 pt-20">
-      <Text className="text-3xl font-bold text-text-main mb-2">
+    <View style={{ flex: 1, backgroundColor: '#F9F7F2', paddingHorizontal: 24, paddingTop: 80 }}>
+      <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
         Verify your phone
       </Text>
-      <Text className="text-base text-text-muted mb-8">
-        Enter the code sent to {phone}
+      <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
+        Enter the code sent to {phone || 'your phone'}
       </Text>
 
       {showNameInput && (
         <TextInput
           ref={nameInputRef}
-          className="bg-white rounded-button px-4 py-4 text-base border border-gray-200 mb-4"
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            fontSize: 16,
+            borderWidth: 1,
+            borderColor: '#E5E5E5',
+            marginBottom: 16,
+            color: '#1B1B1B',
+          }}
           placeholder="Your name"
+          placeholderTextColor="#6C757D"
           value={name}
           onChangeText={setName}
           autoFocus
@@ -72,8 +85,21 @@ export default function OTPVerifyScreen() {
       )}
 
       <TextInput
-        className="bg-white rounded-button px-4 py-4 text-base border border-gray-200 mb-6 text-center text-2xl tracking-widest"
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          fontSize: 24,
+          borderWidth: 1,
+          borderColor: '#E5E5E5',
+          marginBottom: 24,
+          textAlign: 'center',
+          letterSpacing: 8,
+          color: '#1B1B1B',
+        }}
         placeholder="000000"
+        placeholderTextColor="#6C757D"
         value={otp}
         onChangeText={setOtp}
         keyboardType="number-pad"
@@ -82,11 +108,17 @@ export default function OTPVerifyScreen() {
       />
 
       <TouchableOpacity
-        className="bg-primary rounded-button py-4 items-center"
+        style={{
+          backgroundColor: '#2D6A4F',
+          borderRadius: 12,
+          paddingVertical: 16,
+          alignItems: 'center',
+          opacity: loading ? 0.6 : 1,
+        }}
         onPress={handleVerify}
         disabled={loading}
       >
-        <Text className="text-white text-base font-semibold">
+        <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
           {loading ? "Verifying..." : "Verify"}
         </Text>
       </TouchableOpacity>

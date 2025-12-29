@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { VerificationStatusResponse } from "../../../packages/shared/src/index";
+import { VerificationStatusResponse } from "@hoodna/shared";
 
 export default function ProfileScreen() {
   const { user, apiClient, logout } = useAuth();

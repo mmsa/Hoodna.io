@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { Listing } from "../../../packages/shared/src/index";
+import { Listing } from "@hoodna/shared";
 
 export default function MarketScreen() {
   const [listings, setListings] = useState<Listing[]>([]);

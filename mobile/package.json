@@ -22,6 +22,7 @@
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.21",
     "expo-image-picker": "~17.0.10",
+    "expo-linking": "~8.0.11",
     "expo-router": "~6.0.21",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
@@ -35,7 +36,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-worklets": "^0.5.1",
     "react-native-worklets-core": "^1.6.2",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@hoodna/shared": "file:../packages/shared"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",

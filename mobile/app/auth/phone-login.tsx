@@ -30,17 +30,28 @@ export default function PhoneLoginScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background px-6 pt-20">
-      <Text className="text-3xl font-bold text-text-main mb-2">
+    <View style={{ flex: 1, backgroundColor: '#F9F7F2', paddingHorizontal: 24, paddingTop: 80 }}>
+      <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
         Welcome to Hoodna
       </Text>
-      <Text className="text-base text-text-muted mb-8">
+      <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
         Enter your phone number to continue
       </Text>
 
       <TextInput
-        className="bg-white rounded-button px-4 py-4 text-base border border-gray-200 mb-6"
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          fontSize: 16,
+          borderWidth: 1,
+          borderColor: '#E5E5E5',
+          marginBottom: 24,
+          color: '#1B1B1B',
+        }}
         placeholder="Phone number"
+        placeholderTextColor="#6C757D"
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
@@ -48,11 +59,17 @@ export default function PhoneLoginScreen() {
       />
 
       <TouchableOpacity
-        className="bg-primary rounded-button py-4 items-center"
+        style={{
+          backgroundColor: '#2D6A4F',
+          borderRadius: 12,
+          paddingVertical: 16,
+          alignItems: 'center',
+          opacity: loading ? 0.6 : 1,
+        }}
         onPress={handleStart}
         disabled={loading}
       >
-        <Text className="text-white text-base font-semibold">
+        <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
           {loading ? "Sending..." : "Continue"}
         </Text>
       </TouchableOpacity>
