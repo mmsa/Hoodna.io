@@ -31,7 +31,10 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "hoodna"
+    "scheme": "hoodna",
+    "extra": {
+      "apiUrl": "http://localhost:8000"
+    }
   }
 }
 

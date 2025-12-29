@@ -3,7 +3,12 @@ import * as SecureStore from "expo-secure-store";
 import { ApiClient, User } from "../../packages/shared/src/index";
 import Constants from "expo-constants";
 
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || "http://localhost:8000";
+// Get API URL from expo config or default to localhost
+// For physical device, update this to your computer's local IP (e.g., http://192.168.1.XXX:8000)
+const API_BASE_URL = 
+  Constants.expoConfig?.extra?.apiUrl || 
+  process.env.EXPO_PUBLIC_API_URL || 
+  "http://localhost:8000";
 
 interface AuthContextType {
   user: User | null;
