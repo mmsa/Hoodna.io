@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.crud.post import delete_post, get_post_by_id
+from app.crud.post import delete_post, get_post_by_id, restore_post
 from app.crud.user import get_user_by_id, update_user_status
-from app.crud.listing import get_listing_by_id, archive_listing
+from app.crud.listing import get_listing_by_id, archive_listing, restore_listing
 from app.core.dependencies import get_current_moderator_or_admin
 from app.models.user import User
 from app.models.enums import UserStatus
@@ -22,9 +22,9 @@ async def delete_post_endpoint(
     current_user: User = Depends(get_current_moderator_or_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a post (moderators and admins only)."""
-    # Verify post exists
-    post = await get_post_by_id(db, post_id)
+    """Soft delete a post (hide it, but don't actually delete - moderators and admins only)."""
+    # Verify post exists (include deleted posts for checking)
+    post = await get_post_by_id(db, post_id, include_deleted=True)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -46,7 +46,7 @@ async def delete_post_endpoint(
         )
     
     await db.commit()
-    return {"message": "Post deleted successfully"}
+    return {"message": "Post hidden successfully (soft deleted)"}
 
 
 @router.post("/users/{user_id}/ban")
@@ -113,9 +113,9 @@ async def delete_listing_endpoint(
     current_user: User = Depends(get_current_moderator_or_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete/archive a listing (moderators and admins only)."""
-    # Verify listing exists
-    listing = await get_listing_by_id(db, listing_id)
+    """Soft delete a listing (hide it, but don't actually delete - moderators and admins only)."""
+    # Verify listing exists (include deleted listings for checking)
+    listing = await get_listing_by_id(db, listing_id, include_deleted=True)
     if not listing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -145,5 +145,91 @@ async def delete_listing_endpoint(
         )
     
     await db.commit()
-    return {"message": "Listing deleted successfully"}
+    return {"message": "Listing hidden successfully (soft deleted)"}
+
+
+@router.post("/posts/{post_id}/restore")
+async def restore_post_endpoint(
+    post_id: int,
+    current_user: User = Depends(get_current_moderator_or_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore a soft-deleted post (moderators and admins only)."""
+    # Verify post exists (include deleted posts)
+    post = await get_post_by_id(db, post_id, include_deleted=True)
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found"
+        )
+    
+    if post.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Post is not deleted"
+        )
+    
+    # Moderators can only restore posts from their compound
+    if current_user.role == "MODERATOR" and current_user.compound_id != post.compound_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only restore posts from your own compound"
+        )
+    
+    success = await restore_post(db, post_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found or not deleted"
+        )
+    
+    await db.commit()
+    return {"message": "Post restored successfully"}
+
+
+@router.post("/listings/{listing_id}/restore")
+async def restore_listing_endpoint(
+    listing_id: int,
+    current_user: User = Depends(get_current_moderator_or_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore a soft-deleted listing (moderators and admins only)."""
+    # Verify listing exists (include deleted listings)
+    listing = await get_listing_by_id(db, listing_id, include_deleted=True)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing not found"
+        )
+    
+    if listing.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing is not deleted"
+        )
+    
+    # Get listing owner to check compound
+    owner = await get_user_by_id(db, listing.owner_id)
+    if not owner:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing owner not found"
+        )
+    
+    # Moderators can only restore listings from their compound
+    if current_user.role == "MODERATOR" and current_user.compound_id != owner.compound_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only restore listings from your own compound"
+        )
+    
+    success = await restore_listing(db, listing_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing not found or not deleted"
+        )
+    
+    await db.commit()
+    return {"message": "Listing restored successfully"}
 
