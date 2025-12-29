@@ -21,8 +21,33 @@ export const PhoneAuthVerifyRequestSchema = z.object({
   name: z.string().optional(),
 });
 
+export const UserLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+});
+
+export const UserSignupSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(6),
+  phone: z.string().optional(),
+});
+
+export const ForgotPasswordRequestSchema = z.object({
+  email: z.string().email(),
+});
+
+export const ResetPasswordRequestSchema = z.object({
+  token: z.string(),
+  new_password: z.string().min(6),
+});
+
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 export type PhoneAuthStartRequest = z.infer<typeof PhoneAuthStartRequestSchema>;
 export type PhoneAuthStartResponse = z.infer<typeof PhoneAuthStartResponseSchema>;
 export type PhoneAuthVerifyRequest = z.infer<typeof PhoneAuthVerifyRequestSchema>;
+export type UserLogin = z.infer<typeof UserLoginSchema>;
+export type UserSignup = z.infer<typeof UserSignupSchema>;
+export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequestSchema>;
+export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequestSchema>;
 

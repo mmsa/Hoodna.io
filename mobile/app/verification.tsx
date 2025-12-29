@@ -1,13 +1,47 @@
-import { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image } from "react-native";
+import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { DocumentType } from "@hoodna/shared";
+import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function VerificationScreen() {
-  const { apiClient } = useAuth();
+  const { apiClient, user } = useAuth();
+  const router = useRouter();
+  const [status, setStatus] = useState<VerificationStatusResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [pendingNationalId, setPendingNationalId] = useState<string | null>(null);
+  const [pendingContract, setPendingContract] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!user?.compound_id) {
+      router.replace("/onboarding/compound-select");
+      return;
+    }
+    loadStatus();
+  }, [user]);
+
+  async function loadStatus() {
+    try {
+      const data = await apiClient.getVerificationStatus();
+      setStatus(data);
+      if (data.national_id?.status) {
+        setPendingNationalId(null);
+      }
+      if (data.contract?.status) {
+        setPendingContract(null);
+      }
+    } catch (error) {
+      console.error("Failed to load verification status:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function pickDocument(type: DocumentType) {
     try {
@@ -19,7 +53,7 @@ export default function VerificationScreen() {
       if (result.canceled) return;
 
       const file = result.assets[0];
-      await uploadDocument(type, file.uri, file.mimeType || "image/jpeg");
+      await uploadDocument(type, file.uri, file.mimeType || "image/jpeg", file.name);
     } catch (error) {
       Alert.alert("Error", "Failed to pick document");
     }
@@ -36,7 +70,8 @@ export default function VerificationScreen() {
       if (result.canceled) return;
 
       const asset = result.assets[0];
-      await uploadDocument(type, asset.uri, asset.mimeType || "image/jpeg");
+      const fileName = asset.uri.split("/").pop() || `image.jpg`;
+      await uploadDocument(type, asset.uri, asset.mimeType || "image/jpeg", fileName);
     } catch (error) {
       Alert.alert("Error", "Failed to pick image");
     }
@@ -45,13 +80,11 @@ export default function VerificationScreen() {
   async function uploadDocument(
     type: DocumentType,
     fileUri: string,
-    mimeType: string
+    mimeType: string,
+    fileName: string
   ) {
     setUploading(type);
     try {
-      // Get file name from URI
-      const fileName = fileUri.split("/").pop() || `document.${mimeType.split("/")[1]}`;
-
       // Get presigned URL
       const presignResponse = await apiClient.getPresignedUrl({
         file_name: fileName,
@@ -63,22 +96,49 @@ export default function VerificationScreen() {
       const response = await fetch(fileUri);
       const blob = await response.blob();
 
-      // Upload to S3
-      await fetch(presignResponse.presigned_url, {
-        method: "PUT",
-        body: blob,
-        headers: {
-          "Content-Type": mimeType,
-        },
-      });
+      // Check if this is a local storage upload
+      const isLocalStorage = presignResponse.presigned_url.includes('/api/uploads/upload');
+      
+      let uploadResponse: Response;
+      if (isLocalStorage) {
+        // Local storage: use FormData
+        const formData = new FormData();
+        formData.append('file', blob as any);
+        const urlParams = new URL(presignResponse.presigned_url).searchParams;
+        const filePath = urlParams.get('file_path');
+        if (filePath) {
+          formData.append('file_path', filePath);
+        }
+        uploadResponse = await fetch(presignResponse.presigned_url, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        // S3: use PUT
+        uploadResponse = await fetch(presignResponse.presigned_url, {
+          method: "PUT",
+          body: blob,
+          headers: {
+            "Content-Type": mimeType,
+          },
+        });
+      }
 
-      // Submit document
-      await apiClient.submitDocument({
-        file_url: presignResponse.file_url,
-        document_type: type,
-      });
+      if (!uploadResponse.ok) {
+        throw new Error("Upload failed");
+      }
 
-      Alert.alert("Success", "Document uploaded successfully");
+      // Store the file URL for later submission
+      if (type === "NATIONAL_ID") {
+        setPendingNationalId(presignResponse.file_url);
+      } else {
+        setPendingContract(presignResponse.file_url);
+      }
+
+      Alert.alert(
+        "Upload Successful",
+        `${type === "NATIONAL_ID" ? "National ID" : "Contract"} has been uploaded. Click "Submit Documents" when ready.`
+      );
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to upload document");
     } finally {
@@ -86,55 +146,390 @@ export default function VerificationScreen() {
     }
   }
 
+  async function submitDocuments() {
+    if (!pendingNationalId && !pendingContract) return;
+
+    setSubmitting(true);
+    try {
+      const submissions = [];
+      
+      if (pendingNationalId) {
+        submissions.push(
+          apiClient.submitDocument({
+            file_url: pendingNationalId,
+            document_type: "NATIONAL_ID",
+          })
+        );
+      }
+      
+      if (pendingContract) {
+        submissions.push(
+          apiClient.submitDocument({
+            file_url: pendingContract,
+            document_type: "CONTRACT",
+          })
+        );
+      }
+      
+      await Promise.all(submissions);
+      
+      setPendingNationalId(null);
+      setPendingContract(null);
+      await loadStatus();
+      
+      Alert.alert("Success", "Documents submitted! You'll be notified once verification is complete.");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to submit documents");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function getStatusIcon(docStatus: string | undefined) {
+    if (!docStatus) return "⏳";
+    if (docStatus === "APPROVED") return "✅";
+    if (docStatus === "REJECTED") return "❌";
+    return "⏳";
+  }
+
+  function getStatusText(docStatus: string | undefined) {
+    if (!docStatus) return "Not uploaded";
+    if (docStatus === "APPROVED") return "Approved";
+    if (docStatus === "REJECTED") return "Rejected";
+    return "Pending review";
+  }
+
+  function getStatusColor(docStatus: string | undefined) {
+    if (!docStatus) return "#9CA3AF";
+    if (docStatus === "APPROVED") return "#10B981";
+    if (docStatus === "REJECTED") return "#EF4444";
+    return "#F59E0B";
+  }
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#2D6A4F" />
+        <Text style={{ marginTop: 16, color: "#6C757D" }}>Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const nationalIdStatus = status?.national_id?.status;
+  const contractStatus = status?.contract?.status;
+  const hasPendingUploads = pendingNationalId || pendingContract;
+  const canSubmit = hasPendingUploads && !submitting;
+
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="px-4 py-6">
-        <Text className="text-2xl font-bold text-text-main mb-2">
-          Verification
-        </Text>
-        <Text className="text-base text-text-muted mb-6">
-          Upload your documents to verify your identity
-        </Text>
-
-        {/* National ID */}
-        <View className="bg-white rounded-card p-4 mb-4 border border-gray-200">
-          <Text className="text-lg font-semibold text-text-main mb-2">
-            National ID
-          </Text>
-          <Text className="text-sm text-text-muted mb-4">
-            Upload a clear photo of your national ID
-          </Text>
-          <TouchableOpacity
-            className="bg-primary rounded-button py-3 items-center"
-            onPress={() => pickImage("NATIONAL_ID")}
-            disabled={uploading === "NATIONAL_ID"}
-          >
-            <Text className="text-white font-semibold">
-              {uploading === "NATIONAL_ID" ? "Uploading..." : "Upload National ID"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Contract */}
-        <View className="bg-white rounded-card p-4 mb-4 border border-gray-200">
-          <Text className="text-lg font-semibold text-text-main mb-2">
-            Residency / Ownership Contract
-          </Text>
-          <Text className="text-sm text-text-muted mb-4">
-            Upload your residency or ownership contract
-          </Text>
-          <TouchableOpacity
-            className="bg-primary rounded-button py-3 items-center"
-            onPress={() => pickDocument("CONTRACT")}
-            disabled={uploading === "CONTRACT"}
-          >
-            <Text className="text-white font-semibold">
-              {uploading === "CONTRACT" ? "Uploading..." : "Upload Contract"}
-            </Text>
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+      {/* Header with Back Button */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: "#FFFFFF",
+          borderBottomWidth: 1,
+          borderBottomColor: "#E5E7EB",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 16 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Verification</Text>
       </View>
-    </ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={{ paddingHorizontal: 24, paddingVertical: 32 }}>
+          {/* Header */}
+          <View style={{ alignItems: "center", marginBottom: 32 }}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: "#3B82F6",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+              }}
+            >
+              <Text style={{ fontSize: 32 }}>🛡️</Text>
+            </View>
+            <Text style={{ fontSize: 28, fontWeight: "bold", color: "#111827", marginBottom: 8 }}>
+              Verification Documents
+            </Text>
+            {user?.compound_name && (
+              <View
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  marginBottom: 8,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                }}
+              >
+                <Text style={{ fontSize: 14, color: "#6B7280" }}>
+                  📍 Verifying for <Text style={{ fontWeight: "600", color: "#111827" }}>{user.compound_name}</Text>
+                </Text>
+              </View>
+            )}
+            <Text style={{ fontSize: 16, color: "#6B7280", textAlign: "center", marginTop: 8 }}>
+              Upload <Text style={{ fontWeight: "600", color: "#3B82F6" }}>one document</Text> to get verified
+            </Text>
+          </View>
+
+          {/* Info Box */}
+          <View
+            style={{
+              backgroundColor: "#DBEAFE",
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 24,
+              borderWidth: 2,
+              borderColor: "#93C5FD",
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#1E3A8A", marginBottom: 8 }}>
+              Important: Your document must include:
+            </Text>
+            <View style={{ marginBottom: 4 }}>
+              <Text style={{ fontSize: 13, color: "#1E40AF" }}>
+                ✓ <Text style={{ fontWeight: "600" }}>Your name</Text> (must match your account)
+              </Text>
+            </View>
+            <View style={{ marginBottom: 4 }}>
+              <Text style={{ fontSize: 13, color: "#1E40AF" }}>
+                ✓ <Text style={{ fontWeight: "600" }}>Compound name "{user?.compound_name || 'your compound'}"</Text> clearly visible
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: "#1E3A8A", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#93C5FD" }}>
+              <Text style={{ fontWeight: "600" }}>Choose one:</Text> Upload either your National ID (if it shows the compound address) OR your Contract/Proof of Residency (if it shows your name and compound name).
+            </Text>
+          </View>
+
+          {/* National ID Card */}
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 24 }}>🆔</Text>
+                <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
+                  National ID
+                </Text>
+              </View>
+              <View
+                style={{
+                  backgroundColor: `${getStatusColor(nationalIdStatus)}15`,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: getStatusColor(nationalIdStatus),
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: getStatusColor(nationalIdStatus) }}>
+                  {getStatusIcon(nationalIdStatus)} {getStatusText(nationalIdStatus)}
+                </Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
+              Upload a clear photo of your national ID
+            </Text>
+            {status?.national_id?.file_url && (
+              <View style={{ marginBottom: 12 }}>
+                <Image
+                  source={{ uri: status.national_id.file_url }}
+                  style={{ width: "100%", height: 200, borderRadius: 12 }}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: "#3B82F6",
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                }}
+                onPress={() => pickImage("NATIONAL_ID")}
+                disabled={uploading === "NATIONAL_ID" || nationalIdStatus === "APPROVED"}
+              >
+                {uploading === "NATIONAL_ID" ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+                    {nationalIdStatus === "APPROVED" ? "✓ Approved" : "Upload National ID"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Contract Card */}
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 24,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 24 }}>📄</Text>
+                <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
+                  Residency / Ownership Contract
+                </Text>
+              </View>
+              <View
+                style={{
+                  backgroundColor: `${getStatusColor(contractStatus)}15`,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: getStatusColor(contractStatus),
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: getStatusColor(contractStatus) }}>
+                  {getStatusIcon(contractStatus)} {getStatusText(contractStatus)}
+                </Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
+              Upload your residency or ownership contract
+            </Text>
+            {status?.contract?.file_url && (
+              <View style={{ marginBottom: 12 }}>
+                <Image
+                  source={{ uri: status.contract.file_url }}
+                  style={{ width: "100%", height: 200, borderRadius: 12 }}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: "#3B82F6",
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                }}
+                onPress={() => pickDocument("CONTRACT")}
+                disabled={uploading === "CONTRACT" || contractStatus === "APPROVED"}
+              >
+                {uploading === "CONTRACT" ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+                    {contractStatus === "APPROVED" ? "✓ Approved" : "Upload Contract"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          {canSubmit && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#10B981",
+                borderRadius: 12,
+                paddingVertical: 16,
+                alignItems: "center",
+                marginBottom: 24,
+                shadowColor: "#10B981",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              onPress={submitDocuments}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
+                  Submit Documents for Review
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Status Summary */}
+          {status && (nationalIdStatus || contractStatus) && (
+            <View
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 16,
+                padding: 20,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
+                Verification Status
+              </Text>
+              <View style={{ gap: 8 }}>
+                {nationalIdStatus && (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 14, color: "#6B7280" }}>National ID:</Text>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: getStatusColor(nationalIdStatus) }}>
+                      {getStatusText(nationalIdStatus)}
+                    </Text>
+                  </View>
+                )}
+                {contractStatus && (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 14, color: "#6B7280" }}>Contract:</Text>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: getStatusColor(contractStatus) }}>
+                      {getStatusText(contractStatus)}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>Overall Status:</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: getStatusColor(status.user_status) }}>
+                    {status.user_status}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-

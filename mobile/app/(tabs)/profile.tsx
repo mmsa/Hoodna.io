@@ -1,29 +1,24 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { VerificationStatusResponse } from "@hoodna/shared";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Header } from "@/components/Header";
+import { Ionicons } from "@expo/vector-icons";
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function ProfileScreen() {
-  const { user, apiClient, logout } = useAuth();
-  const [verificationStatus, setVerificationStatus] =
-    useState<VerificationStatusResponse | null>(null);
+  const { user, logout } = useAuth();
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    if (user) {
-      loadVerificationStatus();
-    }
-  }, [user]);
-
-  async function loadVerificationStatus() {
-    try {
-      const status = await apiClient.getVerificationStatus();
-      setVerificationStatus(status);
-    } catch (error) {
-      console.error("Failed to load verification status:", error);
-    }
-  }
 
   async function handleLogout() {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -33,90 +28,198 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           await logout();
-          router.replace("/auth/phone-login");
+          router.replace("/auth");
         },
       },
     ]);
   }
 
-  const verificationStatusText =
-    user?.verification_status || verificationStatus?.user_status || "UNVERIFIED";
+  const initials = user?.name ? getInitials(user.name) : "U";
+  const statusText = user?.verification_status || "UNVERIFIED";
+  const statusDisplay = statusText.toLowerCase().replace("_", " ");
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#2D6A4F" />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="px-4 py-6">
-        <Text className="text-2xl font-bold text-text-main mb-6">Profile</Text>
-
-        {/* User Info */}
-        <View className="bg-white rounded-card p-4 mb-4 border border-gray-200">
-          <Text className="text-lg font-semibold text-text-main">{user?.name}</Text>
-          <Text className="text-sm text-text-muted mt-1">{user?.email}</Text>
-          {user?.phone && (
-            <Text className="text-sm text-text-muted">{user.phone}</Text>
-          )}
-        </View>
-
-        {/* Verification Status */}
-        <View className="bg-white rounded-card p-4 mb-4 border border-gray-200">
-          <Text className="text-lg font-semibold text-text-main mb-3">
-            Verification Status
-          </Text>
-          <View
-            className={`px-3 py-2 rounded-button mb-3 ${
-              verificationStatusText === "APPROVED"
-                ? "bg-success/20"
-                : verificationStatusText === "PENDING"
-                ? "bg-accent/20"
-                : "bg-error/20"
-            }`}
-          >
-            <Text
-              className={`text-sm font-medium ${
-                verificationStatusText === "APPROVED"
-                  ? "text-success"
-                  : verificationStatusText === "PENDING"
-                  ? "text-text-main"
-                  : "text-error"
-              }`}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+      {/* Header with Logo */}
+      <Header showLogo={true} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 32, paddingBottom: 40 }}>
+          {/* Header Section */}
+          <View style={{ alignItems: "center", marginBottom: 32 }}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: "#3B82F6",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
             >
-              {verificationStatusText === "APPROVED"
-                ? "✓ Verified"
-                : verificationStatusText === "PENDING"
-                ? "⏳ Pending Review"
-                : "✗ Not Verified"}
+              <Ionicons name="person" size={32} color="#FFFFFF" />
+            </View>
+            <Text
+              style={{
+                fontSize: 32,
+                fontWeight: "bold",
+                color: "#111827",
+                marginBottom: 8,
+              }}
+            >
+              Profile
             </Text>
           </View>
 
-          {verificationStatusText !== "APPROVED" && (
-            <TouchableOpacity
-              className="bg-primary rounded-button py-3 items-center mt-2"
-              onPress={() => router.push("/verification")}
-            >
-              <Text className="text-white font-semibold">
-                {verificationStatusText === "PENDING"
-                  ? "View Status"
-                  : "Start Verification"}
+          {/* Profile Card */}
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: "#E5E7EB",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+          >
+            {/* Card Header */}
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827", marginBottom: 4 }}>
+                Account Information
               </Text>
-            </TouchableOpacity>
-          )}
+              <Text style={{ fontSize: 14, color: "#6B7280" }}>Your profile details</Text>
+            </View>
+
+            {/* Avatar and Name */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
+              <View
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  backgroundColor: "#3B82F6",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+              >
+                <Text style={{ color: "#FFFFFF", fontSize: 32, fontWeight: "bold" }}>
+                  {initials}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 24, fontWeight: "bold", color: "#111827", marginBottom: 4 }}>
+                  {user?.name}
+                </Text>
+                {(user?.role === "ADMIN" || user?.role === "MODERATOR") && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="shield-checkmark" size={16} color="#8B5CF6" />
+                    <Text style={{ fontSize: 14, color: "#8B5CF6", fontWeight: "500" }}>
+                      {user.role}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Account Details */}
+            <View style={{ gap: 16 }}>
+              {/* Email */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 2 }}>Email</Text>
+                  <Text style={{ fontSize: 15, fontWeight: "500", color: "#111827" }}>
+                    {user?.email}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Phone */}
+              {user?.phone && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <Ionicons name="call-outline" size={20} color="#9CA3AF" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 2 }}>Phone</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "500", color: "#111827" }}>
+                      {user.phone}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Status */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#9CA3AF" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 2 }}>Status</Text>
+                  <Text style={{ fontSize: 15, fontWeight: "500", color: "#111827", textTransform: "capitalize" }}>
+                    {statusDisplay}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                }}
+                onPress={() => router.push("/verification")}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: "#111827", fontSize: 14, fontWeight: "600" }}>
+                  Verification Status
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: "#2D6A4F",
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                }}
+                onPress={() => router.push("/settings")}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+                  Edit Profile
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-
-        {/* Actions */}
-        <TouchableOpacity
-          className="bg-white rounded-card p-4 mb-4 border border-gray-200"
-          onPress={() => router.push("/settings")}
-        >
-          <Text className="text-base text-text-main">Settings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="bg-error rounded-button py-3 items-center"
-          onPress={handleLogout}
-        >
-          <Text className="text-white font-semibold">Logout</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-

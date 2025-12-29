@@ -16,14 +16,14 @@ export default function SplashScreen() {
           router.replace("/onboarding/compound-select");
         }
       } else {
-        router.replace("/auth/phone-login");
+        router.replace("/auth");
       }
     }
   }, [loading, user]);
 
   return (
-    <View className="flex-1 items-center justify-center bg-background">
-      <Text className="text-4xl font-bold text-primary mb-4">Hoodna</Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9F7F2' }}>
+      <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#2D6A4F', marginBottom: 16 }}>Hoodna</Text>
       <ActivityIndicator size="large" color="#2D6A4F" />
     </View>
   );

@@ -2,12 +2,19 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PhoneLoginScreen() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const { apiClient } = useAuth();
   const router = useRouter();
+
+  // Normalize phone number to match backend normalization
+  const normalizePhone = (phoneNumber: string): string => {
+    return phoneNumber.trim().replace(/\s+/g, "").replace(/-/g, "").replace(/\+/g, "");
+  };
 
   async function handleStart() {
     if (!phone.trim()) {
@@ -17,10 +24,11 @@ export default function PhoneLoginScreen() {
 
     setLoading(true);
     try {
-      const response = await apiClient.phoneAuthStart({ phone });
+      const normalizedPhone = normalizePhone(phone);
+      const response = await apiClient.phoneAuthStart({ phone: normalizedPhone });
       router.push({
         pathname: "/auth/otp-verify",
-        params: { phone, otpCode: response.otp_code || "" },
+        params: { phone: normalizedPhone },
       });
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to send OTP");
@@ -30,10 +38,32 @@ export default function PhoneLoginScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9F7F2', paddingHorizontal: 24, paddingTop: 80 }}>
-      <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
-        Welcome to Hoodna
-      </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F7F2' }} edges={["top"]}>
+      {/* Header with Back Button */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: "#FFFFFF",
+          borderBottomWidth: 1,
+          borderBottomColor: "#E5E7EB",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 16 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Phone Login</Text>
+      </View>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
+        <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
+          Welcome to Hoodna
+        </Text>
       <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
         Enter your phone number to continue
       </Text>
@@ -65,12 +95,25 @@ export default function PhoneLoginScreen() {
           paddingVertical: 16,
           alignItems: 'center',
           opacity: loading ? 0.6 : 1,
+          marginBottom: 16,
         }}
         onPress={handleStart}
         disabled={loading}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
           {loading ? "Sending..." : "Continue"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{
+          paddingVertical: 12,
+          alignItems: 'center',
+        }}
+        onPress={() => router.push("/auth/login")}
+      >
+        <Text style={{ color: '#6C757D', fontSize: 14 }}>
+          Or sign in with email
         </Text>
       </TouchableOpacity>
     </View>

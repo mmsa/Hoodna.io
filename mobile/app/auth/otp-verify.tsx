@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function OTPVerifyScreen() {
   const { phone, otpCode } = useLocalSearchParams<{
@@ -18,18 +20,46 @@ export default function OTPVerifyScreen() {
   const router = useRouter();
   const nameInputRef = useRef<TextInput>(null);
 
+  // Normalize phone number to match backend normalization
+  const normalizePhone = (phoneNumber: string): string => {
+    return phoneNumber.trim().replace(/\s+/g, "").replace(/-/g, "").replace(/\+/g, "");
+  };
+
+  async function handleResend() {
+    if (!phone) {
+      Alert.alert("Error", "Phone number not found");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await apiClient.phoneAuthStart({ phone: normalizePhone(phone) });
+      setOtp("");
+      Alert.alert("Success", "A new OTP code has been sent");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to resend OTP");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleVerify() {
     if (!otp.trim()) {
       Alert.alert("Error", "Please enter the OTP code");
       return;
     }
 
+    if (!phone) {
+      Alert.alert("Error", "Phone number not found");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await apiClient.phoneAuthVerify({
-        phone: phone!,
-        otp_code: otp,
-        name: showNameInput ? name : undefined,
+        phone: normalizePhone(phone),
+        otp_code: otp.trim(),
+        name: showNameInput ? name.trim() : undefined,
       });
 
       await login(response.access_token, response.refresh_token);
@@ -54,10 +84,32 @@ export default function OTPVerifyScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F9F7F2', paddingHorizontal: 24, paddingTop: 80 }}>
-      <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
-        Verify your phone
-      </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F7F2' }} edges={["top"]}>
+      {/* Header with Back Button */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: "#FFFFFF",
+          borderBottomWidth: 1,
+          borderBottomColor: "#E5E7EB",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 16 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Verify OTP</Text>
+      </View>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
+        <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
+          Verify your phone
+        </Text>
       <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
         Enter the code sent to {phone || 'your phone'}
       </Text>
@@ -114,6 +166,7 @@ export default function OTPVerifyScreen() {
           paddingVertical: 16,
           alignItems: 'center',
           opacity: loading ? 0.6 : 1,
+          marginBottom: 16,
         }}
         onPress={handleVerify}
         disabled={loading}
@@ -122,7 +175,22 @@ export default function OTPVerifyScreen() {
           {loading ? "Verifying..." : "Verify"}
         </Text>
       </TouchableOpacity>
-    </View>
+
+      <TouchableOpacity
+        style={{
+          paddingVertical: 12,
+          alignItems: 'center',
+          opacity: loading ? 0.6 : 1,
+        }}
+        onPress={handleResend}
+        disabled={loading}
+      >
+        <Text style={{ color: '#2D6A4F', fontSize: 14, fontWeight: '500' }}>
+          Resend OTP
+        </Text>
+      </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 

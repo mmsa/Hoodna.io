@@ -1,0 +1,255 @@
+import { useState, useEffect } from "react";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert, FlatList } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { useAuth } from "@/contexts/AuthContext";
+import { Post, Comment } from "@hoodna/shared";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function getAvatarColor(name: string): string {
+  const colors = ["#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#EC4899"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+export default function PostDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [post, setPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const { apiClient, user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    loadPost();
+  }, [id]);
+
+  async function loadPost() {
+    try {
+      // Load post with comments
+      const posts = await apiClient.getPosts();
+      const foundPost = posts.find((p) => p.id === Number(id));
+      if (foundPost) {
+        setPost(foundPost);
+        setComments(foundPost.comments || []);
+      }
+    } catch (error) {
+      console.error("Failed to load post:", error);
+      Alert.alert("Error", "Failed to load post");
+      router.back();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmitComment() {
+    if (!commentText.trim() || !user?.can_post) {
+      Alert.alert("Error", "You need to be verified to comment");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await apiClient.createComment(Number(id), { content: commentText.trim() });
+      setCommentText("");
+      await loadPost(); // Reload to get new comments
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to post comment");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading || !post) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#2D6A4F" />
+      </SafeAreaView>
+    );
+  }
+
+  const avatarColor = getAvatarColor(post.author_name);
+  const initials = getInitials(post.author_name);
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F7F2" }} edges={["top"]}>
+      {/* Header with Back Button */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: "#FFFFFF",
+          borderBottomWidth: 1,
+          borderBottomColor: "#E5E7EB",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 16 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Post</Text>
+      </View>
+      <FlatList
+        data={comments}
+        keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              marginHorizontal: 16,
+              marginTop: 16,
+              marginBottom: 16,
+              borderRadius: 16,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 12 }}>
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: avatarColor,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 12,
+                }}
+              >
+                <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "600" }}>{initials}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 4 }}>
+                  {post.author_name}
+                </Text>
+                <Text style={{ fontSize: 12, color: "#6B7280" }}>{formatTimeAgo(post.created_at)}</Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 16, color: "#1F2937", lineHeight: 24 }}>{post.content}</Text>
+          </View>
+        }
+        renderItem={({ item }) => {
+          const commentAvatarColor = getAvatarColor(item.author_name);
+          const commentInitials = getInitials(item.author_name);
+          return (
+            <View
+              style={{
+                backgroundColor: "#FFFFFF",
+                marginHorizontal: 16,
+                marginBottom: 12,
+                borderRadius: 12,
+                padding: 12,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: commentAvatarColor,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 8,
+                  }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "600" }}>{commentInitials}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>{item.author_name}</Text>
+                  <Text style={{ fontSize: 11, color: "#6B7280" }}>{formatTimeAgo(item.created_at)}</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 14, color: "#4B5563", marginLeft: 40 }}>{item.content}</Text>
+            </View>
+          );
+        }}
+        ListFooterComponent={
+          user?.can_post ? (
+            <View style={{ padding: 16 }}>
+              <TextInput
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  borderWidth: 1,
+                  borderColor: "#E5E7EB",
+                  marginBottom: 12,
+                  color: "#1B1B1B",
+                  minHeight: 80,
+                  textAlignVertical: "top",
+                }}
+                placeholder="Write a comment..."
+                placeholderTextColor="#9CA3AF"
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+              />
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#2D6A4F",
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                }}
+                onPress={handleSubmitComment}
+                disabled={submitting || !commentText.trim()}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "600" }}>Post Comment</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          <View style={{ padding: 16 }}>
+            <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "center" }}>No comments yet</Text>
+          </View>
+        }
+        contentContainerStyle={{ paddingBottom: 20 }}
+      />
+    </SafeAreaView>
+  );
+}
+

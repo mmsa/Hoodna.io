@@ -3,6 +3,8 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { Compound } from "@hoodna/shared";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CompoundSelectScreen() {
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -44,18 +46,40 @@ export default function CompoundSelectScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9F7F2' }}>
         <ActivityIndicator size="large" color="#2D6A4F" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-background px-6 pt-20">
-      <Text className="text-3xl font-bold text-text-main mb-2">
-        Select your compound
-      </Text>
-      <Text className="text-base text-text-muted mb-6">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F7F2' }} edges={["top"]}>
+      {/* Header with Back Button */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: "#FFFFFF",
+          borderBottomWidth: 1,
+          borderBottomColor: "#E5E7EB",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginRight: 16 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Select Compound</Text>
+      </View>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
+        <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
+          Select your compound
+        </Text>
+      <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 24 }}>
         Choose the compound where you live
       </Text>
 
@@ -64,22 +88,28 @@ export default function CompoundSelectScreen() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <TouchableOpacity
-            className={`bg-white rounded-card p-4 mb-3 border-2 ${
-              selectedId === item.id ? "border-primary" : "border-transparent"
-            }`}
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 24,
+              padding: 16,
+              marginBottom: 12,
+              borderWidth: 2,
+              borderColor: selectedId === item.id ? '#2D6A4F' : 'transparent',
+            }}
             onPress={() => handleSelect(item.id)}
             disabled={selectedId !== null}
           >
-            <Text className="text-lg font-semibold text-text-main">
+            <Text style={{ fontSize: 18, fontWeight: '600', color: '#1B1B1B' }}>
               {item.name}
             </Text>
             {item.area && (
-              <Text className="text-sm text-text-muted mt-1">{item.area}</Text>
+              <Text style={{ fontSize: 14, color: '#6C757D', marginTop: 4 }}>{item.area}</Text>
             )}
           </TouchableOpacity>
         )}
       />
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
