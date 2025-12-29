@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Listing } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { ReportModal } from "@/components/ReportModal";
 
 const { width } = Dimensions.get("window");
 
@@ -43,6 +44,7 @@ export default function ListingDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imageIndex, setImageIndex] = useState(0);
+  const [showReportModal, setShowReportModal] = useState(false);
   const { apiClient, user } = useAuth();
   const router = useRouter();
 
@@ -145,6 +147,7 @@ export default function ListingDetailScreen() {
   const categoryIcon = getCategoryIcon(listing.category || "ITEM");
   const images = listing.image_urls || [];
   const isOwner = user && listing.owner_id === user.id;
+  const isModerator = user && (user.role === "MODERATOR" || user.role === "ADMIN");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
@@ -431,9 +434,117 @@ export default function ListingDetailScreen() {
               <Ionicons name="share-outline" size={20} color="#3B82F6" style={{ marginRight: 8 }} />
               <Text style={{ color: "#3B82F6", fontSize: 16, fontWeight: "600" }}>Share Listing</Text>
             </TouchableOpacity>
+
+            {/* Moderator Actions */}
+            {isModerator && (
+              <>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 12,
+                    paddingVertical: 16,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "#FEE2E2",
+                  }}
+                  onPress={() => {
+                    Alert.alert(
+                      "Ban User",
+                      `Are you sure you want to ban ${listing.owner_name}?`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Ban",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              await apiClient.banUser(listing.owner_id, "Moderator action");
+                              Alert.alert("Success", "User has been banned");
+                            } catch (error: any) {
+                              Alert.alert("Error", error.message || "Failed to ban user");
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="ban-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+                  <Text style={{ color: "#EF4444", fontSize: 16, fontWeight: "600" }}>Ban User</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 12,
+                    paddingVertical: 16,
+                    alignItems: "center",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "#FEE2E2",
+                  }}
+                  onPress={() => {
+                    Alert.alert(
+                      "Delete Listing",
+                      "Are you sure you want to delete this listing?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              await apiClient.deleteListing(listing.id);
+                              Alert.alert("Success", "Listing deleted successfully");
+                              router.back();
+                            } catch (error: any) {
+                              Alert.alert("Error", error.message || "Failed to delete listing");
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+                  <Text style={{ color: "#EF4444", fontSize: 16, fontWeight: "600" }}>Delete Listing</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {/* Report Button */}
+            {!isOwner && !isModerator && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  paddingVertical: 16,
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: "#FEE2E2",
+                }}
+                onPress={() => setShowReportModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="flag-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+                <Text style={{ color: "#EF4444", fontSize: 16, fontWeight: "600" }}>Report Listing</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        reportedType="listing"
+        reportedId={listing.id}
+        reportedTitle={listing.title}
+      />
     </SafeAreaView>
   );
 }

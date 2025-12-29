@@ -141,3 +141,15 @@ async def get_current_admin(
         )
     return current_user
 
+
+async def get_current_moderator_or_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Get the current user, ensuring they are a moderator or admin."""
+    if current_user.role not in [UserRole.ADMIN, UserRole.MODERATOR]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Moderator or admin access required",
+        )
+    return current_user
+

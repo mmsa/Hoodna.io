@@ -239,5 +239,95 @@ export class ApiClient {
     }
     return this.request<Compound[]>(`/api/compounds?${queryParams}`);
   }
+
+  // Notifications
+  async getNotifications(params?: {
+    skip?: number;
+    limit?: number;
+    unread_only?: boolean;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return this.request<any>(`/api/notifications?${queryParams}`);
+  }
+
+  async getUnreadNotificationCount(): Promise<{ unread_count: number }> {
+    return this.request<{ unread_count: number }>("/api/notifications/unread-count");
+  }
+
+  async markNotificationRead(notificationId: number): Promise<any> {
+    return this.request<any>(`/api/notifications/${notificationId}/read`, {
+      method: "PATCH",
+    });
+  }
+
+  async markAllNotificationsRead(): Promise<{ message: string; count: number }> {
+    return this.request<{ message: string; count: number }>("/api/notifications/mark-all-read", {
+      method: "POST",
+    });
+  }
+
+  async deleteNotification(notificationId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/notifications/${notificationId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Reports
+  async reportPost(postId: number, data: {
+    reason: string;
+    description?: string;
+  }): Promise<any> {
+    return this.request<any>(`/api/reports/post/${postId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        reported_type: "post",
+        reported_id: postId,
+        reason: data.reason,
+        description: data.description,
+      }),
+    });
+  }
+
+  async reportListing(listingId: number, data: {
+    reason: string;
+    description?: string;
+  }): Promise<any> {
+    return this.request<any>(`/api/reports/listing/${listingId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        reported_type: "listing",
+        reported_id: listingId,
+        reason: data.reason,
+        description: data.description,
+      }),
+    });
+  }
+
+  // Moderator actions
+  async deletePost(postId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/moderator/posts/${postId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async banUser(userId: number, reason?: string): Promise<{ message: string; user: any }> {
+    return this.request<{ message: string; user: any }>(`/api/moderator/users/${userId}/ban`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || null }),
+    });
+  }
+
+  async deleteListing(listingId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/moderator/listings/${listingId}`, {
+      method: "DELETE",
+    });
+  }
 }
 

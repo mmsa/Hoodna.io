@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Post, Comment } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { ReportModal } from "@/components/ReportModal";
+import { colors } from "@/constants/colors";
 
 function getInitials(name: string): string {
   return name
@@ -45,6 +47,7 @@ export default function PostDetailScreen() {
   const [commentText, setCommentText] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const { apiClient, user } = useAuth();
   const router = useRouter();
 
@@ -106,6 +109,7 @@ export default function PostDetailScreen() {
         style={{
           flexDirection: "row",
           alignItems: "center",
+          justifyContent: "space-between",
           paddingHorizontal: 16,
           paddingVertical: 12,
           backgroundColor: "#FFFFFF",
@@ -113,14 +117,106 @@ export default function PostDetailScreen() {
           borderBottomColor: "#E5E7EB",
         }}
       >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginRight: 16 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Post</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginRight: 16 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Post</Text>
+        </View>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {/* Moderator Actions */}
+          {user && (user.role === "MODERATOR" || user.role === "ADMIN") && (
+            <>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    "Ban User",
+                    `Are you sure you want to ban ${post.author_name}?`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Ban",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            await apiClient.banUser(post.author_id, "Moderator action");
+                            Alert.alert("Success", "User has been banned");
+                            router.back();
+                          } catch (error: any) {
+                            Alert.alert("Error", error.message || "Failed to ban user");
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.errorLight,
+                  backgroundColor: colors.errorLight + "20",
+                }}
+              >
+                <Ionicons name="ban-outline" size={18} color={colors.error} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    "Delete Post",
+                    "Are you sure you want to delete this post?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            await apiClient.deletePost(post.id);
+                            Alert.alert("Success", "Post deleted successfully");
+                            router.back();
+                          } catch (error: any) {
+                            Alert.alert("Error", error.message || "Failed to delete post");
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.errorLight,
+                  backgroundColor: colors.errorLight + "20",
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
+              </TouchableOpacity>
+            </>
+          )}
+          {/* Report Button */}
+          {post && user && post.author_id !== user.id && (
+            <TouchableOpacity
+              onPress={() => setShowReportModal(true)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#FEE2E2",
+              }}
+            >
+              <Ionicons name="flag-outline" size={20} color="#EF4444" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       <FlatList
         data={comments}
@@ -249,6 +345,15 @@ export default function PostDetailScreen() {
         }
         contentContainerStyle={{ paddingBottom: 20 }}
       />
+      {post && (
+        <ReportModal
+          visible={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          reportedType="post"
+          reportedId={post.id}
+          reportedTitle={post.content.substring(0, 50) + "..."}
+        />
+      )}
     </SafeAreaView>
   );
 }

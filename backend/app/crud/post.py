@@ -107,6 +107,11 @@ async def create_comment(
     return db_comment
 
 
+async def get_post_by_id(db: AsyncSession, post_id: int) -> Post | None:
+    """Get a post by ID."""
+    return await db.get(Post, post_id)
+
+
 async def delete_post(db: AsyncSession, post_id: int) -> bool:
     """Delete a post."""
     post = await db.get(Post, post_id)

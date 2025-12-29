@@ -137,6 +137,9 @@ function PostCard({
   setNewComments,
   handleCreateComment,
   submitting,
+  currentUser,
+  apiClient,
+  onPostDeleted,
 }: { 
   post: Post; 
   canPost: boolean; 
@@ -145,6 +148,9 @@ function PostCard({
   setNewComments: (comments: Record<number, string>) => void;
   handleCreateComment: (postId: number) => void;
   submitting: boolean;
+  currentUser?: any;
+  apiClient?: any;
+  onPostDeleted?: (postId: number) => void;
 }) {
   const timeAgo = formatTimeAgo(post.created_at);
   const isNew = new Date().getTime() - new Date(post.created_at).getTime() < 3600000;
@@ -267,23 +273,85 @@ function PostCard({
           )}
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-            <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
-              {post.author_name}
-            </Text>
-            {postType.badge && (
-              <View
-                style={{
-                  backgroundColor: `${postType.color}15`,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 6,
-                  marginLeft: 8,
-                }}
-              >
-                <Text style={{ fontSize: 10, fontWeight: "600", color: postType.color }}>
-                  {postType.icon} {postType.badge}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", flex: 1 }}>
+              <TouchableOpacity onPress={() => router.push(`/post/${post.id}`)}>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+                  {post.author_name}
                 </Text>
+              </TouchableOpacity>
+              {postType.badge && (
+                <View
+                  style={{
+                    backgroundColor: `${postType.color}15`,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    marginLeft: 8,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: postType.color }}>
+                    {postType.icon} {postType.badge}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {/* Moderator Actions */}
+            {currentUser && (currentUser.role === "MODERATOR" || currentUser.role === "ADMIN") && (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      "Ban User",
+                      `Are you sure you want to ban ${post.author_name}?`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Ban",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              await apiClient?.banUser(post.author_id, "Moderator action");
+                              Alert.alert("Success", "User has been banned");
+                            } catch (error: any) {
+                              Alert.alert("Error", error.message || "Failed to ban user");
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons name="ban-outline" size={18} color={colors.error} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      "Delete Post",
+                      "Are you sure you want to delete this post?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              await apiClient?.deletePost(post.id);
+                              Alert.alert("Success", "Post deleted successfully");
+                              onPostDeleted?.(post.id);
+                            } catch (error: any) {
+                              Alert.alert("Error", error.message || "Failed to delete post");
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.error} />
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -885,6 +953,11 @@ export default function HomeScreen() {
             setNewComments={setNewComments}
             handleCreateComment={handleCreateComment}
             submitting={submitting}
+            currentUser={user}
+            apiClient={apiClient}
+            onPostDeleted={(postId) => {
+              setPosts(posts.filter((p) => p.id !== postId));
+            }}
           />
         )}
         ListEmptyComponent={

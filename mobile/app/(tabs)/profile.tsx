@@ -268,6 +268,55 @@ export default function ProfileScreen() {
             </View>
             <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
           </TouchableOpacity>
+
+          {/* Notifications Card */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.backgroundCard,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: colors.border,
+              shadowColor: colors.purple,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 4,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 16,
+            }}
+            onPress={() => router.push("/notifications")}
+            activeOpacity={0.7}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: colors.purple,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: colors.purple,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
+            >
+              <Ionicons name="notifications" size={28} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 4 }}>
+                Notifications 🔔
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.textMuted }}>
+                Stay updated with your community
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
+          </TouchableOpacity>
           </View>
         </View>
       </ScrollView>

@@ -39,6 +39,8 @@ import {
   Smile,
   Loader2,
   ArrowDown,
+  Trash2,
+  Ban,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -46,9 +48,11 @@ import Link from "next/link";
 
 interface Post {
   id: number;
+  author_id: number;
   author_name: string;
   content: string;
   created_at: string;
+  compound_id?: number;
   comments: Comment[];
 }
 
@@ -772,6 +776,7 @@ export default function FeedPage() {
                           setNewComments={setNewComments}
                           handleCreateComment={handleCreateComment}
                           createCommentMutation={createCommentMutation}
+                          currentUser={user}
                         />
                       </div>
                     );
@@ -1266,13 +1271,16 @@ function PostCard({
   setNewComments,
   handleCreateComment,
   createCommentMutation,
+  currentUser,
 }: {
   post: Post;
   newComments: Record<number, string>;
   setNewComments: (comments: Record<number, string>) => void;
   handleCreateComment: (postId: number) => void;
   createCommentMutation: any;
+  currentUser?: any;
 }) {
+  const { toast } = useToast();
   const postType = detectPostType(post.content);
   const timeAgo = formatTimeAgo(post.created_at);
   const isNew =
@@ -1319,19 +1327,62 @@ function PostCard({
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="font-semibold text-base text-gray-900">
-                {post.author_name}
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="font-semibold text-base text-gray-900">
+                  {post.author_name}
+                </div>
+                {postType.badge && (
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                      badgeColors[postType.type]
+                    }`}
+                  >
+                    <IconComponent className="w-3 h-3 inline mr-1" />
+                    {postType.badge}
+                  </span>
+                )}
               </div>
-              {postType.badge && (
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                    badgeColors[postType.type]
-                  }`}
-                >
-                  <IconComponent className="w-3 h-3 inline mr-1" />
-                  {postType.badge}
-                </span>
+              {/* Moderator Actions - Only show if user is admin OR moderator of this compound */}
+              {currentUser && (currentUser.role === "MODERATOR" || currentUser.role === "ADMIN") && (
+                (currentUser.role === "ADMIN" || (currentUser.role === "MODERATOR" && post.compound_id === currentUser.compound_id)) && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Are you sure you want to ban ${post.author_name}?`)) {
+                          try {
+                            await api.post(`/api/moderator/users/${post.author_id}/ban`, { reason: "Moderator action" });
+                            toast({ title: "Success", description: "User has been banned" });
+                            window.location.reload();
+                          } catch (error: any) {
+                            toast({ title: "Error", description: error.response?.data?.detail || "Failed to ban user", variant: "destructive" });
+                          }
+                        }
+                      }}
+                      className="p-1.5 rounded-full hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
+                      title="Ban User"
+                    >
+                      <Ban className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm("Are you sure you want to delete this post?")) {
+                          try {
+                            await api.delete(`/api/moderator/posts/${post.id}`);
+                            toast({ title: "Success", description: "Post deleted successfully" });
+                            window.location.reload();
+                          } catch (error: any) {
+                            toast({ title: "Error", description: error.response?.data?.detail || "Failed to delete post", variant: "destructive" });
+                          }
+                        }
+                      }}
+                      className="p-1.5 rounded-full hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors"
+                      title="Delete Post"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )
               )}
             </div>
             <div className="text-xs text-gray-500 flex items-center gap-1">

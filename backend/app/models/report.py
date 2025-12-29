@@ -2,16 +2,17 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
+from enum import Enum
 
 
-class ReportType(str):
+class ReportType(str, Enum):
     POST = "POST"
     LISTING = "LISTING"
     COMMENT = "COMMENT"
     USER = "USER"
 
 
-class ReportStatus(str):
+class ReportStatus(str, Enum):
     PENDING = "PENDING"
     REVIEWED = "REVIEWED"
     RESOLVED = "RESOLVED"

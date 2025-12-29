@@ -71,6 +71,10 @@ app.include_router(promotions.router, prefix="/api/promotions", tags=["promotion
 app.include_router(saved_listings.router, prefix="/api", tags=["saved-listings"])
 app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+from app.api import reports
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+from app.api import moderator
+app.include_router(moderator.router, prefix="/api/moderator", tags=["moderator"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 

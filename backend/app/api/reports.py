@@ -53,20 +53,23 @@ async def report_post(
     moderators = await get_compound_moderators_and_admins(db, post.compound_id)
     
     # Create notifications for moderators/admins
+    from app.schemas.notification import NotificationCreate
     for moderator in moderators:
         await create_notification(
             db=db,
-            user_id=moderator.id,
-            type=NotificationType.MENTION,  # Using MENTION as a generic notification type
-            title="New Report: Post",
-            message=f"{current_user.name} reported a post: {report_data.reason}",
-            related_id=post_id,
-            related_type="post",
-            extra_data={
-                "report_id": report.id,
-                "reporter_name": current_user.name,
-                "reason": report_data.reason,
-            }
+            notification_data=NotificationCreate(
+                user_id=moderator.id,
+                type=NotificationType.MENTION,  # Using MENTION as a generic notification type
+                title="New Report: Post",
+                message=f"{current_user.name} reported a post: {report_data.reason}",
+                related_id=post_id,
+                related_type="post",
+                extra_data={
+                    "report_id": report.id,
+                    "reporter_name": current_user.name,
+                    "reason": report_data.reason,
+                }
+            )
         )
     
     await db.commit()
@@ -132,21 +135,24 @@ async def report_listing(
     moderators = await get_compound_moderators_and_admins(db, owner.compound_id)
     
     # Create notifications for moderators/admins
+    from app.schemas.notification import NotificationCreate
     for moderator in moderators:
         await create_notification(
             db=db,
-            user_id=moderator.id,
-            type=NotificationType.MENTION,
-            title="New Report: Listing",
-            message=f"{current_user.name} reported a listing: {report_data.reason}",
-            related_id=listing_id,
-            related_type="listing",
-            extra_data={
-                "report_id": report.id,
-                "reporter_name": current_user.name,
-                "reason": report_data.reason,
-                "listing_title": listing.title,
-            }
+            notification_data=NotificationCreate(
+                user_id=moderator.id,
+                type=NotificationType.MENTION,
+                title="New Report: Listing",
+                message=f"{current_user.name} reported a listing: {report_data.reason}",
+                related_id=listing_id,
+                related_type="listing",
+                extra_data={
+                    "report_id": report.id,
+                    "reporter_name": current_user.name,
+                    "reason": report_data.reason,
+                    "listing_title": listing.title,
+                }
+            )
         )
     
     await db.commit()

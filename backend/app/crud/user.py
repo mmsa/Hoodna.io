@@ -1,9 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.core.security import get_password_hash
-from app.models.enums import UserStatus
+from app.models.enums import UserStatus, UserRole
+from typing import List
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
@@ -75,4 +76,18 @@ async def update_user_status(
     await db.flush()
     await db.refresh(user)
     return user
+
+
+async def get_compound_moderators_and_admins(db: AsyncSession, compound_id: int) -> List[User]:
+    """Get all moderators and admins for a compound."""
+    result = await db.execute(
+        select(User).where(
+            User.compound_id == compound_id,
+            or_(
+                User.role == UserRole.MODERATOR,
+                User.role == UserRole.ADMIN
+            )
+        )
+    )
+    return list(result.scalars().all())
 
