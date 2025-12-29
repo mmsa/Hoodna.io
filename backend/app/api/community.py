@@ -5,7 +5,7 @@ from app.schemas.community import PostCreate, PostResponse, CommentCreate, Comme
 from app.crud.post import get_feed_posts, create_post, create_comment, get_compound_announcements
 from app.crud.listing import get_listings
 from app.crud.compound import get_compound_by_id
-from app.core.dependencies import get_current_approved_user, get_current_verified_user
+from app.core.dependencies import get_current_approved_user, get_current_verified_user, get_current_user_optional
 from app.models.user import User
 from typing import List, Optional
 from pydantic import BaseModel

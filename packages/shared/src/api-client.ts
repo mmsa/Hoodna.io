@@ -27,9 +27,9 @@ export class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     };
 
     if (this.accessToken) {
@@ -43,10 +43,11 @@ export class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: response.statusText }));
-      throw new Error(error.detail || `HTTP ${response.status}`);
+      const errorMessage = (error as { detail?: string }).detail || `HTTP ${response.status}`;
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   // Auth
