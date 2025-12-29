@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/colors";
+import { Compound } from "@hoodna/shared";
 
 function getInitials(name: string): string {
   return name
@@ -17,9 +18,29 @@ function getInitials(name: string): string {
 }
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, apiClient } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [compound, setCompound] = useState<Compound | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (user?.compound_id) {
+      loadCompound();
+    }
+  }, [user?.compound_id]);
+
+  async function loadCompound() {
+    if (!user?.compound_id) return;
+    try {
+      const compounds = await apiClient.getCompounds({ limit: 200 });
+      const foundCompound = compounds.find((c) => c.id === user.compound_id);
+      if (foundCompound) {
+        setCompound(foundCompound);
+      }
+    } catch (error) {
+      console.error("Failed to load compound:", error);
+    }
+  }
 
   async function handleLogout() {
     Alert.alert("Logout", "Are you sure you want to logout?", [
@@ -181,6 +202,24 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* Compound */}
+              {compound && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <Ionicons name="home-outline" size={20} color="#9CA3AF" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 2 }}>Compound</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "500", color: "#111827" }}>
+                      {compound.name}
+                    </Text>
+                    {compound.area && (
+                      <Text style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+                        {compound.area}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Action Buttons */}
@@ -317,7 +356,6 @@ export default function ProfileScreen() {
             </View>
             <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
           </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

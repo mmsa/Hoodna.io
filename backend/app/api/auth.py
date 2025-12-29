@@ -353,6 +353,67 @@ async def update_current_user(
     return current_user
 
 
+@router.get("/me/compounds", response_model=list[dict])
+async def get_user_compounds(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all compounds the user has access to (for switching)."""
+    from app.crud.compound import get_compounds
+    from app.models.enums import UserStatus
+    
+    # For now, return all compounds
+    # TODO: Later filter by verification status - only show compounds where user is verified
+    # For verified users, we could check verification documents for compound names
+    compounds, _ = await get_compounds(db, skip=0, limit=500)
+    
+    result = []
+    for compound in compounds:
+        result.append({
+            "id": compound.id,
+            "name": compound.name,
+            "area": compound.area,
+            "is_current": compound.id == current_user.compound_id,
+        })
+    
+    # Sort: current compound first, then alphabetically
+    result.sort(key=lambda x: (not x["is_current"], x["name"]))
+    
+    return result
+
+
+@router.post("/me/switch-compound", response_model=UserResponse)
+async def switch_compound(
+    request: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Switch the user's current compound."""
+    from app.crud.compound import get_compound_by_id
+    
+    compound_id = request.get("compound_id")
+    if compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="compound_id is required"
+        )
+    
+    # Verify compound exists
+    compound = await get_compound_by_id(db, compound_id)
+    if not compound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Compound not found"
+        )
+    
+    # Update user's current compound
+    current_user.compound_id = compound_id
+    await db.flush()
+    await db.refresh(current_user)
+    
+    return current_user
+
+
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,

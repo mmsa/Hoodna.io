@@ -101,6 +101,17 @@ export class ApiClient {
     return this.request<User>("/api/auth/me");
   }
 
+  async getUserCompounds(): Promise<Array<{ id: number; name: string; area: string | null; is_current: boolean }>> {
+    return this.request<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>("/api/auth/me/compounds");
+  }
+
+  async switchCompound(compoundId: number): Promise<User> {
+    return this.request<User>("/api/auth/me/switch-compound", {
+      method: "POST",
+      body: JSON.stringify({ compound_id: compoundId }),
+    });
+  }
+
   // Verification
   async getVerificationStatus(): Promise<VerificationStatusResponse> {
     return this.request<VerificationStatusResponse>("/api/verification/status");
@@ -237,7 +248,9 @@ export class ApiClient {
         }
       });
     }
-    return this.request<Compound[]>(`/api/compounds?${queryParams}`);
+    const response = await this.request<{ items: Compound[]; total: number; limit: number; offset: number }>(`/api/compounds?${queryParams}`);
+    // Backend returns CompoundListResponse with items array
+    return response.items || [];
   }
 
   // Notifications

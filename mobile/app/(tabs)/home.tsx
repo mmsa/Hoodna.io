@@ -593,7 +593,7 @@ export default function HomeScreen() {
     try {
       const data = await apiClient.getPosts(user.compound_id);
       setAllPosts(data);
-      applyLabelFilter(data);
+      // Filtering is handled by useMemo hook below
     } catch (error) {
       console.error("Failed to load posts:", error);
     } finally {

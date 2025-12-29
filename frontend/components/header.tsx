@@ -27,6 +27,7 @@ import {
   PlusCircle,
   MessageCircle,
   Bell,
+  Building2,
 } from 'lucide-react'
 import { NotificationsDropdown } from './notifications-dropdown'
 import Cookies from 'js-cookie'
@@ -80,6 +81,19 @@ export function Header() {
 
   const savedCount = savedListings?.length || 0
 
+  // Fetch compound details if user has compound_id
+  const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({
+    queryKey: ['compound', user?.compound_id],
+    queryFn: async () => {
+      if (!user?.compound_id) return null
+      const response = await api.get(`/api/compounds?limit=200`)
+      const compounds = response.data.items || []
+      const foundCompound = compounds.find((c: any) => c.id === user.compound_id)
+      return foundCompound || null
+    },
+    enabled: mounted && isAuthenticated && !!user?.compound_id,
+  })
+
   const handleLogout = async () => {
     try {
       await api.post('/api/auth/logout')
@@ -112,9 +126,14 @@ export function Header() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
               <Home className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Hoodna.io
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Hoodna.io
+              </span>
+              {compound && mounted && isAuthenticated && (
+                <CompoundSwitcher currentCompound={compound} />
+              )}
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
@@ -218,6 +237,14 @@ export function Header() {
                         <p className="text-xs leading-none text-muted-foreground">
                           {user.email}
                         </p>
+                        {compound && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Building2 className="w-3 h-3 text-muted-foreground" />
+                            <p className="text-xs leading-none text-muted-foreground">
+                              {compound.name}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
@@ -428,6 +455,94 @@ export function Header() {
         )}
       </div>
     </header>
+  )
+}
+
+// Compound Switcher Component
+function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; name: string; area?: string } }) {
+  const { user, refreshUser } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
+  
+  const { data: availableCompounds, isLoading } = useQuery<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>({
+    queryKey: ['user-compounds'],
+    queryFn: async () => {
+      const response = await api.get('/api/auth/me/compounds')
+      return response.data
+    },
+    enabled: !!user,
+  })
+
+  const handleSwitch = async (compoundId: number) => {
+    if (compoundId === user?.compound_id) return
+    
+    try {
+      await api.post('/api/auth/me/switch-compound', { compound_id: compoundId })
+      await refreshUser()
+      toast({
+        title: "Compound switched",
+        description: "Your active compound has been updated.",
+      })
+      // Refresh the page to update all compound-specific data
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to switch compound",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (isLoading || !availableCompounds || availableCompounds.length <= 1) {
+    // Show simple display if only one compound or loading
+    return (
+      <div className="flex items-center gap-1">
+        <Building2 className="w-3 h-3 text-blue-600" />
+        <span className="text-xs text-blue-600 font-medium">
+          {currentCompound.name}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer">
+          <Building2 className="w-3 h-3 text-blue-600" />
+          <span className="text-xs text-blue-600 font-medium">
+            {currentCompound.name}
+          </span>
+          <Building2 className="w-2 h-2 text-blue-600 opacity-50" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel>Switch Compound</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {availableCompounds.map((compound) => (
+          <DropdownMenuItem
+            key={compound.id}
+            onClick={() => handleSwitch(compound.id)}
+            className={compound.is_current ? "bg-blue-50" : ""}
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="flex flex-col">
+                <span className={compound.is_current ? "font-semibold text-blue-700" : ""}>
+                  {compound.name}
+                </span>
+                {compound.area && (
+                  <span className="text-xs text-gray-500">{compound.area}</span>
+                )}
+              </div>
+              {compound.is_current && (
+                <Building2 className="w-4 h-4 text-blue-600" />
+              )}
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

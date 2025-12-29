@@ -3,11 +3,26 @@
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Mail, Phone, MapPin, Shield, Loader2 } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Shield, Loader2, Home } from 'lucide-react'
 import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
+
+  // Fetch compound details if user has compound_id
+  const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({
+    queryKey: ['compound', user?.compound_id],
+    queryFn: async () => {
+      if (!user?.compound_id) return null
+      const response = await api.get(`/api/compounds?limit=200`)
+      const compounds = response.data.items || []
+      const foundCompound = compounds.find((c: any) => c.id === user.compound_id)
+      return foundCompound || null
+    },
+    enabled: !!user?.compound_id,
+  })
 
   if (isLoading) {
     return (
@@ -93,6 +108,19 @@ export default function ProfilePage() {
                   <p className="font-medium capitalize">{user.status.toLowerCase().replace('_', ' ')}</p>
                 </div>
               </div>
+
+              {compound && (
+                <div className="flex items-center gap-3">
+                  <Home className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">Compound</p>
+                    <p className="font-medium">{compound.name}</p>
+                    {compound.area && (
+                      <p className="text-sm text-gray-500 mt-1">{compound.area}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t flex gap-2">

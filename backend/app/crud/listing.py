@@ -31,11 +31,9 @@ async def get_listings(
     """
     where_conditions = [Listing.status == ListingStatus.ACTIVE]
     
-    # Try to filter by deleted_at, but handle case where column doesn't exist yet
-    try:
-        where_conditions.append(Listing.deleted_at.is_(None))
-    except Exception:
-        pass
+    # Soft delete filtering disabled until migration (deleted_at column commented out in model)
+    # Once migration is run, uncomment deleted_at in model and add:
+    # where_conditions.append(Listing.deleted_at.is_(None))
     
     query = select(Listing).options(
         selectinload(Listing.compound),
@@ -185,9 +183,9 @@ async def get_listing_by_id(db: AsyncSession, listing_id: int, include_deleted: 
     listing = result.scalar_one_or_none()
     if not listing:
         return None
-    # Only check deleted_at if the column exists and we're not including deleted
-    if not include_deleted and hasattr(listing, 'deleted_at') and listing.deleted_at is not None:
-        return None
+    # Only check deleted_at if the column exists (commented out until migration)
+    # if not include_deleted and hasattr(listing, 'deleted_at') and listing.deleted_at is not None:
+    #     return None
     return listing
 
 
@@ -290,24 +288,32 @@ async def archive_listing(db: AsyncSession, listing_id: int) -> bool:
     listing = await db.get(Listing, listing_id)
     if not listing:
         return False
-    # Only use soft delete if the column exists
-    if hasattr(Listing, 'deleted_at'):
-        if listing.deleted_at is not None:
-            return True  # Already deleted
-        listing.deleted_at = datetime.utcnow()
-    else:
-        # Column doesn't exist yet - fall back to archiving (temporary until migration)
-        listing.status = ListingStatus.ARCHIVED
+    # Soft delete is disabled until migration (deleted_at column commented out in model)
+    # For now, just archive the listing
+    # Once migration is run, uncomment deleted_at in model and use:
+    # if listing.deleted_at is not None:
+    #     return True  # Already deleted
+    # listing.deleted_at = datetime.utcnow()
+    listing.status = ListingStatus.ARCHIVED
     await db.flush()
     return True
 
 
 async def restore_listing(db: AsyncSession, listing_id: int) -> bool:
     """Restore a soft-deleted listing."""
+    # Soft delete is disabled until migration (deleted_at column commented out in model)
+    # Once migration is run, uncomment deleted_at in model and use:
+    # listing = await db.get(Listing, listing_id)
+    # if not listing or listing.deleted_at is None:
+    #     return False
+    # listing.deleted_at = None
+    # await db.flush()
+    # return True
+    # For now, restore by setting status back to ACTIVE
     listing = await db.get(Listing, listing_id)
-    if not listing or listing.deleted_at is None:
+    if not listing:
         return False
-    listing.deleted_at = None
+    listing.status = ListingStatus.ACTIVE
     await db.flush()
     return True
 

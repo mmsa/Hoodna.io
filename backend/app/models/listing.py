@@ -20,7 +20,7 @@ class Listing(Base):
     image_urls = Column(JSON, default=list, nullable=False)
     status = Column(SQLEnum(ListingStatus), default=ListingStatus.DRAFT, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete
+    # deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete - uncomment after migration
 
     # Relationships
     compound = relationship("Compound", back_populates="listings")
