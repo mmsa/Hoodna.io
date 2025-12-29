@@ -14,6 +14,19 @@ from app.core.config import settings
 router = APIRouter()
 
 
+# Explicit OPTIONS handler for CORS preflight
+@router.options("/login")
+@router.options("/signup")
+@router.options("/refresh")
+@router.options("/logout")
+@router.options("/me")
+@router.options("/forgot-password")
+@router.options("/reset-password")
+async def options_handler():
+    """Handle CORS preflight requests."""
+    return {"message": "OK"}
+
+
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     """Sign up a new user and return authentication tokens."""

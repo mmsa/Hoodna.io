@@ -20,10 +20,13 @@ router = APIRouter()
 
 
 @router.get("", response_model=NotificationListResponse)
+@router.get("/", response_model=NotificationListResponse)
 async def get_notifications(
     skip: int = Query(0, ge=0, description="Offset for pagination"),
     limit: int = Query(50, ge=1, le=200, description="Maximum number of results"),
-    unread_only: bool = Query(False, description="Filter to show only unread notifications"),
+    unread_only: bool = Query(
+        False, description="Filter to show only unread notifications"
+    ),
     current_user: User = Depends(get_current_approved_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -35,7 +38,7 @@ async def get_notifications(
         limit=limit,
         unread_only=unread_only,
     )
-    
+
     return NotificationListResponse(
         items=[NotificationResponse.model_validate(n) for n in notifications],
         total=total,
@@ -58,7 +61,7 @@ async def get_unread_count(
         limit=1,
         unread_only=True,
     )
-    
+
     return {"unread_count": unread_count}
 
 
@@ -74,13 +77,13 @@ async def mark_read(
         notification_id=notification_id,
         user_id=current_user.id,
     )
-    
+
     if not notification:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notification not found",
         )
-    
+
     return NotificationResponse.model_validate(notification)
 
 
@@ -94,7 +97,7 @@ async def mark_all_read(
         db=db,
         user_id=current_user.id,
     )
-    
+
     return {"message": f"Marked {count} notifications as read", "count": count}
 
 
@@ -110,12 +113,11 @@ async def delete_notification_endpoint(
         notification_id=notification_id,
         user_id=current_user.id,
     )
-    
+
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notification not found",
         )
-    
-    return {"message": "Notification deleted"}
 
+    return {"message": "Notification deleted"}

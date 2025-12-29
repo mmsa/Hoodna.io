@@ -4,7 +4,9 @@ from typing import List
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://hoodna:hoodna123@postgres:5432/hoodna"
+    # Default to localhost:5433 for local development (Docker Compose maps 5433->5432)
+    # Override with DATABASE_URL env var for Docker or production
+    DATABASE_URL: str = "postgresql+asyncpg://hoodna:hoodna123@localhost:5433/hoodna"
     
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"

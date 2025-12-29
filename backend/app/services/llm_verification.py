@@ -201,26 +201,46 @@ Respond in JSON format ONLY:
   "extracted_info": {{"name": "...", "id_number": "...", "expiry_date": "...", "address": "...", "compound_name_in_address": true/false, "document_type_confirmed": "NATIONAL_ID" or "CONTRACT" or "OTHER"}}
 }}"""
         else:  # CONTRACT
-            prompt = f"""CRITICAL: This document was submitted as a CONTRACT/PROOF OF RESIDENCY. You MUST verify it is actually a contract or proof of residency document, NOT a National ID or other document type.
+            prompt = f"""CRITICAL FIRST STEP - DOCUMENT TYPE VERIFICATION:
+This document was submitted as a CONTRACT/PROOF OF RESIDENCY/LEASE AGREEMENT. 
+You MUST FIRST verify the document type before proceeding with any other checks.
 
-Analyze this document (may be in Arabic or English) for user "{user_name}" (email: {user_email}){compound_context}.
+STEP 1 - DOCUMENT TYPE IDENTIFICATION (MANDATORY):
+Look at the document carefully and identify what type of document it actually is:
+- CONTRACT: Should contain words like "عقد إيجار" (lease contract), "عقد تمليك" (ownership contract), "Contract", "Lease Agreement", "Rental Agreement", property details, terms, dates, signatures
+- NATIONAL ID: Should contain "بطاقة شخصية", "ID Card", personal photo, ID number, personal information in card format
+- OTHER: Any other document type
+
+CRITICAL RULES:
+- If the document is a NATIONAL ID (بطاقة شخصية / ID card), you MUST:
+  * Set verified=false
+  * Set recommendation=REJECT
+  * Set document_type_confirmed="NATIONAL_ID"
+  * Add issue: "Wrong document type - expected Contract/Proof of Residency but received National ID"
+  * STOP HERE - do not proceed with name/address matching
+  
+- If the document is NOT a contract/lease/proof of residency, you MUST:
+  * Set verified=false
+  * Set recommendation=REJECT
+  * Set document_type_confirmed="OTHER"
+  * Add issue: "Wrong document type - expected Contract/Proof of Residency but received [actual type]"
+  * STOP HERE - do not proceed with name/address matching
+
+- ONLY if document_type_confirmed="CONTRACT" should you proceed to name and address matching below.
+
+STEP 2 - CONTRACT VERIFICATION (only if document type is CONTRACT):
+Analyze this contract document (may be in Arabic or English) for user "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
-- DOCUMENT TYPE CHECK: First verify this is actually a contract, lease agreement, or proof of residency (عقد إيجار / عقد تمليك / proof of address), NOT a National ID.
-  - If this is a National ID instead of a contract, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected Contract/Proof of Residency but received National ID"
-  - If this is NOT a contract or proof of residency, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected Contract/Proof of Residency but received [actual type]"
 - Names do NOT need to be 100% identical - they should be "close enough" to be the same person.
 - Address matching: The address MUST mention the compound name "{compound_name}" somewhere in the document.
-- If this contract is approved (name matches + compound name found), it alone is sufficient for verification (no National ID needed if National ID doesn't have compound name).
+- If this contract is approved (name matches + compound name found), it alone is sufficient for verification.
 
 Please analyze and verify:
-1. DOCUMENT TYPE: Is this actually a contract, lease agreement, or proof of residency document?
-   - REJECT if it's a National ID or any other document type
-   - Only proceed if it's clearly a contract/lease/proof of residency
-2. Is this a valid contract, lease agreement, or proof of residency document?
-3. Is the document clear, readable, and not tampered with?
-4. Name Matching: Does the name on the document match or closely match "{user_name}"?
+1. Is this a valid contract, lease agreement, or proof of residency document?
+2. Is the document clear, readable, and not tampered with?
+3. Name Matching: Does the name on the document match or closely match "{user_name}"?
    - Consider: Arabic/English variations, transliterations, nicknames, middle names, name order differences
    - Examples: "Mohamed" vs "Mohammed" vs "محمد" = MATCH
    - "Ahmed Ali" vs "Ahmed Mohamed Ali" = MATCH (if one contains the other)
@@ -228,7 +248,7 @@ Please analyze and verify:
    - "Mohamed Mostafa" vs "Mohamed M. Mostafa" = MATCH (middle initial)
    - Only mark NO_MATCH if names are clearly different people (e.g., "Ahmed" vs "Sara")
    - Mark MATCH if names are reasonably similar (same person, different spelling/translation)
-5. Address/Compound Matching: Does the address or property location mention "{compound_name}"?
+4. Address/Compound Matching: Does the address or property location mention "{compound_name}"?
    - Check if the compound name "{compound_name}" appears anywhere in the address/property description
    - Check if the area/district matches or relates to the compound location
    - MATCH if compound name is mentioned anywhere in the document (even if address format differs)
@@ -236,8 +256,8 @@ Please analyze and verify:
    - NO_MATCH only if address clearly refers to a completely different location/compound
    - Be flexible - compound name might appear in Arabic or English, or in different formats
    - This is REQUIRED - contract must mention compound name to be valid
-6. Is the document properly dated and signed?
-7. Are there any signs of forgery, tampering, or manipulation?
+5. Is the document properly dated and signed?
+6. Are there any signs of forgery, tampering, or manipulation?
 
 Respond in JSON format ONLY:
 {{
@@ -247,9 +267,17 @@ Respond in JSON format ONLY:
   "address_match": "MATCH" or "NO_MATCH" or "UNCLEAR",
   "issues": ["list", "of", "issues"],
   "recommendation": "APPROVE" or "REJECT" or "REQUEST_MORE_DETAILS",
-  "reasoning": "detailed explanation including document type verification, name and address comparison, mentioning if compound name was found",
-  "extracted_info": {{"property_address": "...", "contract_date": "...", "parties": "...", "compound_name_in_address": true/false, "document_type_confirmed": "CONTRACT" or "NATIONAL_ID" or "OTHER"}}
-}}"""
+  "reasoning": "detailed explanation. FIRST state the document type you identified (CONTRACT, NATIONAL_ID, or OTHER). Then explain name and address comparison, mentioning if compound name was found. If document type is wrong, explain why it's wrong.",
+  "extracted_info": {{
+    "property_address": "...",
+    "contract_date": "...",
+    "parties": "...",
+    "compound_name_in_address": true/false,
+    "document_type_confirmed": "CONTRACT" or "NATIONAL_ID" or "OTHER"
+  }}
+}}
+
+REMEMBER: document_type_confirmed MUST be set correctly. If it's "NATIONAL_ID" or "OTHER", set verified=false and recommendation=REJECT."""
         
         # Call OpenAI GPT-4 Vision API
         async with httpx.AsyncClient() as client:

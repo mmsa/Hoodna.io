@@ -1,4 +1,5 @@
 import re
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
@@ -236,189 +237,290 @@ async def verify_document_with_llm_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger LLM verification for a document."""
-    doc = await db.get(VerificationDocument, doc_id)
-    if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
-
-    user = await db.get(User, doc.user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    # Get compound name if user has a compound
-    compound_name = None
-    if user.compound_id:
-        from app.models.compound import Compound
-        compound = await db.get(Compound, user.compound_id)
-        if compound:
-            compound_name = compound.name
-
-    # Run LLM verification
-    llm_result = await verify_document_with_llm(
-        file_url=doc.file_url,
-        document_type=doc.type.value,
-        user_name=user.name,
-        user_email=user.email,
-        compound_name=compound_name,
-    )
-
-    # Update document with LLM results
-    doc.llm_verified = 1 if llm_result["verified"] else 0
-    doc.llm_confidence = llm_result["confidence"]
-    doc.llm_recommendation = llm_result["recommendation"]
-    doc.llm_reasoning = llm_result["reasoning"]
-    doc.llm_issues = llm_result["issues"]
+    logger = logging.getLogger(__name__)
     
-    # Store name_match, address_match, and compound_name_in_address in extracted_info
-    extracted_info = llm_result.get("extracted_info", {})
-    extracted_info["name_match"] = llm_result.get("name_match", "UNCLEAR")
-    extracted_info["address_match"] = llm_result.get("address_match", "UNCLEAR")
-    # Check if compound name was found in address (from extracted_info or address_match)
-    address_match = llm_result.get("address_match", "")
-    compound_name_found = (
-        extracted_info.get("compound_name_in_address", False) or
-        address_match == "MATCH"
-    )
-    extracted_info["compound_name_in_address"] = compound_name_found
-    doc.llm_extracted_info = extracted_info
-    
-    # Auto-update status if confidence >= 80% and recommendation is clear
-    # Only auto-update if document is still PENDING (not manually reviewed)
-    if llm_result["confidence"] >= 0.8 and doc.status == DocumentStatus.PENDING:
-        name_match = llm_result.get("name_match", "")
+    try:
+        doc = await db.get(VerificationDocument, doc_id)
+        if not doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+            )
+
+        user = await db.get(User, doc.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
+        # Get compound name if user has a compound
+        compound_name = None
+        if user.compound_id:
+            from app.models.compound import Compound
+            compound = await db.get(Compound, user.compound_id)
+            if compound:
+                compound_name = compound.name
+
+        logger.info(f"Starting LLM verification for document {doc_id}, type: {doc.type.value}, file_url: {doc.file_url}")
+
+        # Run LLM verification
+        try:
+            llm_result = await verify_document_with_llm(
+                file_url=doc.file_url,
+                document_type=doc.type.value,
+                user_name=user.name,
+                user_email=user.email,
+                compound_name=compound_name,
+            )
+            logger.info(f"LLM verification completed for document {doc_id}. Result: verified={llm_result.get('verified')}, confidence={llm_result.get('confidence')}, recommendation={llm_result.get('recommendation')}")
+        except Exception as llm_error:
+            logger.error(f"LLM verification failed for document {doc_id}: {str(llm_error)}", exc_info=True)
+            # Return error result but don't fail the endpoint
+            llm_result = {
+                "verified": False,
+                "confidence": 0.0,
+                "issues": [f"LLM verification error: {str(llm_error)}"],
+                "recommendation": "REQUEST_MORE_DETAILS",
+                "reasoning": f"Failed to verify document: {str(llm_error)}",
+                "extracted_info": {},
+                "name_match": "UNCLEAR",
+                "address_match": "UNCLEAR"
+            }
+
+        # Update document with LLM results
+        doc.llm_verified = 1 if llm_result["verified"] else 0
+        doc.llm_confidence = llm_result["confidence"]
+        doc.llm_recommendation = llm_result["recommendation"]
+        doc.llm_reasoning = llm_result["reasoning"]
+        doc.llm_issues = llm_result["issues"]
         
-        # Auto-approve if:
-        # - For National ID: name matches AND (address matches OR compound name found)
-        # - For Contract: name matches AND address matches (compound name required)
-        should_auto_approve = False
-        if llm_result["recommendation"] == "APPROVE":
-            if doc.type == DocumentType.NATIONAL_ID:
-                # National ID: name match + compound name in address
-                should_auto_approve = (
-                    name_match == "MATCH" and 
-                    (address_match == "MATCH" or compound_name_found)
-                )
-            else:  # CONTRACT
-                # Contract: name match + address match (compound name required)
-                should_auto_approve = (
-                    name_match == "MATCH" and address_match == "MATCH"
-                )
+        # Store name_match, address_match, and compound_name_in_address in extracted_info
+        extracted_info = llm_result.get("extracted_info", {})
+        extracted_info["name_match"] = llm_result.get("name_match", "UNCLEAR")
+        extracted_info["address_match"] = llm_result.get("address_match", "UNCLEAR")
+        # Check if compound name was found in address (from extracted_info or address_match)
+        address_match = llm_result.get("address_match", "")
+        compound_name_found = (
+            extracted_info.get("compound_name_in_address", False) or
+            address_match == "MATCH"
+        )
+        extracted_info["compound_name_in_address"] = compound_name_found
+        doc.llm_extracted_info = extracted_info
         
-        if should_auto_approve:
-            doc.status = DocumentStatus.APPROVED
-            doc.reviewer_id = current_user.id
-            # Add note about auto-approval
-            if doc.notes:
-                doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
-            else:
-                doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]"
+        # Auto-update status if confidence >= 80% and recommendation is clear
+        # Only auto-update if document is still PENDING (not manually reviewed)
+        if llm_result["confidence"] >= 0.8 and doc.status == DocumentStatus.PENDING:
+            name_match = llm_result.get("name_match", "")
+            extracted_info = llm_result.get("extracted_info", {})
+            doc_type_confirmed = extracted_info.get("document_type_confirmed", "")
             
-            # Check if user can now be approved (using the same logic as approve_document)
-            await db.flush()
-            from app.crud.verification import get_user_documents, has_compound_name_in_document
+            # CRITICAL: Check document type first - if wrong type, reject immediately
+            if doc.type == DocumentType.CONTRACT and doc_type_confirmed == "NATIONAL_ID":
+                doc.status = DocumentStatus.REJECTED
+                doc.reviewer_id = current_user.id
+                if doc.notes:
+                    doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected Contract but received National ID]\n\n{doc.notes}"
+                else:
+                    doc.notes = "[Auto-rejected by AI - Wrong document type: Expected Contract but received National ID]"
+                await db.commit()
+                await db.refresh(doc)
+                return {
+                    "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
+                    "llm_result": llm_result,
+                }
+            elif doc.type == DocumentType.NATIONAL_ID and doc_type_confirmed == "CONTRACT":
+                doc.status = DocumentStatus.REJECTED
+                doc.reviewer_id = current_user.id
+                if doc.notes:
+                    doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected National ID but received Contract]\n\n{doc.notes}"
+                else:
+                    doc.notes = "[Auto-rejected by AI - Wrong document type: Expected National ID but received Contract]"
+                await db.commit()
+                await db.refresh(doc)
+                return {
+                    "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
+                    "llm_result": llm_result,
+                }
+            elif doc_type_confirmed and doc_type_confirmed not in ["CONTRACT", "NATIONAL_ID"]:
+                doc.status = DocumentStatus.REJECTED
+                doc.reviewer_id = current_user.id
+                if doc.notes:
+                    doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected {doc.type.value} but received {doc_type_confirmed}]\n\n{doc.notes}"
+                else:
+                    doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected {doc.type.value} but received {doc_type_confirmed}]"
+                await db.commit()
+                await db.refresh(doc)
+                return {
+                    "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
+                    "llm_result": llm_result,
+                }
             
-            docs = await get_user_documents(db, doc.user_id)
-            national_id = docs[DocumentType.NATIONAL_ID]
-            contract = docs[DocumentType.CONTRACT]
+            # Auto-approve if:
+            # - For National ID: name matches AND (address matches OR compound name found) AND document type confirmed
+            # - For Contract: name matches AND address matches (compound name required) AND document type confirmed
+            should_auto_approve = False
+            if llm_result["recommendation"] == "APPROVE" and doc_type_confirmed == doc.type.value:
+                if doc.type == DocumentType.NATIONAL_ID:
+                    # National ID: name match + compound name in address + correct document type
+                    should_auto_approve = (
+                        name_match == "MATCH" and 
+                        (address_match == "MATCH" or compound_name_found)
+                    )
+                else:  # CONTRACT
+                    # Contract: name match + address match (compound name required) + correct document type
+                    should_auto_approve = (
+                        name_match == "MATCH" and address_match == "MATCH"
+                    )
             
-            user = await db.get(User, doc.user_id)
-            if user and user.status == UserStatus.PENDING_VERIFICATION:
-                # Rule 1: National ID approved + has compound name → sufficient alone
-                if (
-                    national_id
-                    and national_id.status == DocumentStatus.APPROVED
-                    and has_compound_name_in_document(national_id)
-                ):
-                    user.status = UserStatus.APPROVED
-                    await db.flush()
-                    # Send notification
-                    from app.services.notifications import notify_verification_approved
-                    await notify_verification_approved(db, user.id)
-                # Rule 2: Contract approved + name match + compound match → sufficient alone
-                elif (
-                    contract
-                    and contract.status == DocumentStatus.APPROVED
-                    and contract.llm_extracted_info
-                    and isinstance(contract.llm_extracted_info, dict)
-                ):
-                    contract_name_match = contract.llm_extracted_info.get("name_match", "")
-                    if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
+            if should_auto_approve:
+                doc.status = DocumentStatus.APPROVED
+                doc.reviewer_id = current_user.id
+                # Add note about auto-approval
+                if doc.notes:
+                    doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
+                else:
+                    doc.notes = f"[Auto-approved by AI - {llm_result['confidence']*100:.0f}% confidence]"
+                
+                # Check if user can now be approved (using the same logic as approve_document)
+                await db.flush()
+                from app.crud.verification import get_user_documents, has_compound_name_in_document
+                
+                docs = await get_user_documents(db, doc.user_id)
+                national_id = docs[DocumentType.NATIONAL_ID]
+                contract = docs[DocumentType.CONTRACT]
+                
+                user = await db.get(User, doc.user_id)
+                if user and user.status == UserStatus.PENDING_VERIFICATION:
+                    # Rule 1: National ID approved + has compound name → sufficient alone
+                    if (
+                        national_id
+                        and national_id.status == DocumentStatus.APPROVED
+                        and has_compound_name_in_document(national_id)
+                    ):
                         user.status = UserStatus.APPROVED
                         await db.flush()
                         # Send notification
                         from app.services.notifications import notify_verification_approved
                         await notify_verification_approved(db, user.id)
-                # Rule 3: Both documents approved → approve user
-                elif (
-                    national_id
-                    and national_id.status == DocumentStatus.APPROVED
-                    and contract
-                    and contract.status == DocumentStatus.APPROVED
-                ):
-                    user.status = UserStatus.APPROVED
-                    await db.flush()
-                    # Send notification
-                    from app.services.notifications import notify_verification_approved
-                    await notify_verification_approved(db, user.id)
+                    # Rule 2: Contract approved + name match + compound match → sufficient alone
+                    elif (
+                        contract
+                        and contract.status == DocumentStatus.APPROVED
+                        and contract.llm_extracted_info
+                        and isinstance(contract.llm_extracted_info, dict)
+                    ):
+                        contract_name_match = contract.llm_extracted_info.get("name_match", "")
+                        if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
+                            user.status = UserStatus.APPROVED
+                            await db.flush()
+                            # Send notification
+                            from app.services.notifications import notify_verification_approved
+                            await notify_verification_approved(db, user.id)
+                    # Rule 3: Both documents approved → approve user
+                    elif (
+                        national_id
+                        and national_id.status == DocumentStatus.APPROVED
+                        and contract
+                        and contract.status == DocumentStatus.APPROVED
+                    ):
+                        user.status = UserStatus.APPROVED
+                        await db.flush()
+                        # Send notification
+                        from app.services.notifications import notify_verification_approved
+                        await notify_verification_approved(db, user.id)
+                    else:
+                        await db.flush()
+            elif llm_result["recommendation"] == "REJECT" or name_match == "NO_MATCH" or address_match == "NO_MATCH":
+                # Check document type - if wrong type, reject with specific message
+                extracted_info = llm_result.get("extracted_info", {})
+                doc_type_confirmed = extracted_info.get("document_type_confirmed", "")
+                
+                # If document type doesn't match expected type, reject with specific message
+                if doc.type == DocumentType.CONTRACT and doc_type_confirmed == "NATIONAL_ID":
+                    doc.status = DocumentStatus.REJECTED
+                    doc.reviewer_id = current_user.id
+                    if doc.notes:
+                        doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected Contract but received National ID]\n\n{doc.notes}"
+                    else:
+                        doc.notes = "[Auto-rejected by AI - Wrong document type: Expected Contract but received National ID]"
+                elif doc.type == DocumentType.NATIONAL_ID and doc_type_confirmed == "CONTRACT":
+                    doc.status = DocumentStatus.REJECTED
+                    doc.reviewer_id = current_user.id
+                    if doc.notes:
+                        doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected National ID but received Contract]\n\n{doc.notes}"
+                    else:
+                        doc.notes = "[Auto-rejected by AI - Wrong document type: Expected National ID but received Contract]"
+                elif doc_type_confirmed and doc_type_confirmed not in ["CONTRACT", "NATIONAL_ID"]:
+                    doc.status = DocumentStatus.REJECTED
+                    doc.reviewer_id = current_user.id
+                    if doc.notes:
+                        doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected {doc.type.value} but received {doc_type_confirmed}]\n\n{doc.notes}"
+                    else:
+                        doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected {doc.type.value} but received {doc_type_confirmed}]"
                 else:
-                    await db.flush()
-        elif llm_result["recommendation"] == "REJECT" or name_match == "NO_MATCH" or address_match == "NO_MATCH":
-            doc.status = DocumentStatus.REJECTED
-            doc.reviewer_id = current_user.id
-            # Add note about auto-rejection
-            if doc.notes:
-                doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
-            else:
-                doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]"
-    
-    # Only set llm_verified_at if verification was actually attempted successfully
-    # (not if API key was missing, configuration error, or API error occurred)
-    issues = llm_result.get("issues", [])
-    reasoning = llm_result.get("reasoning", "").lower()
-    
-    # Check for various error conditions
-    api_key_missing = any(
-        "api key" in str(issue).lower() or 
-        "not configured" in str(issue).lower() or
-        "not available" in str(issue).lower()
-        for issue in issues
-    )
-    
-    # Check for API errors (400, 404, etc.)
-    api_error = any(
-        "400" in str(issue) or
-        "404" in str(issue) or
-        "bad request" in str(issue).lower() or
-        "not found" in str(issue).lower() or
-        "api error" in str(issue).lower() or
-        "openai api" in str(issue).lower()
-        for issue in issues
-    )
-    
-    has_error = (
-        api_key_missing or 
-        api_error or
-        "not available" in reasoning or
-        "not configured" in reasoning or
-        "manual review required" in reasoning or
-        "failed to verify" in reasoning
-    )
-    
-    # Only set verified_at if we actually got a real verification result (not an error)
-    # This ensures the button doesn't disappear on errors
-    if not has_error and llm_result.get("verified") is not None:
-        doc.llm_verified_at = datetime.utcnow()
+                    # Normal rejection based on name/address mismatch
+                    doc.status = DocumentStatus.REJECTED
+                    doc.reviewer_id = current_user.id
+                    # Add note about auto-rejection
+                    if doc.notes:
+                        doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]\n\n{doc.notes}"
+                    else:
+                        doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]"
+        
+        # Only set llm_verified_at if verification was actually attempted successfully
+        # (not if API key was missing, configuration error, or API error occurred)
+        issues = llm_result.get("issues", [])
+        reasoning = llm_result.get("reasoning", "").lower()
+        
+        # Check for various error conditions
+        api_key_missing = any(
+            "api key" in str(issue).lower() or 
+            "not configured" in str(issue).lower() or
+            "not available" in str(issue).lower()
+            for issue in issues
+        )
+        
+        # Check for API errors (400, 404, etc.)
+        api_error = any(
+            "400" in str(issue) or
+            "404" in str(issue) or
+            "bad request" in str(issue).lower() or
+            "not found" in str(issue).lower() or
+            "api error" in str(issue).lower() or
+            "openai api" in str(issue).lower()
+            for issue in issues
+        )
+        
+        has_error = (
+            api_key_missing or 
+            api_error or
+            "not available" in reasoning or
+            "not configured" in reasoning or
+            "manual review required" in reasoning or
+            "failed to verify" in reasoning
+        )
+        
+        # Only set verified_at if we actually got a real verification result (not an error)
+        # This ensures the button doesn't disappear on errors
+        if not has_error and llm_result.get("verified") is not None:
+            doc.llm_verified_at = datetime.utcnow()
 
-    await db.commit()
-    await db.refresh(doc)
+        await db.commit()
+        await db.refresh(doc)
 
-    return {
-        "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
-        "llm_result": llm_result,
-    }
+        logger.info(f"LLM verification endpoint completed successfully for document {doc_id}")
+        return {
+            "document": VerificationDocumentResponse.model_validate(doc).model_dump(),
+            "llm_result": llm_result,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in LLM verification endpoint for document {doc_id}: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify document with LLM: {str(e)}"
+        )
 
 
 class BulkVerifyResponse(BaseModel):
@@ -571,9 +673,28 @@ async def bulk_verify_documents_with_llm(
                             user_check.status = UserStatus.APPROVED
                         await db.flush()
                 elif llm_result["recommendation"] == "REJECT" or name_match == "NO_MATCH" or address_match == "NO_MATCH":
-                    doc.status = DocumentStatus.REJECTED
-                    doc.reviewer_id = current_user.id
-                    doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]"
+                    # Check document type - if wrong type, reject with specific message
+                    extracted_info = llm_result.get("extracted_info", {})
+                    doc_type_confirmed = extracted_info.get("document_type_confirmed", "")
+                    
+                    # If document type doesn't match expected type, reject with specific message
+                    if doc.type == DocumentType.CONTRACT and doc_type_confirmed == "NATIONAL_ID":
+                        doc.status = DocumentStatus.REJECTED
+                        doc.reviewer_id = current_user.id
+                        doc.notes = "[Auto-rejected by AI - Wrong document type: Expected Contract but received National ID]"
+                    elif doc.type == DocumentType.NATIONAL_ID and doc_type_confirmed == "CONTRACT":
+                        doc.status = DocumentStatus.REJECTED
+                        doc.reviewer_id = current_user.id
+                        doc.notes = "[Auto-rejected by AI - Wrong document type: Expected National ID but received Contract]"
+                    elif doc_type_confirmed and doc_type_confirmed not in ["CONTRACT", "NATIONAL_ID"]:
+                        doc.status = DocumentStatus.REJECTED
+                        doc.reviewer_id = current_user.id
+                        doc.notes = f"[Auto-rejected by AI - Wrong document type: Expected {doc.type.value} but received {doc_type_confirmed}]"
+                    else:
+                        # Normal rejection based on name/address mismatch
+                        doc.status = DocumentStatus.REJECTED
+                        doc.reviewer_id = current_user.id
+                        doc.notes = f"[Auto-rejected by AI - {llm_result['confidence']*100:.0f}% confidence]"
             
             # Set verified_at timestamp
             issues = llm_result.get("issues", [])

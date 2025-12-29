@@ -99,7 +99,19 @@ export default function LoginPage() {
         router.push('/feed')
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed')
+      console.error('Login error:', err)
+      // Provide more detailed error messages
+      if (err.response) {
+        // Backend returned an error response
+        const errorDetail = err.response?.data?.detail || err.response?.data?.message || 'Login failed'
+        setError(errorDetail)
+      } else if (err.request) {
+        // Request was made but no response received (network/CORS issue)
+        setError('Unable to connect to server. Please check your connection and try again.')
+      } else {
+        // Something else went wrong
+        setError(err.message || 'Login failed. Please try again.')
+      }
       // Clear cookies on error
       Cookies.remove('access_token', { path: '/' })
       Cookies.remove('refresh_token', { path: '/' })

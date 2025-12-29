@@ -34,13 +34,27 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware
+# CORS middleware - must be added before other middleware
+# Handle all origins in development, or specific origins in production
+# Ensure localhost:3001 is included for Next.js dev server fallback
+cors_origins = settings.CORS_ORIGINS if settings.CORS_ORIGINS else ["*"]
+# Add localhost:3001 if not already present (for Next.js port fallback)
+if cors_origins != ["*"] and "http://localhost:3001" not in cors_origins:
+    cors_origins.append("http://localhost:3001")
+
+# Debug: Log CORS origins on startup
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"CORS allowed origins: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # Use wildcard to allow all methods including OPTIONS
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # Include routers

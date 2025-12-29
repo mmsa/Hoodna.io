@@ -407,66 +407,6 @@ export default function FeedPage() {
     }
   }, [postsData, postsLimit]);
 
-  const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMorePosts) return;
-
-    setIsLoadingMore(true);
-    try {
-      const newLimit = postsLimit + 15;
-      const response = await api.get(`/api/feed?limit=${newLimit}`);
-      setAllPosts(response.data);
-      setPostsLimit(newLimit);
-      setHasMorePosts(response.data.length >= newLimit);
-    } catch (error) {
-      console.error("Failed to load more posts:", error);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  const posts = allPosts;
-
-  // Early return: Don't render anything if user doesn't meet requirements
-  // This prevents any API calls from being made
-  if (!userLoading && user) {
-    if (!user.compound_id) {
-      // Redirect will happen in useEffect, but return early to prevent rendering
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-gray-600">
-              Redirecting to compound selection...
-            </p>
-          </div>
-        </div>
-      );
-    }
-    if (user.compound_id && user.status !== "APPROVED") {
-      // Redirect will happen in useEffect, but return early to prevent rendering
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-gray-600">Redirecting to verification...</p>
-          </div>
-        </div>
-      );
-    }
-  }
-
-  // Show loading while user data is being fetched
-  if (userLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Redirect based on error type (fallback for API errors)
   // Note: Compound check happens first in the useEffect above
   useEffect(() => {
@@ -565,6 +505,66 @@ export default function FeedPage() {
       acc[category].push(listing);
       return acc;
     }, {} as Record<string, Listing[]>) || {};
+
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMorePosts) return;
+
+    setIsLoadingMore(true);
+    try {
+      const newLimit = postsLimit + 15;
+      const response = await api.get(`/api/feed?limit=${newLimit}`);
+      setAllPosts(response.data);
+      setPostsLimit(newLimit);
+      setHasMorePosts(response.data.length >= newLimit);
+    } catch (error) {
+      console.error("Failed to load more posts:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const posts = allPosts;
+
+  // Early return: Don't render anything if user doesn't meet requirements
+  // This prevents any API calls from being made
+  if (!userLoading && user) {
+    if (!user.compound_id) {
+      // Redirect will happen in useEffect, but return early to prevent rendering
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">
+              Redirecting to compound selection...
+            </p>
+          </div>
+        </div>
+      );
+    }
+    if (user.compound_id && user.status !== "APPROVED") {
+      // Redirect will happen in useEffect, but return early to prevent rendering
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Redirecting to verification...</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Show loading while user data is being fetched
+  if (userLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
