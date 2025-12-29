@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "@/constants/colors";
 
 function getInitials(name: string): string {
   return name
@@ -40,38 +41,38 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       {/* Header with Logo */}
       <Header showLogo={true} />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 16, paddingTop: 32, paddingBottom: 40 }}>
           {/* Header Section */}
           <View style={{ alignItems: "center", marginBottom: 32 }}>
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: "#3B82F6",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 16,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-            >
-              <Ionicons name="person" size={32} color="#FFFFFF" />
-            </View>
+              <View
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  backgroundColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 16,
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <Ionicons name="person" size={32} color="#FFFFFF" />
+              </View>
             <Text
               style={{
                 fontSize: 32,
@@ -85,21 +86,21 @@ export default function ProfileScreen() {
           </View>
 
           {/* Profile Card */}
-          <View
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 16,
-              borderWidth: 2,
-              borderColor: "#E5E7EB",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 8,
-              elevation: 4,
-            }}
-          >
+            <View
+              style={{
+                backgroundColor: colors.backgroundCard,
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+                borderWidth: 2,
+                borderColor: colors.border,
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
             {/* Card Header */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827", marginBottom: 4 }}>
@@ -115,12 +116,12 @@ export default function ProfileScreen() {
                   width: 80,
                   height: 80,
                   borderRadius: 40,
-                  backgroundColor: "#3B82F6",
+                  backgroundColor: colors.primary,
                   alignItems: "center",
                   justifyContent: "center",
-                  shadowColor: "#000",
+                  shadowColor: colors.primary,
                   shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
+                  shadowOpacity: 0.2,
                   shadowRadius: 4,
                   elevation: 2,
                 }}
@@ -135,8 +136,8 @@ export default function ProfileScreen() {
                 </Text>
                 {(user?.role === "ADMIN" || user?.role === "MODERATOR") && (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Ionicons name="shield-checkmark" size={16} color="#8B5CF6" />
-                    <Text style={{ fontSize: 14, color: "#8B5CF6", fontWeight: "500" }}>
+                    <Ionicons name="shield-checkmark" size={16} color={colors.purple} />
+                    <Text style={{ fontSize: 14, color: colors.purple, fontWeight: "500" }}>
                       {user.role}
                     </Text>
                   </View>
@@ -204,7 +205,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: "#3B82F6",
+                  backgroundColor: colors.primary,
                   borderRadius: 12,
                   paddingVertical: 12,
                   alignItems: "center",
@@ -217,6 +218,56 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Messages Card */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.backgroundCard,
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16,
+              borderWidth: 2,
+              borderColor: colors.border,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 4,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 16,
+            }}
+            onPress={() => router.push("/messages")}
+            activeOpacity={0.7}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: colors.primary,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
+            >
+              <Ionicons name="chatbubbles" size={28} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 4 }}>
+                Messages 💬
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.textMuted }}>
+                Connect with neighbors and sellers
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
+          </TouchableOpacity>
           </View>
         </View>
       </ScrollView>

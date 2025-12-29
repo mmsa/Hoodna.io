@@ -6,6 +6,7 @@ import { colors } from "@/constants/colors";
 interface HeaderProps {
   title?: string;
   showLogo?: boolean;
+  showBackButton?: boolean;
   rightAction?: {
     label: string;
     onPress: () => void;
@@ -14,12 +15,19 @@ interface HeaderProps {
   };
 }
 
-export function Header({ title, showLogo = true, rightAction }: HeaderProps) {
+export function Header({ title, showLogo = true, showBackButton = false, rightAction }: HeaderProps) {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
       <View style={styles.content}>
+        {/* Back Button */}
+        {showBackButton && (
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+          </TouchableOpacity>
+        )}
+
         {/* Logo Section */}
         {showLogo && (
           <TouchableOpacity
@@ -30,12 +38,12 @@ export function Header({ title, showLogo = true, rightAction }: HeaderProps) {
             <View style={styles.logoBox}>
               <Ionicons name="home" size={20} color="#FFFFFF" />
             </View>
-            <Text style={styles.logoText}>Hoodna.io</Text>
+            {!title && <Text style={styles.logoText}>Hoodna.io</Text>}
           </TouchableOpacity>
         )}
 
         {/* Title Section */}
-        {title && !showLogo && (
+        {title && (
           <Text style={styles.title}>{title}</Text>
         )}
 
@@ -78,6 +86,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  backButton: {
+    marginRight: 16,
   },
   logoContainer: {
     flexDirection: "row",

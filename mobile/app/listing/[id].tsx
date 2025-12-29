@@ -104,9 +104,18 @@ export default function ListingDetailScreen() {
         listing_id: listing.id,
       });
       
-      Alert.alert("Success", "Message sent! Check your messages.", [
-        { text: "OK", onPress: () => router.push("/(tabs)/profile") },
-      ]);
+      // Fetch conversations to find the new one
+      const conversations = await apiClient.getConversations();
+      const conversation = conversations.find(
+        (c: any) => c.other_user_id === listing.owner_id && c.listing_id === listing.id
+      );
+      
+      if (conversation) {
+        router.push(`/messages/${conversation.id}`);
+      } else {
+        // If conversation not found, go to messages list
+        router.push("/messages");
+      }
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to send message");
     }

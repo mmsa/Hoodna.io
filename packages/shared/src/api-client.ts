@@ -207,6 +207,21 @@ export class ApiClient {
     });
   }
 
+  async getConversations(skip = 0, limit = 50): Promise<any[]> {
+    return this.request<any[]>(`/api/conversations?skip=${skip}&limit=${limit}`);
+  }
+
+  async getConversation(conversationId: number): Promise<any> {
+    return this.request<any>(`/api/conversations/${conversationId}`);
+  }
+
+  async sendMessageToConversation(conversationId: number, content: string): Promise<any> {
+    return this.request<any>(`/api/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+  }
+
   // Compounds
   async getCompounds(params?: {
     area?: string;

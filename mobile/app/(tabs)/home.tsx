@@ -507,6 +507,7 @@ export default function HomeScreen() {
   const [announcements, setAnnouncements] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabel, setSelectedLabel] = useState("");
   const [newComments, setNewComments] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -544,23 +545,34 @@ export default function HomeScreen() {
     }
   }
 
-  function applyLabelFilter(data: Post[]) {
-    if (!selectedLabel) {
-      setPosts(data);
-      return;
+  function applyFilters(data: Post[]) {
+    let filtered = [...data];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(
+        (post) =>
+          post.content.toLowerCase().includes(query) ||
+          post.author_name.toLowerCase().includes(query) ||
+          (post.comments && post.comments.some((c) => c.content.toLowerCase().includes(query)))
+      );
     }
 
-    const filtered = data.filter((post) => {
-      const postType = detectPostType(post.content);
-      return postType.type === selectedLabel;
-    });
+    // Apply label filter
+    if (selectedLabel) {
+      filtered = filtered.filter((post) => {
+        const postType = detectPostType(post.content);
+        return postType.type === selectedLabel;
+      });
+    }
 
     setPosts(filtered);
   }
 
   useEffect(() => {
-    applyLabelFilter(allPosts);
-  }, [selectedLabel, allPosts]);
+    applyFilters(allPosts);
+  }, [selectedLabel, searchQuery, allPosts]);
 
   async function handleCreateComment(postId: number) {
     const content = newComments[postId];
@@ -791,6 +803,41 @@ export default function HomeScreen() {
                 backgroundColor: "#FFFFFF",
               }}
             >
+              {/* Search */}
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+                <TextInput
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.gray50,
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    fontSize: 15,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    color: colors.textMain,
+                  }}
+                  placeholder="Search posts, comments..."
+                  placeholderTextColor={colors.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.trim() && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.gray300,
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      justifyContent: "center",
+                    }}
+                    onPress={() => setSearchQuery("")}
+                  >
+                    <Text style={{ fontSize: 16 }}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {/* Label Filters */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={{ flexDirection: "row", gap: 8 }}>

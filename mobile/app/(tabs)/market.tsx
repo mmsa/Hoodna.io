@@ -319,32 +319,47 @@ export default function MarketScreen() {
                 <TextInput
                   style={{
                     flex: 1,
-                    backgroundColor: "#F9FAFB",
+                    backgroundColor: colors.gray50,
                     borderRadius: 12,
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     fontSize: 15,
                     borderWidth: 1,
-                    borderColor: "#E5E7EB",
-                    color: "#1B1B1B",
+                    borderColor: colors.border,
+                    color: colors.textMain,
                   }}
                   placeholder="Search listings..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: "#3B82F6",
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                    justifyContent: "center",
-                  }}
-                  onPress={() => setShowFilters(!showFilters)}
-                >
-                  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>🔍</Text>
-                </TouchableOpacity>
+                {searchQuery.trim() ? (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.gray300,
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      justifyContent: "center",
+                    }}
+                    onPress={() => setSearchQuery("")}
+                  >
+                    <Text style={{ fontSize: 16 }}>✕</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.primary,
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      justifyContent: "center",
+                    }}
+                    onPress={() => setShowFilters(!showFilters)}
+                  >
+                    <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>🔍</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Category Pills */}

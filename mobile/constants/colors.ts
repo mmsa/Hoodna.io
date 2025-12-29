@@ -55,5 +55,13 @@ export const colors = {
   like: "#3B82F6", // blue-500
   wow: "#F59E0B", // amber-500
   thanks: "#10B981", // emerald-500
+  
+  // Gray scale (for inputs, etc.)
+  gray50: "#F8FAFC", // slate-50
+  gray100: "#F1F5F9", // slate-100
+  gray200: "#E2E8F0", // slate-200
+  gray300: "#CBD5E1", // slate-300
+  gray400: "#94A3B8", // slate-400
+  gray500: "#64748B", // slate-500
 };
 
