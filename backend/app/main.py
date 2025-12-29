@@ -1,9 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, status
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.core.config import settings
+from app.core.dependencies import get_current_user
+from app.models.user import User
 
 # Import all models to ensure SQLAlchemy relationships are properly set up
 from app.models import notification  # noqa: F401
@@ -142,6 +144,47 @@ if use_local_storage():
         file_url = f"{base_url}/api/uploads/{relative_path}"
 
         return {"file_url": file_url, "message": "File uploaded successfully"}
+
+
+# General presign endpoint for uploads (used by mobile)
+@app.post("/api/uploads/presign")
+async def get_upload_presigned_url(
+    file_name: str,
+    file_type: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get a pre-signed URL for uploading files (general purpose)."""
+    from app.services.s3 import generate_presigned_put_url
+    from app.schemas.verification import PresignResponse
+    
+    # Validate file type
+    ALLOWED_TYPES = {
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+    }
+    if file_type.lower() not in [t.lower() for t in ALLOWED_TYPES]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_TYPES)}"
+        )
+    
+    try:
+        presigned_url, file_url = generate_presigned_put_url(
+            file_name=file_name,
+            file_type=file_type,
+        )
+        return PresignResponse(
+            presigned_url=presigned_url,
+            file_url=file_url
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate presigned URL: {str(e)}"
+        )
 
 
 @app.get("/")

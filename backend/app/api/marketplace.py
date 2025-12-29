@@ -16,7 +16,7 @@ from app.crud.listing import (
     update_listing,
 )
 from app.crud.saved_listing import is_listing_saved
-from app.core.dependencies import get_current_approved_user
+from app.core.dependencies import get_current_approved_user, get_current_user_optional
 from app.services.s3 import generate_presigned_put_url
 from app.models.user import User
 from typing import List, Optional
@@ -41,13 +41,22 @@ async def list_listings(
     sort_by: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get listings based on scope (compound, cross, public). Can filter by category, intent, search, sort, and price range."""
+    """Get listings based on scope (compound, cross, public). Public read, but requires auth for compound scope."""
     from app.models.enums import ListingCategory, ListingIntent
     
-    compound_id = current_user.compound_id if scope == "compound" else None
+    # For compound scope, user must be authenticated
+    if scope == "compound":
+        if not current_user or not current_user.compound_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required for compound scope"
+            )
+        compound_id = current_user.compound_id
+    else:
+        compound_id = None
     
     # Parse category and intent filters
     category_filter = None
@@ -119,22 +128,27 @@ async def list_listings(
 @router.get("/{listing_id}", response_model=ListingResponse)
 async def get_listing(
     listing_id: int,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific listing."""
+    """Get a specific listing. Public read."""
     listing = await get_listing_by_id(db, listing_id)
     if not listing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found"
         )
 
-    # Include owner contact info (email and phone) for verified users
-    owner_email = listing.owner.email if listing.owner else None
-    owner_phone = listing.owner.phone if listing.owner else None
+    # Include owner contact info (email and phone) only for authenticated approved users
+    owner_email = None
+    owner_phone = None
+    if current_user and current_user.status.value == "APPROVED":
+        owner_email = listing.owner.email if listing.owner else None
+        owner_phone = listing.owner.phone if listing.owner else None
 
-    # Check if listing is saved by current user
-    is_saved = await is_listing_saved(db, current_user.id, listing_id)
+    # Check if listing is saved by current user (only if authenticated)
+    is_saved = False
+    if current_user:
+        is_saved = await is_listing_saved(db, current_user.id, listing_id)
 
     response = ListingResponse(
         id=listing.id,

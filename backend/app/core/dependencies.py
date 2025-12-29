@@ -9,6 +9,34 @@ from app.core.security import decode_token
 security = HTTPBearer(auto_error=False)
 
 
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Get the current authenticated user, or None if not authenticated."""
+    if credentials is None:
+        return None
+    token = credentials.credentials
+    payload = decode_token(token)
+    
+    if payload is None or payload.get("type") != "access":
+        return None
+    
+    user_id = payload.get("sub")
+    if user_id is None:
+        return None
+    
+    # Convert user_id to int if it's a string
+    if isinstance(user_id, str):
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            return None
+    
+    user = await db.get(User, user_id)
+    return user
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),

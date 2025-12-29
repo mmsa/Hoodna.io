@@ -75,6 +75,53 @@ async def get_feed_summary(
     )
 
 
+@router.get("/posts", response_model=List[PostResponse])
+async def get_posts(
+    compound_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """Get posts. Public read, but compound_id required. If not provided and user is authenticated, uses user's compound."""
+    # Try to use user's compound if authenticated and compound_id not provided
+    if compound_id is None and current_user and current_user.compound_id:
+        compound_id = current_user.compound_id
+    
+    if compound_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="compound_id is required"
+        )
+    
+    posts = await get_feed_posts(db, compound_id=compound_id, skip=skip, limit=limit)
+    
+    # Convert to response format
+    result = []
+    for post in posts:
+        result.append(PostResponse(
+            id=post.id,
+            compound_id=post.compound_id,
+            author_id=post.author_id,
+            author_name=post.author.name,
+            content=post.content,
+            created_at=post.created_at,
+            comments=[
+                CommentResponse(
+                    id=c.id,
+                    post_id=c.post_id,
+                    author_id=c.author_id,
+                    author_name=c.author.name,
+                    content=c.content,
+                    created_at=c.created_at,
+                )
+                for c in post.comments
+            ]
+        ))
+    
+    return result
+
+
 @router.get("/feed", response_model=List[PostResponse])
 async def get_feed(
     compound_id: int = None,

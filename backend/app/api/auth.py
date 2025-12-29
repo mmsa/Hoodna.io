@@ -1,15 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.schemas.auth import UserSignup, UserLogin, TokenResponse, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.auth import (
+    UserSignup, UserLogin, TokenResponse, RefreshTokenRequest, 
+    ForgotPasswordRequest, ResetPasswordRequest,
+    PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest
+)
 from app.schemas.user import UserResponse, UserUpdate
-from app.crud.user import get_user_by_email, create_user
+from app.crud.user import get_user_by_email, create_user, get_user_by_phone, create_user_by_phone
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token, create_password_reset_token, get_password_hash
 from app.services.email import send_password_reset_email, send_password_reset_confirmation_email
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from datetime import timedelta
 from app.core.config import settings
+import random
+import string
 
 router = APIRouter()
 
@@ -22,9 +28,109 @@ router = APIRouter()
 @router.options("/me")
 @router.options("/forgot-password")
 @router.options("/reset-password")
+@router.options("/start")
+@router.options("/verify")
 async def options_handler():
     """Handle CORS preflight requests."""
     return {"message": "OK"}
+
+
+# In-memory OTP storage (use Redis in production)
+otp_storage: dict[str, dict] = {}
+
+
+def generate_otp() -> str:
+    """Generate a 6-digit OTP code."""
+    return ''.join(random.choices(string.digits, k=6))
+
+
+@router.post("/start", response_model=PhoneAuthStartResponse)
+async def phone_auth_start(
+    request: PhoneAuthStartRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Start phone authentication by sending OTP."""
+    phone_normalized = request.phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    
+    # Generate OTP
+    otp_code = generate_otp()
+    
+    # Store OTP (expires in 10 minutes)
+    import time
+    otp_storage[phone_normalized] = {
+        "otp": otp_code,
+        "expires_at": time.time() + 600,  # 10 minutes
+    }
+    
+    # In production, send SMS via Twilio/AWS SNS/etc.
+    # For now, return OTP in dev mode
+    if settings.ENVIRONMENT == "development":
+        return PhoneAuthStartResponse(
+            message="OTP sent successfully",
+            otp_code=otp_code,  # Only in dev
+        )
+    
+    return PhoneAuthStartResponse(message="OTP sent successfully")
+
+
+@router.post("/verify", response_model=TokenResponse)
+async def phone_auth_verify(
+    request: PhoneAuthVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify OTP and return tokens. Creates user if doesn't exist."""
+    phone_normalized = request.phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    
+    # Check OTP
+    stored_otp = otp_storage.get(phone_normalized)
+    if not stored_otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP not found. Please request a new one."
+        )
+    
+    import time
+    if time.time() > stored_otp["expires_at"]:
+        del otp_storage[phone_normalized]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP expired. Please request a new one."
+        )
+    
+    if stored_otp["otp"] != request.otp_code:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid OTP code"
+        )
+    
+    # OTP verified, remove it
+    del otp_storage[phone_normalized]
+    
+    # Get or create user
+    user = await get_user_by_phone(db, phone_normalized)
+    if not user:
+        if not request.name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Name is required for new users"
+            )
+        user = await create_user_by_phone(db, phone_normalized, request.name)
+    
+    # Check if banned
+    if user.status.value == "BANNED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is banned"
+        )
+    
+    # Create tokens
+    access_token = create_access_token(data={"sub": user.id})
+    refresh_token = create_refresh_token(data={"sub": user.id})
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -145,9 +251,83 @@ async def logout(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
-    """Get current user information."""
-    return current_user
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get current user information with verification status."""
+    from app.crud.verification import get_user_documents
+    from app.models.enums import DocumentType, UserStatus
+    
+    # Map UserStatus to verification_status string
+    verification_status_map = {
+        UserStatus.PENDING_VERIFICATION: "PENDING",
+        UserStatus.APPROVED: "APPROVED",
+        UserStatus.REJECTED: "REJECTED",
+        UserStatus.BANNED: "REJECTED",  # Banned users are effectively rejected
+    }
+    
+    # Default for users who haven't submitted any documents
+    verification_status = "UNVERIFIED"
+    if current_user.status in verification_status_map:
+        verification_status = verification_status_map[current_user.status]
+    
+    # Get verification documents to determine can_post
+    docs = await get_user_documents(db, current_user.id)
+    national_id = docs[DocumentType.NATIONAL_ID]
+    contract = docs[DocumentType.CONTRACT]
+    
+    # Check if user can post (same logic as verification status endpoint)
+    def _has_compound_name(doc):
+        if not doc or not doc.llm_extracted_info:
+            return False
+        if isinstance(doc.llm_extracted_info, dict):
+            compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
+            address_match = doc.llm_extracted_info.get("address_match", "")
+            return compound_found or address_match == "MATCH"
+        return False
+    
+    can_post = False
+    if current_user.status == UserStatus.APPROVED:
+        if (
+            national_id 
+            and national_id.status.value == "APPROVED" 
+            and _has_compound_name(national_id)
+        ):
+            can_post = True
+        elif (
+            contract
+            and contract.status.value == "APPROVED"
+            and contract.llm_extracted_info
+            and isinstance(contract.llm_extracted_info, dict)
+        ):
+            name_match = contract.llm_extracted_info.get("name_match", "")
+            if name_match == "MATCH" and _has_compound_name(contract):
+                can_post = True
+        elif (
+            national_id and national_id.status.value == "APPROVED" and
+            contract and contract.status.value == "APPROVED"
+        ):
+            can_post = True
+    
+    # Approved users can comment and create listings
+    can_comment = current_user.status == UserStatus.APPROVED
+    can_create_listing = current_user.status == UserStatus.APPROVED
+    
+    return UserResponse(
+        id=current_user.id,
+        name=current_user.name,
+        email=current_user.email,
+        phone=current_user.phone,
+        role=current_user.role,
+        status=current_user.status,
+        compound_id=current_user.compound_id,
+        created_at=current_user.created_at,
+        verification_status=verification_status,
+        can_post=can_post,
+        can_comment=can_comment,
+        can_create_listing=can_create_listing,
+    )
 
 
 @router.patch("/me", response_model=UserResponse)

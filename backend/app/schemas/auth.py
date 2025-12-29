@@ -32,3 +32,18 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+
+class PhoneAuthStartRequest(BaseModel):
+    phone: str
+
+
+class PhoneAuthStartResponse(BaseModel):
+    message: str
+    otp_code: Optional[str] = None  # Only in dev/staging
+
+
+class PhoneAuthVerifyRequest(BaseModel):
+    phone: str
+    otp_code: str
+    name: Optional[str] = None  # Required for new users
+

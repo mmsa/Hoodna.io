@@ -24,6 +24,11 @@ class UserResponse(UserBase):
     status: UserStatus
     compound_id: Optional[int] = None
     created_at: datetime
+    # Verification status details (computed)
+    verification_status: Optional[str] = None  # UNVERIFIED, PENDING, APPROVED, REJECTED
+    can_post: Optional[bool] = None
+    can_comment: Optional[bool] = None
+    can_create_listing: Optional[bool] = None
 
     class Config:
         from_attributes = True
