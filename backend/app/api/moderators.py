@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.core.dependencies import get_current_user, get_current_approved_user
 from app.models.user import User
+from app.models.enums import UserRole
 from app.schemas.moderator import (
     CompoundModeratorProfileCreate,
     CompoundModeratorProfileUpdate,
@@ -47,11 +48,11 @@ async def start_moderator_onboarding(
 @router.patch("/me", response_model=CompoundModeratorProfileResponse)
 async def update_moderator_profile_endpoint(
     profile_data: CompoundModeratorProfileUpdate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update moderator profile (only in DRAFT status)."""
-    if current_user.role and current_user.role.value != "COMPOUND_MOD":
+    if not current_user.role or current_user.role != UserRole.COMPOUND_MOD:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a compound moderator"
@@ -80,14 +81,14 @@ async def get_moderator_document_upload_url(
     document_type: str,
     file_name: str,
     file_type: str,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get presigned URL for uploading moderator document."""
     from app.services.s3 import generate_presigned_put_url
     from app.schemas.verification import PresignResponse
     
-    if current_user.role and current_user.role.value != "COMPOUND_MOD":
+    if not current_user.role or current_user.role != UserRole.COMPOUND_MOD:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a compound moderator"
@@ -112,11 +113,11 @@ async def get_moderator_document_upload_url(
 @router.post("/documents", response_model=CompoundModeratorDocumentResponse, status_code=status.HTTP_201_CREATED)
 async def add_moderator_document_endpoint(
     document_data: CompoundModeratorDocumentCreate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a document to moderator profile."""
-    if current_user.role and current_user.role.value != "COMPOUND_MOD":
+    if not current_user.role or current_user.role != UserRole.COMPOUND_MOD:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a compound moderator"
@@ -139,11 +140,11 @@ async def add_moderator_document_endpoint(
 
 @router.post("/onboarding/submit", response_model=CompoundModeratorProfileResponse)
 async def submit_moderator_onboarding(
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Submit moderator profile for review."""
-    if current_user.role and current_user.role.value != "COMPOUND_MOD":
+    if not current_user.role or current_user.role != UserRole.COMPOUND_MOD:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a compound moderator"
@@ -164,11 +165,11 @@ async def submit_moderator_onboarding(
 
 @router.get("/me", response_model=CompoundModeratorProfileResponse)
 async def get_my_moderator_profile(
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user's moderator profile."""
-    if current_user.role and current_user.role.value != "COMPOUND_MOD":
+    if not current_user.role or current_user.role != UserRole.COMPOUND_MOD:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a compound moderator"
