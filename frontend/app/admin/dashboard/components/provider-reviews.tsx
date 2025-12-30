@@ -52,6 +52,7 @@ export default function ProviderReviews() {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ document_type: string; file_url: string } | null>(null)
+  const [previewLoadError, setPreviewLoadError] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<ProviderProfile | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [suspensionReason, setSuspensionReason] = useState('')
@@ -140,6 +141,7 @@ export default function ProviderReviews() {
 
   const handlePreview = (doc: { document_type: string; file_url: string }) => {
     setPreviewDoc(doc)
+    setPreviewLoadError(false) // Reset error state when opening preview
     setPreviewDialogOpen(true)
   }
 
@@ -386,18 +388,39 @@ export default function ProviderReviews() {
             </DialogTitle>
           </DialogHeader>
           <div className="mt-4">
-            {previewDoc && (
-              <div className="space-y-4">
-                {(() => {
-                  const normalizedUrl = normalizeFileUrl(previewDoc.file_url)
-                  return previewDoc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+            {previewDoc && (() => {
+              const normalizedUrl = normalizeFileUrl(previewDoc.file_url)
+              
+              if (previewLoadError) {
+                return (
+                  <div className="p-8 text-center border border-red-200 rounded-lg bg-red-50">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-800 font-medium mb-2">Failed to load document</p>
+                    <p className="text-red-600 text-sm mb-4">The file could not be found or accessed.</p>
+                    <p className="text-red-500 text-xs mb-4 font-mono break-all">{normalizedUrl}</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        window.open(normalizedUrl, '_blank')
+                      }}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Try opening in new tab
+                    </Button>
+                  </div>
+                )
+              }
+              
+              return (
+                <div className="space-y-4">
+                  {previewDoc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                     <img
                       src={normalizedUrl}
                       alt={previewDoc.document_type}
                       className="w-full h-auto rounded-lg border"
-                      onError={(e) => {
+                      onError={() => {
                         console.error('Failed to load image:', normalizedUrl)
-                        e.currentTarget.src = '/placeholder-image.png'
+                        setPreviewLoadError(true)
                       }}
                     />
                   ) : (
@@ -407,25 +430,24 @@ export default function ProviderReviews() {
                       title={previewDoc.document_type}
                       onError={() => {
                         console.error('Failed to load document:', normalizedUrl)
+                        setPreviewLoadError(true)
                       }}
                     />
-                  )
-                })()}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (previewDoc) {
-                        window.open(normalizeFileUrl(previewDoc.file_url), '_blank')
-                      }
-                    }}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open in New Tab
-                  </Button>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        window.open(normalizedUrl, '_blank')
+                      }}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open in New Tab
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         </DialogContent>
       </Dialog>

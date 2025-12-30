@@ -44,6 +44,7 @@ export default function ModeratorReviews() {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ document_type: string; file_url: string } | null>(null)
+  const [previewLoadError, setPreviewLoadError] = useState(false)
   const [selectedModerator, setSelectedModerator] = useState<ModeratorProfile | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [suspensionReason, setSuspensionReason] = useState('')
@@ -132,6 +133,7 @@ export default function ModeratorReviews() {
 
   const handlePreview = (doc: { document_type: string; file_url: string }) => {
     setPreviewDoc(doc)
+    setPreviewLoadError(false) // Reset error state when opening preview
     setPreviewDialogOpen(true)
   }
 

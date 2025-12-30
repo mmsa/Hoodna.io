@@ -35,8 +35,8 @@ async def start_provider_onboarding(
     """Start provider onboarding - creates draft profile and sets user role."""
     try:
         profile = await create_provider_profile(db, current_user.id, profile_data)
-        # Load documents
-        await db.refresh(profile, ["documents"])
+        # Load documents and category
+        await db.refresh(profile, ["documents", "category"])
         return profile
     except ValueError as e:
         raise HTTPException(
@@ -65,7 +65,7 @@ async def update_provider_profile_endpoint(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Provider profile not found"
             )
-        await db.refresh(profile, ["documents"])
+        await db.refresh(profile, ["documents", "category"])
         return profile
     except ValueError as e:
         raise HTTPException(
@@ -150,7 +150,7 @@ async def submit_provider_onboarding(
     
     try:
         profile = await submit_provider_profile(db, current_user.id)
-        await db.refresh(profile, ["documents"])
+        await db.refresh(profile, ["documents", "category"])
         return profile
     except ValueError as e:
         raise HTTPException(
@@ -178,7 +178,7 @@ async def get_my_provider_profile(
             detail="Provider profile not found"
         )
     
-    await db.refresh(profile, ["documents"])
+    await db.refresh(profile, ["documents", "category"])
     return profile
 
 
@@ -191,9 +191,9 @@ async def list_providers(
 ):
     """Get all approved providers (public listing)."""
     profiles = await get_approved_providers(db, skip, limit)
-    # Load documents for each profile
+    # Load documents and category for each profile
     for profile in profiles:
-        await db.refresh(profile, ["documents"])
+        await db.refresh(profile, ["documents", "category"])
     return profiles
 
 
@@ -220,6 +220,6 @@ async def get_provider(
             detail="Provider not found or not approved"
         )
     
-    await db.refresh(profile, ["documents"])
+    await db.refresh(profile, ["documents", "category"])
     return profile
 

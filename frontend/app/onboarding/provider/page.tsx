@@ -82,7 +82,7 @@ export default function ProviderOnboardingPage() {
   }))
 
   // Check if profile already exists
-  const { data: existingProfile } = useQuery({
+  const { data: existingProfile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['provider-profile'],
     queryFn: async () => {
       try {
@@ -93,6 +93,7 @@ export default function ProviderOnboardingPage() {
       }
     },
     enabled: !!user,
+    staleTime: 0, // Always fetch fresh data when navigating to this page
   })
 
   useEffect(() => {
@@ -115,9 +116,10 @@ export default function ProviderOnboardingPage() {
         setUploadedDocs(docs)
       }
 
-      // Redirect if already submitted
-      if (existingProfile.provider_status !== 'DRAFT') {
+      // Redirect if already submitted (not DRAFT)
+      if (existingProfile.provider_status && existingProfile.provider_status !== 'DRAFT') {
         router.push('/provider/status')
+        return
       }
     }
   }, [existingProfile, router])
@@ -136,8 +138,8 @@ export default function ProviderOnboardingPage() {
       toast.success('Profile created')
     },
     onError: (error: any) => {
-      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create profile'
-      toast.error(`Error: ${errorMessage}`)
+      // Don't show error here - let handleNext handle it
+      throw error
     },
   })
 
@@ -212,15 +214,34 @@ export default function ProviderOnboardingPage() {
           toast.error('Please select provider type and verification method')
           return
         }
-        await startOnboardingMutation.mutateAsync({
-          provider_type: providerType as 'INDIVIDUAL' | 'REGISTERED_BUSINESS',
-          verification_method: verificationMethod as 'COMMERCIAL_REGISTER' | 'NATIONAL_ID_OCCUPATION',
-          business_name: businessName,
-          category_id: Number(categoryId),
-          phone,
-          service_area_compound_ids: selectedCompounds,
-          occupation_text: occupationText || null,
-        })
+        try {
+          await startOnboardingMutation.mutateAsync({
+            provider_type: providerType as 'INDIVIDUAL' | 'REGISTERED_BUSINESS',
+            verification_method: verificationMethod as 'COMMERCIAL_REGISTER' | 'NATIONAL_ID_OCCUPATION',
+            business_name: businessName,
+            category_id: Number(categoryId),
+            phone,
+            service_area_compound_ids: selectedCompounds,
+            occupation_text: occupationText || null,
+          })
+          // If creation succeeded, invalidate and refetch profile
+          await queryClient.invalidateQueries({ queryKey: ['provider-profile'] })
+        } catch (error: any) {
+          // If error is "already exists", fetch existing profile and update instead
+          if (error?.response?.data?.detail?.includes('already exists')) {
+            // Refetch profile and update
+            const profileResponse = await api.get('/api/providers/me')
+            queryClient.setQueryData(['provider-profile'], profileResponse.data)
+            // Now update with the new data
+            await updateProfileMutation.mutateAsync({
+              provider_type: providerType as 'INDIVIDUAL' | 'REGISTERED_BUSINESS',
+              verification_method: verificationMethod as 'COMMERCIAL_REGISTER' | 'NATIONAL_ID_OCCUPATION',
+              occupation_text: occupationText || null,
+            })
+          } else {
+            throw error // Re-throw if it's a different error
+          }
+        }
       } else {
         await updateProfileMutation.mutateAsync({
           provider_type: providerType as 'INDIVIDUAL' | 'REGISTERED_BUSINESS',
@@ -547,16 +568,28 @@ export default function ProviderOnboardingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
       <div className="max-w-3xl mx-auto">
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
+        {/* Show loading state while checking for existing profile */}
+        {isLoadingProfile && (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading profile...</p>
+            </div>
+          </div>
+        )}
+        
+        {!isLoadingProfile && (
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="mb-6"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
 
-        <Card>
+            <Card>
           <CardHeader>
             <CardTitle>Service Provider Onboarding</CardTitle>
             <CardDescription>
@@ -627,6 +660,8 @@ export default function ProviderOnboardingPage() {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
     </div>
   )

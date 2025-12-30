@@ -69,6 +69,22 @@ async def verify_document_with_llm(
         }
     
     try:
+        # Check if file exists (for local storage)
+        if file_url.startswith('/api/uploads/'):
+            from app.services.storage import get_local_file_path, use_local_storage
+            if use_local_storage():
+                local_path = get_local_file_path(file_url)
+                if local_path and not local_path.exists():
+                    logger.warning(f"File not found at local path: {local_path}")
+                    return {
+                        "verified": False,
+                        "confidence": 0.0,
+                        "issues": [f"File not found: The document file is missing. This may have occurred due to an upload error. Please ask the user to re-upload the document."],
+                        "recommendation": "REQUEST_MORE_DETAILS",
+                        "reasoning": f"The document file could not be found at the expected location. The file URL is: {file_url}. This typically happens when a file was uploaded before a system update or if the upload process failed. Please request the user to re-upload the document.",
+                        "extracted_info": {}
+                    }
+        
         # Ensure file_url is absolute
         if file_url.startswith('/api/uploads/'):
             # Local storage - make absolute URL
@@ -79,6 +95,16 @@ async def verify_document_with_llm(
         # Download the image/document
         async with httpx.AsyncClient() as client:
             response = await client.get(file_url, timeout=30.0)
+            if response.status_code == 404:
+                logger.warning(f"File not found at URL: {file_url}")
+                return {
+                    "verified": False,
+                    "confidence": 0.0,
+                    "issues": [f"File not found: The document file is missing (404 Not Found). This may have occurred due to an upload error. Please ask the user to re-upload the document."],
+                    "recommendation": "REQUEST_MORE_DETAILS",
+                    "reasoning": f"The document file could not be found at the URL: {file_url}. This typically happens when a file was uploaded before a system update or if the upload process failed. Please request the user to re-upload the document.",
+                    "extracted_info": {}
+                }
             response.raise_for_status()
             file_data = response.content
         
@@ -158,7 +184,168 @@ async def verify_document_with_llm(
         # Prepare prompt based on document type
         compound_context = f" in the compound '{compound_name}'" if compound_name else ""
         
-        if document_type == "NATIONAL_ID":
+        # Service Provider document types
+        if document_type == "COMMERCIAL_REGISTER":
+            prompt = f"""CRITICAL: This document was submitted as a COMMERCIAL_REGISTER (سجل تجاري). You MUST verify it is actually a Commercial Register document, NOT a National ID, contract, or other document type.
+
+Analyze this Commercial Register document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+
+IMPORTANT: 
+- The document may be in Arabic. You MUST read and understand Arabic text if present.
+- DOCUMENT TYPE CHECK: First verify this is actually a Commercial Register (سجل تجاري), NOT a National ID, contract, or other document.
+  - If this is NOT a Commercial Register, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected Commercial Register but received [actual type]"
+- Commercial Register should contain business registration number, business name, registration date, business activity, and official stamps/seals.
+
+Please analyze and verify:
+1. DOCUMENT TYPE: Is this actually a Commercial Register document (سجل تجاري)?
+   - REJECT if it's a National ID, contract, or any other document type
+   - Only proceed if it's clearly a Commercial Register
+2. Is this a valid, authentic Commercial Register document?
+3. Is the document clear, readable, and not tampered with?
+4. Does the business name on the Commercial Register match or closely match the service provider's business name?
+5. Is the document current and not expired?
+6. Are there any signs of forgery, tampering, or manipulation?
+7. Does the business activity/description match the service category being provided?
+
+Respond in JSON format ONLY:
+{{
+  "verified": true/false,
+  "confidence": 0.0-1.0,
+  "issues": ["list", "of", "issues"],
+  "recommendation": "APPROVE" or "REJECT" or "REQUEST_MORE_DETAILS",
+  "reasoning": "detailed explanation including document type verification and business name matching",
+  "extracted_info": {{"business_name": "...", "registration_number": "...", "registration_date": "...", "business_activity": "...", "document_type_confirmed": "COMMERCIAL_REGISTER" or "OTHER"}}
+}}"""
+        elif document_type == "TAX_CARD":
+            prompt = f"""CRITICAL: This document was submitted as a TAX_CARD (بطاقة ضريبية). You MUST verify it is actually a Tax Card document, NOT a National ID, Commercial Register, or other document type.
+
+Analyze this Tax Card document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+
+IMPORTANT: 
+- The document may be in Arabic. You MUST read and understand Arabic text if present.
+- DOCUMENT TYPE CHECK: First verify this is actually a Tax Card (بطاقة ضريبية), NOT a National ID, Commercial Register, or other document.
+  - If this is NOT a Tax Card, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected Tax Card but received [actual type]"
+- Tax Card should contain tax identification number, business name, and tax authority information.
+
+Please analyze and verify:
+1. DOCUMENT TYPE: Is this actually a Tax Card document (بطاقة ضريبية)?
+   - REJECT if it's a National ID, Commercial Register, or any other document type
+   - Only proceed if it's clearly a Tax Card
+2. Is this a valid, authentic Tax Card document?
+3. Is the document clear, readable, and not tampered with?
+4. Does the business name on the Tax Card match or closely match the service provider's business name?
+5. Is the document current and not expired?
+6. Are there any signs of forgery, tampering, or manipulation?
+
+Respond in JSON format ONLY:
+{{
+  "verified": true/false,
+  "confidence": 0.0-1.0,
+  "issues": ["list", "of", "issues"],
+  "recommendation": "APPROVE" or "REJECT" or "REQUEST_MORE_DETAILS",
+  "reasoning": "detailed explanation including document type verification and business name matching",
+  "extracted_info": {{"business_name": "...", "tax_number": "...", "document_type_confirmed": "TAX_CARD" or "OTHER"}}
+}}"""
+        elif document_type == "NATIONAL_ID_FRONT":
+            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID_FRONT (front side of National ID / بطاقة شخصية - الوجه). You MUST verify it is actually the front side of a National ID document, NOT a contract, Commercial Register, or other document type.
+
+Analyze this National ID front side document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+
+IMPORTANT: 
+- The document may be in Arabic. You MUST read and understand Arabic text if present.
+- DOCUMENT TYPE CHECK: First verify this is actually the front side of a National ID (بطاقة شخصية - الوجه), NOT a contract, Commercial Register, or other document.
+  - If this is NOT a National ID front, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected National ID Front but received [actual type]"
+- National ID front should contain: photo, name, ID number, date of birth, and other personal information.
+
+Please analyze and verify:
+1. DOCUMENT TYPE: Is this actually the front side of a National ID document (بطاقة شخصية - الوجه)?
+   - REJECT if it's a contract, Commercial Register, or any other document type
+   - Only proceed if it's clearly a National ID front
+2. Is this a valid, authentic National ID front document?
+3. Is the document clear, readable, and not tampered with?
+4. Name Matching: Does the name on the ID match or closely match "{user_name}"?
+   - Consider: Arabic/English variations, transliterations, nicknames, middle names, name order differences
+5. Is the document current and not expired?
+6. Are there any signs of forgery, tampering, or manipulation?
+
+Respond in JSON format ONLY:
+{{
+  "verified": true/false,
+  "confidence": 0.0-1.0,
+  "name_match": "MATCH" or "NO_MATCH" or "UNCLEAR",
+  "issues": ["list", "of", "issues"],
+  "recommendation": "APPROVE" or "REJECT" or "REQUEST_MORE_DETAILS",
+  "reasoning": "detailed explanation including document type verification and name comparison",
+  "extracted_info": {{"name": "...", "id_number": "...", "date_of_birth": "...", "document_type_confirmed": "NATIONAL_ID_FRONT" or "OTHER"}}
+}}"""
+        elif document_type == "NATIONAL_ID_BACK":
+            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID_BACK (back side of National ID / بطاقة شخصية - الخلف). You MUST verify it is actually the back side of a National ID document, NOT a contract, Commercial Register, or other document type.
+
+Analyze this National ID back side document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+
+IMPORTANT: 
+- The document may be in Arabic. You MUST read and understand Arabic text if present.
+- DOCUMENT TYPE CHECK: First verify this is actually the back side of a National ID (بطاقة شخصية - الخلف), NOT a contract, Commercial Register, or other document.
+  - If this is NOT a National ID back, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected National ID Back but received [actual type]"
+- National ID back should contain: address, occupation, and other personal details.
+
+Please analyze and verify:
+1. DOCUMENT TYPE: Is this actually the back side of a National ID document (بطاقة شخصية - الخلف)?
+   - REJECT if it's a contract, Commercial Register, or any other document type
+   - Only proceed if it's clearly a National ID back
+2. Is this a valid, authentic National ID back document?
+3. Is the document clear, readable, and not tampered with?
+4. Does the occupation on the ID match or relate to the service being provided?
+5. COMPOUND NAME IN ADDRESS: Does the address mention the compound name "{compound_name}"?
+   - Check if "{compound_name}" appears anywhere in the address field (may be in Arabic or English)
+6. Are there any signs of forgery, tampering, or manipulation?
+
+Respond in JSON format ONLY:
+{{
+  "verified": true/false,
+  "confidence": 0.0-1.0,
+  "address_match": "MATCH" or "NO_MATCH" or "UNCLEAR" or "N/A",
+  "issues": ["list", "of", "issues"],
+  "recommendation": "APPROVE" or "REJECT" or "REQUEST_MORE_DETAILS",
+  "reasoning": "detailed explanation including document type verification, occupation check, and whether compound name was found in address",
+  "extracted_info": {{"address": "...", "occupation": "...", "compound_name_in_address": true/false, "document_type_confirmed": "NATIONAL_ID_BACK" or "OTHER"}}
+}}"""
+        elif document_type == "AUTHORIZATION_LETTER":
+            prompt = f"""CRITICAL: This document was submitted as an AUTHORIZATION_LETTER (letter of authorization / خطاب تفويض). You MUST verify it is actually an authorization letter, NOT a National ID, contract, or other document type.
+
+Analyze this Authorization Letter document (may be in Arabic or English) for compound moderator "{user_name}" (email: {user_email}){compound_context}.
+
+IMPORTANT: 
+- The document may be in Arabic. You MUST read and understand Arabic text if present.
+- DOCUMENT TYPE CHECK: First verify this is actually an Authorization Letter (خطاب تفويض), NOT a National ID, contract, or other document.
+  - If this is NOT an Authorization Letter, mark verified=false, recommendation=REJECT, and add issue "Wrong document type - expected Authorization Letter but received [actual type]"
+- Authorization Letter should: be on official letterhead, mention the compound name "{compound_name}", authorize the person to moderate/manage the compound, include dates, signatures, and official stamps.
+
+Please analyze and verify:
+1. DOCUMENT TYPE: Is this actually an Authorization Letter (خطاب تفويض)?
+   - REJECT if it's a National ID, contract, or any other document type
+   - Only proceed if it's clearly an Authorization Letter
+2. Is this a valid, authentic Authorization Letter?
+3. Is the document clear, readable, and not tampered with?
+4. Name Matching: Does the authorized person's name match or closely match "{user_name}"?
+5. COMPOUND NAME: Does the letter mention the compound name "{compound_name}"?
+   - This is REQUIRED - the authorization must be for the specific compound
+6. Does the letter authorize the person to moderate/manage the compound?
+7. Is the document properly dated and signed?
+8. Are there any signs of forgery, tampering, or manipulation?
+
+Respond in JSON format ONLY:
+{{
+  "verified": true/false,
+  "confidence": 0.0-1.0,
+  "name_match": "MATCH" or "NO_MATCH" or "UNCLEAR",
+  "compound_name_match": "MATCH" or "NO_MATCH" or "UNCLEAR",
+  "issues": ["list", "of", "issues"],
+  "recommendation": "APPROVE" or "REJECT" or "REQUEST_MORE_DETAILS",
+  "reasoning": "detailed explanation including document type verification, name matching, and whether compound name was found",
+  "extracted_info": {{"authorized_name": "...", "compound_name": "...", "authorization_date": "...", "document_type_confirmed": "AUTHORIZATION_LETTER" or "OTHER"}}
+}}"""
+        elif document_type == "NATIONAL_ID":
             prompt = f"""CRITICAL: This document was submitted as a NATIONAL ID. You MUST verify it is actually a National ID document, NOT a contract or other document type.
 
 Analyze this document (may be in Arabic or English) for user "{user_name}" (email: {user_email}){compound_context}.
@@ -418,8 +605,38 @@ REMEMBER: document_type_confirmed MUST be set correctly. If it's "NATIONAL_ID" o
             "extracted_info": {}
         }
         
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            logger.warning(f"File not found during LLM verification: {file_url}")
+            return {
+                "verified": False,
+                "confidence": 0.0,
+                "issues": [f"File not found: The document file is missing (404 Not Found). This may have occurred due to an upload error. Please ask the user to re-upload the document."],
+                "recommendation": "REQUEST_MORE_DETAILS",
+                "reasoning": f"The document file could not be found at the URL: {file_url}. This typically happens when a file was uploaded before a system update or if the upload process failed. Please request the user to re-upload the document.",
+                "extracted_info": {}
+            }
+        logger.error(f"HTTP error during LLM verification: {e}")
+        return {
+            "verified": False,
+            "confidence": 0.0,
+            "issues": [f"HTTP error ({e.response.status_code}): {str(e)}"],
+            "recommendation": "REQUEST_MORE_DETAILS",
+            "reasoning": f"Failed to fetch document for verification: HTTP {e.response.status_code} - {str(e)}",
+            "extracted_info": {}
+        }
+    except httpx.RequestError as e:
+        logger.error(f"Network error during LLM verification: {e}")
+        return {
+            "verified": False,
+            "confidence": 0.0,
+            "issues": [f"Network error: Could not connect to file server. {str(e)}"],
+            "recommendation": "REQUEST_MORE_DETAILS",
+            "reasoning": f"Failed to fetch document due to network error: {str(e)}",
+            "extracted_info": {}
+        }
     except Exception as e:
-        logger.error(f"LLM verification failed: {e}")
+        logger.error(f"LLM verification failed: {e}", exc_info=True)
         return {
             "verified": False,
             "confidence": 0.0,
