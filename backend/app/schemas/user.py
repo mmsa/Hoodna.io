@@ -21,7 +21,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
-    role: UserRole
+    role: Optional[UserRole] = None
     status: UserStatus
     compound_id: Optional[int] = None
     created_at: datetime

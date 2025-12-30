@@ -125,19 +125,22 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/logo_light.jpg"
-              alt="eljiran.com"
-              width={150}
-              height={50}
-              className="h-12 w-auto"
-              priority
-            />
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/icon_light.jpg"
+                alt="eljiran.com"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-full"
+                priority
+              />
+              <span className="text-lg font-semibold text-green-600">eljiran.com</span>
+            </Link>
             {compound && mounted && isAuthenticated && (
               <CompoundSwitcher currentCompound={compound} />
             )}
-          </Link>
+          </div>
 
           {/* Desktop Navigation */}
           {mounted && isAuthenticated && (
@@ -154,7 +157,7 @@ export function Header() {
               <Link href="/feed">
                 <Button
                   variant={isActive('/feed') ? 'default' : 'ghost'}
-                  className={isActive('/feed') ? 'bg-blue-50 text-blue-700' : ''}
+                  className={isActive('/feed') ? 'bg-blue-100 text-gray-900 hover:bg-blue-100 rounded-lg font-medium' : 'hover:bg-gray-100 rounded-lg text-gray-700'}
                 >
                   <Home className="w-4 h-4 mr-2" />
                   Feed
@@ -162,8 +165,8 @@ export function Header() {
               </Link>
               <Link href="/marketplace">
                 <Button
-                  variant={isActive('/marketplace') ? 'default' : 'ghost'}
-                  className={isActive('/marketplace') ? 'bg-blue-50 text-blue-700' : ''}
+                  variant="ghost"
+                  className="hover:bg-gray-100 rounded-lg text-gray-700"
                 >
                   <ShoppingBag className="w-4 h-4 mr-2" />
                   Marketplace
@@ -171,8 +174,8 @@ export function Header() {
               </Link>
               <Link href="/services">
                 <Button
-                  variant={isActive('/services') ? 'default' : 'ghost'}
-                  className={isActive('/services') ? 'bg-green-50 text-green-700' : ''}
+                  variant="ghost"
+                  className="hover:bg-gray-100 rounded-lg text-gray-700"
                 >
                   <Wrench className="w-4 h-4 mr-2" />
                   Services
@@ -180,8 +183,7 @@ export function Header() {
               </Link>
               <Link href="/marketplace/new">
                 <Button
-                  variant="ghost"
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                  className="bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
                 >
                   <PlusCircle className="w-4 h-4 mr-2" />
                   Create Listing
@@ -212,9 +214,9 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10"
+                    className="relative h-10 w-10 hover:bg-gray-100 rounded-lg"
                   >
-                    <MessageCircle className="h-5 w-5" />
+                    <MessageCircle className="h-5 w-5 text-gray-700" />
                     {unreadMessagesCount > 0 && (
                       <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
                         {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
@@ -231,9 +233,9 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10"
+                    className="relative h-10 w-10 hover:bg-gray-100 rounded-lg"
                   >
-                    <Bookmark className="h-5 w-5" />
+                    <Bookmark className="h-5 w-5 text-gray-700" />
                     {savedCount > 0 && (
                       <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-yellow-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
                         {savedCount > 99 ? '99+' : savedCount}
@@ -539,10 +541,11 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   if (isLoading) {
     // Show simple display while loading
     return (
-      <div className="flex items-center gap-1">
-        <Building2 className="w-3 h-3 text-blue-600" />
-        <span className="text-xs text-blue-600 font-medium">
+      <div className="flex items-center gap-1.5 ml-2">
+        <Building2 className="w-4 h-4 text-blue-600" />
+        <span className="text-sm text-blue-600 font-medium">
           {currentCompound.name}
+          {currentCompound.area && ` (${currentCompound.area})`}
         </span>
       </div>
     )
@@ -551,12 +554,12 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer">
-          <Building2 className="w-3 h-3 text-blue-600" />
-          <span className="text-xs text-blue-600 font-medium">
+        <button className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer">
+          <Building2 className="w-4 h-4 text-blue-600" />
+          <span className="text-sm text-blue-600 font-medium">
             {currentCompound.name}
+            {currentCompound.area && ` (${currentCompound.area})`}
           </span>
-          <Building2 className="w-2 h-2 text-blue-600 opacity-50" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
