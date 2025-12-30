@@ -29,7 +29,8 @@ async def verify_document_with_llm(
     document_type: str,
     user_name: str,
     user_email: str,
-    compound_name: str = None
+    compound_name: str = None,
+    user_type: str = "user"  # "resident", "service_provider", "moderator"
 ) -> Dict[str, any]:
     """
     Verify a document using LLM (OpenAI GPT-4 Vision).
@@ -184,11 +185,18 @@ async def verify_document_with_llm(
         # Prepare prompt based on document type
         compound_context = f" in the compound '{compound_name}'" if compound_name else ""
         
+        # Determine user type context for prompts
+        user_type_context = {
+            "resident": "resident",
+            "service_provider": "service provider",
+            "moderator": "compound moderator"
+        }.get(user_type, "user")
+        
         # Service Provider document types
         if document_type == "COMMERCIAL_REGISTER":
-            prompt = f"""CRITICAL: This document was submitted as a COMMERCIAL_REGISTER (سجل تجاري). You MUST verify it is actually a Commercial Register document, NOT a National ID, contract, or other document type.
+            prompt = f"""CRITICAL: This document was submitted as a COMMERCIAL_REGISTER (سجل تجاري) for a {user_type_context}. You MUST verify it is actually a Commercial Register document, NOT a National ID, contract, or other document type.
 
-Analyze this Commercial Register document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+Analyze this Commercial Register document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
@@ -217,9 +225,9 @@ Respond in JSON format ONLY:
   "extracted_info": {{"business_name": "...", "registration_number": "...", "registration_date": "...", "business_activity": "...", "document_type_confirmed": "COMMERCIAL_REGISTER" or "OTHER"}}
 }}"""
         elif document_type == "TAX_CARD":
-            prompt = f"""CRITICAL: This document was submitted as a TAX_CARD (بطاقة ضريبية). You MUST verify it is actually a Tax Card document, NOT a National ID, Commercial Register, or other document type.
+            prompt = f"""CRITICAL: This document was submitted as a TAX_CARD (بطاقة ضريبية) for a {user_type_context}. You MUST verify it is actually a Tax Card document, NOT a National ID, Commercial Register, or other document type.
 
-Analyze this Tax Card document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+Analyze this Tax Card document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
@@ -247,9 +255,9 @@ Respond in JSON format ONLY:
   "extracted_info": {{"business_name": "...", "tax_number": "...", "document_type_confirmed": "TAX_CARD" or "OTHER"}}
 }}"""
         elif document_type == "NATIONAL_ID_FRONT":
-            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID_FRONT (front side of National ID / بطاقة شخصية - الوجه). You MUST verify it is actually the front side of a National ID document, NOT a contract, Commercial Register, or other document type.
+            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID_FRONT (front side of National ID / بطاقة شخصية - الوجه) for a {user_type_context}. You MUST verify it is actually the front side of a National ID document, NOT a contract, Commercial Register, or other document type.
 
-Analyze this National ID front side document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+Analyze this National ID front side document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
@@ -279,9 +287,9 @@ Respond in JSON format ONLY:
   "extracted_info": {{"name": "...", "id_number": "...", "date_of_birth": "...", "document_type_confirmed": "NATIONAL_ID_FRONT" or "OTHER"}}
 }}"""
         elif document_type == "NATIONAL_ID_BACK":
-            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID_BACK (back side of National ID / بطاقة شخصية - الخلف). You MUST verify it is actually the back side of a National ID document, NOT a contract, Commercial Register, or other document type.
+            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID_BACK (back side of National ID / بطاقة شخصية - الخلف) for a {user_type_context}. You MUST verify it is actually the back side of a National ID document, NOT a contract, Commercial Register, or other document type.
 
-Analyze this National ID back side document (may be in Arabic or English) for service provider "{user_name}" (email: {user_email}){compound_context}.
+Analyze this National ID back side document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
@@ -311,9 +319,9 @@ Respond in JSON format ONLY:
   "extracted_info": {{"address": "...", "occupation": "...", "compound_name_in_address": true/false, "document_type_confirmed": "NATIONAL_ID_BACK" or "OTHER"}}
 }}"""
         elif document_type == "AUTHORIZATION_LETTER":
-            prompt = f"""CRITICAL: This document was submitted as an AUTHORIZATION_LETTER (letter of authorization / خطاب تفويض). You MUST verify it is actually an authorization letter, NOT a National ID, contract, or other document type.
+            prompt = f"""CRITICAL: This document was submitted as an AUTHORIZATION_LETTER (letter of authorization / خطاب تفويض) for a {user_type_context}. You MUST verify it is actually an authorization letter, NOT a National ID, contract, or other document type.
 
-Analyze this Authorization Letter document (may be in Arabic or English) for compound moderator "{user_name}" (email: {user_email}){compound_context}.
+Analyze this Authorization Letter document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
@@ -346,9 +354,9 @@ Respond in JSON format ONLY:
   "extracted_info": {{"authorized_name": "...", "compound_name": "...", "authorization_date": "...", "document_type_confirmed": "AUTHORIZATION_LETTER" or "OTHER"}}
 }}"""
         elif document_type == "NATIONAL_ID":
-            prompt = f"""CRITICAL: This document was submitted as a NATIONAL ID. You MUST verify it is actually a National ID document, NOT a contract or other document type.
+            prompt = f"""CRITICAL: This document was submitted as a NATIONAL_ID for a {user_type_context}. You MUST verify it is actually a National ID document, NOT a contract or other document type.
 
-Analyze this document (may be in Arabic or English) for user "{user_name}" (email: {user_email}){compound_context}.
+Analyze this document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.
@@ -396,7 +404,7 @@ Respond in JSON format ONLY:
 }}"""
         else:  # CONTRACT
             prompt = f"""CRITICAL FIRST STEP - DOCUMENT TYPE VERIFICATION:
-This document was submitted as a CONTRACT/PROOF OF RESIDENCY/LEASE AGREEMENT. 
+This document was submitted as a CONTRACT/PROOF OF RESIDENCY/LEASE AGREEMENT for a {user_type_context}. 
 You MUST FIRST verify the document type before proceeding with any other checks.
 
 STEP 1 - DOCUMENT TYPE IDENTIFICATION (MANDATORY):
@@ -423,7 +431,7 @@ CRITICAL RULES:
 - ONLY if document_type_confirmed="CONTRACT" should you proceed to name and address matching below.
 
 STEP 2 - CONTRACT VERIFICATION (only if document type is CONTRACT):
-Analyze this contract document (may be in Arabic or English) for user "{user_name}" (email: {user_email}){compound_context}.
+Analyze this contract document (may be in Arabic or English) for {user_type_context} "{user_name}" (email: {user_email}){compound_context}.
 
 IMPORTANT: 
 - The document may be in Arabic. You MUST read and understand Arabic text if present.

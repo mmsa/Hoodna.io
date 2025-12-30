@@ -547,6 +547,7 @@ async def verify_provider_document_with_llm(
                 user_name=user.name,
                 user_email=user.email,
                 compound_name=compound_name,
+                user_type="service_provider",
             )
             logger.info(f"LLM verification completed for provider document {document_id}. Result: verified={llm_result.get('verified')}, confidence={llm_result.get('confidence')}")
         except Exception as llm_error:
@@ -656,6 +657,7 @@ async def verify_moderator_document_with_llm(
                 user_name=user.name,
                 user_email=user.email,
                 compound_name=compound_name,
+                user_type="moderator",
             )
             logger.info(f"LLM verification completed for moderator document {document_id}. Result: verified={llm_result.get('verified')}, confidence={llm_result.get('confidence')}")
         except Exception as llm_error:

@@ -274,6 +274,7 @@ async def verify_document_with_llm_endpoint(
                 user_name=user.name,
                 user_email=user.email,
                 compound_name=compound_name,
+                user_type="resident",
             )
             logger.info(f"LLM verification completed for document {doc_id}. Result: verified={llm_result.get('verified')}, confidence={llm_result.get('confidence')}, recommendation={llm_result.get('recommendation')}")
         except Exception as llm_error:
@@ -575,6 +576,7 @@ async def bulk_verify_documents_with_llm(
                 user_name=user.name,
                 user_email=user.email,
                 compound_name=compound_name,
+                user_type="resident",
             )
             
             # Update document with LLM results
