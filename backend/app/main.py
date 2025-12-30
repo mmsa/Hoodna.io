@@ -70,6 +70,8 @@ app.include_router(community.router, prefix="/api", tags=["community"])
 app.include_router(marketplace.router, prefix="/api/listings", tags=["marketplace"])
 app.include_router(promotions.router, prefix="/api/promotions", tags=["promotions"])
 app.include_router(saved_listings.router, prefix="/api", tags=["saved-listings"])
+from app.api import saved_posts
+app.include_router(saved_posts.router, prefix="/api", tags=["saved-posts"])
 app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])

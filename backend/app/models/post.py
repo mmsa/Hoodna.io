@@ -21,6 +21,7 @@ class Post(Base):
     compound = relationship("Compound", back_populates="posts")
     author = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
+    saved_by_users = relationship("SavedPost", back_populates="post", cascade="all, delete-orphan")
 
 
 class Comment(Base):

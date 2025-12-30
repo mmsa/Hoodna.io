@@ -189,6 +189,15 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
           </TouchableOpacity>
         )}
 
+        {/* Search Button */}
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={() => router.push("/search")}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="search" size={22} color={colors.textMain} />
+        </TouchableOpacity>
+
         {/* Right Action */}
         {rightAction && (
           <TouchableOpacity
@@ -385,6 +394,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     color: colors.primary,
+  },
+  searchButton: {
+    padding: 8,
+    marginRight: 8,
   },
   rightButton: {
     backgroundColor: colors.primary, // Blue-500 (matching web app)

@@ -127,6 +127,47 @@ export class ApiClient {
     });
   }
 
+  async globalSearch(query: string): Promise<{
+    query: string;
+    posts: Array<{
+      type: string;
+      id: number;
+      title: string;
+      content?: string;
+      author_name?: string;
+      compound_name?: string;
+      category?: string;
+      created_at: string;
+    }>;
+    listings: Array<{
+      type: string;
+      id: number;
+      title: string;
+      content?: string;
+      author_name?: string;
+      compound_name?: string;
+      category?: string;
+      price?: number;
+      created_at: string;
+    }>;
+    services: Array<{
+      type: string;
+      id: number;
+      title: string;
+      content?: string;
+      author_name?: string;
+      compound_name?: string;
+      category?: string;
+      price?: number;
+      created_at: string;
+    }>;
+    total_results: number;
+  }> {
+    return this.request(`/api/search/global?q=${encodeURIComponent(query)}`, {
+      method: "GET",
+    });
+  }
+
   async requestCompoundAccess(compoundId: number): Promise<{ message: string; compound_id: number; compound_name: string }> {
     return this.request<{ message: string; compound_id: number; compound_name: string }>("/api/auth/me/request-compound-access", {
       method: "POST",
