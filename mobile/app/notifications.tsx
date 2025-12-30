@@ -60,22 +60,39 @@ export default function NotificationsScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    loadNotifications();
-    loadUnreadCount();
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(() => {
+    // Only load if user is approved
+    if (user?.status === "APPROVED") {
       loadNotifications();
       loadUnreadCount();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
+      // Poll for new notifications every 30 seconds (only if approved)
+      const interval = setInterval(() => {
+        loadNotifications();
+        loadUnreadCount();
+      }, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setLoading(false);
+    }
+  }, [user?.status]);
 
   async function loadNotifications() {
+    // Don't make API calls if user is not approved
+    if (user?.status !== "APPROVED") {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    
     try {
       const data = await apiClient.getNotifications({ limit: 50 });
       setNotifications(data.items || []);
       setUnreadCount(data.unread_count || 0);
-    } catch (error) {
+    } catch (error: any) {
+      // Stop polling on 403 errors (user not approved)
+      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
+        console.log("User not approved, stopping notification polling");
+        return;
+      }
       console.error("Failed to load notifications:", error);
     } finally {
       setLoading(false);
@@ -84,10 +101,19 @@ export default function NotificationsScreen() {
   }
 
   async function loadUnreadCount() {
+    // Don't make API calls if user is not approved
+    if (user?.status !== "APPROVED") {
+      return;
+    }
+    
     try {
       const data = await apiClient.getUnreadNotificationCount();
       setUnreadCount(data.unread_count || 0);
-    } catch (error) {
+    } catch (error: any) {
+      // Silently fail on 403 errors (user not approved)
+      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
+        return;
+      }
       console.error("Failed to load unread count:", error);
     }
   }

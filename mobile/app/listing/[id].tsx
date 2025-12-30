@@ -106,7 +106,11 @@ export default function ListingDetailScreen() {
         listing_id: listing.id,
       });
       
-      // Fetch conversations to find the new one
+      // Fetch conversations to find the new one (only if user is approved)
+      if (user?.status !== "APPROVED") {
+        Alert.alert("Verification Required", "Please complete verification to send messages");
+        return;
+      }
       const conversations = await apiClient.getConversations();
       const conversation = conversations.find(
         (c: any) => c.other_user_id === listing.owner_id && c.listing_id === listing.id

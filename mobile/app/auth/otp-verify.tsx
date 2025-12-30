@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,9 +16,20 @@ export default function OTPVerifyScreen() {
   const [name, setName] = useState("");
   const [showNameInput, setShowNameInput] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { apiClient, login } = useAuth();
+  const { apiClient, login, user } = useAuth();
   const router = useRouter();
   const nameInputRef = useRef<TextInput>(null);
+
+  // Navigate after successful login
+  useEffect(() => {
+    if (user) {
+      if (user.compound_id) {
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/onboarding/compound-select");
+      }
+    }
+  }, [user]);
 
   // Normalize phone number to match backend normalization
   const normalizePhone = (phoneNumber: string): string => {
@@ -62,15 +73,9 @@ export default function OTPVerifyScreen() {
         name: showNameInput ? name.trim() : undefined,
       });
 
+      // login() already calls getMe() and sets the user
+      // Navigation will happen automatically via useEffect when user state updates
       await login(response.access_token, response.refresh_token);
-
-      // Check if user needs to select compound
-      const user = await apiClient.getMe();
-      if (user.compound_id) {
-        router.replace("/(tabs)/home");
-      } else {
-        router.replace("/onboarding/compound-select");
-      }
     } catch (error: any) {
       if (error.message?.includes("Name is required")) {
         setShowNameInput(true);

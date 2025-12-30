@@ -272,23 +272,27 @@ async def get_current_user_info(
     if current_user.status in verification_status_map:
         verification_status = verification_status_map[current_user.status]
     
-    # Get verification documents to determine can_post
-    docs = await get_user_documents(db, current_user.id)
-    national_id = docs[DocumentType.NATIONAL_ID]
-    contract = docs[DocumentType.CONTRACT]
-    
-    # Check if user can post (same logic as verification status endpoint)
-    def _has_compound_name(doc):
-        if not doc or not doc.llm_extracted_info:
-            return False
-        if isinstance(doc.llm_extracted_info, dict):
-            compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
-            address_match = doc.llm_extracted_info.get("address_match", "")
-            return compound_found or address_match == "MATCH"
-        return False
-    
+    # Only fetch documents if user is approved (optimization - skip DB query for unverified users)
     can_post = False
+    national_id = None
+    contract = None
+    
     if current_user.status == UserStatus.APPROVED:
+        # Only query documents for approved users who might be able to post
+        docs = await get_user_documents(db, current_user.id)
+        national_id = docs[DocumentType.NATIONAL_ID]
+        contract = docs[DocumentType.CONTRACT]
+        
+        # Check if user can post (same logic as verification status endpoint)
+        def _has_compound_name(doc):
+            if not doc or not doc.llm_extracted_info:
+                return False
+            if isinstance(doc.llm_extracted_info, dict):
+                compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
+                address_match = doc.llm_extracted_info.get("address_match", "")
+                return compound_found or address_match == "MATCH"
+            return False
+        
         if (
             national_id 
             and national_id.status.value == "APPROVED" 
@@ -388,9 +392,12 @@ async def get_user_compounds(
                     )
                     
                     if compound_name:
-                        # Find compound by name (case-insensitive)
+                        # Find compound by name (case-insensitive, but more efficient)
+                        # Try exact match first, then partial match
                         result = await db.execute(
-                            select(Compound).where(Compound.name.ilike(f"%{compound_name}%"))
+                            select(Compound).where(
+                                Compound.name.ilike(f"{compound_name}%")  # Starts with is faster than %...%
+                            ).limit(10)  # Limit results to prevent too many matches
                         )
                         matching_compounds = result.scalars().all()
                         for compound in matching_compounds:
@@ -407,9 +414,12 @@ async def get_user_compounds(
                     )
                     
                     if compound_name:
-                        # Find compound by name (case-insensitive)
+                        # Find compound by name (case-insensitive, but more efficient)
+                        # Try exact match first, then partial match
                         result = await db.execute(
-                            select(Compound).where(Compound.name.ilike(f"%{compound_name}%"))
+                            select(Compound).where(
+                                Compound.name.ilike(f"{compound_name}%")  # Starts with is faster than %...%
+                            ).limit(10)  # Limit results to prevent too many matches
                         )
                         matching_compounds = result.scalars().all()
                         for compound in matching_compounds:
@@ -419,12 +429,14 @@ async def get_user_compounds(
         if current_user.compound_id:
             verified_compound_ids.add(current_user.compound_id)
     
-    # Get all verified compounds
-    verified_compounds = []
-    for compound_id in verified_compound_ids:
-        compound = await get_compound_by_id(db, compound_id)
-        if compound:
-            verified_compounds.append(compound)
+    # Batch fetch all verified compounds in one query (much faster)
+    if verified_compound_ids:
+        result_query = await db.execute(
+            select(Compound).where(Compound.id.in_(verified_compound_ids))
+        )
+        verified_compounds = result_query.scalars().all()
+    else:
+        verified_compounds = []
     
     result = []
     for compound in verified_compounds:

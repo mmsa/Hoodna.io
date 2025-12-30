@@ -27,7 +27,7 @@
     ],
     "scheme": "hoodna",
     "extra": {
-      "apiUrl": "http://172.20.10.8:8000"
+      "apiUrl": "http://192.168.1.8:8000"
     }
   }
 }

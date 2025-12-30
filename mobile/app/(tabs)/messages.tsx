@@ -71,17 +71,34 @@ export default function MessagesTab() {
   const router = useRouter();
 
   useEffect(() => {
-    loadConversations();
-    // Poll for new messages every 10 seconds
-    const interval = setInterval(loadConversations, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    // Only load if user is approved
+    if (user?.status === "APPROVED") {
+      loadConversations();
+      // Poll for new messages every 10 seconds (only if approved)
+      const interval = setInterval(loadConversations, 10000);
+      return () => clearInterval(interval);
+    } else {
+      setLoading(false);
+    }
+  }, [user?.status]);
 
   async function loadConversations() {
+    // Don't make API calls if user is not approved
+    if (user?.status !== "APPROVED") {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    
     try {
       const data = await apiClient.getConversations();
       setConversations(data);
-    } catch (error) {
+    } catch (error: any) {
+      // Stop polling on 403 errors (user not approved)
+      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
+        console.log("User not approved, stopping conversation polling");
+        return;
+      }
       console.error("Failed to load conversations:", error);
     } finally {
       setLoading(false);

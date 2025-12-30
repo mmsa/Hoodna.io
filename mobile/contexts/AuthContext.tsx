@@ -10,6 +10,11 @@ const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || 
   "http://localhost:8000";
 
+// Log API URL for debugging (only in development)
+if (__DEV__) {
+  console.log("🔗 Mobile App API URL:", API_BASE_URL);
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -36,24 +41,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (accessToken) {
         apiClient.setAccessToken(accessToken);
         try {
+          // Call getMe without extra timeout - let the API client handle it
           const userData = await apiClient.getMe();
           setUser(userData);
         } catch (authError: any) {
-          // If token is invalid, clear it
-          if (authError?.message?.includes("Invalid authentication") || authError?.message?.includes("401")) {
+          // If token is invalid or timeout, clear it
+          if (
+            authError?.message?.includes("Invalid authentication") || 
+            authError?.message?.includes("401") ||
+            authError?.message?.includes("timeout") ||
+            authError?.message?.includes("Network request failed")
+          ) {
             await SecureStore.deleteItemAsync("accessToken");
             await SecureStore.deleteItemAsync("refreshToken");
             apiClient.setAccessToken(null);
             setUser(null);
           } else {
-            throw authError;
+            // For other errors, still clear loading but keep token (might be temporary network issue)
+            setUser(null);
           }
         }
+      } else {
+        // No token, immediately stop loading
+        setUser(null);
       }
     } catch (error) {
       // Silently handle auth errors - user just needs to log in
       setUser(null);
     } finally {
+      // Ensure loading stops even if there's an error
       setLoading(false);
     }
   }
@@ -62,8 +78,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.setItemAsync("accessToken", accessToken);
     await SecureStore.setItemAsync("refreshToken", refreshToken);
     apiClient.setAccessToken(accessToken);
-    const userData = await apiClient.getMe();
-    setUser(userData);
+    try {
+      const userData = await apiClient.getMe();
+      setUser(userData);
+    } catch (error: any) {
+      // If getMe fails, clear tokens and rethrow
+      await SecureStore.deleteItemAsync("accessToken");
+      await SecureStore.deleteItemAsync("refreshToken");
+      apiClient.setAccessToken(null);
+      throw error;
+    }
   }
 
   async function logout() {

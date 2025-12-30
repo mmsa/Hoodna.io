@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,9 +6,19 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function SplashScreen() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [minSplashShown, setMinSplashShown] = useState(false);
+
+  // Show splash for minimum 500ms for better UX (prevents flash)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinSplashShown(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
-    if (!loading) {
+    // Only navigate after minimum splash time AND auth is loaded
+    if (!loading && minSplashShown) {
       if (user) {
         if (user.compound_id) {
           router.replace("/(tabs)/home");
@@ -19,7 +29,7 @@ export default function SplashScreen() {
         router.replace("/auth");
       }
     }
-  }, [loading, user]);
+  }, [loading, user, minSplashShown]);
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' }}>

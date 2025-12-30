@@ -28,7 +28,7 @@ export class ApiClient {
 
   async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit & { timeout?: number } = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
@@ -40,18 +40,33 @@ export class ApiClient {
       headers["Authorization"] = `Bearer ${this.accessToken}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    // Remove automatic timeouts - let React Native's fetch handle timeouts naturally
+    // Timeouts were causing issues on slower networks
+    // If timeout is needed, it can be added via options.timeout in the future
+    try {
+      const { timeout, ...fetchOptions } = options;
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: response.statusText }));
-      const errorMessage = (error as { detail?: string }).detail || `HTTP ${response.status}`;
-      throw new Error(errorMessage);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        const errorMessage = (error as { detail?: string }).detail || `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      return response.json() as Promise<T>;
+    } catch (error: any) {
+      // Improve error messages for network issues
+      if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
+        throw new Error(`Cannot connect to server at ${this.baseUrl}. Please check:\n1. Backend is running\n2. Phone and computer are on same WiFi\n3. IP address is correct`);
+      }
+      if (error.message?.includes('timeout') || error.name === 'AbortError') {
+        throw new Error(`Request timed out. Server at ${this.baseUrl} may be unreachable.`);
+      }
+      throw error;
     }
-
-    return response.json() as Promise<T>;
   }
 
   // Auth

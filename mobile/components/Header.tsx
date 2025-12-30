@@ -18,6 +18,11 @@ interface HeaderProps {
   };
 }
 
+// Cache compound data to avoid reloading on every page
+let compoundCache: { id: number; name: string; area?: string } | null = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export function Header({ title, showLogo = true, showBackButton = false, rightAction }: HeaderProps) {
   const router = useRouter();
   const { user, apiClient, refreshUser } = useAuth();
@@ -31,32 +36,47 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
 
   useEffect(() => {
     if (shouldLoadCompound) {
-      loadCompound();
+      // Check cache first
+      const now = Date.now();
+      if (compoundCache && compoundCache.id === user.compound_id && (now - cacheTimestamp) < CACHE_DURATION) {
+        setCompound(compoundCache as Compound);
+      } else {
+        // Load in background, don't block UI
+        loadCompound();
+      }
     } else {
       // Clear compound if user logs out or doesn't have compound_id
       setCompound(null);
+      compoundCache = null;
     }
-  }, [user?.compound_id, !!apiClient]);
+  }, [user?.compound_id]); // Removed !!apiClient from dependencies to prevent unnecessary re-renders
 
   async function loadCompound() {
-    if (!shouldLoadCompound || !apiClient) return;
+    if (!shouldLoadCompound || !apiClient || !user?.compound_id) return;
+    
+    // Load in background - don't block UI rendering
+    // Use getUserCompounds which is optimized and includes current compound
     try {
-      const compounds = await apiClient.getCompounds({ limit: 200 });
-      // Ensure compounds is an array
-      if (Array.isArray(compounds) && compounds.length > 0 && user?.compound_id) {
-        const foundCompound = compounds.find((c) => c.id === user.compound_id);
-        if (foundCompound) {
-          setCompound(foundCompound);
-        } else {
-          setCompound(null);
-        }
+      const userCompounds = await apiClient.getUserCompounds();
+      const foundCompound = userCompounds.find((c) => c.id === user.compound_id);
+      if (foundCompound) {
+        // Convert to Compound format
+        const compoundData = {
+          id: foundCompound.id,
+          name: foundCompound.name,
+          area: foundCompound.area || undefined,
+        } as Compound;
+        setCompound(compoundData);
+        // Cache it
+        compoundCache = compoundData;
+        cacheTimestamp = Date.now();
       } else {
         setCompound(null);
+        compoundCache = null;
       }
     } catch (error) {
       // Silently fail - compound display is optional
-      setCompound(null);
-      // Don't log errors for unauthenticated users
+      // Don't clear cache on error, might be temporary network issue
       if (user && apiClient) {
         console.error("Failed to load compound:", error);
       }

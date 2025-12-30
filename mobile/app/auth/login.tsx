@@ -1,15 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import Constants from "expo-constants";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { apiClient, login } = useAuth();
+  const { apiClient, login, user } = useAuth();
   const router = useRouter();
+
+  // Navigate after successful login
+  useEffect(() => {
+    if (user) {
+      if (user.compound_id) {
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/onboarding/compound-select");
+      }
+    }
+  }, [user]);
 
   async function handleLogin() {
     if (!email.trim()) {
@@ -28,17 +40,19 @@ export default function LoginScreen() {
         password: password,
       });
 
+      // login() already calls getMe() and sets the user
+      // Navigation will happen automatically via useEffect when user state updates
       await login(response.access_token, response.refresh_token);
-
-      // Check if user needs to select compound
-      const user = await apiClient.getMe();
-      if (user.compound_id) {
-        router.replace("/(tabs)/home");
-      } else {
-        router.replace("/onboarding/compound-select");
-      }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Invalid email or password");
+      let errorMessage = error.message || "Invalid email or password";
+      
+      // Provide more helpful error messages for network issues
+      if (errorMessage.includes("Cannot connect") || errorMessage.includes("Network error") || errorMessage.includes("timed out")) {
+        const apiUrl = Constants.expoConfig?.extra?.apiUrl || "Not configured";
+        errorMessage = `${errorMessage}\n\nAPI URL: ${apiUrl}\n\nMake sure:\n• Backend is running\n• Phone and computer are on same WiFi\n• IP address matches your computer's IP`;
+      }
+      
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
     }

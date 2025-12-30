@@ -110,10 +110,13 @@ function getNotificationColor(type: string) {
 export function NotificationsDropdown() {
   const router = useRouter();
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Only enable queries if user is authenticated AND approved
+  const isApproved = isAuthenticated && user?.status === "APPROVED";
 
   const { data: notificationsData, isLoading } = useQuery<NotificationListResponse>({
     queryKey: ["notifications", open],
@@ -121,8 +124,8 @@ export function NotificationsDropdown() {
       const response = await api.get("/api/notifications?limit=20");
       return response.data;
     },
-    enabled: isAuthenticated && open,
-    refetchInterval: open ? 10000 : false, // Poll every 10 seconds when open
+    enabled: isApproved && open,
+    refetchInterval: isApproved && open ? 10000 : false, // Poll every 10 seconds when open
   });
 
   const { data: unreadCountData } = useQuery<{ unread_count: number }>({
@@ -131,8 +134,8 @@ export function NotificationsDropdown() {
       const response = await api.get("/api/notifications/unread-count");
       return response.data;
     },
-    enabled: isAuthenticated,
-    refetchInterval: 30000, // Poll every 30 seconds
+    enabled: isApproved,
+    refetchInterval: isApproved ? 30000 : false, // Poll every 30 seconds only if approved
   });
 
   const unreadCount = unreadCountData?.unread_count || 0;
