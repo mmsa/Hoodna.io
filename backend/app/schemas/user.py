@@ -16,6 +16,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     compound_id: Optional[int] = None
+    role: Optional[UserRole] = None
 
 
 class UserResponse(UserBase):

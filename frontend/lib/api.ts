@@ -40,7 +40,12 @@ api.interceptors.response.use(
       // Only redirect if we're not already on the verification page AND not on compound-select page
       if (typeof window !== 'undefined' && 
           !window.location.pathname.includes('/verification') &&
-          !window.location.pathname.includes('/onboarding/compound-select')) {
+          !window.location.pathname.includes('/onboarding/compound-select') &&
+          !window.location.pathname.includes('/onboarding/choose-role') &&
+          !window.location.pathname.includes('/onboarding/provider') &&
+          !window.location.pathname.includes('/onboarding/moderator') &&
+          !window.location.pathname.includes('/provider/status') &&
+          !window.location.pathname.includes('/moderator/status')) {
         window.location.href = '/verification'
         return Promise.reject(error)
       }

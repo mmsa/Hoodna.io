@@ -13,7 +13,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
-    role = Column(SQLEnum(UserRole), default=UserRole.USER, nullable=False)
+    role = Column(SQLEnum(UserRole), nullable=True)  # Can be null until user selects role
     status = Column(SQLEnum(UserStatus), default=UserStatus.PENDING_VERIFICATION, nullable=False)
     compound_id = Column(Integer, ForeignKey("compounds.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -36,4 +36,6 @@ class User(Base):
     sent_messages = relationship("Message", back_populates="sender", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="reviewer", cascade="all, delete-orphan")
+    service_provider_profile = relationship("ServiceProviderProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    moderator_profile = relationship("CompoundModeratorProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
 

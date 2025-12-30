@@ -57,6 +57,16 @@ export default function AdminPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
+        {/* Redirect to new dashboard */}
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="mb-4">Admin dashboard has been moved to a unified interface.</p>
+            <Button asChild>
+              <Link href="/admin/dashboard">Go to Admin Dashboard</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Pending Verifications</CardTitle>

@@ -24,6 +24,8 @@ from app.api import (
     notifications,
     search,
     reviews,
+    providers,
+    moderators,
 )
 from app.services.storage import (
     use_local_storage,
@@ -77,6 +79,10 @@ app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(reviews.router, prefix="/api", tags=["reviews"])
+app.include_router(providers.router, prefix="/api/providers", tags=["providers"])
+app.include_router(moderators.router, prefix="/api/moderators", tags=["moderators"])
+from app.api import reports, admin_reviews
+app.include_router(admin_reviews.router, prefix="/api/admin", tags=["admin-reviews"])
 from app.api import reports
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 from app.api import moderator

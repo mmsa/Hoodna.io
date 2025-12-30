@@ -352,6 +352,15 @@ async def update_current_user(
             )
         current_user.compound_id = user_update.compound_id
     
+    if user_update.role is not None:
+        # Only allow role update if user doesn't have a role yet
+        if current_user.role is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change role once set. Contact support if you need to change your account type."
+            )
+        current_user.role = user_update.role
+    
     await db.flush()
     await db.refresh(current_user)
     return current_user

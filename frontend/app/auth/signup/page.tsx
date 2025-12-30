@@ -96,9 +96,9 @@ export default function SignupPage() {
 
       // Force a hard refresh to clear all React Query caches
       if (typeof window !== 'undefined') {
-        window.location.href = '/onboarding/compound-select'
+        window.location.href = '/onboarding/choose-role'
       } else {
-        router.push('/onboarding/compound-select')
+        router.push('/onboarding/choose-role')
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Signup failed')

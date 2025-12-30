@@ -44,7 +44,7 @@ export default function SignupScreen() {
 
       setTokens(response.access_token, response.refresh_token);
       await loadUser();
-      router.replace("/onboarding/compound-select");
+      router.replace("/onboarding/choose-role");
     } catch (error: any) {
       Alert.alert("Signup Failed", error.message || "Failed to create account. Please try again.");
     } finally {

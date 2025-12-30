@@ -334,9 +334,9 @@ export function Header() {
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                          <Link href="/admin/verifications" className="flex items-center">
+                          <Link href="/admin/dashboard" className="flex items-center">
                             <Shield className="mr-2 h-4 w-4" />
-                            <span>Admin Panel</span>
+                            <span>Admin Dashboard</span>
                           </Link>
                         </DropdownMenuItem>
                       </>
@@ -460,13 +460,13 @@ export function Header() {
               </Button>
             </Link>
             {isAdmin && (
-              <Link href="/admin/verifications" onClick={() => setMobileMenuOpen(false)}>
+              <Link href="/admin/dashboard" onClick={() => setMobileMenuOpen(false)}>
                 <Button
                   variant={isActive('/admin') ? 'default' : 'ghost'}
                   className="w-full justify-start"
                 >
                   <Shield className="w-4 h-4 mr-2" />
-                  Admin Panel
+                  Admin Dashboard
                 </Button>
               </Link>
             )}

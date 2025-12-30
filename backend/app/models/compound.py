@@ -36,6 +36,7 @@ class Compound(Base):
     # Relationships
     users = relationship("User", back_populates="compound", foreign_keys="User.compound_id")
     moderator = relationship("User", foreign_keys=[moderator_id])
+    moderators = relationship("CompoundModeratorProfile", back_populates="compound", cascade="all, delete-orphan")
     posts = relationship("Post", back_populates="compound", cascade="all, delete-orphan")
     listings = relationship("Listing", back_populates="compound", cascade="all, delete-orphan")
     

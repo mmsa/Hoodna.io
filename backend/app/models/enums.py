@@ -2,9 +2,12 @@ from enum import Enum
 
 
 class UserRole(str, Enum):
-    USER = "USER"
+    USER = "USER"  # RESIDENT (legacy name)
     ADMIN = "ADMIN"
-    MODERATOR = "MODERATOR"
+    MODERATOR = "MODERATOR"  # Legacy - use COMPOUND_MOD
+    RESIDENT = "RESIDENT"  # Explicit resident role
+    SERVICE_PROVIDER = "SERVICE_PROVIDER"
+    COMPOUND_MOD = "COMPOUND_MOD"
 
 
 class UserStatus(str, Enum):
@@ -17,6 +20,13 @@ class UserStatus(str, Enum):
 class DocumentType(str, Enum):
     NATIONAL_ID = "NATIONAL_ID"
     CONTRACT = "CONTRACT"
+    # Service Provider documents
+    COMMERCIAL_REGISTER = "COMMERCIAL_REGISTER"
+    TAX_CARD = "TAX_CARD"
+    NATIONAL_ID_FRONT = "NATIONAL_ID_FRONT"
+    NATIONAL_ID_BACK = "NATIONAL_ID_BACK"
+    # Moderator documents
+    AUTHORIZATION_LETTER = "AUTHORIZATION_LETTER"
 
 
 class DocumentStatus(str, Enum):
@@ -86,4 +96,32 @@ class PostCategory(str, Enum):
     ANNOUNCEMENT = "ANNOUNCEMENT"  # Official announcements
     ALERT = "ALERT"  # Urgent alerts
     DISCUSSION = "DISCUSSION"  # General discussions
+
+
+class ProviderType(str, Enum):
+    INDIVIDUAL = "INDIVIDUAL"
+    REGISTERED_BUSINESS = "REGISTERED_BUSINESS"
+
+
+class ProviderVerificationMethod(str, Enum):
+    COMMERCIAL_REGISTER = "COMMERCIAL_REGISTER"
+    NATIONAL_ID_OCCUPATION = "NATIONAL_ID_OCCUPATION"
+
+
+class ProviderStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    IN_REVIEW = "IN_REVIEW"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
+
+
+class ModeratorStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    IN_REVIEW = "IN_REVIEW"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
 
