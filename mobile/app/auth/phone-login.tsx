@@ -62,7 +62,7 @@ export default function PhoneLoginScreen() {
       </View>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
-          Welcome to Hoodna
+          Welcome to eljiran
         </Text>
       <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
         Enter your phone number to continue

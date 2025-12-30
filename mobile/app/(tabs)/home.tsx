@@ -918,7 +918,6 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id.toString()}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary, colors.purple]} />}
         ListHeaderComponent={
-        ListHeaderComponent={
           <View>
             {/* Header with Logo */}
             <Header

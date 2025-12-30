@@ -8,7 +8,7 @@ import { Header } from '@/components/header'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Hoodna.io - Verified Neighborhood Community',
+  title: 'eljiran.com - Verified Neighborhood Community',
   description: 'Verified neighborhood community and marketplace',
 }
 

@@ -456,10 +456,27 @@ export default function FeedPage() {
         errorResponse?.status === 403 &&
         (errorDetail.includes("verified") || errorDetail.includes("approved"))
       ) {
-        router.push("/verification");
+        // Refresh user data first in case status was just updated
+        queryClient.invalidateQueries({ queryKey: ['current-user'] });
+        // Small delay to allow user data to refresh, then check verification status
+        setTimeout(async () => {
+          try {
+            const statusResponse = await api.get('/api/verification/status');
+            // If verification status shows user is now approved, refresh and stay on page
+            if (statusResponse.data.user_status === 'APPROVED') {
+              queryClient.invalidateQueries({ queryKey: ['current-user'] });
+              queryClient.invalidateQueries({ queryKey: ['feed'] });
+              queryClient.invalidateQueries({ queryKey: ['feed-summary'] });
+            } else {
+              router.push("/verification");
+            }
+          } catch {
+            router.push("/verification");
+          }
+        }, 500);
       }
     }
-  }, [error, user, router]);
+  }, [error, user, router, queryClient]);
 
   const createPostMutation = useMutation({
     mutationFn: async (data: { content: string; category?: string; is_urgent?: boolean } | string) => {

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Hoodna",
-    "slug": "hoodna-mobile",
+    "name": "eljiran",
+    "slug": "eljiran-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -14,18 +14,18 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "io.hoodna.mobile"
+      "bundleIdentifier": "com.eljiran.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#2D6A4F"
       },
-      "package": "io.hoodna.mobile"
+      "package": "com.eljiran.mobile"
     },
     "plugins": [
       "expo-router"
     ],
-    "scheme": "hoodna",
+    "scheme": "eljiran",
     "extra": {
       "apiUrl": "http://192.168.1.8:8000"
     }

@@ -28,6 +28,7 @@ class Listing(Base):
     promotions = relationship("Promotion", back_populates="listing", cascade="all, delete-orphan")
     saved_by_users = relationship("SavedListing", back_populates="listing", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="listing", cascade="all, delete-orphan")
+    reviews = relationship("Review", back_populates="listing", cascade="all, delete-orphan")
 
 
 class Promotion(Base):

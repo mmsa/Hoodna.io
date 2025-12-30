@@ -390,37 +390,11 @@ async def verify_document_with_llm_endpoint(
                 
                 user = await db.get(User, doc.user_id)
                 if user and user.status == UserStatus.PENDING_VERIFICATION:
-                    # Rule 1: National ID approved + has compound name → sufficient alone
+                    # If ANY document is approved, approve the user
                     if (
-                        national_id
-                        and national_id.status == DocumentStatus.APPROVED
-                        and has_compound_name_in_document(national_id)
-                    ):
-                        user.status = UserStatus.APPROVED
-                        await db.flush()
-                        # Send notification
-                        from app.services.notifications import notify_verification_approved
-                        await notify_verification_approved(db, user.id)
-                    # Rule 2: Contract approved + name match + compound match → sufficient alone
-                    elif (
-                        contract
-                        and contract.status == DocumentStatus.APPROVED
-                        and contract.llm_extracted_info
-                        and isinstance(contract.llm_extracted_info, dict)
-                    ):
-                        contract_name_match = contract.llm_extracted_info.get("name_match", "")
-                        if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
-                            user.status = UserStatus.APPROVED
-                            await db.flush()
-                            # Send notification
-                            from app.services.notifications import notify_verification_approved
-                            await notify_verification_approved(db, user.id)
-                    # Rule 3: Both documents approved → approve user
-                    elif (
-                        national_id
-                        and national_id.status == DocumentStatus.APPROVED
-                        and contract
-                        and contract.status == DocumentStatus.APPROVED
+                        national_id and national_id.status == DocumentStatus.APPROVED
+                    ) or (
+                        contract and contract.status == DocumentStatus.APPROVED
                     ):
                         user.status = UserStatus.APPROVED
                         await db.flush()
@@ -649,26 +623,11 @@ async def bulk_verify_documents_with_llm(
                     
                     user_check = await db.get(User, doc.user_id)
                     if user_check and user_check.status == UserStatus.PENDING_VERIFICATION:
+                        # If ANY document is approved, approve the user
                         if (
-                            national_id
-                            and national_id.status == DocumentStatus.APPROVED
-                            and has_compound_name_in_document(national_id)
-                        ):
-                            user_check.status = UserStatus.APPROVED
-                        elif (
-                            contract
-                            and contract.status == DocumentStatus.APPROVED
-                            and contract.llm_extracted_info
-                            and isinstance(contract.llm_extracted_info, dict)
-                        ):
-                            contract_name_match = contract.llm_extracted_info.get("name_match", "")
-                            if contract_name_match == "MATCH" and has_compound_name_in_document(contract):
-                                user_check.status = UserStatus.APPROVED
-                        elif (
-                            national_id
-                            and national_id.status == DocumentStatus.APPROVED
-                            and contract
-                            and contract.status == DocumentStatus.APPROVED
+                            national_id and national_id.status == DocumentStatus.APPROVED
+                        ) or (
+                            contract and contract.status == DocumentStatus.APPROVED
                         ):
                             user_check.status = UserStatus.APPROVED
                         await db.flush()

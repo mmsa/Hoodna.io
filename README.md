@@ -1,6 +1,6 @@
-# Hoodna.io - Verified Neighborhood Community & Marketplace
+# eljiran.com - Verified Neighborhood Community & Marketplace
 
-Hoodna.io is a verified neighborhood community and marketplace platform for compounds in Egypt/MENA. It combines community features (posts, comments) with a marketplace where residents can buy, sell, and rent within their compound or promote listings to reach a wider audience.
+eljiran.com is a verified neighborhood community and marketplace platform for compounds in Egypt/MENA. It combines community features (posts, comments) with a marketplace where residents can buy, sell, and rent within their compound or promote listings to reach a wider audience.
 
 ## Architecture
 
@@ -79,8 +79,8 @@ S3_ENDPOINT_URL=
 # S3_ENDPOINT_URL=http://minio:9000  # Use http://localhost:9000 if running backend locally
 
 # AWS SES (for email sending)
-SES_FROM_EMAIL=noreply@hoodna.io  # Must be verified in AWS SES
-SES_FROM_NAME=Hoodna.io
+SES_FROM_EMAIL=noreply@eljiran.com  # Must be verified in AWS SES
+SES_FROM_NAME=eljiran.com
 
 # Stripe
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
@@ -153,7 +153,7 @@ The test user is already approved, so you can log in and see the listings immedi
    - If running backend in Docker, set `S3_ENDPOINT_URL=http://minio:9000` in your `.env`
 
 4. **Default admin credentials:**
-   - Email: `admin@hoodna.io`
+   - Email: `admin@eljiran.com`
    - Password: `admin123`
 
 ### Running Locally (without Docker)
@@ -462,7 +462,7 @@ alembic downgrade -1
 ## Project Structure
 
 ```
-Hoodna.io/
+eljiran.com/
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # API routers

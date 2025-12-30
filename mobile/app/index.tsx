@@ -51,7 +51,7 @@ export default function SplashScreen() {
       >
         <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#FFFFFF' }}>🏠</Text>
       </View>
-      <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#2563EB', marginBottom: 16 }}>Hoodna.io</Text>
+      <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#2563EB', marginBottom: 16 }}>eljiran.com</Text>
       <ActivityIndicator size="large" color="#3B82F6" />
     </View>
   );

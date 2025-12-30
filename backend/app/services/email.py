@@ -36,7 +36,7 @@ def send_password_reset_email(email: str, reset_link: str) -> bool:
     try:
         ses_client = get_ses_client()
         
-        subject = "Reset Your Hoodna.io Password"
+        subject = "Reset Your eljiran.com Password"
         
         # HTML email body
         html_body = f"""
@@ -56,7 +56,7 @@ def send_password_reset_email(email: str, reset_link: str) -> bool:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Hoodna.io</h1>
+                    <h1>eljiran.com</h1>
                 </div>
                 <div class="content">
                     <h2>Reset Your Password</h2>
@@ -71,7 +71,7 @@ def send_password_reset_email(email: str, reset_link: str) -> bool:
                     <p>If you didn't request a password reset, please ignore this email.</p>
                 </div>
                 <div class="footer">
-                    <p>© 2025 Hoodna.io. All rights reserved.</p>
+                    <p>© 2025 eljiran.com. All rights reserved.</p>
                 </div>
             </div>
         </body>
@@ -80,7 +80,7 @@ def send_password_reset_email(email: str, reset_link: str) -> bool:
         
         # Plain text email body
         text_body = f"""
-        Reset Your Hoodna.io Password
+        Reset Your eljiran.com Password
         
         Hello,
         
@@ -92,7 +92,7 @@ def send_password_reset_email(email: str, reset_link: str) -> bool:
         
         If you didn't request a password reset, please ignore this email.
         
-        © 2025 Hoodna.io. All rights reserved.
+        © 2025 eljiran.com. All rights reserved.
         """
         
         response = ses_client.send_email(
@@ -160,7 +160,7 @@ def send_password_reset_confirmation_email(email: str) -> bool:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Hoodna.io</h1>
+                    <h1>eljiran.com</h1>
                 </div>
                 <div class="content">
                     <h2>Password Reset Successful</h2>
@@ -170,7 +170,7 @@ def send_password_reset_confirmation_email(email: str) -> bool:
                     <p>You can now log in with your new password.</p>
                 </div>
                 <div class="footer">
-                    <p>© 2025 Hoodna.io. All rights reserved.</p>
+                    <p>© 2025 eljiran.com. All rights reserved.</p>
                 </div>
             </div>
         </body>
@@ -189,7 +189,7 @@ def send_password_reset_confirmation_email(email: str) -> bool:
         
         You can now log in with your new password.
         
-        © 2025 Hoodna.io. All rights reserved.
+        © 2025 eljiran.com. All rights reserved.
         """
         
         response = ses_client.send_email(

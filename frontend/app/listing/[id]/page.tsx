@@ -21,6 +21,9 @@ import {
   Heart,
   Bookmark
 } from 'lucide-react'
+import { Rating } from '@/components/ui/rating'
+import { ReviewForm } from '@/components/review-form'
+import { ReviewsList } from '@/components/reviews-list'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 
@@ -40,6 +43,19 @@ interface Listing {
   owner_phone?: string
   created_at: string
   is_saved?: boolean
+  average_rating?: number | null
+  review_count?: number
+}
+
+interface Review {
+  id: number
+  listing_id: number
+  reviewer_id: number
+  reviewer_name: string
+  rating: number
+  comment?: string | null
+  created_at: string
+  updated_at: string
 }
 
 const getCategoryIcon = (category: string) => {
@@ -193,6 +209,20 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                 )}
               </CardContent>
             </Card>
+
+            {/* Reviews Section - Only for Services */}
+            {listing.category === 'SERVICE' && (
+              <>
+                {/* Review Form */}
+                <ReviewForm 
+                  listingId={listing.id}
+                  existingReview={undefined} // TODO: Fetch user's existing review
+                />
+
+                {/* Reviews List */}
+                <ReviewsList listingId={listing.id} />
+              </>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -211,6 +241,18 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                     </span>
                     <span className="text-xl text-gray-600">{listing.currency}</span>
                   </div>
+
+                  {/* Rating Display */}
+                  {listing.category === 'SERVICE' && listing.average_rating && (
+                    <div className="mb-6">
+                      <div className="flex items-center gap-3">
+                        <Rating rating={listing.average_rating} size="md" showValue />
+                        <span className="text-sm text-gray-600">
+                          ({listing.review_count || 0} {listing.review_count === 1 ? 'review' : 'reviews'})
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Category & Intent Badges */}

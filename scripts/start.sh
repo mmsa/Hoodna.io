@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Hoodna.io Full Stack Startup Script
+# eljiran.com Full Stack Startup Script
 # This script starts the entire application stack using Docker Compose
 
 set -e
 
-echo "🚀 Starting Hoodna.io Full Stack..."
+echo "🚀 Starting eljiran.com Full Stack..."
 echo ""
 
 # Check if Docker is running
@@ -52,7 +52,7 @@ done
 echo "✅ Backend is ready!"
 
 echo ""
-echo "🎉 Hoodna.io is running!"
+echo "🎉 eljiran.com is running!"
 echo ""
 echo "📍 Services:"
 echo "   Frontend:  http://localhost:3000"
@@ -61,7 +61,7 @@ echo "   API Docs:  http://localhost:8000/docs"
 echo "   Database:  localhost:5432"
 echo ""
 echo "👤 Default Admin Credentials:"
-echo "   Email:    admin@hoodna.io"
+echo "   Email:    admin@eljiran.com"
 echo "   Password: admin123"
 echo ""
 echo "📝 Useful commands:"

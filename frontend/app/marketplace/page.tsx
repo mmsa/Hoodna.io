@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -218,6 +218,8 @@ function ListingCard({ listing }: { listing: Listing }) {
 
 export default function MarketplacePage() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedIntent, setSelectedIntent] = useState('')
@@ -309,9 +311,6 @@ export default function MarketplacePage() {
     return params
   }, [searchQuery, selectedCategory, selectedIntent, sortBy, minPrice, maxPrice])
 
-  const router = useRouter()
-  const { user } = useAuth()
-
   const { data: listings, isLoading, error } = useQuery<Listing[]>({
     queryKey: ['listings', 'compound', queryParams],
     queryFn: async () => {
@@ -321,10 +320,26 @@ export default function MarketplacePage() {
       const data = response.data || []
       return data.filter((listing: Listing) => listing.category !== 'SERVICE')
     },
-    onError: (error: any) => {
+    onError: async (error: any) => {
       // Redirect to verification if user is not verified for compound
       if (error?.response?.status === 403) {
-        router.push('/verification')
+        // Refresh user data first in case status was just updated
+        queryClient.invalidateQueries({ queryKey: ['current-user'] });
+        // Small delay to allow user data to refresh, then check verification status
+        setTimeout(async () => {
+          try {
+            const statusResponse = await api.get('/api/verification/status');
+            // If verification status shows user is now approved, refresh and stay on page
+            if (statusResponse.data.user_status === 'APPROVED') {
+              queryClient.invalidateQueries({ queryKey: ['current-user'] });
+              queryClient.invalidateQueries({ queryKey: ['listings'] });
+            } else {
+              router.push('/verification');
+            }
+          } catch {
+            router.push('/verification');
+          }
+        }, 500);
       }
     },
   })

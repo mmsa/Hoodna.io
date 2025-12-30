@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Rating } from '@/components/ui/rating'
 import { Wrench, Star, Search, ArrowRight, CheckCircle, Info } from 'lucide-react'
 import Link from 'next/link'
 import api from '@/lib/api'
@@ -21,6 +22,8 @@ interface Listing {
   intent: string
   image_urls: string[]
   created_at: string
+  average_rating?: number | null
+  review_count?: number
 }
 
 const SORT_OPTIONS = [
@@ -191,11 +194,20 @@ export default function ServicesPage() {
                         )}
                       </div>
 
-                      {/* Rating Placeholder */}
-                      <div className="flex items-center gap-1 bg-yellow-100 px-3 py-1.5 rounded-full">
-                        <Star className="w-4 h-4 text-yellow-600 fill-yellow-600" />
-                        <span className="text-sm font-semibold text-yellow-800">New</span>
-                      </div>
+                      {/* Rating */}
+                      {service.average_rating ? (
+                        <div className="flex items-center gap-2">
+                          <Rating rating={service.average_rating} size="sm" showValue />
+                          <span className="text-xs text-gray-500">
+                            ({service.review_count || 0})
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 bg-gray-100 px-3 py-1.5 rounded-full">
+                          <Star className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm font-semibold text-gray-600">No reviews</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

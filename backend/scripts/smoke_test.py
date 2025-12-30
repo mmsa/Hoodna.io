@@ -213,7 +213,7 @@ async def test_marketplace_endpoint(token: str):
 async def run_all_tests():
     """Run all smoke tests."""
     print("=" * 60)
-    print("Hoodna.io API Smoke Tests")
+    print("eljiran.com API Smoke Tests")
     print("=" * 60)
     print(f"Testing against: {BASE_URL}\n")
     

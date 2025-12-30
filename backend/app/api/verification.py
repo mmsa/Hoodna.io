@@ -11,7 +11,7 @@ from app.crud.verification import (
 )
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.models.enums import DocumentType, UserStatus
+from app.models.enums import DocumentType, DocumentStatus, UserStatus
 import os
 
 router = APIRouter()
@@ -105,6 +105,8 @@ async def get_verification_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Get verification status for current user."""
+    from app.crud.verification import has_compound_name_in_document
+    
     docs = await get_user_documents(db, current_user.id)
     
     national_id = docs[DocumentType.NATIONAL_ID]
@@ -122,6 +124,31 @@ async def get_verification_status(
             address_match = doc.llm_extracted_info.get("address_match", "")
             return compound_found or address_match == "MATCH"
         return False
+    
+    # Check if user should be auto-approved based on approved documents
+    # If ANY document is approved, approve the user
+    if current_user.status != UserStatus.APPROVED:
+        user_should_be_approved = False
+        
+        # If ANY document is approved, approve the user
+        if (
+            national_id and national_id.status == DocumentStatus.APPROVED
+        ) or (
+            contract and contract.status == DocumentStatus.APPROVED
+        ):
+            user_should_be_approved = True
+        
+        if user_should_be_approved:
+            current_user.status = UserStatus.APPROVED
+            await db.commit()
+            await db.refresh(current_user)
+            # Send notification
+            try:
+                from app.services.notifications import notify_verification_approved
+                await notify_verification_approved(db, current_user.id)
+            except Exception:
+                # Don't fail if notification fails
+                pass
     
     can_post = False
     if current_user.status == UserStatus.APPROVED:

@@ -40,6 +40,8 @@ class ListingResponse(BaseModel):
     image_urls: List[str]
     status: ListingStatus
     created_at: datetime
+    average_rating: Optional[float] = None  # Average rating from reviews
+    review_count: int = 0  # Number of reviews
 
     class Config:
         from_attributes = True

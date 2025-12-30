@@ -235,44 +235,28 @@ async def update_document_status(
         contract = docs[DocumentType.CONTRACT]
         
         user = await db.get(User, doc.user_id)
-        if not user or user.status != UserStatus.PENDING_VERIFICATION:
-            await db.refresh(doc)
-            return doc
-        
-        # Rule 1: National ID approved + has compound name → sufficient alone
-        if (
-            national_id
-            and national_id.status == DocumentStatus.APPROVED
-            and has_compound_name_in_document(national_id)
-        ):
-            user.status = UserStatus.APPROVED
-            await db.flush()
-            await db.refresh(doc)
-            return doc
-        
-        # Rule 2: Contract approved + name match + compound match → sufficient alone
-        if (
-            contract
-            and contract.status == DocumentStatus.APPROVED
-            and contract.llm_extracted_info
-            and isinstance(contract.llm_extracted_info, dict)
-        ):
-            name_match = contract.llm_extracted_info.get("name_match", "")
-            if name_match == "MATCH" and has_compound_name_in_document(contract):
+        # Only update user status if they're not already approved
+        if user and user.status != UserStatus.APPROVED:
+            user_was_approved = False
+            
+            # If ANY document is approved, approve the user
+            if (
+                national_id and national_id.status == DocumentStatus.APPROVED
+            ) or (
+                contract and contract.status == DocumentStatus.APPROVED
+            ):
                 user.status = UserStatus.APPROVED
+                user_was_approved = True
+            
+            if user_was_approved:
                 await db.flush()
-                await db.refresh(doc)
-                return doc
-        
-        # Rule 3: Both documents approved → approve user
-        if (
-            national_id
-            and national_id.status == DocumentStatus.APPROVED
-            and contract
-            and contract.status == DocumentStatus.APPROVED
-        ):
-            user.status = UserStatus.APPROVED
-            await db.flush()
+                # Send notification
+                try:
+                    from app.services.notifications import notify_verification_approved
+                    await notify_verification_approved(db, user.id)
+                except Exception:
+                    # Don't fail if notification fails
+                    pass
 
     await db.refresh(doc)
     return doc

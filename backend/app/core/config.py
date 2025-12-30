@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""  # For frontend reference
     
     # AWS SES
-    SES_FROM_EMAIL: str = "noreply@hoodna.io"  # Must be verified in AWS SES
-    SES_FROM_NAME: str = "Hoodna.io"
+    SES_FROM_EMAIL: str = "noreply@eljiran.com"  # Must be verified in AWS SES
+    SES_FROM_NAME: str = "eljiran.com"
     
     # App
     ENVIRONMENT: str = "development"

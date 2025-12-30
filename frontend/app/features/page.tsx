@@ -83,7 +83,7 @@ export default function FeaturesPage() {
             All Features
           </h1>
           <p className="text-gray-600 text-lg">
-            Everything you can do on Hoodna.io
+            Everything you can do on eljiran.com
           </p>
         </div>
 

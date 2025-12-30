@@ -33,7 +33,7 @@ export default function AuthSelectionScreen() {
               <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' }}>🏠</Text>
             </View>
             <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#2563EB', marginBottom: 8 }}>
-              Hoodna.io
+              eljiran.com
             </Text>
             <Text style={{ fontSize: 18, fontWeight: '600', color: '#1B1B1B', marginBottom: 4 }}>
               Welcome to your community

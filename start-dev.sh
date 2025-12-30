@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Development startup script for Hoodna.io
+# Development startup script for eljiran.com
 # Starts backend, frontend, and mobile in separate terminals
 
 set -e
 
-echo "🚀 Starting Hoodna.io Development Environment"
+echo "🚀 Starting eljiran.com Development Environment"
 echo ""
 
 # Colors for output

@@ -23,6 +23,7 @@ from app.api import (
     messages,
     notifications,
     search,
+    reviews,
 )
 from app.services.storage import (
     use_local_storage,
@@ -32,7 +33,7 @@ from app.services.storage import (
 )
 
 app = FastAPI(
-    title="Hoodna.io API",
+    title="eljiran.com API",
     description="Verified neighborhood community + marketplace",
     version="1.0.0",
 )
@@ -75,6 +76,7 @@ app.include_router(saved_posts.router, prefix="/api", tags=["saved-posts"])
 app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
+app.include_router(reviews.router, prefix="/api", tags=["reviews"])
 from app.api import reports
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 from app.api import moderator
@@ -197,7 +199,7 @@ async def get_upload_presigned_url(
 
 @app.get("/")
 async def root():
-    return {"message": "Hoodna.io API", "version": "1.0.0"}
+    return {"message": "eljiran.com API", "version": "1.0.0"}
 
 
 @app.get("/health")

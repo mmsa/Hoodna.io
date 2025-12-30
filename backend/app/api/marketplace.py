@@ -121,8 +121,14 @@ async def list_listings(
         max_price=max_price,
     )
 
+    # Import review stats function
+    from app.crud.review import get_listing_rating_stats
+    
     result = []
     for listing in listings:
+        # Get rating stats for this listing
+        stats = await get_listing_rating_stats(db, listing.id)
+        
         result.append(
             ListingResponse(
                 id=listing.id,
@@ -139,6 +145,8 @@ async def list_listings(
                 image_urls=listing.image_urls or [],
                 status=listing.status,
                 created_at=listing.created_at,
+                average_rating=stats.get('average_rating'),
+                review_count=stats.get('review_count', 0),
             )
         )
 
@@ -185,6 +193,10 @@ async def get_listing(
     if current_user:
         is_saved = await is_listing_saved(db, current_user.id, listing_id)
 
+    # Get rating stats for this listing
+    from app.crud.review import get_listing_rating_stats
+    stats = await get_listing_rating_stats(db, listing_id)
+
     response = ListingResponse(
         id=listing.id,
         compound_id=listing.compound_id,
@@ -202,6 +214,8 @@ async def get_listing(
         image_urls=listing.image_urls or [],
         status=listing.status,
         created_at=listing.created_at,
+        average_rating=stats.get('average_rating'),
+        review_count=stats.get('review_count', 0),
     )
 
     # Add saved status to response (using model_dump and adding field)

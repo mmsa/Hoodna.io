@@ -130,7 +130,7 @@ export function Header() {
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Hoodna.io
+                eljiran.com
               </span>
               {compound && mounted && isAuthenticated && (
                 <CompoundSwitcher currentCompound={compound} />

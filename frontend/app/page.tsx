@@ -293,7 +293,7 @@ export default function Home() {
 
           {/* Benefits Grid */}
           <div className="bg-white rounded-2xl p-8 shadow-xl">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Why Choose Hoodna.io?</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Why Choose eljiran.com?</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {benefits.map((benefit, index) => {
                 const Icon = benefit.icon
@@ -319,7 +319,7 @@ export default function Home() {
               Loved by Residents
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              See what your neighbors are saying about Hoodna.io
+              See what your neighbors are saying about eljiran.com
             </p>
           </div>
 
@@ -328,7 +328,7 @@ export default function Home() {
               {
                 name: "Ahmed Mohamed",
                 compound: "Tagamoa New Cairo",
-                text: "Hoodna.io made it so easy to connect with my neighbors and sell my furniture. The verification process gave me confidence that I'm dealing with real residents.",
+                text: "eljiran.com made it so easy to connect with my neighbors and sell my furniture. The verification process gave me confidence that I'm dealing with real residents.",
                 rating: 5
               },
               {

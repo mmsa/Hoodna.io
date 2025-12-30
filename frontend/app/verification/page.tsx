@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,6 +38,7 @@ interface VerificationStatus {
 export default function VerificationPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { user, isLoading: userLoading } = useAuth();
   const [uploading, setUploading] = useState<"national_id" | "contract" | null>(
     null
@@ -86,7 +87,20 @@ export default function VerificationPage() {
     },
     enabled: shouldFetchStatus,
     retry: false,
+    refetchInterval: 5000, // Poll every 5 seconds to check for approval
   });
+
+  // Refresh user data when verification status changes to APPROVED
+  useEffect(() => {
+    if (status?.user_status === "APPROVED" && user?.status !== "APPROVED") {
+      // Invalidate and refetch user data
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      // Redirect to feed after a short delay to allow user data to refresh
+      setTimeout(() => {
+        router.push("/feed");
+      }, 1000);
+    }
+  }, [status?.user_status, user?.status, queryClient, router]);
 
   // Clear pending uploads if documents are already submitted
   useEffect(() => {

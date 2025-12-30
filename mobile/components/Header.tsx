@@ -141,7 +141,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
               <View style={styles.logoBox}>
                 <Ionicons name="home" size={20} color="#FFFFFF" />
               </View>
-              {!title && <Text style={styles.logoText}>Hoodna.io</Text>}
+              {!title && <Text style={styles.logoText}>eljiran.com</Text>}
             </TouchableOpacity>
             {/* Always show compound badge next to logo when no title */}
             {!title && compound && (

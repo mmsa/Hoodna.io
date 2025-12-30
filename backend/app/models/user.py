@@ -35,4 +35,5 @@ class User(Base):
     conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2", cascade="all, delete-orphan")
     sent_messages = relationship("Message", back_populates="sender", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    reviews = relationship("Review", back_populates="reviewer", cascade="all, delete-orphan")
 
