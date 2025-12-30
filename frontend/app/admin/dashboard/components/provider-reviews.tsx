@@ -59,6 +59,9 @@ export default function ProviderReviews() {
   const [aiResultDialogOpen, setAiResultDialogOpen] = useState(false)
   const [aiResult, setAiResult] = useState<any>(null)
   const [verifyingDocId, setVerifyingDocId] = useState<number | null>(null)
+  const [autoApproved, setAutoApproved] = useState(false)
+  const [requestMoreDialogOpen, setRequestMoreDialogOpen] = useState(false)
+  const [requestMoreReason, setRequestMoreReason] = useState('')
 
   const { data: providers, isLoading, refetch } = useQuery<ProviderProfile[]>({
     queryKey: ['admin-providers', statusFilter, searchQuery],
@@ -152,14 +155,37 @@ export default function ProviderReviews() {
     },
     onSuccess: (data) => {
       setAiResult(data.llm_result)
+      setAutoApproved(data.auto_approved || false)
       setAiResultDialogOpen(true)
       setVerifyingDocId(null)
-      toast.success('AI verification completed')
+      if (data.auto_approved) {
+        toast.success('Provider auto-approved based on high confidence AI verification')
+      } else {
+        toast.success('AI verification completed')
+      }
       refetch()
     },
     onError: (error: any) => {
       setVerifyingDocId(null)
       toast.error(error.response?.data?.detail || 'AI verification failed')
+    },
+  })
+
+  const requestMoreMutation = useMutation({
+    mutationFn: async ({ providerId, reason }: { providerId: number; reason: string }) => {
+      const response = await api.post(`/api/admin/providers/${providerId}/request-more-details`, { reason })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-providers'] })
+      toast.success('Request for more details sent to provider')
+      setRequestMoreDialogOpen(false)
+      setRequestMoreReason('')
+      setSelectedProvider(null)
+      refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to request more details')
     },
   })
 
@@ -182,6 +208,14 @@ export default function ProviderReviews() {
       return
     }
     suspendMutation.mutate({ providerId: selectedProvider.id, reason: suspensionReason })
+  }
+
+  const confirmRequestMore = () => {
+    if (!selectedProvider || !requestMoreReason.trim()) {
+      toast.error('Please provide a reason for requesting more details')
+      return
+    }
+    requestMoreMutation.mutate({ providerId: selectedProvider.id, reason: requestMoreReason })
   }
 
   return (
@@ -212,6 +246,7 @@ export default function ProviderReviews() {
                   <SelectItem value="APPROVED">Approved</SelectItem>
                   <SelectItem value="REJECTED">Rejected</SelectItem>
                   <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                  <SelectItem value="REQUEST_MORE_DETAILS">Request More Details</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -338,6 +373,17 @@ export default function ProviderReviews() {
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedProvider(provider)
+                        setRequestMoreDialogOpen(true)
+                      }}
+                    >
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      Request More Details
                     </Button>
                     <Button
                       size="sm"
@@ -499,6 +545,17 @@ export default function ProviderReviews() {
           </DialogHeader>
           {aiResult && (
             <div className="space-y-4">
+              {autoApproved && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-900">Provider Auto-Approved</p>
+                      <p className="text-sm text-green-700">High confidence AI verification ({Math.round(aiResult.confidence * 100)}%) automatically approved this provider.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="font-medium">Status:</span>
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -572,6 +629,45 @@ export default function ProviderReviews() {
               disabled={!suspensionReason.trim() || suspendMutation.isPending}
             >
               {suspendMutation.isPending ? 'Suspending...' : 'Suspend Provider'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request More Details Dialog */}
+      <Dialog open={requestMoreDialogOpen} onOpenChange={setRequestMoreDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request More Details</DialogTitle>
+            <DialogDescription>
+              Request additional information from the provider. They will be notified and can respond with more details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="requestMoreReason">Reason for Request *</Label>
+              <Textarea
+                id="requestMoreReason"
+                value={requestMoreReason}
+                onChange={(e) => setRequestMoreReason(e.target.value)}
+                placeholder="e.g., Please provide clearer photos of your commercial register, or additional documentation..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setRequestMoreDialogOpen(false)
+              setRequestMoreReason('')
+              setSelectedProvider(null)
+            }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRequestMore}
+              disabled={!requestMoreReason.trim() || requestMoreMutation.isPending}
+            >
+              {requestMoreMutation.isPending ? 'Sending...' : 'Send Request'}
             </Button>
           </DialogFooter>
         </DialogContent>

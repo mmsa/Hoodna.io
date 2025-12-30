@@ -28,10 +28,14 @@ class SuspendRequest(BaseModel):
     reason: str
 
 
+class RequestMoreDetailsRequest(BaseModel):
+    reason: str  # Required reason for requesting more details
+
+
 # Provider Review Endpoints
 @router.get("/providers", response_model=List[ServiceProviderProfileResponse])
 async def list_providers_for_review(
-    status_filter: Optional[str] = Query(None, description="Filter by status: SUBMITTED, IN_REVIEW, APPROVED, REJECTED, SUSPENDED"),
+    status_filter: Optional[str] = Query(None, description="Filter by status: SUBMITTED, IN_REVIEW, APPROVED, REJECTED, SUSPENDED, REQUEST_MORE_DETAILS"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(get_current_admin),
@@ -41,14 +45,20 @@ async def list_providers_for_review(
     query = select(ServiceProviderProfile)
     
     if status_filter:
-        try:
-            status_enum = ProviderStatus[status_filter.upper()]
-            query = query.where(ServiceProviderProfile.provider_status == status_enum)
-        except KeyError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid status: {status_filter}"
+        if status_filter.upper() == "REQUEST_MORE_DETAILS":
+            # Filter by rejection_reason containing "More details requested"
+            query = query.where(
+                ServiceProviderProfile.rejection_reason.like("%More details requested%")
             )
+        else:
+            try:
+                status_enum = ProviderStatus[status_filter.upper()]
+                query = query.where(ServiceProviderProfile.provider_status == status_enum)
+            except KeyError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid status: {status_filter}"
+                )
     else:
         # Default to pending review
         query = query.where(
@@ -102,9 +112,14 @@ async def approve_provider(
     profile.reviewed_by = current_user.id
     
     await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
     await db.refresh(profile, ["documents", "user", "category"])
     if profile.user:
         profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
     return profile
 
 
@@ -141,9 +156,14 @@ async def reject_provider(
     profile.rejection_reason = request.reason
     
     await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
     await db.refresh(profile, ["documents", "user", "category"])
     if profile.user:
         profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
     return profile
 
 
@@ -172,9 +192,72 @@ async def suspend_provider(
     profile.suspension_reason = request.reason
     
     await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
     await db.refresh(profile, ["documents", "user", "category"])
     if profile.user:
         profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
+    return profile
+
+
+@router.post("/providers/{provider_id}/request-more-details", response_model=ServiceProviderProfileResponse)
+async def request_more_details_provider(
+    provider_id: int,
+    request: RequestMoreDetailsRequest,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Request more details from a provider."""
+    profile = await db.get(ServiceProviderProfile, provider_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider profile not found"
+        )
+    
+    if profile.provider_status != ProviderStatus.SUBMITTED and profile.provider_status != ProviderStatus.IN_REVIEW:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot request more details for provider in {profile.provider_status} status"
+        )
+    
+    # Change status to IN_REVIEW and store the request reason
+    profile.provider_status = ProviderStatus.IN_REVIEW
+    profile.reviewed_at = datetime.utcnow()
+    profile.reviewed_by = current_user.id
+    profile.rejection_reason = f"More details requested: {request.reason}"
+    
+    await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
+    
+    # Send notification to user
+    from app.services.notifications import create_notification
+    from app.models.notification import NotificationType
+    from app.schemas.notification import NotificationCreate
+    await create_notification(
+        db=db,
+        notification_data=NotificationCreate(
+            user_id=profile.user_id,
+            type=NotificationType.VERIFICATION_REQUEST_MORE,
+            title="More Information Needed",
+            message=f"We need more information to verify your service provider account. {request.reason}",
+            related_id=profile.id,
+            related_type="service_provider",
+            extra_data={"reason": request.reason, "profile_id": profile.id},
+        ),
+    )
+    await db.commit()
+    
     return profile
 
 
@@ -191,14 +274,20 @@ async def list_moderators_for_review(
     query = select(CompoundModeratorProfile)
     
     if status_filter:
-        try:
-            status_enum = ModeratorStatus[status_filter.upper()]
-            query = query.where(CompoundModeratorProfile.moderator_status == status_enum)
-        except KeyError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid status: {status_filter}"
+        if status_filter.upper() == "REQUEST_MORE_DETAILS":
+            # Filter by rejection_reason containing "More details requested"
+            query = query.where(
+                CompoundModeratorProfile.rejection_reason.like("%More details requested%")
             )
+        else:
+            try:
+                status_enum = ModeratorStatus[status_filter.upper()]
+                query = query.where(CompoundModeratorProfile.moderator_status == status_enum)
+            except KeyError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid status: {status_filter}"
+                )
     else:
         # Default to pending review
         query = query.where(
@@ -249,11 +338,16 @@ async def approve_moderator(
     profile.reviewed_by = current_user.id
     
     await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
     await db.refresh(profile, ["documents", "user", "compound"])
     if profile.compound:
         profile.compound_name = profile.compound.name
     if profile.user:
         profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
     return profile
 
 
@@ -290,11 +384,16 @@ async def reject_moderator(
     profile.rejection_reason = request.reason
     
     await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
     await db.refresh(profile, ["documents", "user", "compound"])
     if profile.compound:
         profile.compound_name = profile.compound.name
     if profile.user:
         profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
     return profile
 
 
@@ -323,11 +422,76 @@ async def suspend_moderator(
     profile.suspension_reason = request.reason
     
     await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
     await db.refresh(profile, ["documents", "user", "compound"])
     if profile.compound:
         profile.compound_name = profile.compound.name
     if profile.user:
         profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
+    return profile
+
+
+@router.post("/moderators/{moderator_id}/request-more-details", response_model=CompoundModeratorProfileResponse)
+async def request_more_details_moderator(
+    moderator_id: int,
+    request: RequestMoreDetailsRequest,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Request more details from a moderator."""
+    profile = await db.get(CompoundModeratorProfile, moderator_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Moderator profile not found"
+        )
+    
+    if profile.moderator_status != ModeratorStatus.SUBMITTED and profile.moderator_status != ModeratorStatus.IN_REVIEW:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot request more details for moderator in {profile.moderator_status} status"
+        )
+    
+    # Change status to IN_REVIEW and store the request reason
+    profile.moderator_status = ModeratorStatus.IN_REVIEW
+    profile.reviewed_at = datetime.utcnow()
+    profile.reviewed_by = current_user.id
+    profile.rejection_reason = f"More details requested: {request.reason}"
+    
+    await db.commit()
+    # Refresh the object to get updated column values (like updated_at)
+    await db.refresh(profile)
+    # Then refresh relationships
+    await db.refresh(profile, ["documents", "user", "compound"])
+    if profile.compound:
+        profile.compound_name = profile.compound.name
+    if profile.user:
+        profile.user_name = profile.user.name
+    # Access updated_at while still in async context to ensure it's loaded
+    _ = profile.updated_at
+    
+    # Send notification to user
+    from app.services.notifications import create_notification
+    from app.models.notification import NotificationType
+    from app.schemas.notification import NotificationCreate
+    await create_notification(
+        db=db,
+        notification_data=NotificationCreate(
+            user_id=profile.user_id,
+            type=NotificationType.VERIFICATION_REQUEST_MORE,
+            title="More Information Needed",
+            message=f"We need more information to verify your moderator account. {request.reason}",
+            related_id=profile.id,
+            related_type="moderator",
+            extra_data={"reason": request.reason, "profile_id": profile.id},
+        ),
+    )
+    await db.commit()
+    
     return profile
 
 
@@ -396,11 +560,40 @@ async def verify_provider_document_with_llm(
                 "extracted_info": {},
             }
         
+        # Save LLM results to document
+        doc.llm_verified = 1 if llm_result.get('verified') else 0
+        doc.llm_confidence = llm_result.get('confidence', 0.0)
+        doc.llm_recommendation = llm_result.get('recommendation', 'REQUEST_MORE_DETAILS')
+        doc.llm_reasoning = llm_result.get('reasoning')
+        doc.llm_issues = llm_result.get('issues', [])
+        doc.llm_extracted_info = llm_result.get('extracted_info', {})
+        doc.llm_verified_at = datetime.utcnow()
+        
+        await db.flush()
+        
+        # Auto-approve if confidence >= 90% and recommendation is APPROVE
+        auto_approved = False
+        if (llm_result.get('confidence', 0.0) >= 0.9 and 
+            llm_result.get('recommendation') == 'APPROVE' and
+            profile.provider_status in [ProviderStatus.SUBMITTED, ProviderStatus.IN_REVIEW]):
+            profile.provider_status = ProviderStatus.APPROVED
+            profile.reviewed_at = datetime.utcnow()
+            profile.reviewed_by = current_user.id
+            auto_approved = True
+            logger.info(f"Auto-approved provider {provider_id} based on high confidence LLM verification")
+        
+        await db.commit()
+        
+        # Refresh to get updated values
+        await db.refresh(profile)
+        await db.refresh(doc)
+        
         return {
             "document_id": doc.id,
             "document_type": doc.document_type,
             "file_url": doc.file_url,
             "llm_result": llm_result,
+            "auto_approved": auto_approved,
         }
     except HTTPException:
         raise
@@ -476,11 +669,40 @@ async def verify_moderator_document_with_llm(
                 "extracted_info": {},
             }
         
+        # Save LLM results to document
+        doc.llm_verified = 1 if llm_result.get('verified') else 0
+        doc.llm_confidence = llm_result.get('confidence', 0.0)
+        doc.llm_recommendation = llm_result.get('recommendation', 'REQUEST_MORE_DETAILS')
+        doc.llm_reasoning = llm_result.get('reasoning')
+        doc.llm_issues = llm_result.get('issues', [])
+        doc.llm_extracted_info = llm_result.get('extracted_info', {})
+        doc.llm_verified_at = datetime.utcnow()
+        
+        await db.flush()
+        
+        # Auto-approve if confidence >= 90% and recommendation is APPROVE
+        auto_approved = False
+        if (llm_result.get('confidence', 0.0) >= 0.9 and 
+            llm_result.get('recommendation') == 'APPROVE' and
+            profile.moderator_status in [ModeratorStatus.SUBMITTED, ModeratorStatus.IN_REVIEW]):
+            profile.moderator_status = ModeratorStatus.APPROVED
+            profile.reviewed_at = datetime.utcnow()
+            profile.reviewed_by = current_user.id
+            auto_approved = True
+            logger.info(f"Auto-approved moderator {moderator_id} based on high confidence LLM verification")
+        
+        await db.commit()
+        
+        # Refresh to get updated values
+        await db.refresh(profile)
+        await db.refresh(doc)
+        
         return {
             "document_id": doc.id,
             "document_type": doc.document_type,
             "file_url": doc.file_url,
             "llm_result": llm_result,
+            "auto_approved": auto_approved,
         }
     except HTTPException:
         raise
