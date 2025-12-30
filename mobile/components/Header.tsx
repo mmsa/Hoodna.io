@@ -6,6 +6,7 @@ import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
 import { Compound } from "@hoodna/shared";
+import { formatCompoundName, formatCompoundWithArea } from "@/utils/formatCompound";
 
 interface HeaderProps {
   title?: string;
@@ -152,7 +153,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 activeOpacity={0.7}
               >
                 <Ionicons name="home" size={10} color={colors.primary} />
-                <Text style={styles.compoundTextInline}>{compound.name}</Text>
+                <Text style={styles.compoundTextInline}>{formatCompoundName(compound.name)}</Text>
                 <Ionicons name="chevron-down" size={10} color={colors.primary} />
               </TouchableOpacity>
             )}
@@ -170,7 +171,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 activeOpacity={0.7}
               >
                 <Ionicons name="home" size={12} color={colors.primary} />
-                <Text style={styles.compoundText}>{compound.name}</Text>
+                <Text style={styles.compoundText}>{formatCompoundName(compound.name)}</Text>
                 <Ionicons name="chevron-down" size={12} color={colors.primary} />
               </TouchableOpacity>
             )}
@@ -233,7 +234,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Switch Compound</Text>
+              <Text style={styles.modalTitle}>Switch Neighbourhood</Text>
               <TouchableOpacity
                 onPress={() => setShowCompoundSwitcher(false)}
                 style={styles.closeButton}
@@ -273,11 +274,8 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                               item.is_current && styles.compoundItemNameCurrent,
                             ]}
                           >
-                            {item.name}
+                            {formatCompoundWithArea(item.name, item.area)}
                           </Text>
-                          {item.area && (
-                            <Text style={styles.compoundItemArea}>{item.area}</Text>
-                          )}
                         </View>
                       </View>
                       {item.is_current && (
@@ -287,8 +285,8 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                   )}
                   ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No verified compounds available</Text>
-                      <Text style={styles.emptySubtext}>Submit verification documents to access compounds</Text>
+                      <Text style={styles.emptyText}>No verified neighbourhoods available</Text>
+                      <Text style={styles.emptySubtext}>Submit verification documents to access neighbourhoods</Text>
                     </View>
                   }
                 />
@@ -300,7 +298,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                   }}
                 >
                   <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-                  <Text style={styles.requestAccessText}>Request Access to New Compound</Text>
+                  <Text style={styles.requestAccessText}>Request Access to New Neighbourhood</Text>
                 </TouchableOpacity>
               </>
             )}

@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
+import { formatCompoundName } from "@/utils/formatCompound";
 
 const POST_LABELS = [
   { value: "", label: "All Posts", icon: "📋" },
@@ -244,7 +245,7 @@ function PostCard({
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                 <Ionicons name="home" size={12} color={colors.textMuted} />
                 <Text style={{ fontSize: 12, fontWeight: "500", color: colors.textMuted }}>
-                  {post.compound_name}
+                  {formatCompoundName(post.compound_name)}
                 </Text>
               </View>
             </View>
@@ -853,10 +854,10 @@ export default function HomeScreen() {
             <Text style={{ fontSize: 64 }}>🏠</Text>
           </View>
           <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
-            Select Your Compound
+            Select Your Neighbourhood
           </Text>
           <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24, marginBottom: 32 }}>
-            To see posts from your community, please select a compound first.
+            To see posts from your community, please select a neighbourhood first.
           </Text>
           <TouchableOpacity
             style={{
@@ -872,7 +873,7 @@ export default function HomeScreen() {
           >
             <Ionicons name="home" size={20} color="#FFFFFF" />
             <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
-              Select Compound
+              Select Neighbourhood
             </Text>
           </TouchableOpacity>
         </View>
@@ -1019,10 +1020,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
-                    {compoundName ? `${compoundName} Official Announcement${announcements.length !== 1 ? 's' : ''}` : 'Compound Announcements'}
+                    {compoundName ? `${formatCompoundName(compoundName)} Official Announcement${announcements.length !== 1 ? 's' : ''}` : 'Neighbourhood Announcements'}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                    Official updates from compound management
+                    Official updates from neighbourhood management
                   </Text>
                 </View>
               </View>
@@ -1068,7 +1069,7 @@ export default function HomeScreen() {
                     No announcements
                   </Text>
                   <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "center" }}>
-                    Check back later for updates from compound management
+                    Check back later for updates from neighbourhood management
                   </Text>
                 </View>
               )}

@@ -46,6 +46,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
+import { formatCompoundName, formatCompoundWithArea } from "@/lib/format-compound";
 
 interface Post {
   id: number;
@@ -585,7 +586,7 @@ export default function FeedPage() {
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-gray-600">
-              Redirecting to compound selection...
+              Redirecting to neighbourhood selection...
             </p>
           </div>
         </div>
@@ -650,9 +651,7 @@ export default function FeedPage() {
                   {user.name}
                 </h1>
                 <p className="text-gray-600 text-sm">
-                  {feedSummary.compound_name}
-                  {feedSummary.compound_area &&
-                    ` (${feedSummary.compound_area})`}
+                  {formatCompoundWithArea(feedSummary.compound_name, feedSummary.compound_area)}
                 </p>
               </div>
             )}
@@ -731,10 +730,10 @@ export default function FeedPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    {feedSummary?.compound_name ? `${feedSummary.compound_name} Official Announcement${announcements?.length !== 1 ? 's' : ''}` : 'Compound Announcements'}
+                    {feedSummary?.compound_name ? `${formatCompoundName(feedSummary.compound_name)} Official Announcement${announcements?.length !== 1 ? 's' : ''}` : 'Neighbourhood Announcements'}
                   </h2>
                   <p className="text-xs text-gray-500">
-                    Official updates from compound management
+                    Official updates from neighbourhood management
                   </p>
                 </div>
               </div>
@@ -762,7 +761,7 @@ export default function FeedPage() {
                       No announcements
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Check back later for updates from compound management
+                      Check back later for updates from neighbourhood management
                     </p>
                   </CardContent>
                 </Card>
@@ -924,7 +923,7 @@ export default function FeedPage() {
                           </p>
                           {listing.compound_name && (
                             <p className="text-xs text-gray-500 mt-1 truncate">
-                              {listing.compound_name}
+                              {formatCompoundName(listing.compound_name)}
                             </p>
                           )}
                         </CardContent>
@@ -1248,20 +1247,15 @@ function ProfileSidebar({
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="w-5 h-5 text-purple-600" />
-              <h4 className="font-semibold text-gray-900">My Compound</h4>
+              <h4 className="font-semibold text-gray-900">My Neighbourhood</h4>
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-gray-900">
-                    {feedSummary.compound_name}
+                    {formatCompoundWithArea(feedSummary.compound_name, feedSummary.compound_area)}
                   </div>
-                  {feedSummary.compound_area && (
-                    <div className="text-gray-500 text-xs">
-                      {feedSummary.compound_area}
-                    </div>
-                  )}
                 </div>
               </div>
               {feedSummary.compound_developer && (
@@ -1402,7 +1396,7 @@ function PostCard({
               <div className="mb-2 flex items-center gap-1.5">
                 <Home className="w-3 h-3 text-gray-500" />
                 <span className="text-xs font-medium text-gray-600">
-                  {post.compound_name}
+                  {formatCompoundName(post.compound_name)}
                 </span>
               </div>
             )}

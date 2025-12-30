@@ -46,7 +46,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     return await db.get(User, user_id)
 
 
-async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
+async def create_user(db: AsyncSession, user_data: UserCreate, role: UserRole | None = None) -> User:
     """Create a new user."""
     hashed_password = get_password_hash(user_data.password)
     db_user = User(
@@ -54,6 +54,7 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
         email=user_data.email,
         phone=user_data.phone,
         password_hash=hashed_password,
+        role=role,
         status=UserStatus.PENDING_VERIFICATION,
     )
     db.add(db_user)

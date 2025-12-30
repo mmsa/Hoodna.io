@@ -31,6 +31,7 @@ export const UserSignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   phone: z.string().optional(),
+  role: z.enum(['RESIDENT', 'SERVICE_PROVIDER', 'COMPOUND_MOD']),
 });
 
 export const ForgotPasswordRequestSchema = z.object({

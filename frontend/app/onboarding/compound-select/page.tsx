@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { Label } from '@/components/ui/label'
 import api from '@/lib/api'
+import { formatCompoundName } from '@/lib/format-compound'
 
 interface Compound {
   id: number
@@ -38,7 +39,7 @@ export default function CompoundSelectPage() {
     if (!compounds || compounds.length === 0) return []
     return compounds.map((compound) => ({
       value: compound.id,
-      label: compound.name,
+      label: formatCompoundName(compound.name),
       description: `${compound.area || compound.city || ''}, ${compound.country}`,
     }))
   }, [compounds])
@@ -55,12 +56,12 @@ export default function CompoundSelectPage() {
       if (data.userData?.compound_id || data.compoundId) {
         router.push('/verification')
       } else {
-        setError('Compound selection failed. Please try again.')
+        setError('Neighbourhood selection failed. Please try again.')
       }
     },
     onError: (err: any) => {
       // Don't redirect on error - show error message instead
-      const errorMessage = err.response?.data?.detail || 'Failed to update compound. Please try again.'
+      const errorMessage = err.response?.data?.detail || 'Failed to update neighbourhood. Please try again.'
       setError(errorMessage)
       console.error('Compound selection error:', err)
     },
@@ -68,7 +69,7 @@ export default function CompoundSelectPage() {
 
   const handleSubmit = () => {
     if (!selectedCompoundId) {
-      setError('Please select a compound')
+      setError('Please select a neighbourhood')
       return
     }
     setError('')
@@ -78,7 +79,7 @@ export default function CompoundSelectPage() {
         updateUserMutation.mutate(selectedCompoundId)
       })
       .catch((err: any) => {
-        const errorMessage = err.response?.data?.detail || 'Failed to request compound access'
+        const errorMessage = err.response?.data?.detail || 'Failed to request neighbourhood access'
         setError(errorMessage)
       })
   }
@@ -88,7 +89,7 @@ export default function CompoundSelectPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading compounds...</p>
+          <p className="text-gray-600">Loading neighbourhoods...</p>
         </div>
       </div>
     )
@@ -99,9 +100,9 @@ export default function CompoundSelectPage() {
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle>Select Your Compound</CardTitle>
+            <CardTitle>Select Your Neighbourhood</CardTitle>
             <CardDescription>
-              Search and select the compound or neighborhood where you live
+              Search and select the compound or neighbourhood where you live
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -112,7 +113,7 @@ export default function CompoundSelectPage() {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="compound-select">Compound</Label>
+              <Label htmlFor="compound-select">Neighbourhood</Label>
               <Combobox
                 options={compoundOptions}
                 value={selectedCompoundId}
@@ -120,13 +121,13 @@ export default function CompoundSelectPage() {
                   setSelectedCompoundId(value as number | null)
                   setError('')
                 }}
-                placeholder="Search for your compound..."
-                searchPlaceholder="Type to search compounds..."
-                emptyMessage="No compounds found. Try a different search."
+                placeholder="Search for your neighbourhood..."
+                searchPlaceholder="Type to search neighbourhoods..."
+                emptyMessage="No neighbourhoods found. Try a different search."
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Start typing to search through {compoundsData?.total || 0} available compounds
+                Start typing to search through {compoundsData?.total || 0} available neighbourhoods
               </p>
             </div>
 

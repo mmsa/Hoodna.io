@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -11,6 +12,7 @@ export default function SignupScreen() {
   const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const { apiClient, setTokens, loadUser } = useAuth();
@@ -26,6 +28,9 @@ export default function SignupScreen() {
     if (!password || password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
+    if (!selectedRole) {
+      newErrors.role = "Please select an account type";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -40,11 +45,20 @@ export default function SignupScreen() {
         email,
         password,
         phone: phone || undefined,
+        role: selectedRole!,
       });
 
       setTokens(response.access_token, response.refresh_token);
       await loadUser();
-      router.replace("/onboarding/choose-role");
+      
+      // Redirect based on role
+      if (selectedRole === "RESIDENT") {
+        router.replace("/onboarding/compound-select");
+      } else if (selectedRole === "SERVICE_PROVIDER") {
+        router.replace("/onboarding/provider");
+      } else if (selectedRole === "COMPOUND_MOD") {
+        router.replace("/onboarding/moderator");
+      }
     } catch (error: any) {
       Alert.alert("Signup Failed", error.message || "Failed to create account. Please try again.");
     } finally {
@@ -215,6 +229,159 @@ export default function SignupScreen() {
               <Text style={{ fontSize: 12, color: "#6C757D", marginTop: 4 }}>
                 Must be at least 6 characters
               </Text>
+            </View>
+
+            {/* Role Selection */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 12 }}>
+                Account Type <Text style={{ color: "#E63946" }}>*</Text>
+              </Text>
+              {errors.role && (
+                <Text style={{ fontSize: 12, color: "#E63946", marginBottom: 8 }}>
+                  {errors.role}
+                </Text>
+              )}
+              
+              {/* Resident */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 12,
+                  borderWidth: 2,
+                  borderColor: selectedRole === "RESIDENT" ? "#3B82F6" : "#E5E7EB",
+                }}
+                onPress={() => {
+                  setSelectedRole("RESIDENT");
+                  if (errors.role) setErrors({ ...errors, role: "" });
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: selectedRole === "RESIDENT" ? "#DBEAFE" : "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons
+                      name="home"
+                      size={20}
+                      color={selectedRole === "RESIDENT" ? "#3B82F6" : "#6C757D"}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
+                      Resident
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#6C757D" }}>
+                      Live in a compound
+                    </Text>
+                  </View>
+                  {selectedRole === "RESIDENT" && (
+                    <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Service Provider */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 12,
+                  borderWidth: 2,
+                  borderColor: selectedRole === "SERVICE_PROVIDER" ? "#10B981" : "#E5E7EB",
+                }}
+                onPress={() => {
+                  setSelectedRole("SERVICE_PROVIDER");
+                  if (errors.role) setErrors({ ...errors, role: "" });
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: selectedRole === "SERVICE_PROVIDER" ? "#D1FAE5" : "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons
+                      name="construct"
+                      size={20}
+                      color={selectedRole === "SERVICE_PROVIDER" ? "#10B981" : "#6C757D"}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
+                      Service Provider
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#6C757D" }}>
+                      Provide services to residents
+                    </Text>
+                  </View>
+                  {selectedRole === "SERVICE_PROVIDER" && (
+                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Compound Moderator */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 12,
+                  borderWidth: 2,
+                  borderColor: selectedRole === "COMPOUND_MOD" ? "#A855F7" : "#E5E7EB",
+                }}
+                onPress={() => {
+                  setSelectedRole("COMPOUND_MOD");
+                  if (errors.role) setErrors({ ...errors, role: "" });
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: selectedRole === "COMPOUND_MOD" ? "#E9D5FF" : "#F3F4F6",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={20}
+                      color={selectedRole === "COMPOUND_MOD" ? "#A855F7" : "#6C757D"}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
+                      Compound Moderator
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#6C757D" }}>
+                      Moderate content for your compound
+                    </Text>
+                  </View>
+                  {selectedRole === "COMPOUND_MOD" && (
+                    <Ionicons name="checkmark-circle" size={24} color="#A855F7" />
+                  )}
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Sign Up Button */}

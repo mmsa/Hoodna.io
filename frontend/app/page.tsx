@@ -17,6 +17,7 @@ import {
   Zap
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { formatCompoundName } from '@/lib/format-compound'
 
 export default function Home() {
   const { isAuthenticated } = useAuth()
@@ -30,8 +31,8 @@ export default function Home() {
     },
     {
       icon: ShoppingBag,
-      title: 'Compound Marketplace',
-      description: 'Buy, sell, and rent within your compound or promote listings to reach a wider audience.',
+      title: 'Neighbourhood Marketplace',
+      description: 'Buy, sell, and rent within your neighbourhood or promote listings to reach a wider audience.',
       color: 'from-purple-500 to-pink-500'
     },
     {
@@ -43,19 +44,19 @@ export default function Home() {
     {
       icon: MessageCircle,
       title: 'Community Feed',
-      description: 'Connect with neighbors, share updates, and build relationships within your compound.',
+      description: 'Connect with neighbors, share updates, and build relationships within your neighbourhood.',
       color: 'from-orange-500 to-red-500'
     },
     {
       icon: Lock,
       title: 'Secure & Private',
-      description: 'Your data is protected. Only verified residents can access your compound community.',
+      description: 'Your data is protected. Only verified residents can access your neighbourhood community.',
       color: 'from-indigo-500 to-purple-500'
     },
     {
       icon: TrendingUp,
       title: 'Promote Listings',
-      description: 'Reach beyond your compound with paid promotions to cross-compound or public feeds.',
+      description: 'Reach beyond your neighbourhood with paid promotions to cross-compound or public feeds.',
       color: 'from-yellow-500 to-orange-500'
     }
   ]
@@ -63,8 +64,8 @@ export default function Home() {
   const steps = [
     {
       number: '01',
-      title: 'Sign Up & Select Compound',
-      description: 'Create your account and choose your compound or neighborhood.'
+      title: 'Sign Up & Select Neighbourhood',
+      description: 'Create your account and choose your compound or neighbourhood.'
     },
     {
       number: '02',
@@ -88,7 +89,7 @@ export default function Home() {
     { icon: CheckCircle, text: 'No Agent Fees' },
     { icon: CheckCircle, text: 'Secure Transactions' },
     { icon: CheckCircle, text: 'Direct Communication' },
-    { icon: CheckCircle, text: 'Compound-Specific Content' },
+    { icon: CheckCircle, text: 'Neighbourhood-Specific Content' },
     { icon: CheckCircle, text: 'AI-Powered Verification' }
   ]
 
@@ -110,14 +111,14 @@ export default function Home() {
             </div>
             
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold mb-8 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight tracking-tight">
-              Your Compound,<br />
+              Your Neighbourhood,<br />
               <span className="bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 Your Community
               </span>
             </h1>
             
             <p className="text-xl md:text-2xl lg:text-3xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed font-medium">
-              Connect with verified neighbors, buy and sell safely, and build a thriving community within your compound. 
+              Connect with verified neighbors, buy and sell safely, and build a thriving community within your neighbourhood. 
               <span className="text-indigo-600 font-semibold"> No agents. No fees. Just real connections.</span> 💫
             </p>
 
@@ -194,7 +195,7 @@ export default function Home() {
               Everything You Need 🎁
             </h2>
             <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto font-medium">
-              A complete platform designed for your compound community. 
+              A complete platform designed for your neighbourhood community. 
               <span className="text-indigo-600 font-semibold"> Built with love, powered by trust.</span> 💙
             </p>
           </div>
@@ -280,7 +281,7 @@ export default function Home() {
                 <Lock className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="text-xl font-bold mb-2">Secure & Private</h3>
-              <p className="text-gray-600">Your data is protected. Only verified residents can access your compound</p>
+              <p className="text-gray-600">Your data is protected. Only verified residents can access your neighbourhood</p>
             </div>
             <div className="bg-white rounded-xl p-6 shadow-lg text-center animate-fade-in" style={{ animationDelay: '200ms' }}>
               <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
@@ -327,19 +328,19 @@ export default function Home() {
             {[
               {
                 name: "Ahmed Mohamed",
-                compound: "Tagamoa New Cairo",
+                compound: formatCompoundName("Tagamoa New Cairo"),
                 text: "eljiran.com made it so easy to connect with my neighbors and sell my furniture. The verification process gave me confidence that I'm dealing with real residents.",
                 rating: 5
               },
               {
                 name: "Sara Ali",
-                compound: "Zayed",
-                text: "Finally, a marketplace without agents! I sold my car directly to a neighbor in my compound. The whole process was smooth and secure.",
+                compound: formatCompoundName("Zayed"),
+                text: "Finally, a marketplace without agents! I sold my car directly to a neighbor in my neighbourhood. The whole process was smooth and secure.",
                 rating: 5
               },
               {
                 name: "Mohamed Hassan",
-                compound: "New Capital",
+                compound: formatCompoundName("New Capital"),
                 text: "The community feed is amazing. I've made so many connections and found great deals on items I needed. Highly recommend!",
                 rating: 5
               }

@@ -37,6 +37,7 @@ import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { formatCompoundName, formatCompoundWithArea } from '@/lib/format-compound'
 
 export function Header() {
   const router = useRouter()
@@ -264,7 +265,7 @@ export function Header() {
                           <div className="flex items-center gap-1 mt-1">
                             <Building2 className="w-3 h-3 text-muted-foreground" />
                             <p className="text-xs leading-none text-muted-foreground">
-                              {compound.name}
+                              {formatCompoundName(compound.name)}
                             </p>
                           </div>
                         )}
@@ -511,22 +512,22 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
     try {
       await api.post('/api/auth/me/switch-compound', { compound_id: compoundId })
       await refreshUser()
-      toast({
-        title: "Compound switched",
-        description: "Your active compound has been updated.",
-      })
+          toast({
+            title: "Neighbourhood switched",
+            description: "Your active neighbourhood has been updated.",
+          })
       // Refresh the page to update all compound-specific data
       router.refresh()
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || "Failed to switch compound"
       
-      // If user is not verified for this compound, redirect to verification
-      if (errorMessage.includes("not verified") || error.response?.status === 403) {
-        toast({
-          title: "Verification Required",
-          description: "You need to submit verification documents for this compound.",
-          variant: "destructive",
-        })
+          // If user is not verified for this neighbourhood, redirect to verification
+          if (errorMessage.includes("not verified") || error.response?.status === 403) {
+            toast({
+              title: "Verification Required",
+              description: "You need to submit verification documents for this neighbourhood.",
+              variant: "destructive",
+            })
         router.push('/verification')
       } else {
         toast({
@@ -544,8 +545,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       <div className="flex items-center gap-1.5 ml-2">
         <Building2 className="w-4 h-4 text-blue-600" />
         <span className="text-sm text-blue-600 font-medium">
-          {currentCompound.name}
-          {currentCompound.area && ` (${currentCompound.area})`}
+          {formatCompoundWithArea(currentCompound.name, currentCompound.area)}
         </span>
       </div>
     )
@@ -557,13 +557,12 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
         <button className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer">
           <Building2 className="w-4 h-4 text-blue-600" />
           <span className="text-sm text-blue-600 font-medium">
-            {currentCompound.name}
-            {currentCompound.area && ` (${currentCompound.area})`}
+            {formatCompoundWithArea(currentCompound.name, currentCompound.area)}
           </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Switch Compound</DropdownMenuLabel>
+        <DropdownMenuLabel>Switch Neighbourhood</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {availableCompounds && availableCompounds.length > 0 ? (
           availableCompounds.map((compound) => (
@@ -575,11 +574,8 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
               <div className="flex items-center justify-between w-full">
                 <div className="flex flex-col">
                   <span className={compound.is_current ? "font-semibold text-blue-700" : ""}>
-                    {compound.name}
+                    {formatCompoundWithArea(compound.name, compound.area)}
                   </span>
-                  {compound.area && (
-                    <span className="text-xs text-gray-500">{compound.area}</span>
-                  )}
                 </div>
                 {compound.is_current && (
                   <Building2 className="w-4 h-4 text-blue-600" />
@@ -590,8 +586,8 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
         ) : (
           <DropdownMenuItem disabled>
             <div className="flex flex-col w-full">
-              <span className="text-sm text-gray-600">No verified compounds</span>
-              <span className="text-xs text-gray-500 mt-1">Submit verification documents to access compounds</span>
+              <span className="text-sm text-gray-600">No verified neighbourhoods</span>
+              <span className="text-xs text-gray-500 mt-1">Submit verification documents to access neighbourhoods</span>
             </div>
           </DropdownMenuItem>
         )}
@@ -603,7 +599,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
           className="text-blue-600 font-medium"
         >
           <Building2 className="w-4 h-4 mr-2" />
-          Request Access to New Compound
+          Request Access to New Neighbourhood
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

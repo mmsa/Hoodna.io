@@ -6,6 +6,7 @@ import { Compound } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
+import { formatCompoundName } from "@/utils/formatCompound";
 
 export default function CompoundSelectScreen() {
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -28,7 +29,7 @@ export default function CompoundSelectScreen() {
       console.error("Failed to load compounds:", error);
       Alert.alert(
         "Error",
-        "Failed to load compounds. Please check your connection and try again.",
+        "Failed to load neighbourhoods. Please check your connection and try again.",
         [{ text: "Retry", onPress: loadCompounds }]
       );
     } finally {
@@ -54,7 +55,7 @@ export default function CompoundSelectScreen() {
 
   async function handleSubmit() {
     if (!selectedId) {
-      Alert.alert("Error", "Please select a compound");
+      Alert.alert("Error", "Please select a neighbourhood");
       return;
     }
 
@@ -76,7 +77,7 @@ export default function CompoundSelectScreen() {
       console.error("Failed to select compound:", error);
       
       // Provide helpful error message for network issues
-      let errorMessage = error?.message || "Failed to request compound access";
+      let errorMessage = error?.message || "Failed to request neighbourhood access";
       if (errorMessage.includes("Cannot connect") || errorMessage.includes("Network")) {
         errorMessage = `${errorMessage}\n\nTroubleshooting:\n• Ensure backend is running\n• Phone and computer must be on same WiFi\n• Check macOS firewall settings`;
       }
@@ -93,7 +94,7 @@ export default function CompoundSelectScreen() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted }}>
-            Loading compounds...
+            Loading neighbourhoods...
           </Text>
         </View>
       </SafeAreaView>
@@ -121,7 +122,7 @@ export default function CompoundSelectScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Select Compound</Text>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Select Neighbourhood</Text>
       </View>
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
@@ -129,7 +130,7 @@ export default function CompoundSelectScreen() {
           Where do you live?
         </Text>
         <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 20 }}>
-          Search and select your compound
+          Search and select your neighbourhood
         </Text>
 
         {/* Search Bar */}
@@ -154,7 +155,7 @@ export default function CompoundSelectScreen() {
           <Ionicons name="search" size={20} color="#9CA3AF" style={{ marginRight: 12 }} />
           <TextInput
             style={{ flex: 1, fontSize: 16, color: "#111827" }}
-            placeholder="Search compounds..."
+            placeholder="Search neighbourhoods..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -174,7 +175,7 @@ export default function CompoundSelectScreen() {
         {/* Results Count */}
         {searchQuery.trim() && (
           <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 12 }}>
-            {filteredCompounds.length} compound{filteredCompounds.length !== 1 ? 's' : ''} found
+            {filteredCompounds.length} neighbourhood{filteredCompounds.length !== 1 ? 's' : ''} found
           </Text>
         )}
 
@@ -183,12 +184,12 @@ export default function CompoundSelectScreen() {
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 60 }}>
             <Ionicons name="search-outline" size={64} color="#D1D5DB" />
             <Text style={{ fontSize: 18, fontWeight: "600", color: colors.textMain, marginTop: 16, marginBottom: 8 }}>
-              No compounds found
+              No neighbourhoods found
             </Text>
             <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: "center" }}>
               {searchQuery.trim() 
                 ? "Try a different search term" 
-                : "Failed to load compounds. Please try again."}
+                : "Failed to load neighbourhoods. Please try again."}
             </Text>
             {!searchQuery.trim() && (
               <TouchableOpacity
@@ -234,7 +235,7 @@ export default function CompoundSelectScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 18, fontWeight: '600', color: '#1B1B1B', marginBottom: 4 }}>
-                        {item.name}
+                        {formatCompoundName(item.name)}
                       </Text>
                       {item.area && (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
