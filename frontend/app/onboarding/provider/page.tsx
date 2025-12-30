@@ -22,6 +22,14 @@ interface Compound {
   area?: string
 }
 
+interface ServiceCategory {
+  id: number
+  name: string
+  description?: string
+  icon?: string
+  display_order: number
+}
+
 const STEPS = [
   { id: 1, title: 'Basic Information' },
   { id: 2, title: 'Service Areas' },
@@ -56,6 +64,22 @@ export default function ProviderOnboardingPage() {
   })
 
   const compounds = compoundsData?.items || []
+
+  // Fetch service categories
+  const { data: categories } = useQuery<ServiceCategory[]>({
+    queryKey: ['service-categories'],
+    queryFn: async () => {
+      const response = await api.get('/api/service-categories')
+      return response.data
+    },
+  })
+
+  // Transform categories to combobox options
+  const categoryOptions: ComboboxOption[] = (categories || []).map((cat) => ({
+    value: cat.id,
+    label: cat.icon ? `${cat.icon} ${cat.name}` : cat.name,
+    description: cat.description,
+  }))
 
   // Check if profile already exists
   const { data: existingProfile } = useQuery({
@@ -100,12 +124,20 @@ export default function ProviderOnboardingPage() {
 
   const startOnboardingMutation = useMutation({
     mutationFn: async (data: any) => {
+      // Validate data before sending
+      if (!data.provider_type || !data.verification_method || !data.business_name || !data.category_id || !data.phone || !data.service_area_compound_ids || data.service_area_compound_ids.length === 0) {
+        throw new Error('Missing required fields')
+      }
       const response = await api.post('/api/providers/onboarding/start', data)
       return response.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-profile'] })
       toast.success('Profile created')
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create profile'
+      toast.error(`Error: ${errorMessage}`)
     },
   })
 
@@ -138,32 +170,27 @@ export default function ProviderOnboardingPage() {
         toast.error('Please fill in all required fields')
         return
       }
-      // Create or update profile
-      if (!existingProfile) {
-        await startOnboardingMutation.mutateAsync({
-          provider_type: providerType,
-          verification_method: verificationMethod,
-          business_name: businessName,
-          category_id: categoryId,
-          phone,
-          service_area_compound_ids: selectedCompounds,
-          occupation_text: occupationText,
-        })
-      } else {
+      // Only update if profile exists, don't create yet (need provider_type and verification_method)
+      if (existingProfile) {
         await updateProfileMutation.mutateAsync({
           business_name: businessName,
-          category_id: categoryId,
+          category_id: categoryId ? Number(categoryId) : null,
           phone,
         })
       }
+      // If no profile exists, just move to next step (will create in step 3)
     } else if (currentStep === 2) {
       if (selectedCompounds.length === 0) {
         toast.error('Please select at least one service area')
         return
       }
-      await updateProfileMutation.mutateAsync({
-        service_area_compound_ids: selectedCompounds,
-      })
+      // Only update if profile exists, otherwise just move to next step
+      if (existingProfile) {
+        await updateProfileMutation.mutateAsync({
+          service_area_compound_ids: selectedCompounds,
+        })
+      }
+      // If no profile exists, just move to next step (will create in step 3)
     } else if (currentStep === 3) {
       if (!providerType || !verificationMethod) {
         toast.error('Please select provider type and verification method')
@@ -173,11 +200,34 @@ export default function ProviderOnboardingPage() {
         toast.error('Please enter your occupation')
         return
       }
-      await updateProfileMutation.mutateAsync({
-        provider_type: providerType,
-        verification_method: verificationMethod,
-        occupation_text: occupationText || null,
-      })
+      // Create profile if it doesn't exist, otherwise update
+      if (!existingProfile) {
+        // Validate that we have all required fields for creation
+        if (!businessName || !phone || !categoryId || selectedCompounds.length === 0) {
+          toast.error('Please complete all previous steps')
+          return
+        }
+        // Ensure provider_type and verification_method are valid enum values, not empty strings
+        if (!providerType || providerType === '' || !verificationMethod || verificationMethod === '') {
+          toast.error('Please select provider type and verification method')
+          return
+        }
+        await startOnboardingMutation.mutateAsync({
+          provider_type: providerType as 'INDIVIDUAL' | 'REGISTERED_BUSINESS',
+          verification_method: verificationMethod as 'COMMERCIAL_REGISTER' | 'NATIONAL_ID_OCCUPATION',
+          business_name: businessName,
+          category_id: Number(categoryId),
+          phone,
+          service_area_compound_ids: selectedCompounds,
+          occupation_text: occupationText || null,
+        })
+      } else {
+        await updateProfileMutation.mutateAsync({
+          provider_type: providerType as 'INDIVIDUAL' | 'REGISTERED_BUSINESS',
+          verification_method: verificationMethod as 'COMMERCIAL_REGISTER' | 'NATIONAL_ID_OCCUPATION',
+          occupation_text: occupationText || null,
+        })
+      }
     } else if (currentStep === 4) {
       // Validate documents based on verification method
       if (verificationMethod === 'COMMERCIAL_REGISTER') {
@@ -258,13 +308,23 @@ export default function ProviderOnboardingPage() {
             </div>
             <div>
               <Label htmlFor="category">Service Category *</Label>
-              <Input
-                id="category"
-                type="number"
-                value={categoryId || ''}
-                onChange={(e) => setCategoryId(parseInt(e.target.value) || null)}
-                placeholder="Category ID (temporary - will be dropdown)"
+              <Combobox
+                options={categoryOptions}
+                value={categoryId}
+                onValueChange={(value) => {
+                  // Ensure value is converted to number
+                  setCategoryId(value ? Number(value) : null)
+                }}
+                placeholder="Select a service category..."
+                searchPlaceholder="Search categories..."
+                emptyMessage="No categories found"
+                className="w-full"
               />
+              {categories && categoryId && (
+                <p className="text-sm text-gray-500 mt-2">
+                  {categories.find(c => c.id === categoryId)?.description}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="phone">Phone Number *</Label>

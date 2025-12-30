@@ -68,17 +68,17 @@ export function Combobox({
         >
           {selectedOption ? (
             <div className="flex flex-col items-start flex-1 text-left">
-              <span className="font-medium text-sm">{selectedOption.label}</span>
+              <span className="font-medium text-sm text-gray-900">{selectedOption.label}</span>
               {selectedOption.description && (
-                <span className="text-xs text-muted-foreground mt-0.5">
+                <span className="text-xs text-gray-600 mt-0.5">
                   {selectedOption.description}
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-muted-foreground flex-1 text-left">{placeholder}</span>
+            <span className="text-gray-500 flex-1 text-left">{placeholder}</span>
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-gray-600" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-w-none p-0" align="start">
@@ -88,39 +88,32 @@ export function Combobox({
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => {
-                // Use the label and description for search/filtering
-                const searchValue = `${option.label} ${option.description || ''}`.trim()
-                // Capture the option value in closure for reliable selection
-                const optionValue = option.value
-                const handleSelect = () => {
-                  onValueChange(optionValue)
-                  setOpen(false)
-                }
+                // Use the option value as the unique identifier
+                const optionValue = String(option.value)
+                const isSelected = value === option.value
+                
                 return (
                   <CommandItem
                     key={option.value}
-                    value={searchValue}
+                    value={optionValue}
                     keywords={[option.label, option.description || ''].filter(Boolean)}
-                    onSelect={handleSelect}
-                    className="cursor-pointer"
-                    onMouseDown={(e) => {
-                      // Handle mouse clicks - cmdk's onSelect may not fire on click
-                      if (e.button === 0) {
-                        e.preventDefault()
-                        handleSelect()
-                      }
+                    onSelect={() => {
+                      // When selected (via click or keyboard), update the value
+                      onValueChange(option.value)
+                      setOpen(false)
                     }}
+                    className="cursor-pointer"
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === option.value ? "opacity-100" : "opacity-0"
+                        isSelected ? "opacity-100" : "opacity-0"
                       )}
                     />
                     <div className="flex flex-col flex-1">
-                      <span>{option.label}</span>
+                      <span className="text-gray-900">{option.label}</span>
                       {option.description && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-gray-600">
                           {option.description}
                         </span>
                       )}

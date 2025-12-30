@@ -16,6 +16,7 @@ from app.models import post  # noqa: F401
 from app.models import compound  # noqa: F401
 from app.models import service_provider  # noqa: F401
 from app.models import compound_moderator  # noqa: F401
+from app.models import service_category  # noqa: F401
 
 from app.api import (
     auth,
@@ -34,6 +35,7 @@ from app.api import (
     providers,
     moderators,
 )
+from app.api import service_categories
 from app.services.storage import (
     use_local_storage,
     save_file_locally,
@@ -88,6 +90,7 @@ app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(reviews.router, prefix="/api", tags=["reviews"])
 app.include_router(providers.router, prefix="/api/providers", tags=["providers"])
 app.include_router(moderators.router, prefix="/api/moderators", tags=["moderators"])
+app.include_router(service_categories.router, prefix="/api/service-categories", tags=["service-categories"])
 from app.api import reports, admin_reviews
 app.include_router(admin_reviews.router, prefix="/api/admin", tags=["admin-reviews"])
 from app.api import reports
