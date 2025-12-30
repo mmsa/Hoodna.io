@@ -100,9 +100,9 @@ async def request_category_compounds_change_endpoint(
         profile = await request_category_compounds_change(
             db,
             current_user.id,
+            reason=request_data.reason,
             category_id=request_data.category_id,
             service_area_compound_ids=request_data.service_area_compound_ids,
-            reason=request_data.reason
         )
         await db.refresh(profile, ["documents", "category"])
         

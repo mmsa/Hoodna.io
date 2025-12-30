@@ -18,5 +18,5 @@ class ServiceCategory(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    providers = relationship("ServiceProviderProfile", back_populates="category")
+    providers = relationship("ServiceProviderProfile", foreign_keys="ServiceProviderProfile.category_id", back_populates="category")
 

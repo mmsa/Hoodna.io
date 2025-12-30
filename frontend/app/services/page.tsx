@@ -224,23 +224,6 @@ export default function ServicesPage() {
             )}
           </div>
 
-          {/* Info Banner */}
-          <Card className="bg-yellow-50 border-yellow-200 mb-6">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-yellow-700 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-yellow-900 mb-1">
-                    Verified Service Providers
-                  </p>
-                  <p className="text-sm text-yellow-800">
-                    All services are from verified neighbors in your compound. Ratings and reviews coming soon!
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Search and Sort */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
@@ -272,7 +255,7 @@ export default function ServicesPage() {
         {services && services.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {services.map((service) => (
-              <Link key={service.id} href={`/marketplace/${service.id}`}>
+              <Link key={service.id} href={`/listing/${service.id}`}>
                 <Card className="hover:shadow-lg transition-all cursor-pointer border-2 border-green-100 hover:border-green-300">
                   {service.image_urls && service.image_urls.length > 0 ? (
                     <div className="relative h-48 overflow-hidden rounded-t-lg">

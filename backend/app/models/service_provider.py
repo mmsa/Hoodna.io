@@ -47,7 +47,7 @@ class ServiceProviderProfile(Base):
     user = relationship("User", foreign_keys=[user_id], back_populates="service_provider_profile")
     reviewer = relationship("User", foreign_keys=[reviewed_by])
     documents = relationship("ServiceProviderDocument", back_populates="profile", cascade="all, delete-orphan")
-    category = relationship("ServiceCategory", back_populates="providers")
+    category = relationship("ServiceCategory", foreign_keys=[category_id], back_populates="providers")
 
 
 class ServiceProviderDocument(Base):

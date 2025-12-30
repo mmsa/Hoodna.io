@@ -181,8 +181,11 @@ async def get_listing(
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific listing. For compound listings, user must be verified for that compound."""
+    """Get a specific listing. For compound listings, user must be verified for that compound.
+    Owners can always view their own listings."""
     from app.core.verification_helpers import is_user_verified_for_compound
+    from app.models.enums import UserRole
+    from app.models.enums import ProviderStatus
     
     listing = await get_listing_by_id(db, listing_id)
     if not listing:
@@ -191,17 +194,30 @@ async def get_listing(
         )
 
     # If listing is from a compound, check if user is verified for that compound
+    # Exception: Owners can always view their own listings
     if listing.compound_id and current_user:
-        is_verified = await is_user_verified_for_compound(
-            db=db,
-            user=current_user,
-            compound_id=listing.compound_id
-        )
-        if not is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You must be verified for this compound to view its marketplace listings. Please complete verification first."
+        # Allow owners to view their own listings
+        is_owner = listing.owner_id == current_user.id
+        
+        # For service providers, also check if they have an approved profile
+        is_approved_provider = False
+        if not is_owner and current_user.role == UserRole.SERVICE_PROVIDER:
+            from app.crud.provider import get_provider_profile
+            provider_profile = await get_provider_profile(db, current_user.id)
+            if provider_profile and provider_profile.provider_status == ProviderStatus.APPROVED:
+                is_approved_provider = True
+        
+        if not is_owner and not is_approved_provider:
+            is_verified = await is_user_verified_for_compound(
+                db=db,
+                user=current_user,
+                compound_id=listing.compound_id
             )
+            if not is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You must be verified for this compound to view its marketplace listings. Please complete verification first."
+                )
 
     # Include owner contact info (email and phone) only for authenticated approved users
     owner_email = None
@@ -376,7 +392,47 @@ async def update_listing_endpoint(
     current_user: User = Depends(get_current_approved_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update a listing (only by owner)."""
+    """Update a listing (only by owner).
+    
+    For service providers:
+    - Cannot change category (must remain SERVICE)
+    - Cannot change compound_id (service areas are managed via change requests)
+    """
+    from app.models.enums import UserRole, ListingCategory
+    
+    # Get existing listing to check restrictions
+    listing = await get_listing_by_id(db, listing_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing not found"
+        )
+    
+    # Check ownership
+    if listing.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own listings"
+        )
+    
+    # Service provider restrictions
+    if current_user.role == UserRole.SERVICE_PROVIDER:
+        update_dict = listing_data.model_dump(exclude_unset=True)
+        
+        # Cannot change category - must remain SERVICE
+        if 'category' in update_dict and update_dict['category'] != ListingCategory.SERVICE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Service providers cannot change listing category. It must remain SERVICE."
+            )
+        
+        # Ensure category is SERVICE if not explicitly set
+        if listing.category != ListingCategory.SERVICE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Service providers can only manage SERVICE listings"
+            )
+    
     try:
         listing = await update_listing(
             db=db,
@@ -410,6 +466,40 @@ async def update_listing_endpoint(
         status=listing.status,
         created_at=listing.created_at,
     )
+
+
+@router.delete("/{listing_id}")
+async def delete_listing_endpoint(
+    listing_id: int,
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a listing (only by owner)."""
+    from app.crud.listing import archive_listing
+    
+    listing = await get_listing_by_id(db, listing_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing not found"
+        )
+    
+    # Only owner can delete
+    if listing.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own listings"
+        )
+    
+    success = await archive_listing(db, listing_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Listing not found"
+        )
+    
+    await db.commit()
+    return {"message": "Listing deleted successfully"}
 
 
 # File upload validation constants for marketplace images

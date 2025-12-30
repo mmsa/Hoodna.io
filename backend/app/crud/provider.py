@@ -99,9 +99,9 @@ async def update_provider_profile(
 async def request_category_compounds_change(
     db: AsyncSession,
     user_id: int,
+    reason: str,
     category_id: int | None = None,
     service_area_compound_ids: list[int] | None = None,
-    reason: str
 ) -> ServiceProviderProfile:
     """Request a change to category or service area compounds.
     

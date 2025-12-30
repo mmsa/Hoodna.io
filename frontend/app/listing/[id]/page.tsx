@@ -19,8 +19,11 @@ import {
   Share2,
   MessageCircle,
   Heart,
-  Bookmark
+  Bookmark,
+  Edit,
+  Trash2
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Rating } from '@/components/ui/rating'
 import { ReviewForm } from '@/components/review-form'
 import { ReviewsList } from '@/components/reviews-list'
@@ -93,6 +96,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
   const { user } = useAuth()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const router = useRouter()
 
   const { data: listing, isLoading } = useQuery<Listing>({
     queryKey: ['listing', listingId],
@@ -131,6 +135,36 @@ export default function ListingPage({ params }: { params: { id: string } }) {
     },
   })
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete(`/api/listings/${listingId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      queryClient.invalidateQueries({ queryKey: ['my-services'] })
+      toast({
+        title: "Listing deleted",
+        description: "Your listing has been deleted successfully",
+        variant: "success",
+      })
+      // Redirect based on user role
+      if (isServiceProvider && isServiceListing) {
+        router.push('/services')
+      } else {
+        router.push('/marketplace')
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.response?.data?.detail || "Failed to delete listing",
+        variant: "destructive",
+      })
+    },
+  })
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -159,18 +193,22 @@ export default function ListingPage({ params }: { params: { id: string } }) {
   }
 
   const isOwner = user && listing.owner_id === user.id
+  const isServiceProvider = user?.role === 'SERVICE_PROVIDER'
+  const isServiceListing = listing.category === 'SERVICE'
+  const backUrl = (isServiceProvider && isServiceListing) ? '/services' : '/marketplace'
+  const backText = (isServiceProvider && isServiceListing) ? 'Back to My Services' : 'Back to Marketplace'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Back Button */}
-        <Link href="/marketplace">
+        <Link href={backUrl}>
           <Button 
             variant="ghost" 
             className="mb-6 hover:bg-blue-50"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Marketplace
+            {backText}
           </Button>
         </Link>
 
@@ -325,6 +363,34 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                         Message Seller
                       </Button>
                     </Link>
+                  )}
+                  
+                  {isOwner && (
+                    <>
+                      <Link href={`/marketplace/edit/${listingId}`}>
+                        <Button 
+                          className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
+                          size="lg"
+                        >
+                          <Edit className="w-5 h-5 mr-2" />
+                          Edit Listing
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="destructive"
+                        className="w-full"
+                        size="lg"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this listing? This action cannot be undone.')) {
+                            deleteMutation.mutate()
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="w-5 h-5 mr-2" />
+                        {deleteMutation.isPending ? 'Deleting...' : 'Delete Listing'}
+                      </Button>
+                    </>
                   )}
                   
                   {/* Save/Unsave Button */}
