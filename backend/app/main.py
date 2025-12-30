@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends, Query
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -124,7 +125,7 @@ if use_local_storage():
     @app.post("/api/uploads/upload")
     async def upload_file(
         file: UploadFile = File(...),
-        file_path: str = None,
+        file_path: Optional[str] = Query(None),
     ):
         """Upload file to local storage (development only)."""
         if not use_local_storage():

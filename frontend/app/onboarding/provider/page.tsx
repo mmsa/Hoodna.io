@@ -265,30 +265,62 @@ export default function ProviderOnboardingPage() {
         },
       })
 
-      // Upload to S3
-      await fetch(presignResponse.data.presigned_url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      })
+      const { presigned_url, file_url } = presignResponse.data
+
+      if (!presigned_url || !file_url) {
+        throw new Error('Failed to get upload URL from server')
+      }
+
+      // Check if this is a local storage upload (presigned_url contains /api/uploads/upload)
+      const isLocalStorage = presigned_url.includes('/api/uploads/upload')
+      
+      let uploadResponse: Response
+      try {
+        if (isLocalStorage) {
+          // Local storage: use FormData and POST
+          // file_path is already in the URL as a query parameter, so we don't need to add it again
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          uploadResponse = await fetch(presigned_url, {
+            method: 'POST',
+            body: formData,
+          })
+        } else {
+          // S3: use PUT with file as body
+          uploadResponse = await fetch(presigned_url, {
+            method: 'PUT',
+            body: file,
+            headers: {
+              'Content-Type': file.type,
+            },
+          })
+        }
+      } catch (fetchError: any) {
+        throw new Error(`Failed to upload file: ${fetchError?.message || 'Network error'}`)
+      }
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text().catch(() => 'Unknown error')
+        throw new Error(`Upload failed: ${errorText}`)
+      }
 
       // Save document reference
       await api.post('/api/providers/documents', {
         document_type: documentType,
-        file_url: presignResponse.data.file_url,
+        file_url: file_url,
       })
 
       setUploadedDocs((prev) => ({
         ...prev,
-        [documentType]: presignResponse.data.file_url,
+        [documentType]: file_url,
       }))
 
       toast.success('Document uploaded successfully')
       queryClient.invalidateQueries({ queryKey: ['provider-profile'] })
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to upload document')
+      console.error('Upload error:', error)
+      toast.error(error.message || error.response?.data?.detail || 'Failed to upload document')
     }
   }
 
