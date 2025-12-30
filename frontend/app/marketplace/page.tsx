@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -308,7 +309,10 @@ export default function MarketplacePage() {
     return params
   }, [searchQuery, selectedCategory, selectedIntent, sortBy, minPrice, maxPrice])
 
-  const { data: listings, isLoading } = useQuery<Listing[]>({
+  const router = useRouter()
+  const { user } = useAuth()
+
+  const { data: listings, isLoading, error } = useQuery<Listing[]>({
     queryKey: ['listings', 'compound', queryParams],
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
@@ -316,6 +320,12 @@ export default function MarketplacePage() {
       // Filter out SERVICES - they have their own page now
       const data = response.data || []
       return data.filter((listing: Listing) => listing.category !== 'SERVICE')
+    },
+    onError: (error: any) => {
+      // Redirect to verification if user is not verified for compound
+      if (error?.response?.status === 403) {
+        router.push('/verification')
+      }
     },
   })
 

@@ -32,7 +32,6 @@ import {
   Users,
   MapPin,
   Building2,
-  CheckCircle,
   Settings,
   HelpCircle,
   Search,
@@ -759,7 +758,7 @@ export default function FeedPage() {
               if (regularPosts.length === 0) return null;
               
               return (
-                <div className="mb-8">
+                <div className="mb-8" key="discussions">
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center shadow-sm">
@@ -778,103 +777,90 @@ export default function FeedPage() {
 
                   <div className="space-y-4">
                     {regularPosts.map((post) => {
-                    // Highlight recent posts (within last hour) and posts with many comments
-                    const isRecent = (() => {
-                      const postDate = new Date(post.created_at);
-                      const now = new Date();
-                      const diffHours =
-                        (now.getTime() - postDate.getTime()) / 3600000;
-                      return diffHours < 1;
-                    })();
-                    const hasManyComments =
-                      post.comments && post.comments.length >= 5;
-                    const isHighlighted = isRecent || hasManyComments;
+                      // Highlight recent posts (within last hour) and posts with many comments
+                      const isRecent = (() => {
+                        const postDate = new Date(post.created_at);
+                        const now = new Date();
+                        const diffHours =
+                          (now.getTime() - postDate.getTime()) / 3600000;
+                        return diffHours < 1;
+                      })();
+                      const hasManyComments =
+                        post.comments && post.comments.length >= 5;
+                      const isHighlighted = isRecent || hasManyComments;
 
-                    return (
-                      <div
-                        key={post.id}
-                        className={`transition-all ${
-                          isHighlighted
-                            ? "ring-2 ring-purple-300 ring-offset-2 rounded-xl p-1"
-                            : ""
-                        }`}
-                      >
-                        {isRecent && (
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                              Just now
-                            </span>
-                          </div>
-                        )}
-                        {hasManyComments && !isRecent && (
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                              <MessageCircle className="w-3 h-3" />
-                              Hot discussion ({post.comments.length} comments)
-                            </span>
-                          </div>
-                        )}
-                        <PostCard
-                          post={post}
-                          newComments={newComments}
-                          setNewComments={setNewComments}
-                          handleCreateComment={handleCreateComment}
-                          createCommentMutation={createCommentMutation}
-                          currentUser={user}
-                        />
+                      return (
+                        <div
+                          key={post.id}
+                          className={`transition-all ${
+                            isHighlighted
+                              ? "ring-2 ring-purple-300 ring-offset-2 rounded-xl p-1"
+                              : ""
+                          }`}
+                        >
+                          {isRecent && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                Just now
+                              </span>
+                            </div>
+                          )}
+                          {hasManyComments && !isRecent && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                                <MessageCircle className="w-3 h-3" />
+                                Hot discussion ({post.comments.length} comments)
+                              </span>
+                            </div>
+                          )}
+                          <PostCard
+                            post={post}
+                            newComments={newComments}
+                            setNewComments={setNewComments}
+                            handleCreateComment={handleCreateComment}
+                            createCommentMutation={createCommentMutation}
+                            currentUser={user}
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Load More Button */}
+                    {hasMorePosts && (
+                      <div className="flex justify-center pt-4">
+                        <Button
+                          onClick={loadMorePosts}
+                          disabled={isLoadingMore}
+                          variant="outline"
+                          className="border-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                        >
+                          {isLoadingMore ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              Load More Posts
+                              <ArrowDown className="w-4 h-4 ml-2" />
+                            </>
+                          )}
+                        </Button>
                       </div>
-                    );
-                  })}
+                    )}
 
-                  {/* Load More Button */}
-                  {hasMorePosts && (
-                    <div className="flex justify-center pt-4">
-                      <Button
-                        onClick={loadMorePosts}
-                        disabled={isLoadingMore}
-                        variant="outline"
-                        className="border-2 border-purple-300 text-purple-700 hover:bg-purple-50"
-                      >
-                        {isLoadingMore ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            Load More Posts
-                            <ArrowDown className="w-4 h-4 ml-2" />
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
-                  {!hasMorePosts && posts.length > 15 && (
-                    <div className="text-center pt-4">
-                      <p className="text-sm text-gray-500">
-                        You've reached the end! 🎉
-                      </p>
-                    </div>
-                  )}
+                    {!hasMorePosts && posts.length > 15 && (
+                      <div className="text-center pt-4">
+                        <p className="text-sm text-gray-500">
+                          You've reached the end! 🎉
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <Card className="border border-gray-200 rounded-xl bg-white">
-                  <CardContent className="p-6 text-center">
-                    <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-3">
-                      <MessageCircle className="w-8 h-8 text-purple-400" />
-                    </div>
-                    <h3 className="text-base font-semibold text-gray-900 mb-1">
-                      No posts yet
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Be the first to share something with your community! 👋
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Featured Items Section */}
             {featuredItems && featuredItems.length > 0 && (

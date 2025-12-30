@@ -52,7 +52,10 @@ async def global_search(
     """
     Global search across posts, listings, and services.
     Searches in titles, descriptions, and content.
+    User must be verified for the compound to search its marketplace.
     """
+    from app.core.verification_helpers import is_user_verified_for_compound
+    
     if not q or len(q.strip()) < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -71,6 +74,19 @@ async def global_search(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Compound context required for search"
         )
+    
+    # Check if user is verified for the compound (if authenticated)
+    if current_user:
+        is_verified = await is_user_verified_for_compound(
+            db=db,
+            user=current_user,
+            compound_id=search_compound_id
+        )
+        if not is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be verified for this compound to search its marketplace. Please complete verification first."
+            )
     
     search_term = f"%{q.lower().strip()}%"
     results = GlobalSearchResponse(query=q)

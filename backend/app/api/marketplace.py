@@ -46,14 +46,34 @@ async def list_listings(
 ):
     """Get listings based on scope (compound, cross, public). Public read, but requires auth for compound scope."""
     from app.models.enums import ListingCategory, ListingIntent
+    from app.core.verification_helpers import is_user_verified_for_compound
     
-    # For compound scope, user must be authenticated
+    # For compound scope, user must be authenticated and verified for the compound
     if scope == "compound":
-        if not current_user or not current_user.compound_id:
+        if not current_user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required for compound scope"
             )
+        if not current_user.compound_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User must select a compound first"
+            )
+        
+        # Check if user is verified for this compound
+        is_verified = await is_user_verified_for_compound(
+            db=db,
+            user=current_user,
+            compound_id=current_user.compound_id
+        )
+        
+        if not is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be verified for this compound to access its marketplace. Please complete verification first."
+            )
+        
         compound_id = current_user.compound_id
     else:
         compound_id = None
@@ -131,12 +151,27 @@ async def get_listing(
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a specific listing. Public read."""
+    """Get a specific listing. For compound listings, user must be verified for that compound."""
+    from app.core.verification_helpers import is_user_verified_for_compound
+    
     listing = await get_listing_by_id(db, listing_id)
     if not listing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found"
         )
+
+    # If listing is from a compound, check if user is verified for that compound
+    if listing.compound_id and current_user:
+        is_verified = await is_user_verified_for_compound(
+            db=db,
+            user=current_user,
+            compound_id=listing.compound_id
+        )
+        if not is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be verified for this compound to view its marketplace listings. Please complete verification first."
+            )
 
     # Include owner contact info (email and phone) only for authenticated approved users
     owner_email = None
@@ -181,6 +216,28 @@ async def create_listing_endpoint(
     current_user: User = Depends(get_current_approved_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a new listing. User must be verified for the compound."""
+    from app.core.verification_helpers import is_user_verified_for_compound
+    
+    # Ensure user has a compound selected
+    if not current_user.compound_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User must select a compound first"
+        )
+    
+    # Check if user is verified for their compound
+    is_verified = await is_user_verified_for_compound(
+        db=db,
+        user=current_user,
+        compound_id=current_user.compound_id
+    )
+    
+    if not is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must be verified for this compound to create listings. Please complete verification first."
+        )
     """Create a new listing."""
     if current_user.compound_id is None:
         raise HTTPException(

@@ -28,6 +28,8 @@ import {
   MessageCircle,
   Bell,
   Building2,
+  Wrench,
+  Search,
 } from 'lucide-react'
 import { NotificationsDropdown } from './notifications-dropdown'
 import Cookies from 'js-cookie'

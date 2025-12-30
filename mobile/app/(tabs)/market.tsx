@@ -181,8 +181,12 @@ export default function MarketScreen() {
       // Filter out SERVICES - they have their own tab now
       const filteredData = (data || []).filter((listing: Listing) => listing.category !== "SERVICE");
       setListings(filteredData);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load listings:", error);
+      // Redirect to verification if user is not verified for compound
+      if (error?.message?.includes("403") || error?.response?.status === 403) {
+        router.push("/verification");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

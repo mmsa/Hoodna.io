@@ -183,8 +183,12 @@ export default function ServicesScreen() {
 
       const data = await apiClient.getListings(params);
       setServices(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load services:", error);
+      // Redirect to verification if user is not verified for compound
+      if (error?.message?.includes("403") || error?.response?.status === 403) {
+        router.push("/verification");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

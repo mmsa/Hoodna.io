@@ -50,12 +50,18 @@ export default function ServicesPage() {
     return params
   }, [searchQuery, sortBy])
 
-  const { data: services, isLoading } = useQuery<Listing[]>({
+  const { data: services, isLoading, error } = useQuery<Listing[]>({
     queryKey: ['services', 'compound', queryParams],
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
       const response = await api.get(`/api/listings?${queryString}`)
       return response.data || []
+    },
+    onError: (error: any) => {
+      // Redirect to verification if user is not verified for compound
+      if (error?.response?.status === 403) {
+        router.push('/verification')
+      }
     },
   })
 
