@@ -1,9 +1,9 @@
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
 import { Compound } from "@hoodna/shared";
 
 interface HeaderProps {
@@ -39,18 +39,23 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
   }, [user?.compound_id, !!apiClient]);
 
   async function loadCompound() {
-    if (!shouldLoadCompound) return;
+    if (!shouldLoadCompound || !apiClient) return;
     try {
       const compounds = await apiClient.getCompounds({ limit: 200 });
       // Ensure compounds is an array
-      if (Array.isArray(compounds) && compounds.length > 0) {
-        const foundCompound = compounds.find((c) => c.id === user?.compound_id);
+      if (Array.isArray(compounds) && compounds.length > 0 && user?.compound_id) {
+        const foundCompound = compounds.find((c) => c.id === user.compound_id);
         if (foundCompound) {
           setCompound(foundCompound);
+        } else {
+          setCompound(null);
         }
+      } else {
+        setCompound(null);
       }
     } catch (error) {
       // Silently fail - compound display is optional
+      setCompound(null);
       // Don't log errors for unauthenticated users
       if (user && apiClient) {
         console.error("Failed to load compound:", error);
@@ -101,16 +106,30 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
 
         {/* Logo Section */}
         {showLogo && (
-          <TouchableOpacity
-            style={styles.logoContainer}
-            onPress={() => router.push("/(tabs)/home")}
-            activeOpacity={0.7}
-          >
-            <View style={styles.logoBox}>
-              <Ionicons name="home" size={20} color="#FFFFFF" />
-            </View>
-            {!title && <Text style={styles.logoText}>Hoodna.io</Text>}
-          </TouchableOpacity>
+          <View style={styles.logoSection}>
+            <TouchableOpacity
+              style={styles.logoContainer}
+              onPress={() => router.push("/(tabs)/home")}
+              activeOpacity={0.7}
+            >
+              <View style={styles.logoBox}>
+                <Ionicons name="home" size={20} color="#FFFFFF" />
+              </View>
+              {!title && <Text style={styles.logoText}>Hoodna.io</Text>}
+            </TouchableOpacity>
+            {/* Always show compound badge next to logo when no title */}
+            {!title && compound && (
+              <TouchableOpacity 
+                style={styles.compoundBadgeInline}
+                onPress={openCompoundSwitcher}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="home" size={10} color={colors.primary} />
+                <Text style={styles.compoundTextInline}>{compound.name}</Text>
+                <Ionicons name="chevron-down" size={10} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {/* Title Section */}
@@ -118,25 +137,17 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
           <View style={styles.titleContainer}>
             <Text style={styles.title}>{title}</Text>
             {compound && (
-              <View style={styles.compoundBadge}>
+              <TouchableOpacity 
+                style={styles.compoundBadge}
+                onPress={openCompoundSwitcher}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="home" size={12} color={colors.primary} />
                 <Text style={styles.compoundText}>{compound.name}</Text>
-              </View>
+                <Ionicons name="chevron-down" size={12} color={colors.primary} />
+              </TouchableOpacity>
             )}
           </View>
-        )}
-
-        {/* Compound Badge (when no title) - Clickable to switch */}
-        {!title && compound && (
-          <TouchableOpacity 
-            style={styles.compoundBadge}
-            onPress={openCompoundSwitcher}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="home" size={12} color={colors.primary} />
-            <Text style={styles.compoundText}>{compound.name}</Text>
-            <Ionicons name="chevron-down" size={12} color={colors.primary} />
-          </TouchableOpacity>
         )}
 
         {/* Compound Badge in title section - also clickable */}
@@ -200,49 +211,62 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
             ) : (
-              <FlatList
-                data={availableCompounds}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[
-                      styles.compoundItem,
-                      item.is_current && styles.compoundItemCurrent,
-                    ]}
-                    onPress={() => handleSwitchCompound(item.id)}
-                    disabled={item.is_current}
-                  >
-                    <View style={styles.compoundItemContent}>
-                      <Ionicons
-                        name="home"
-                        size={20}
-                        color={item.is_current ? colors.primary : colors.textMain}
-                      />
-                      <View style={styles.compoundItemText}>
-                        <Text
-                          style={[
-                            styles.compoundItemName,
-                            item.is_current && styles.compoundItemNameCurrent,
-                          ]}
-                        >
-                          {item.name}
-                        </Text>
-                        {item.area && (
-                          <Text style={styles.compoundItemArea}>{item.area}</Text>
-                        )}
+              <>
+                <FlatList
+                  data={availableCompounds}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.compoundItem,
+                        item.is_current && styles.compoundItemCurrent,
+                      ]}
+                      onPress={() => handleSwitchCompound(item.id)}
+                      disabled={item.is_current}
+                    >
+                      <View style={styles.compoundItemContent}>
+                        <Ionicons
+                          name="home"
+                          size={20}
+                          color={item.is_current ? colors.primary : colors.textMain}
+                        />
+                        <View style={styles.compoundItemText}>
+                          <Text
+                            style={[
+                              styles.compoundItemName,
+                              item.is_current && styles.compoundItemNameCurrent,
+                            ]}
+                          >
+                            {item.name}
+                          </Text>
+                          {item.area && (
+                            <Text style={styles.compoundItemArea}>{item.area}</Text>
+                          )}
+                        </View>
                       </View>
+                      {item.is_current && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                      <Text style={styles.emptyText}>No verified compounds available</Text>
+                      <Text style={styles.emptySubtext}>Submit verification documents to access compounds</Text>
                     </View>
-                    {item.is_current && (
-                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No compounds available</Text>
-                  </View>
-                }
-              />
+                  }
+                />
+                <TouchableOpacity
+                  style={styles.requestAccessButton}
+                  onPress={() => {
+                    setShowCompoundSwitcher(false);
+                    router.push("/onboarding/compound-select");
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                  <Text style={styles.requestAccessText}>Request Access to New Compound</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
@@ -267,10 +291,30 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: 16,
   },
+  logoSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  compoundBadgeInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.backgroundCard,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  compoundTextInline: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: colors.primary,
   },
   logoBox: {
     width: 32,
@@ -407,5 +451,26 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: colors.textMuted,
+    fontWeight: "500",
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  requestAccessButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    gap: 8,
+  },
+  requestAccessText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.primary,
   },
 });

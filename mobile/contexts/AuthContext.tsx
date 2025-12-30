@@ -35,11 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const accessToken = await SecureStore.getItemAsync("accessToken");
       if (accessToken) {
         apiClient.setAccessToken(accessToken);
-        const userData = await apiClient.getMe();
-        setUser(userData);
+        try {
+          const userData = await apiClient.getMe();
+          setUser(userData);
+        } catch (authError: any) {
+          // If token is invalid, clear it
+          if (authError?.message?.includes("Invalid authentication") || authError?.message?.includes("401")) {
+            await SecureStore.deleteItemAsync("accessToken");
+            await SecureStore.deleteItemAsync("refreshToken");
+            apiClient.setAccessToken(null);
+            setUser(null);
+          } else {
+            throw authError;
+          }
+        }
       }
     } catch (error) {
-      console.error("Failed to load auth:", error);
+      // Silently handle auth errors - user just needs to log in
+      setUser(null);
     } finally {
       setLoading(false);
     }

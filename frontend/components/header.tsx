@@ -494,8 +494,8 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
     }
   }
 
-  if (isLoading || !availableCompounds || availableCompounds.length <= 1) {
-    // Show simple display if only one compound or loading
+  if (isLoading) {
+    // Show simple display while loading
     return (
       <div className="flex items-center gap-1">
         <Building2 className="w-3 h-3 text-blue-600" />
@@ -520,27 +520,46 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuLabel>Switch Compound</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {availableCompounds.map((compound) => (
-          <DropdownMenuItem
-            key={compound.id}
-            onClick={() => handleSwitch(compound.id)}
-            className={compound.is_current ? "bg-blue-50" : ""}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="flex flex-col">
-                <span className={compound.is_current ? "font-semibold text-blue-700" : ""}>
-                  {compound.name}
-                </span>
-                {compound.area && (
-                  <span className="text-xs text-gray-500">{compound.area}</span>
+        {availableCompounds && availableCompounds.length > 0 ? (
+          availableCompounds.map((compound) => (
+            <DropdownMenuItem
+              key={compound.id}
+              onClick={() => handleSwitch(compound.id)}
+              className={compound.is_current ? "bg-blue-50" : ""}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex flex-col">
+                  <span className={compound.is_current ? "font-semibold text-blue-700" : ""}>
+                    {compound.name}
+                  </span>
+                  {compound.area && (
+                    <span className="text-xs text-gray-500">{compound.area}</span>
+                  )}
+                </div>
+                {compound.is_current && (
+                  <Building2 className="w-4 h-4 text-blue-600" />
                 )}
               </div>
-              {compound.is_current && (
-                <Building2 className="w-4 h-4 text-blue-600" />
-              )}
+            </DropdownMenuItem>
+          ))
+        ) : (
+          <DropdownMenuItem disabled>
+            <div className="flex flex-col w-full">
+              <span className="text-sm text-gray-600">No verified compounds</span>
+              <span className="text-xs text-gray-500 mt-1">Submit verification documents to access compounds</span>
             </div>
           </DropdownMenuItem>
-        ))}
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => {
+            router.push('/onboarding/compound-select')
+          }}
+          className="text-blue-600 font-medium"
+        >
+          <Building2 className="w-4 h-4 mr-2" />
+          Request Access to New Compound
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

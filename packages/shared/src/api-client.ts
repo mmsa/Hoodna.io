@@ -112,6 +112,13 @@ export class ApiClient {
     });
   }
 
+  async requestCompoundAccess(compoundId: number): Promise<{ message: string; compound_id: number; compound_name: string }> {
+    return this.request<{ message: string; compound_id: number; compound_name: string }>("/api/auth/me/request-compound-access", {
+      method: "POST",
+      body: JSON.stringify({ compound_id: compoundId }),
+    });
+  }
+
   // Verification
   async getVerificationStatus(): Promise<VerificationStatusResponse> {
     return this.request<VerificationStatusResponse>("/api/verification/status");
@@ -240,17 +247,22 @@ export class ApiClient {
     limit?: number;
     offset?: number;
   }): Promise<Compound[]> {
-    const queryParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          queryParams.append(key, value.toString());
-        }
-      });
+    try {
+      const queryParams = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+      const response = await this.request<{ items: Compound[]; total: number; limit: number; offset: number }>(`/api/compounds?${queryParams}`);
+      // Backend returns CompoundListResponse with items array
+      return Array.isArray(response?.items) ? response.items : [];
+    } catch (error) {
+      console.error("Failed to fetch compounds:", error);
+      return [];
     }
-    const response = await this.request<{ items: Compound[]; total: number; limit: number; offset: number }>(`/api/compounds?${queryParams}`);
-    // Backend returns CompoundListResponse with items array
-    return response.items || [];
   }
 
   // Notifications
