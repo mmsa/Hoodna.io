@@ -5,8 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon_light.jpg",
     "splash": {
-      "backgroundColor": "#2D6A4F",
+      "image": "./assets/logo_light.jpg",
+      "backgroundColor": "#EFF6FF",
       "resizeMode": "contain"
     },
     "assetBundlePatterns": [

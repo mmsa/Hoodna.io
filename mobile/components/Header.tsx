@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator, Alert, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/colors";
@@ -138,10 +138,11 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
               onPress={() => router.push("/(tabs)/home")}
               activeOpacity={0.7}
             >
-              <View style={styles.logoBox}>
-                <Ionicons name="home" size={20} color="#FFFFFF" />
-              </View>
-              {!title && <Text style={styles.logoText}>eljiran.com</Text>}
+              <Image
+                source={require('@/assets/logo_light.jpg')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
             {/* Always show compound badge next to logo when no title */}
             {!title && compound && (
@@ -351,24 +352,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: colors.primary,
   },
-  logoBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.primary, // Blue-500
-    alignItems: "center",
-    justifyContent: "center",
-    // Gradient effect using shadow
-    shadowColor: colors.purple,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.primaryDark, // Blue-600
+  logoImage: {
+    width: 150,
+    height: 50,
   },
   titleContainer: {
     flex: 1,

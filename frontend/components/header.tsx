@@ -31,6 +31,7 @@ import {
   Wrench,
   Search,
 } from 'lucide-react'
+import Image from 'next/image'
 import { NotificationsDropdown } from './notifications-dropdown'
 import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'
@@ -125,17 +126,17 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <Home className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                eljiran.com
-              </span>
-              {compound && mounted && isAuthenticated && (
-                <CompoundSwitcher currentCompound={compound} />
-              )}
-            </div>
+            <Image
+              src="/logo_light.jpg"
+              alt="eljiran.com"
+              width={150}
+              height={50}
+              className="h-12 w-auto"
+              priority
+            />
+            {compound && mounted && isAuthenticated && (
+              <CompoundSwitcher currentCompound={compound} />
+            )}
           </Link>
 
           {/* Desktop Navigation */}

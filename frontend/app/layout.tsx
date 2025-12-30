@@ -10,6 +10,10 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'eljiran.com - Verified Neighborhood Community',
   description: 'Verified neighborhood community and marketplace',
+  icons: {
+    icon: '/icon_light.jpg',
+    apple: '/icon_light.jpg',
+  },
 }
 
 export default function RootLayout({

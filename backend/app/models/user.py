@@ -36,6 +36,18 @@ class User(Base):
     sent_messages = relationship("Message", back_populates="sender", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="reviewer", cascade="all, delete-orphan")
-    service_provider_profile = relationship("ServiceProviderProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    moderator_profile = relationship("CompoundModeratorProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    service_provider_profile = relationship(
+        "ServiceProviderProfile", 
+        foreign_keys="ServiceProviderProfile.user_id",
+        back_populates="user", 
+        uselist=False, 
+        cascade="all, delete-orphan"
+    )
+    moderator_profile = relationship(
+        "CompoundModeratorProfile", 
+        foreign_keys="CompoundModeratorProfile.user_id",
+        back_populates="user", 
+        uselist=False, 
+        cascade="all, delete-orphan"
+    )
 
