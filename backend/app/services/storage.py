@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Optional, Tuple
 from app.core.config import settings
 
-# Local storage directory
-LOCAL_STORAGE_DIR = Path("uploads")
-LOCAL_STORAGE_DIR.mkdir(exist_ok=True)
+# Local storage directory - use absolute path to avoid issues with working directory
+from pathlib import Path as PathLib
+import os
+LOCAL_STORAGE_DIR = PathLib(os.path.abspath("uploads"))
+LOCAL_STORAGE_DIR.mkdir(exist_ok=True, parents=True)
 
 
 def use_local_storage() -> bool:

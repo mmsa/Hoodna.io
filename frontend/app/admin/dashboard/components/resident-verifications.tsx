@@ -9,9 +9,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CheckCircle, XCircle, AlertCircle, Loader2, ExternalLink, Search, Filter } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle, Loader2, ExternalLink, Search, Eye, X, Sparkles } from 'lucide-react'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { formatDocumentType } from '@/lib/format-enums'
+import { normalizeFileUrl } from '@/lib/file-url'
 
 interface VerificationDocument {
   id: number
@@ -22,6 +24,11 @@ interface VerificationDocument {
   reviewer_id?: number
   notes?: string
   created_at: string
+  llm_verified?: number
+  llm_confidence?: number
+  llm_recommendation?: string
+  llm_reasoning?: string
+  llm_issues?: string[]
   user?: {
     id: number
     name: string
@@ -39,6 +46,10 @@ export default function ResidentVerifications() {
   const [selectedDoc, setSelectedDoc] = useState<VerificationDocument | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [rejectionNotes, setRejectionNotes] = useState('')
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<{ type: string; file_url: string } | null>(null)
+  const [aiResultDialogOpen, setAiResultDialogOpen] = useState(false)
+  const [aiResult, setAiResult] = useState<any>(null)
 
   const { data: documents, isLoading, refetch } = useQuery<VerificationDocument[]>({
     queryKey: ['admin-resident-verifications', statusFilter, searchQuery],
@@ -82,9 +93,35 @@ export default function ResidentVerifications() {
     },
   })
 
+  const verifyWithAiMutation = useMutation({
+    mutationFn: async (docId: number) => {
+      const response = await api.post(`/api/admin/verifications/${docId}/verify-with-llm`)
+      return response.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-resident-verifications'] })
+      setAiResult(data.llm_result)
+      setAiResultDialogOpen(true)
+      toast.success('AI verification completed')
+      refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'AI verification failed')
+    },
+  })
+
   const handleReject = (doc: VerificationDocument) => {
     setSelectedDoc(doc)
     setRejectDialogOpen(true)
+  }
+
+  const handlePreview = (doc: VerificationDocument) => {
+    setPreviewDoc({ type: doc.type, file_url: doc.file_url })
+    setPreviewDialogOpen(true)
+  }
+
+  const handleVerifyWithAi = (doc: VerificationDocument) => {
+    verifyWithAiMutation.mutate(doc.id)
   }
 
   const confirmReject = () => {
@@ -142,7 +179,7 @@ export default function ResidentVerifications() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg">{doc.type}</CardTitle>
+                    <CardTitle className="text-lg">{formatDocumentType(doc.type)}</CardTitle>
                     <CardDescription>
                       {doc.user?.name || `User ID: ${doc.user_id}`} • {doc.user?.email}
                       {doc.user?.compound_name && ` • ${doc.user.compound_name}`}
@@ -159,7 +196,26 @@ export default function ResidentVerifications() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePreview(doc)}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <Eye className="w-3 h-3" />
+                    Quick Preview
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleVerifyWithAi(doc)}
+                    disabled={verifyWithAiMutation.isPending}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {verifyWithAiMutation.isPending ? 'Verifying...' : 'Verify by AI'}
+                  </Button>
                   <a
                     href={doc.file_url}
                     target="_blank"
@@ -173,6 +229,42 @@ export default function ResidentVerifications() {
                     Submitted: {new Date(doc.created_at).toLocaleString()}
                   </span>
                 </div>
+
+                {/* AI Verification Results */}
+                {doc.llm_verified !== undefined && (
+                  <div className={`p-3 rounded border ${
+                    doc.llm_verified === 1 ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <strong className={`text-sm ${
+                        doc.llm_verified === 1 ? 'text-green-900' : 'text-yellow-900'
+                      }`}>
+                        AI Verification:
+                      </strong>
+                      {doc.llm_confidence !== undefined && (
+                        <span className={`text-xs font-medium ${
+                          doc.llm_verified === 1 ? 'text-green-700' : 'text-yellow-700'
+                        }`}>
+                          Confidence: {Math.round(doc.llm_confidence * 100)}%
+                        </span>
+                      )}
+                    </div>
+                    {doc.llm_recommendation && (
+                      <p className={`text-xs mb-1 ${
+                        doc.llm_verified === 1 ? 'text-green-800' : 'text-yellow-800'
+                      }`}>
+                        Recommendation: {doc.llm_recommendation}
+                      </p>
+                    )}
+                    {doc.llm_reasoning && (
+                      <p className={`text-xs ${
+                        doc.llm_verified === 1 ? 'text-green-700' : 'text-yellow-700'
+                      }`}>
+                        {doc.llm_reasoning}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {doc.notes && (
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
@@ -213,6 +305,141 @@ export default function ResidentVerifications() {
         </Card>
       )}
 
+      {/* Document Preview Dialog */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Document Preview: {previewDoc ? formatDocumentType(previewDoc.type) : ''}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setPreviewDialogOpen(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {previewDoc && (
+              <div className="space-y-4">
+                {(() => {
+                  const normalizedUrl = normalizeFileUrl(previewDoc.file_url)
+                  const [loadError, setLoadError] = useState(false)
+                  
+                  if (loadError) {
+                    return (
+                      <div className="p-8 text-center border border-red-200 rounded-lg bg-red-50">
+                        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                        <p className="text-red-800 font-medium mb-2">Failed to load document</p>
+                        <p className="text-red-600 text-sm mb-4">The file could not be found or accessed.</p>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            window.open(normalizedUrl, '_blank')
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Try opening in new tab
+                        </Button>
+                      </div>
+                    )
+                  }
+                  
+                  return previewDoc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                    <img
+                      src={normalizedUrl}
+                      alt={previewDoc.type}
+                      className="w-full h-auto rounded-lg border"
+                      onError={(e) => {
+                        console.error('Failed to load image:', normalizedUrl)
+                        setLoadError(true)
+                      }}
+                    />
+                  ) : (
+                    <iframe
+                      src={normalizedUrl}
+                      className="w-full h-[600px] rounded-lg border"
+                      title={previewDoc.type}
+                      onError={() => {
+                        console.error('Failed to load document:', normalizedUrl)
+                        setLoadError(true)
+                      }}
+                    />
+                  )
+                })()}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (previewDoc) {
+                        window.open(normalizeFileUrl(previewDoc.file_url), '_blank')
+                      }
+                    }}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in New Tab
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Verification Result Dialog */}
+      <Dialog open={aiResultDialogOpen} onOpenChange={setAiResultDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>AI Verification Results</DialogTitle>
+            <DialogDescription>
+              Review the AI analysis of this document
+            </DialogDescription>
+          </DialogHeader>
+          {aiResult && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Status:</span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  aiResult.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {aiResult.verified ? 'Verified' : 'Needs Review'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Confidence:</span>
+                <span className="text-sm">{Math.round(aiResult.confidence * 100)}%</span>
+              </div>
+              {aiResult.recommendation && (
+                <div>
+                  <span className="font-medium">Recommendation:</span>
+                  <p className="text-sm text-gray-600 mt-1">{aiResult.recommendation}</p>
+                </div>
+              )}
+              {aiResult.reasoning && (
+                <div>
+                  <span className="font-medium">Reasoning:</span>
+                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{aiResult.reasoning}</p>
+                </div>
+              )}
+              {aiResult.issues && aiResult.issues.length > 0 && (
+                <div>
+                  <span className="font-medium text-red-600">Issues Found:</span>
+                  <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+                    {aiResult.issues.map((issue: string, idx: number) => (
+                      <li key={idx}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setAiResultDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
@@ -252,3 +479,64 @@ export default function ResidentVerifications() {
   )
 }
 
+function DocumentPreviewContent({ doc }: { doc: { type: string; file_url: string } }) {
+  const [loadError, setLoadError] = useState(false)
+  const normalizedUrl = normalizeFileUrl(doc.file_url)
+  
+  if (loadError) {
+    return (
+      <div className="p-8 text-center border border-red-200 rounded-lg bg-red-50">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <p className="text-red-800 font-medium mb-2">Failed to load document</p>
+        <p className="text-red-600 text-sm mb-4">The file could not be found or accessed.</p>
+        <p className="text-red-500 text-xs mb-4 font-mono break-all">{normalizedUrl}</p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            window.open(normalizedUrl, '_blank')
+          }}
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          Try opening in new tab
+        </Button>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="space-y-4">
+      {doc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+        <img
+          src={normalizedUrl}
+          alt={doc.type}
+          className="w-full h-auto rounded-lg border"
+          onError={() => {
+            console.error('Failed to load image:', normalizedUrl)
+            setLoadError(true)
+          }}
+        />
+      ) : (
+        <iframe
+          src={normalizedUrl}
+          className="w-full h-[600px] rounded-lg border"
+          title={doc.type}
+          onError={() => {
+            console.error('Failed to load document:', normalizedUrl)
+            setLoadError(true)
+          }}
+        />
+      )}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => {
+            window.open(normalizedUrl, '_blank')
+          }}
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          Open in New Tab
+        </Button>
+      </div>
+    </div>
+  )
+}

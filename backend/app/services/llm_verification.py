@@ -69,6 +69,13 @@ async def verify_document_with_llm(
         }
     
     try:
+        # Ensure file_url is absolute
+        if file_url.startswith('/api/uploads/'):
+            # Local storage - make absolute URL
+            base_url = settings.FRONTEND_URL.replace(':3000', ':8000')  # Backend URL
+            if not file_url.startswith('http'):
+                file_url = f"{base_url}{file_url}"
+        
         # Download the image/document
         async with httpx.AsyncClient() as client:
             response = await client.get(file_url, timeout=30.0)

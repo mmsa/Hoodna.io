@@ -4,15 +4,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.core.dependencies import get_current_admin
 from app.models.user import User
-from app.models.service_provider import ServiceProviderProfile
-from app.models.compound_moderator import CompoundModeratorProfile
+from app.models.service_provider import ServiceProviderProfile, ServiceProviderDocument
+from app.models.compound_moderator import CompoundModeratorProfile, CompoundModeratorDocument
 from app.models.enums import ProviderStatus, ModeratorStatus
 from app.schemas.provider import ServiceProviderProfileResponse
 from app.schemas.moderator import CompoundModeratorProfileResponse
+from app.services.llm_verification import verify_document_with_llm
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
+import logging
 
 router = APIRouter()
 
@@ -55,13 +58,21 @@ async def list_providers_for_review(
             ])
         )
     
+    # Eagerly load relationships
+    query = query.options(
+        selectinload(ServiceProviderProfile.documents),
+        selectinload(ServiceProviderProfile.user),
+        selectinload(ServiceProviderProfile.category)
+    )
+    
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     profiles = list(result.scalars().all())
     
-    # Load documents
+    # Add user_name to the response
     for profile in profiles:
-        await db.refresh(profile, ["documents", "user"])
+        if profile.user:
+            profile.user_name = profile.user.name
     
     return profiles
 
@@ -91,7 +102,9 @@ async def approve_provider(
     profile.reviewed_by = current_user.id
     
     await db.commit()
-    await db.refresh(profile, ["documents", "user"])
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
     return profile
 
 
@@ -128,7 +141,9 @@ async def reject_provider(
     profile.rejection_reason = request.reason
     
     await db.commit()
-    await db.refresh(profile, ["documents", "user"])
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
     return profile
 
 
@@ -157,7 +172,9 @@ async def suspend_provider(
     profile.suspension_reason = request.reason
     
     await db.commit()
-    await db.refresh(profile, ["documents", "user"])
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
     return profile
 
 
@@ -195,11 +212,14 @@ async def list_moderators_for_review(
     result = await db.execute(query)
     profiles = list(result.scalars().all())
     
-    # Load documents and compound
+    # Load documents, user, and compound
     for profile in profiles:
         await db.refresh(profile, ["documents", "user", "compound"])
         if profile.compound:
             profile.compound_name = profile.compound.name
+        # Add user_name to the response
+        if profile.user:
+            profile.user_name = profile.user.name
     
     return profiles
 
@@ -232,6 +252,8 @@ async def approve_moderator(
     await db.refresh(profile, ["documents", "user", "compound"])
     if profile.compound:
         profile.compound_name = profile.compound.name
+    if profile.user:
+        profile.user_name = profile.user.name
     return profile
 
 
@@ -271,6 +293,8 @@ async def reject_moderator(
     await db.refresh(profile, ["documents", "user", "compound"])
     if profile.compound:
         profile.compound_name = profile.compound.name
+    if profile.user:
+        profile.user_name = profile.user.name
     return profile
 
 
@@ -302,5 +326,168 @@ async def suspend_moderator(
     await db.refresh(profile, ["documents", "user", "compound"])
     if profile.compound:
         profile.compound_name = profile.compound.name
+    if profile.user:
+        profile.user_name = profile.user.name
     return profile
+
+
+# AI Verification Endpoints for Provider Documents
+@router.post("/providers/{provider_id}/documents/{document_id}/verify-with-llm")
+async def verify_provider_document_with_llm(
+    provider_id: int,
+    document_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger LLM verification for a provider document."""
+    logger = logging.getLogger(__name__)
+    
+    try:
+        profile = await db.get(ServiceProviderProfile, provider_id)
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Provider profile not found"
+            )
+        
+        doc = await db.get(ServiceProviderDocument, document_id)
+        if not doc or doc.profile_id != provider_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+        
+        user = await db.get(User, profile.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Get compound name if provider serves compounds
+        compound_name = None
+        if profile.service_area_compound_ids:
+            from app.models.compound import Compound
+            # Use first compound for context
+            compound = await db.get(Compound, profile.service_area_compound_ids[0])
+            if compound:
+                compound_name = compound.name
+        
+        logger.info(f"Starting LLM verification for provider document {document_id}, type: {doc.document_type}, file_url: {doc.file_url}")
+        
+        # Run LLM verification
+        try:
+            llm_result = await verify_document_with_llm(
+                file_url=doc.file_url,
+                document_type=doc.document_type,
+                user_name=user.name,
+                user_email=user.email,
+                compound_name=compound_name,
+            )
+            logger.info(f"LLM verification completed for provider document {document_id}. Result: verified={llm_result.get('verified')}, confidence={llm_result.get('confidence')}")
+        except Exception as llm_error:
+            logger.error(f"LLM verification failed for provider document {document_id}: {str(llm_error)}", exc_info=True)
+            llm_result = {
+                "verified": False,
+                "confidence": 0.0,
+                "issues": [f"LLM verification error: {str(llm_error)}"],
+                "recommendation": "REQUEST_MORE_DETAILS",
+                "reasoning": f"Failed to verify document: {str(llm_error)}",
+                "extracted_info": {},
+            }
+        
+        return {
+            "document_id": doc.id,
+            "document_type": doc.document_type,
+            "file_url": doc.file_url,
+            "llm_result": llm_result,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in LLM verification for provider document {document_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify document with LLM: {str(e)}"
+        )
+
+
+# AI Verification Endpoints for Moderator Documents
+@router.post("/moderators/{moderator_id}/documents/{document_id}/verify-with-llm")
+async def verify_moderator_document_with_llm(
+    moderator_id: int,
+    document_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger LLM verification for a moderator document."""
+    logger = logging.getLogger(__name__)
+    
+    try:
+        profile = await db.get(CompoundModeratorProfile, moderator_id)
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Moderator profile not found"
+            )
+        
+        doc = await db.get(CompoundModeratorDocument, document_id)
+        if not doc or doc.profile_id != moderator_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found"
+            )
+        
+        user = await db.get(User, profile.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Get compound name
+        compound_name = None
+        if profile.compound_id:
+            from app.models.compound import Compound
+            compound = await db.get(Compound, profile.compound_id)
+            if compound:
+                compound_name = compound.name
+        
+        logger.info(f"Starting LLM verification for moderator document {document_id}, type: {doc.document_type}, file_url: {doc.file_url}")
+        
+        # Run LLM verification
+        try:
+            llm_result = await verify_document_with_llm(
+                file_url=doc.file_url,
+                document_type=doc.document_type,
+                user_name=user.name,
+                user_email=user.email,
+                compound_name=compound_name,
+            )
+            logger.info(f"LLM verification completed for moderator document {document_id}. Result: verified={llm_result.get('verified')}, confidence={llm_result.get('confidence')}")
+        except Exception as llm_error:
+            logger.error(f"LLM verification failed for moderator document {document_id}: {str(llm_error)}", exc_info=True)
+            llm_result = {
+                "verified": False,
+                "confidence": 0.0,
+                "issues": [f"LLM verification error: {str(llm_error)}"],
+                "recommendation": "REQUEST_MORE_DETAILS",
+                "reasoning": f"Failed to verify document: {str(llm_error)}",
+                "extracted_info": {},
+            }
+        
+        return {
+            "document_id": doc.id,
+            "document_type": doc.document_type,
+            "file_url": doc.file_url,
+            "llm_result": llm_result,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in LLM verification for moderator document {document_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify document with LLM: {str(e)}"
+        )
 

@@ -106,11 +106,18 @@ if use_local_storage():
     @app.get("/api/uploads/{file_path:path}")
     async def serve_uploaded_file(file_path: str):
         """Serve uploaded files from local storage."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         full_path = LOCAL_STORAGE_DIR / file_path
+        logger.info(f"Serving file: {file_path}, full_path: {full_path}, exists: {full_path.exists()}")
+        
         if not full_path.exists() or not str(full_path).startswith(
-            str(LOCAL_STORAGE_DIR)
+            str(LOCAL_STORAGE_DIR.resolve())
         ):
+            logger.warning(f"File not found: {full_path}, LOCAL_STORAGE_DIR: {LOCAL_STORAGE_DIR.resolve()}")
             raise HTTPException(status_code=404, detail="File not found")
+        
         return FileResponse(full_path)
 
     # Handle file uploads for local storage

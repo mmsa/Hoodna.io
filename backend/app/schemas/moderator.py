@@ -22,6 +22,7 @@ class CompoundModeratorDocumentCreate(BaseModel):
 class CompoundModeratorProfileResponse(BaseModel):
     id: int
     user_id: int
+    user_name: Optional[str] = None  # Added user name
     compound_id: int
     compound_name: Optional[str] = None
     role_title: Optional[str] = None

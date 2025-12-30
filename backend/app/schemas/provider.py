@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from app.models.enums import ProviderType, ProviderVerificationMethod, ProviderStatus
+from app.schemas.service_category import ServiceCategoryResponse
 
 
 class ServiceProviderProfileCreate(BaseModel):
@@ -32,10 +33,12 @@ class ServiceProviderDocumentCreate(BaseModel):
 class ServiceProviderProfileResponse(BaseModel):
     id: int
     user_id: int
+    user_name: Optional[str] = None  # Added user name
     provider_type: Optional[ProviderType] = None
     verification_method: Optional[ProviderVerificationMethod] = None
     business_name: Optional[str] = None
     category_id: Optional[int] = None
+    category: Optional[ServiceCategoryResponse] = None  # Added category object
     phone: Optional[str] = None
     service_area_compound_ids: Optional[List[int]] = None
     occupation_text: Optional[str] = None

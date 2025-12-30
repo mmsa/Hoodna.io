@@ -16,7 +16,7 @@ class ServiceProviderProfile(Base):
     provider_type = Column(SQLEnum(ProviderType), nullable=True)  # Set during onboarding
     verification_method = Column(SQLEnum(ProviderVerificationMethod), nullable=True)
     business_name = Column(String, nullable=True)
-    category_id = Column(Integer, nullable=True)  # TODO: Link to service categories table
+    category_id = Column(Integer, ForeignKey("service_categories.id"), nullable=True)
     phone = Column(String, nullable=True)
     service_area_compound_ids = Column(ARRAY(Integer), nullable=True)  # List of compound IDs
     occupation_text = Column(String, nullable=True)  # Required if NATIONAL_ID_OCCUPATION
@@ -36,6 +36,7 @@ class ServiceProviderProfile(Base):
     user = relationship("User", foreign_keys=[user_id], back_populates="service_provider_profile")
     reviewer = relationship("User", foreign_keys=[reviewed_by])
     documents = relationship("ServiceProviderDocument", back_populates="profile", cascade="all, delete-orphan")
+    category = relationship("ServiceCategory", back_populates="providers")
 
 
 class ServiceProviderDocument(Base):
