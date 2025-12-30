@@ -510,8 +510,9 @@ export default function ProviderOnboardingPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setChangeRequestCategoryId(categoryId)
-                        setChangeRequestCompounds(selectedCompounds)
+                        setChangeRequestCategoryId(categoryId) // Start with current value
+                        setChangeRequestCompounds([...selectedCompounds]) // Start with current values
+                        setChangeRequestReason('')
                         setShowChangeRequestModal(true)
                       }}
                     >
