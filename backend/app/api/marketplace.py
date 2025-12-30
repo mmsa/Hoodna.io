@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 from app.db.session import get_db
+
+logger = logging.getLogger(__name__)
 from app.schemas.marketplace import (
     ListingCreate,
     ListingUpdate,
@@ -48,14 +51,34 @@ async def list_listings(
     from app.models.enums import ListingCategory, ListingIntent
     from app.core.verification_helpers import is_user_verified_for_compound
     
-    # For compound scope, user must be authenticated and verified for the compound
-    if scope == "compound":
+    # Handle different scopes
+    compound_id = None
+    owner_id = None
+    
+    if scope == "my":
+        # Get user's own listings (for service providers)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required for 'my' scope"
+            )
+        owner_id = current_user.id
+        logger.info(f"[MarketplaceAPI] scope=my: fetching listings for owner_id={owner_id}")
+    elif scope == "compound":
+        # For compound scope, user must be authenticated and verified for the compound
         if not current_user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required for compound scope"
             )
         if not current_user.compound_id:
+            # Check if user is a service provider - suggest using scope=my
+            from app.models.enums import UserRole
+            if current_user.role == UserRole.SERVICE_PROVIDER:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Service providers should use scope=my to view their own listings. Use scope=my instead of scope=compound."
+                )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User must select a compound first"
@@ -75,8 +98,6 @@ async def list_listings(
             )
         
         compound_id = current_user.compound_id
-    else:
-        compound_id = None
     
     # Parse category and intent filters
     category_filter = None
@@ -110,6 +131,7 @@ async def list_listings(
     listings = await get_listings(
         db=db,
         compound_id=compound_id,
+        owner_id=owner_id,
         scope=scope,
         skip=skip,
         limit=limit,

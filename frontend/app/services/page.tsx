@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -39,9 +39,77 @@ export default function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('date_desc')
 
+  // Log user info for debugging
+  useEffect(() => {
+    console.log('[ServicesPage] User info:', {
+      id: user?.id,
+      role: user?.role,
+      compoundId: user?.compound_id,
+      isServiceProvider: user?.role === 'SERVICE_PROVIDER'
+    })
+  }, [user])
+
+  // Check if user is a service provider and fetch their profile
+  const { data: providerProfile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['provider-profile'],
+    queryFn: async () => {
+      if (user?.role !== 'SERVICE_PROVIDER') return null
+      console.log('[ServicesPage] Fetching provider profile for service provider...')
+      try {
+        const response = await api.get('/api/providers/me')
+        console.log('[ServicesPage] Provider profile:', {
+          status: response.data?.provider_status,
+          id: response.data?.id
+        })
+        return response.data
+      } catch (error: any) {
+        console.error('[ServicesPage] Failed to fetch provider profile:', error)
+        return null
+      }
+    },
+    enabled: !!user && user.role === 'SERVICE_PROVIDER',
+    retry: false,
+  })
+
+  // Redirect service providers to status page if not approved
+  useEffect(() => {
+    if (user?.role === 'SERVICE_PROVIDER') {
+      console.log('[ServicesPage] User is SERVICE_PROVIDER, checking status...', {
+        hasProfile: !!providerProfile,
+        status: providerProfile?.provider_status
+      })
+      
+      if (!providerProfile) {
+        // Profile doesn't exist or is loading
+        return
+      }
+      
+      const status = providerProfile.provider_status?.toString().trim().toUpperCase()
+      console.log('[ServicesPage] Provider status check:', {
+        status,
+        isApproved: status === 'APPROVED'
+      })
+      
+      if (status !== 'APPROVED') {
+        console.log('[ServicesPage] Provider not approved, redirecting to status page')
+        router.push('/provider/status')
+        return
+      }
+    }
+  }, [user, providerProfile, router])
+
+  // Determine scope: use 'my' for service providers, 'compound' for residents
+  const scope = useMemo(() => {
+    if (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED') {
+      console.log('[ServicesPage] Using scope=my for service provider')
+      return 'my'
+    }
+    return 'compound'
+  }, [user?.role, providerProfile?.provider_status])
+
   const queryParams = useMemo(() => {
     const params: Record<string, string> = {
-      scope: 'compound',
+      scope: scope,
       category: 'SERVICE', // Only services
       sort_by: sortBy,
     }
@@ -50,20 +118,59 @@ export default function ServicesPage() {
       params.search = searchQuery.trim()
     }
     
+    console.log('[ServicesPage] Query params:', params)
     return params
-  }, [searchQuery, sortBy])
+  }, [scope, searchQuery, sortBy])
 
   const { data: services, isLoading, error } = useQuery<Listing[]>({
-    queryKey: ['services', 'compound', queryParams],
+    queryKey: ['services', scope, queryParams],
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
+      console.log('[ServicesPage] Fetching listings:', `/api/listings?${queryString}`)
       const response = await api.get(`/api/listings?${queryString}`)
+      console.log('[ServicesPage] Listings fetched:', {
+        count: response.data?.length || 0,
+        data: response.data
+      })
       return response.data || []
     },
+    enabled: (() => {
+      // For service providers, wait for provider profile to be loaded
+      if (user?.role === 'SERVICE_PROVIDER') {
+        const enabled = providerProfile !== undefined
+        console.log('[ServicesPage] Query enabled check for SERVICE_PROVIDER:', {
+          enabled,
+          hasProfile: !!providerProfile,
+          profileStatus: providerProfile?.provider_status
+        })
+        return enabled
+      }
+      // For other users, enable immediately
+      return true
+    })(),
     onError: (error: any) => {
+      console.error('[ServicesPage] Error fetching listings:', {
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data,
+        userRole: user?.role
+      })
       // Redirect to verification if user is not verified for compound
       if (error?.response?.status === 403) {
         router.push('/verification')
+      } else if (error?.response?.status === 400) {
+        const errorDetail = error.response?.data?.detail || ''
+        console.log('[ServicesPage] 400 error detail:', errorDetail)
+        // If service provider gets 400 suggesting scope=my, they might not be approved
+        if (user?.role === 'SERVICE_PROVIDER') {
+          if (errorDetail.includes('scope=my')) {
+            // This means they tried scope=compound, redirect to status page
+            router.push('/provider/status')
+          } else {
+            // Other 400 error, still redirect to status page
+            router.push('/provider/status')
+          }
+        }
       }
     },
   })
@@ -86,9 +193,13 @@ export default function ServicesPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Services</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {user?.role === 'SERVICE_PROVIDER' ? 'My Services' : 'Services'}
+              </h1>
               <p className="text-gray-600">
-                Find verified service providers in your compound
+                {user?.role === 'SERVICE_PROVIDER' 
+                  ? 'Manage your service listings' 
+                  : 'Find verified service providers in your compound'}
               </p>
             </div>
             {user?.can_create_listing && (

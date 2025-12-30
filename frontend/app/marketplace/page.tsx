@@ -228,6 +228,30 @@ export default function MarketplacePage() {
   const [maxPrice, setMaxPrice] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
+  // Block SERVICE_PROVIDER users from accessing the marketplace
+  if (user && user.role === "SERVICE_PROVIDER") {
+    return (
+      <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-32 h-32 mx-auto mb-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <span className="text-6xl">🚫</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Access Restricted
+          </h1>
+          <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+            Service providers are not allowed to browse the marketplace. Please manage your services from the Services page.
+          </p>
+          <Link href="/services">
+            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              Go to My Services
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Block REJECTED users from accessing the marketplace
   if (user && user.status === "REJECTED") {
     return (

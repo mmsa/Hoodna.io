@@ -6,6 +6,7 @@ import { Listing } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
+import { Ionicons } from "@expo/vector-icons";
 
 const CATEGORIES = [
   { value: "", label: "All Categories", icon: "🛒" },
@@ -162,6 +163,51 @@ export default function MarketScreen() {
   const [showFilters, setShowFilters] = useState(false);
   const { user, apiClient } = useAuth();
   const router = useRouter();
+
+  // Block SERVICE_PROVIDER users from accessing the marketplace
+  if (user && user.role === "SERVICE_PROVIDER") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <Header />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <View style={{ 
+            width: 120, 
+            height: 120, 
+            borderRadius: 60, 
+            backgroundColor: "#FEF3C7", 
+            justifyContent: "center", 
+            alignItems: "center",
+            marginBottom: 24
+          }}>
+            <Text style={{ fontSize: 64 }}>🚫</Text>
+          </View>
+          <Text style={{ fontSize: 28, fontWeight: "bold", color: colors.text, marginBottom: 12, textAlign: "center" }}>
+            Access Restricted
+          </Text>
+          <Text style={{ fontSize: 16, color: colors.textSecondary, marginBottom: 32, textAlign: "center", lineHeight: 24 }}>
+            Service providers are not allowed to browse the marketplace. Please manage your services from the Services page.
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 32,
+              paddingVertical: 16,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onPress={() => router.push("/(tabs)/services")}
+          >
+            <Ionicons name="construct-outline" size={20} color="#FFFFFF" />
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
+              Go to My Services
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   useEffect(() => {
     loadListings();

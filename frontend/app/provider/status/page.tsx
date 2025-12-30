@@ -59,29 +59,52 @@ export default function ProviderStatusPage() {
   const router = useRouter()
   const { user } = useAuth()
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading, error: profileError } = useQuery({
     queryKey: ['provider-profile'],
     queryFn: async () => {
-      console.log('[ProviderStatus] Fetching provider profile from API...')
-      const response = await api.get('/api/providers/me')
-      console.log('[ProviderStatus] API response received:', {
-        status: response.status,
-        data: response.data,
-        provider_status: response.data?.provider_status,
-        fullData: JSON.stringify(response.data, null, 2)
+      console.log('[ProviderStatus] Fetching provider profile from API...', {
+        userRole: user?.role,
+        userId: user?.id,
+        hasUser: !!user
       })
-      return response.data
+      try {
+        const response = await api.get('/api/providers/me')
+        console.log('[ProviderStatus] API response received:', {
+          status: response.status,
+          data: response.data,
+          provider_status: response.data?.provider_status,
+          statusType: typeof response.data?.provider_status,
+          fullData: JSON.stringify(response.data, null, 2)
+        })
+        return response.data
+      } catch (err: any) {
+        console.error('[ProviderStatus] API call failed:', {
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data,
+          message: err.message,
+          fullError: err
+        })
+        throw err
+      }
     },
-    enabled: !!user,
+    enabled: !!user && user.role === 'SERVICE_PROVIDER',
     retry: false,
     onSuccess: (data) => {
       console.log('[ProviderStatus] Query success:', {
         provider_status: data?.provider_status,
+        normalizedStatus: data?.provider_status?.toString().trim().toUpperCase(),
         hasData: !!data
       })
     },
-    onError: (error) => {
-      console.error('[ProviderStatus] Query error:', error)
+    onError: (error: any) => {
+      console.error('[ProviderStatus] Query error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        is404: error.response?.status === 404,
+        is403: error.response?.status === 403
+      })
     }
   })
 
@@ -92,6 +115,10 @@ export default function ProviderStatusPage() {
       hasProfile: !!profile,
       profileStatus: profile?.provider_status,
       isLoading,
+      profileError: profileError ? {
+        message: profileError.message,
+        status: (profileError as any).response?.status
+      } : null,
       currentPath: typeof window !== 'undefined' ? window.location.pathname : 'SSR'
     })
 
@@ -141,7 +168,7 @@ export default function ProviderStatusPage() {
       // User must stay on status page until approved
       // This prevents accessing other pages
     }
-  }, [user, profile, isLoading, router])
+  }, [user, profile, isLoading, profileError, router])
 
   if (isLoading) {
     return (

@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 from app.db.session import get_db
 from app.core.dependencies import get_current_user, get_current_approved_user
 from app.models.user import User
 from app.models.enums import UserRole
+
+logger = logging.getLogger(__name__)
 from app.schemas.provider import (
     ServiceProviderProfileCreate,
     ServiceProviderProfileUpdate,
@@ -165,7 +168,10 @@ async def get_my_provider_profile(
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user's provider profile."""
+    logger.info(f"[ProviderAPI] GET /api/providers/me called by user {current_user.id}, role: {current_user.role}")
+    
     if not current_user.role or current_user.role != UserRole.SERVICE_PROVIDER:
+        logger.warning(f"[ProviderAPI] User {current_user.id} is not a SERVICE_PROVIDER (role: {current_user.role})")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not a service provider"
@@ -173,12 +179,17 @@ async def get_my_provider_profile(
     
     profile = await get_provider_profile(db, current_user.id)
     if not profile:
+        logger.warning(f"[ProviderAPI] Provider profile not found for user {current_user.id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Provider profile not found"
         )
     
+    logger.info(f"[ProviderAPI] Provider profile found for user {current_user.id}: status={profile.provider_status}, id={profile.id}")
     await db.refresh(profile, ["documents", "category"])
+    
+    # Log the status value explicitly
+    logger.info(f"[ProviderAPI] Returning profile with provider_status='{profile.provider_status}' (type: {type(profile.provider_status).__name__})")
     return profile
 
 

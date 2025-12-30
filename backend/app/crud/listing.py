@@ -11,6 +11,7 @@ from typing import Optional
 async def get_listings(
     db: AsyncSession,
     compound_id: int | None = None,
+    owner_id: int | None = None,
     scope: str = "compound",
     skip: int = 0,
     limit: int = 50,
@@ -40,6 +41,10 @@ async def get_listings(
         selectinload(Listing.owner),
         selectinload(Listing.promotions)
     ).where(*where_conditions)
+    
+    # Filter by owner_id if provided (for scope=my)
+    if owner_id is not None:
+        query = query.where(Listing.owner_id == owner_id)
     
     if scope == "compound":
         if compound_id:
@@ -116,6 +121,14 @@ async def get_listings(
                 selectinload(Listing.owner),
                 selectinload(Listing.promotions)
             ).where(*where_conditions)
+            
+            # Filter by owner_id if provided (for scope=my)
+            if owner_id is not None:
+                query = query.where(Listing.owner_id == owner_id)
+            
+            # Filter by owner_id if provided (for scope=my)
+            if owner_id is not None:
+                query = query.where(Listing.owner_id == owner_id)
             
             if scope == "compound":
                 if compound_id:
