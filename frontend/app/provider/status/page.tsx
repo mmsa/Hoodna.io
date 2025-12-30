@@ -62,27 +62,84 @@ export default function ProviderStatusPage() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ['provider-profile'],
     queryFn: async () => {
+      console.log('[ProviderStatus] Fetching provider profile from API...')
       const response = await api.get('/api/providers/me')
+      console.log('[ProviderStatus] API response received:', {
+        status: response.status,
+        data: response.data,
+        provider_status: response.data?.provider_status,
+        fullData: JSON.stringify(response.data, null, 2)
+      })
       return response.data
     },
     enabled: !!user,
     retry: false,
+    onSuccess: (data) => {
+      console.log('[ProviderStatus] Query success:', {
+        provider_status: data?.provider_status,
+        hasData: !!data
+      })
+    },
+    onError: (error) => {
+      console.error('[ProviderStatus] Query error:', error)
+    }
   })
 
   useEffect(() => {
+    console.log('[ProviderStatus] useEffect triggered:', {
+      hasUser: !!user,
+      userRole: user?.role,
+      hasProfile: !!profile,
+      profileStatus: profile?.provider_status,
+      isLoading,
+      currentPath: typeof window !== 'undefined' ? window.location.pathname : 'SSR'
+    })
+
     if (!user) {
+      console.log('[ProviderStatus] No user - redirecting to login')
       router.push('/auth/login')
       return
     }
 
     if (user.role !== 'SERVICE_PROVIDER') {
+      console.log('[ProviderStatus] User role is not SERVICE_PROVIDER:', user.role, '- redirecting to choose-role')
       router.push('/onboarding/choose-role')
       return
     }
 
     if (!profile && !isLoading) {
+      console.log('[ProviderStatus] No profile and not loading - redirecting to onboarding')
       // No profile exists, redirect to onboarding
       router.push('/onboarding/provider')
+      return
+    }
+
+    // Redirect approved providers to services page
+    if (profile) {
+      const status = profile.provider_status?.toString().trim().toUpperCase();
+      console.log('[ProviderStatus] Profile check:', {
+        provider_status: profile.provider_status,
+        normalizedStatus: status,
+        statusType: typeof profile.provider_status,
+        isApproved: status === 'APPROVED',
+        exactMatch: status === 'APPROVED' ? 'YES' : 'NO',
+        fullProfile: JSON.stringify(profile, null, 2)
+      })
+      
+      if (status === 'APPROVED') {
+        console.log('[ProviderStatus] ✅ Profile is APPROVED - redirecting to /services')
+        router.push('/services')
+        return
+      } else {
+        console.log('[ProviderStatus] ⚠️ Profile status is:', status, '- staying on status page')
+      }
+    }
+
+    // Prevent bypassing status page if not approved
+    if (profile && profile.provider_status !== 'APPROVED' && profile.provider_status !== 'DRAFT') {
+      console.log('[ProviderStatus] 🔒 User must stay on status page - status:', profile.provider_status)
+      // User must stay on status page until approved
+      // This prevents accessing other pages
     }
   }, [user, profile, isLoading, router])
 
@@ -157,14 +214,23 @@ export default function ProviderStatusPage() {
               </CardContent>
             </Card>
 
-            {/* Rejection/Suspension Reason */}
-            {profile.rejection_reason && (
-              <Card className="border-red-200 bg-red-50">
+            {/* Rejection/Suspension Reason or Request More Details */}
+            {(profile.rejection_reason || (profile.provider_status === 'IN_REVIEW' && profile.rejection_reason?.includes('More details requested'))) && (
+              <Card className={profile.rejection_reason?.includes('More details requested') ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}>
                 <CardHeader>
-                  <CardTitle className="text-lg text-red-900">Rejection Reason</CardTitle>
+                  <CardTitle className={`text-lg ${profile.rejection_reason?.includes('More details requested') ? 'text-yellow-900' : 'text-red-900'}`}>
+                    {profile.rejection_reason?.includes('More details requested') ? 'More Details Requested' : 'Rejection Reason'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-red-800">{profile.rejection_reason}</p>
+                  <p className={profile.rejection_reason?.includes('More details requested') ? 'text-yellow-800' : 'text-red-800'}>
+                    {profile.rejection_reason?.replace('More details requested: ', '') || profile.rejection_reason}
+                  </p>
+                  {profile.rejection_reason?.includes('More details requested') && (
+                    <Button asChild className="mt-4">
+                      <Link href="/onboarding/provider">Provide More Details</Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -182,20 +248,22 @@ export default function ProviderStatusPage() {
 
             {/* Actions */}
             <div className="flex gap-4">
-              {status === 'DRAFT' && (
+              {(status === 'DRAFT' || status === 'REJECTED' || (status === 'IN_REVIEW' && profile.rejection_reason?.includes('More details requested'))) && (
                 <Button asChild className="flex-1">
-                  <Link href="/onboarding/provider">Complete Profile</Link>
-                </Button>
-              )}
-              {status === 'REJECTED' && (
-                <Button asChild className="flex-1" variant="outline">
-                  <Link href="/onboarding/provider">Update Profile</Link>
+                  <Link href="/onboarding/provider">
+                    {status === 'REJECTED' ? 'Update Profile' : profile.rejection_reason?.includes('More details requested') ? 'Provide More Details' : 'Complete Profile'}
+                  </Link>
                 </Button>
               )}
               {status === 'APPROVED' && (
                 <Button asChild className="flex-1">
-                  <Link href="/services">View Services</Link>
+                  <Link href="/services">Go to Services</Link>
                 </Button>
+              )}
+              {(status === 'SUBMITTED' || status === 'IN_REVIEW') && !profile.rejection_reason?.includes('More details requested') && (
+                <p className="text-sm text-gray-600 text-center w-full mt-4">
+                  Your profile is being reviewed. You'll be notified once it's approved.
+                </p>
               )}
             </div>
           </CardContent>

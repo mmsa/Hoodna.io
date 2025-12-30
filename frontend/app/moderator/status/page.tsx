@@ -83,6 +83,19 @@ export default function ModeratorStatusPage() {
     if (!profile && !isLoading) {
       // No profile exists, redirect to onboarding
       router.push('/onboarding/moderator')
+      return
+    }
+
+    // Redirect approved moderators to feed
+    if (profile && profile.moderator_status === 'APPROVED') {
+      router.push('/feed')
+      return
+    }
+
+    // Prevent bypassing status page if not approved
+    if (profile && profile.moderator_status !== 'APPROVED' && profile.moderator_status !== 'DRAFT') {
+      // User must stay on status page until approved
+      // This prevents accessing other pages
     }
   }, [user, profile, isLoading, router])
 
@@ -151,14 +164,23 @@ export default function ModeratorStatusPage() {
               </CardContent>
             </Card>
 
-            {/* Rejection/Suspension Reason */}
-            {profile.rejection_reason && (
-              <Card className="border-red-200 bg-red-50">
+            {/* Rejection/Suspension Reason or Request More Details */}
+            {(profile.rejection_reason || (profile.moderator_status === 'IN_REVIEW' && profile.rejection_reason?.includes('More details requested'))) && (
+              <Card className={profile.rejection_reason?.includes('More details requested') ? 'border-yellow-200 bg-yellow-50' : 'border-red-200 bg-red-50'}>
                 <CardHeader>
-                  <CardTitle className="text-lg text-red-900">Rejection Reason</CardTitle>
+                  <CardTitle className={`text-lg ${profile.rejection_reason?.includes('More details requested') ? 'text-yellow-900' : 'text-red-900'}`}>
+                    {profile.rejection_reason?.includes('More details requested') ? 'More Details Requested' : 'Rejection Reason'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-red-800">{profile.rejection_reason}</p>
+                  <p className={profile.rejection_reason?.includes('More details requested') ? 'text-yellow-800' : 'text-red-800'}>
+                    {profile.rejection_reason?.replace('More details requested: ', '') || profile.rejection_reason}
+                  </p>
+                  {profile.rejection_reason?.includes('More details requested') && (
+                    <Button asChild className="mt-4">
+                      <Link href="/onboarding/moderator">Provide More Details</Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -176,20 +198,22 @@ export default function ModeratorStatusPage() {
 
             {/* Actions */}
             <div className="flex gap-4">
-              {status === 'DRAFT' && (
+              {(status === 'DRAFT' || status === 'REJECTED' || (status === 'IN_REVIEW' && profile.rejection_reason?.includes('More details requested'))) && (
                 <Button asChild className="flex-1">
-                  <Link href="/onboarding/moderator">Complete Profile</Link>
-                </Button>
-              )}
-              {status === 'REJECTED' && (
-                <Button asChild className="flex-1" variant="outline">
-                  <Link href="/onboarding/moderator">Update Profile</Link>
+                  <Link href="/onboarding/moderator">
+                    {status === 'REJECTED' ? 'Update Profile' : profile.rejection_reason?.includes('More details requested') ? 'Provide More Details' : 'Complete Profile'}
+                  </Link>
                 </Button>
               )}
               {status === 'APPROVED' && (
                 <Button asChild className="flex-1">
                   <Link href="/feed">Go to Feed</Link>
                 </Button>
+              )}
+              {(status === 'SUBMITTED' || status === 'IN_REVIEW') && !profile.rejection_reason?.includes('More details requested') && (
+                <p className="text-sm text-gray-600 text-center w-full mt-4">
+                  Your profile is being reviewed. You'll be notified once it's approved.
+                </p>
               )}
             </div>
           </CardContent>

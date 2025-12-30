@@ -62,29 +62,42 @@ export function RoleGuard({ children, allowedRoles, requireApproved = false }: R
 
     // Check approval status for specific roles
     if (user.role === 'SERVICE_PROVIDER') {
-      // Allow access to onboarding and status pages
+      console.log('[RoleGuard] SERVICE_PROVIDER detected:', {
+        pathname,
+        isOnboarding: pathname.startsWith('/onboarding/provider'),
+        isStatus: pathname.startsWith('/provider/status'),
+        isAuth: pathname.startsWith('/auth'),
+        isServices: pathname.startsWith('/services')
+      })
+      
+      // Allow access to onboarding, status, services, and auth pages
       if (
         pathname.startsWith('/onboarding/provider') ||
-        pathname.startsWith('/provider/status')
+        pathname.startsWith('/provider/status') ||
+        pathname.startsWith('/auth') ||
+        pathname.startsWith('/services')
       ) {
+        console.log('[RoleGuard] ✅ Allowing access to:', pathname)
         return
       }
-      // Redirect to status page if not approved
-      // Note: We'd need to fetch provider profile to check status
-      // For now, let the status page handle this
+      // Redirect to status page - status page will check approval and redirect if approved
+      console.log('[RoleGuard] 🔄 Redirecting SERVICE_PROVIDER to /provider/status from:', pathname)
+      router.push('/provider/status')
+      return
     }
 
     if (user.role === 'COMPOUND_MOD') {
       // Allow access to onboarding and status pages
       if (
         pathname.startsWith('/onboarding/moderator') ||
-        pathname.startsWith('/moderator/status')
+        pathname.startsWith('/moderator/status') ||
+        pathname.startsWith('/auth')
       ) {
         return
       }
-      // Redirect to status page if not approved
-      // Note: We'd need to fetch moderator profile to check status
-      // For now, let the status page handle this
+      // Redirect to status page - status page will check approval and redirect if approved
+      router.push('/moderator/status')
+      return
     }
 
     if (user.role === 'RESIDENT' || user.role === 'USER') {

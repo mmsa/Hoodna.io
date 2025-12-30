@@ -47,6 +47,21 @@ export default function ModeratorStatusScreen() {
     }
   }, [user, authLoading]);
 
+  // Redirect approved moderators to feed
+  useEffect(() => {
+    if (profile && profile.moderator_status === "APPROVED") {
+      router.replace("/(tabs)/home");
+    }
+  }, [profile, router]);
+
+  // Prevent bypassing status page if not approved
+  useEffect(() => {
+    if (profile && profile.moderator_status !== "APPROVED" && profile.moderator_status !== "DRAFT") {
+      // If user tries to navigate away, redirect back to status page
+      // This is handled by the router guards in index.tsx
+    }
+  }, [profile]);
+
   async function fetchProfile() {
     try {
       setLoading(true);
@@ -182,21 +197,37 @@ export default function ModeratorStatusScreen() {
                 </View>
               )}
 
-              {profile.rejection_reason && (
+              {(profile.rejection_reason || (profile.moderator_status === "IN_REVIEW" && profile.rejection_reason?.includes("More details requested"))) && (
                 <View
                   style={{
-                    backgroundColor: "#FEE2E2",
+                    backgroundColor: profile.rejection_reason?.includes("More details requested") ? "#FEF3C7" : "#FEE2E2",
                     padding: 12,
                     borderRadius: 8,
                     marginTop: 12,
                   }}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#991B1B", marginBottom: 4 }}>
-                    Rejection Reason:
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: profile.rejection_reason?.includes("More details requested") ? "#92400E" : "#991B1B", marginBottom: 4 }}>
+                    {profile.rejection_reason?.includes("More details requested") ? "More Details Requested:" : "Rejection Reason:"}
                   </Text>
-                  <Text style={{ fontSize: 14, color: "#B91C1C" }}>
-                    {profile.rejection_reason}
+                  <Text style={{ fontSize: 14, color: profile.rejection_reason?.includes("More details requested") ? "#B45309" : "#B91C1C" }}>
+                    {profile.rejection_reason?.replace("More details requested: ", "") || profile.rejection_reason}
                   </Text>
+                  {profile.rejection_reason?.includes("More details requested") && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: "#A855F7",
+                        borderRadius: 8,
+                        padding: 10,
+                        marginTop: 8,
+                        alignItems: "center",
+                      }}
+                      onPress={() => router.push("/onboarding/moderator")}
+                    >
+                      <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+                        Provide More Details
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -220,12 +251,30 @@ export default function ModeratorStatusScreen() {
 
               {profile.moderator_status === "SUBMITTED" || profile.moderator_status === "IN_REVIEW" ? (
                 <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 12 }}>
-                  Your moderator profile is being reviewed by our team. You'll be notified once it's approved.
+                  {profile.rejection_reason?.includes("More details requested")
+                    ? "Please provide the requested additional details to continue the review process."
+                    : "Your moderator profile is being reviewed by our team. You'll be notified once it's approved."}
                 </Text>
               ) : profile.moderator_status === "APPROVED" ? (
-                <Text style={{ fontSize: 14, color: "#10B981", marginTop: 12, fontWeight: "600" }}>
-                  ✓ Your moderator profile has been approved! You can now moderate your compound.
-                </Text>
+                <>
+                  <Text style={{ fontSize: 14, color: "#10B981", marginTop: 12, fontWeight: "600" }}>
+                    ✓ Your moderator profile has been approved! You can now moderate your compound.
+                  </Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: "#A855F7",
+                      borderRadius: 12,
+                      padding: 16,
+                      alignItems: "center",
+                      marginTop: 16,
+                    }}
+                    onPress={() => router.replace("/(tabs)/home")}
+                  >
+                    <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+                      Go to Feed
+                    </Text>
+                  </TouchableOpacity>
+                </>
               ) : profile.moderator_status === "REJECTED" ? (
                 <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 12 }}>
                   Your moderator profile was rejected. Please review the rejection reason above and resubmit.
@@ -237,7 +286,7 @@ export default function ModeratorStatusScreen() {
               ) : null}
             </View>
 
-            {(profile.moderator_status === "DRAFT" || profile.moderator_status === "REJECTED") && (
+            {(profile.moderator_status === "DRAFT" || profile.moderator_status === "REJECTED" || (profile.moderator_status === "IN_REVIEW" && profile.rejection_reason?.includes("More details requested"))) && (
               <TouchableOpacity
                 style={{
                   backgroundColor: "#A855F7",
@@ -249,7 +298,7 @@ export default function ModeratorStatusScreen() {
                 onPress={() => router.push("/onboarding/moderator")}
               >
                 <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-                  {profile.moderator_status === "REJECTED" ? "Update Profile" : "Complete Profile"}
+                  {profile.moderator_status === "REJECTED" ? "Update Profile" : profile.rejection_reason?.includes("More details requested") ? "Provide More Details" : "Complete Profile"}
                 </Text>
               </TouchableOpacity>
             )}
