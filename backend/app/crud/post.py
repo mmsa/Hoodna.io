@@ -16,6 +16,7 @@ async def get_feed_posts(
     """Get feed posts, optionally filtered by compound. Excludes soft-deleted posts."""
     query = select(Post).options(
         selectinload(Post.author),
+        selectinload(Post.compound),  # Load compound for compound_name
         selectinload(Post.comments).selectinload(Comment.author)
     )
     
@@ -57,6 +58,7 @@ async def get_compound_announcements(
         .join(User, Post.author_id == User.id)
         .options(
             selectinload(Post.author),
+            selectinload(Post.compound),  # Load compound for compound_name
             selectinload(Post.comments).selectinload(Comment.author)
         )
         .where(*where_conditions)
@@ -88,10 +90,14 @@ async def create_post(
     post_data: PostCreate
 ) -> Post:
     """Create a new post."""
+    from app.models.enums import PostCategory
+    
     db_post = Post(
         compound_id=compound_id,
         author_id=author_id,
         content=post_data.content,
+        category=post_data.category or PostCategory.GENERAL,
+        is_urgent=post_data.is_urgent or False,
     )
     db.add(db_post)
     await db.flush()

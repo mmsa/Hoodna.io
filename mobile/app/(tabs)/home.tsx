@@ -58,77 +58,40 @@ function getAvatarColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function detectPostType(content: string): {
-  type: "help" | "lost" | "event" | "marketplace" | "general";
-  icon: string;
-  color: string;
-  badge: string;
-} {
-  const lowerContent = content.toLowerCase();
+// Category mapping for display
+const CATEGORY_INFO: Record<string, { icon: string; color: string; label: string; type: string }> = {
+  GENERAL: { icon: "💬", color: "#6B7280", label: "General", type: "general" },
+  HELP: { icon: "🆘", color: "#F59E0B", label: "Help", type: "help" },
+  LOST_FOUND: { icon: "🔍", color: "#EC4899", label: "Lost & Found", type: "lost" },
+  EVENT: { icon: "📅", color: "#6366F1", label: "Event", type: "event" },
+  MARKETPLACE: { icon: "🛒", color: "#10B981", label: "Marketplace", type: "marketplace" },
+  ANNOUNCEMENT: { icon: "🔔", color: "#F59E0B", label: "Announcement", type: "general" },
+  ALERT: { icon: "⚠️", color: "#EF4444", label: "Alert", type: "general" },
+  DISCUSSION: { icon: "💭", color: "#8B5CF6", label: "Discussion", type: "general" },
+};
 
-  if (
-    lowerContent.includes("lost") ||
-    lowerContent.includes("found") ||
-    lowerContent.includes("missing")
-  ) {
-    return {
-      type: "lost",
-      icon: "🔍",
-      color: "#EC4899",
-      badge: "LOST & FOUND",
-    };
+function getPostType(post: Post) {
+  // Use explicit category if available, otherwise fall back to auto-detection
+  if (post.category && CATEGORY_INFO[post.category]) {
+    return CATEGORY_INFO[post.category];
   }
-
-  if (
-    lowerContent.includes("help") ||
-    lowerContent.includes("need") ||
-    lowerContent.includes("urgent") ||
-    lowerContent.includes("plumber") ||
-    lowerContent.includes("electrician")
-  ) {
-    return {
-      type: "help",
-      icon: "🆘",
-      color: "#F59E0B",
-      badge: "HELP REQUEST",
-    };
+  
+  // Fallback to content-based detection for backward compatibility
+  const lowerContent = post.content.toLowerCase();
+  if (lowerContent.includes("lost") || lowerContent.includes("found") || lowerContent.includes("missing")) {
+    return CATEGORY_INFO.LOST_FOUND;
   }
-
-  if (
-    lowerContent.includes("event") ||
-    lowerContent.includes("gathering") ||
-    lowerContent.includes("meeting") ||
-    lowerContent.includes("weekend") ||
-    lowerContent.includes("party")
-  ) {
-    return {
-      type: "event",
-      icon: "📅",
-      color: "#6366F1",
-      badge: "COMMUNITY EVENT",
-    };
+  if (lowerContent.includes("help") || lowerContent.includes("need") || lowerContent.includes("urgent")) {
+    return CATEGORY_INFO.HELP;
   }
-
-  if (
-    lowerContent.includes("sell") ||
-    lowerContent.includes("buy") ||
-    lowerContent.includes("for sale") ||
-    lowerContent.includes("for rent")
-  ) {
-    return {
-      type: "marketplace",
-      icon: "🛒",
-      color: "#10B981",
-      badge: "MARKETPLACE",
-    };
+  if (lowerContent.includes("event") || lowerContent.includes("gathering") || lowerContent.includes("meeting")) {
+    return CATEGORY_INFO.EVENT;
   }
-
-  return {
-    type: "general",
-    icon: "💬",
-    color: "#6B7280",
-    badge: "",
-  };
+  if (lowerContent.includes("sell") || lowerContent.includes("buy") || lowerContent.includes("for sale")) {
+    return CATEGORY_INFO.MARKETPLACE;
+  }
+  
+  return CATEGORY_INFO.GENERAL;
 }
 
 function PostCard({ 
@@ -157,10 +120,10 @@ function PostCard({
   const timeAgo = formatTimeAgo(post.created_at);
   const isNew = new Date().getTime() - new Date(post.created_at).getTime() < 3600000;
   const hasManyComments = post.comments && post.comments.length >= 5;
-  const isHighlighted = isNew || hasManyComments;
+  const isHighlighted = isNew || hasManyComments || post.is_urgent;
   const avatarColor = getAvatarColor(post.author_name);
   const initials = getInitials(post.author_name);
-  const postType = detectPostType(post.content);
+  const postType = getPostType(post);
 
   // Background color based on post type (using new vibrant colors)
   const bgColors = {
@@ -275,6 +238,17 @@ function PostCard({
           )}
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
+          {/* Compound Name - Prominently displayed */}
+          {post.compound_name && (
+            <View style={{ marginBottom: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="home" size={12} color={colors.textMuted} />
+                <Text style={{ fontSize: 12, fontWeight: "500", color: colors.textMuted }}>
+                  {post.compound_name}
+                </Text>
+              </View>
+            </View>
+          )}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", flex: 1 }}>
               <TouchableOpacity onPress={() => router.push(`/post/${post.id}`)}>
@@ -282,18 +256,57 @@ function PostCard({
                   {post.author_name}
                 </Text>
               </TouchableOpacity>
-              {postType.badge && (
+              {/* Verified Resident Badge */}
+              {post.author_status === "APPROVED" && (
                 <View
                   style={{
-                    backgroundColor: `${postType.color}15`,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 6,
-                    marginLeft: 8,
+                    backgroundColor: "#D1FAE5",
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    marginLeft: 6,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
                   }}
                 >
-                  <Text style={{ fontSize: 10, fontWeight: "600", color: postType.color }}>
-                    {postType.icon} {postType.badge}
+                  <Ionicons name="checkmark-circle" size={12} color="#065F46" />
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: "#065F46" }}>
+                    Verified
+                  </Text>
+                </View>
+              )}
+              {/* Category Badge - Always show */}
+              <View
+                style={{
+                  backgroundColor: `${postType.color}15`,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  marginLeft: 8,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: "600", color: postType.color }}>
+                  {postType.icon} {postType.label}
+                </Text>
+              </View>
+              {/* Urgent Badge */}
+              {post.is_urgent && (
+                <View
+                  style={{
+                    backgroundColor: "#FEE2E2",
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    marginLeft: 6,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: "#DC2626" }}>
+                    Urgent
                   </Text>
                 </View>
               )}
@@ -508,9 +521,30 @@ function PostCard({
                         {commentInitials}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
-                      {comment.author_name}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
+                        {comment.author_name}
+                      </Text>
+                      {/* Verified Resident Badge for Comments */}
+                      {comment.author_status === "APPROVED" && (
+                        <View
+                          style={{
+                            backgroundColor: "#D1FAE5",
+                            paddingHorizontal: 4,
+                            paddingVertical: 1,
+                            borderRadius: 3,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          <Ionicons name="checkmark-circle" size={10} color="#065F46" />
+                          <Text style={{ fontSize: 9, fontWeight: "600", color: "#065F46" }}>
+                            Verified
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={{ fontSize: 11, color: "#6B7280", marginLeft: 8 }}>
                       {formatTimeAgo(comment.created_at)}
                     </Text>
@@ -575,6 +609,7 @@ export default function HomeScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [announcements, setAnnouncements] = useState<Post[]>([]);
+  const [compoundName, setCompoundName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -585,6 +620,28 @@ export default function HomeScreen() {
   const { activeCompoundId } = useCompound();
   const router = useRouter();
 
+  // Load compound name
+  useEffect(() => {
+    async function loadCompoundName() {
+      const compoundId = activeCompoundId || user?.compound_id;
+      if (!compoundId || !apiClient) return;
+      
+      try {
+        const userCompounds = await apiClient.getUserCompounds();
+        const foundCompound = userCompounds.find((c) => c.id === compoundId);
+        if (foundCompound) {
+          setCompoundName(foundCompound.name);
+        }
+      } catch (error) {
+        console.error("Failed to load compound name:", error);
+      }
+    }
+    
+    if (activeCompoundId || user?.compound_id) {
+      loadCompoundName();
+    }
+  }, [activeCompoundId, user?.compound_id, apiClient]);
+
   // Refetch posts when compound changes
   useEffect(() => {
     if (activeCompoundId) {
@@ -592,6 +649,29 @@ export default function HomeScreen() {
       loadAnnouncements();
     }
   }, [activeCompoundId]);
+
+  // Organize posts into sections: Alerts, Announcements, Discussions
+  const organizePosts = (allPosts: Post[], announcements: Post[]) => {
+    // Alerts: urgent posts (is_urgent = true)
+    const alerts = allPosts.filter((p) => p.is_urgent === true);
+    
+    // Regular posts (excluding announcements and alerts)
+    const regularPosts = allPosts.filter(
+      (p) => !announcements.some((a) => a.id === p.id) && !p.is_urgent
+    );
+    
+    // Group regular posts by category
+    const postsByCategory: Record<string, Post[]> = {};
+    regularPosts.forEach((post) => {
+      const category = post.category || "GENERAL";
+      if (!postsByCategory[category]) {
+        postsByCategory[category] = [];
+      }
+      postsByCategory[category].push(post);
+    });
+    
+    return { alerts, announcements, postsByCategory };
+  };
 
   async function loadPosts() {
     // Use activeCompoundId from context (single source of truth)
@@ -834,9 +914,10 @@ export default function HomeScreen() {
       )}
 
       <FlatList
-        data={posts}
+        data={posts.filter((p) => !p.is_urgent && !announcements.some((a) => a.id === p.id))} // Filter out urgent (shown in Alerts) and announcements
         keyExtractor={(item) => item.id.toString()}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary, colors.purple]} />}
+        ListHeaderComponent={
         ListHeaderComponent={
           <View>
             {/* Header with Logo */}
@@ -852,6 +933,66 @@ export default function HomeScreen() {
                 disabled: !canPost,
               }}
             />
+            
+            {/* ALERTS SECTION - Urgent Posts */}
+            {(() => {
+              const urgentPosts = posts.filter((p) => p.is_urgent === true);
+              if (urgentPosts.length === 0) return null;
+              
+              return (
+                <View
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingTop: 20,
+                    paddingBottom: 16,
+                    backgroundColor: "#FEF2F2",
+                    borderBottomWidth: 2,
+                    borderBottomColor: "#FCA5A5",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: "#EF4444",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="alert-circle" size={24} color="#FFFFFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 18, fontWeight: "700", color: "#991B1B" }}>
+                        ⚠️ Urgent Alerts
+                      </Text>
+                      <Text style={{ fontSize: 12, color: "#DC2626" }}>
+                        Time-sensitive updates requiring immediate attention
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {urgentPosts.map((alert) => (
+                    <PostCard
+                      key={alert.id}
+                      post={alert}
+                      canPost={canPost}
+                      router={router}
+                      newComments={newComments}
+                      setNewComments={setNewComments}
+                      handleCreateComment={handleCreateComment}
+                      submitting={submitting}
+                      currentUser={user}
+                      apiClient={apiClient}
+                      onPostDeleted={(postId) => {
+                        setPosts(posts.filter((p) => p.id !== postId));
+                      }}
+                    />
+                  ))}
+                </View>
+              );
+            })()}
             
             {/* Compound Announcements Section */}
             <View
@@ -879,7 +1020,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
-                    Compound Announcements
+                    {compoundName ? `${compoundName} Official Announcement${announcements.length !== 1 ? 's' : ''}` : 'Compound Announcements'}
                   </Text>
                   <Text style={{ fontSize: 12, color: "#6B7280" }}>
                     Official updates from compound management
@@ -933,6 +1074,48 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
+
+            {/* Discussions Section Header */}
+            {(() => {
+              const regularPosts = posts.filter((p) => !p.is_urgent && !announcements.some((a) => a.id === p.id));
+              if (regularPosts.length === 0) return null;
+              
+              return (
+                <View
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingTop: 20,
+                    paddingBottom: 12,
+                    backgroundColor: "#F9FAFB",
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#E5E7EB",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: "#8B5CF6",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="chatbubbles" size={20} color="#FFFFFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
+                        Community Discussions
+                      </Text>
+                      <Text style={{ fontSize: 12, color: "#6B7280" }}>
+                        Posts from your neighbors, organized by category
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })()}
 
             <View
               style={{

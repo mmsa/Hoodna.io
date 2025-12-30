@@ -20,6 +20,8 @@ import {
   Package,
   Car,
   Home as HomeIcon,
+  Home,
+  CheckCircle,
   Wrench,
   Plus,
   ArrowRight,
@@ -461,8 +463,12 @@ export default function FeedPage() {
   }, [error, user, router]);
 
   const createPostMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await api.post("/api/posts", { content });
+    mutationFn: async (data: { content: string; category?: string; is_urgent?: boolean } | string) => {
+      // Handle both old format (string) and new format (object)
+      const postData = typeof data === 'string' 
+        ? { content: data, category: "GENERAL", is_urgent: false }
+        : data;
+      const response = await api.post("/api/posts", postData);
       return response.data;
     },
     onSuccess: () => {
@@ -661,6 +667,46 @@ export default function FeedPage() {
               </CardContent>
             </Card>
 
+            {/* ALERTS SECTION - Urgent Posts */}
+            {(() => {
+              const urgentPosts = posts?.filter((p) => p.is_urgent === true) || [];
+              if (urgentPosts.length === 0) return null;
+              
+              return (
+                <div className="mb-8">
+                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 mb-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-sm">
+                        <Bell className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-red-900">
+                          ⚠️ Urgent Alerts
+                        </h2>
+                        <p className="text-xs text-red-700">
+                          Time-sensitive updates requiring immediate attention
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {urgentPosts.map((alert) => (
+                        <PostCard
+                          key={alert.id}
+                          post={alert}
+                          newComments={newComments}
+                          setNewComments={setNewComments}
+                          handleCreateComment={handleCreateComment}
+                          createCommentMutation={createCommentMutation}
+                          currentUser={user}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Compound Announcements Section - Moderator Only (Always visible) */}
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
@@ -669,7 +715,7 @@ export default function FeedPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Compound Announcements
+                    {feedSummary?.compound_name ? `${feedSummary.compound_name} Official Announcement${announcements?.length !== 1 ? 's' : ''}` : 'Compound Announcements'}
                   </h2>
                   <p className="text-xs text-gray-500">
                     Official updates from compound management
@@ -707,32 +753,31 @@ export default function FeedPage() {
               )}
             </div>
 
-            {/* Latest Posts from Community Users */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 flex items-center justify-center shadow-sm">
-                    <Users className="w-5 h-5 text-white" />
+            {/* Community Discussions Section */}
+            {(() => {
+              const regularPosts = posts?.filter((p) => !p.is_urgent && !announcements?.some((a) => a.id === p.id)) || [];
+              if (regularPosts.length === 0) return null;
+              
+              return (
+                <div className="mb-8">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center shadow-sm">
+                        <MessageCircle className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900">
+                          Community Discussions
+                        </h2>
+                        <p className="text-xs text-gray-600">
+                          Posts from your neighbors, organized by category
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      Latest Posts from Community
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      What your neighbors are sharing
-                      {posts && posts.length > 0 && (
-                        <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-semibold">
-                          {posts.length} {posts.length === 1 ? "post" : "posts"}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              {posts && posts.length > 0 ? (
-                <div className="space-y-4">
-                  {posts.map((post) => {
+                  <div className="space-y-4">
+                    {regularPosts.map((post) => {
                     // Highlight recent posts (within last hour) and posts with many comments
                     const isRecent = (() => {
                       const postDate = new Date(post.created_at);
@@ -1281,7 +1326,29 @@ function PostCard({
   currentUser?: any;
 }) {
   const { toast } = useToast();
-  const postType = detectPostType(post.content);
+  
+  // Category mapping for display
+  const CATEGORY_INFO: Record<string, { icon: string; color: string; label: string; type: string; badgeColor: string }> = {
+    GENERAL: { icon: "💬", color: "#6B7280", label: "General", type: "general", badgeColor: "bg-gray-100 text-gray-800 border-gray-200" },
+    HELP: { icon: "🆘", color: "#F59E0B", label: "Help", type: "help", badgeColor: "bg-amber-100 text-amber-800 border-amber-200" },
+    LOST_FOUND: { icon: "🔍", color: "#EC4899", label: "Lost & Found", type: "lost", badgeColor: "bg-pink-100 text-pink-800 border-pink-200" },
+    EVENT: { icon: "📅", color: "#6366F1", label: "Event", type: "event", badgeColor: "bg-indigo-100 text-indigo-800 border-indigo-200" },
+    MARKETPLACE: { icon: "🛒", color: "#10B981", label: "Marketplace", type: "marketplace", badgeColor: "bg-green-100 text-green-800 border-green-200" },
+    ANNOUNCEMENT: { icon: "🔔", color: "#F59E0B", label: "Announcement", type: "general", badgeColor: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+    ALERT: { icon: "⚠️", color: "#EF4444", label: "Alert", type: "general", badgeColor: "bg-red-100 text-red-800 border-red-200" },
+    DISCUSSION: { icon: "💭", color: "#8B5CF6", label: "Discussion", type: "general", badgeColor: "bg-purple-100 text-purple-800 border-purple-200" },
+  };
+  
+  // Use explicit category if available, otherwise fall back to auto-detection
+  const getPostType = () => {
+    if (post.category && CATEGORY_INFO[post.category]) {
+      return CATEGORY_INFO[post.category];
+    }
+    // Fallback to content-based detection
+    return detectPostType(post.content);
+  };
+  
+  const postType = getPostType();
   const timeAgo = formatTimeAgo(post.created_at);
   const isNew =
     new Date().getTime() - new Date(post.created_at).getTime() < 3600000; // Less than 1 hour
@@ -1300,7 +1367,7 @@ function PostCard({
     lost: "bg-pink-100 text-pink-800 border-pink-200",
     event: "bg-indigo-100 text-indigo-800 border-indigo-200",
     marketplace: "bg-green-100 text-green-800 border-green-200",
-    general: "",
+    general: "bg-gray-100 text-gray-800 border-gray-200",
   };
 
   const IconComponent = postType.icon;
@@ -1327,19 +1394,42 @@ function PostCard({
             )}
           </div>
           <div className="flex-1 min-w-0">
+            {/* Compound Name - Prominently displayed */}
+            {post.compound_name && (
+              <div className="mb-2 flex items-center gap-1.5">
+                <Home className="w-3 h-3 text-gray-500" />
+                <span className="text-xs font-medium text-gray-600">
+                  {post.compound_name}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="font-semibold text-base text-gray-900">
                   {post.author_name}
                 </div>
-                {postType.badge && (
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                      badgeColors[postType.type]
-                    }`}
-                  >
-                    <IconComponent className="w-3 h-3 inline mr-1" />
-                    {postType.badge}
+                {/* Verified Resident Badge */}
+                {post.author_status === "APPROVED" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
+                    <CheckCircle className="w-3 h-3" />
+                    <span className="text-xs font-semibold">Verified</span>
+                  </span>
+                )}
+                {/* Category Badge - Always show */}
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                    post.category && CATEGORY_INFO[post.category] 
+                      ? CATEGORY_INFO[post.category].badgeColor 
+                      : badgeColors[postType.type] || "bg-gray-100 text-gray-800 border-gray-200"
+                  }`}
+                >
+                  {postType.icon} {postType.label}
+                </span>
+                {/* Urgent Badge */}
+                {post.is_urgent && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
+                    <Bell className="w-3 h-3" />
+                    <span className="text-xs font-semibold">Urgent</span>
                   </span>
                 )}
               </div>
@@ -1444,7 +1534,14 @@ function PostCard({
                       </span>
                     </div>
                     <span className="font-semibold text-sm text-gray-900">
-                      {comment.author_name}
+                      <span className="font-semibold">{comment.author_name}</span>
+                      {/* Verified Resident Badge for Comments */}
+                      {comment.author_status === "APPROVED" && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
+                          <CheckCircle className="w-2.5 h-2.5" />
+                          <span className="text-[10px] font-semibold">Verified</span>
+                        </span>
+                      )}
                     </span>
                     <span className="text-xs text-gray-500">
                       {formatTimeAgo(comment.created_at)}

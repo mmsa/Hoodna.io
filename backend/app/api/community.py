@@ -99,12 +99,19 @@ async def get_posts(
     # Convert to response format
     result = []
     for post in posts:
+        # Get compound name for context
+        compound_name = post.compound.name if post.compound else None
+        
         result.append(PostResponse(
             id=post.id,
             compound_id=post.compound_id,
+            compound_name=compound_name,
             author_id=post.author_id,
             author_name=post.author.name,
+            author_status=post.author.status.value if post.author.status else None,  # Include verification status
             content=post.content,
+            category=post.category.value if post.category else None,  # Include category
+            is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
             created_at=post.created_at,
             comments=[
                 CommentResponse(
@@ -112,6 +119,7 @@ async def get_posts(
                     post_id=c.post_id,
                     author_id=c.author_id,
                     author_name=c.author.name,
+                    author_status=c.author.status.value if c.author.status else None,  # Include verification status
                     content=c.content,
                     created_at=c.created_at,
                 )
@@ -146,12 +154,19 @@ async def get_feed(
     # Convert to response format
     result = []
     for post in posts:
+        # Get compound name for context
+        compound_name = post.compound.name if post.compound else None
+        
         result.append(PostResponse(
             id=post.id,
             compound_id=post.compound_id,
+            compound_name=compound_name,
             author_id=post.author_id,
             author_name=post.author.name,
+            author_status=post.author.status.value if post.author.status else None,  # Include verification status
             content=post.content,
+            category=post.category.value if post.category else None,  # Include category
+            is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
             created_at=post.created_at,
             comments=[
                 CommentResponse(
@@ -159,6 +174,7 @@ async def get_feed(
                     post_id=c.post_id,
                     author_id=c.author_id,
                     author_name=c.author.name,
+                    author_status=c.author.status.value if c.author.status else None,  # Include verification status
                     content=c.content,
                     created_at=c.created_at,
                 )
@@ -189,12 +205,19 @@ async def create_post_endpoint(
         post_data=post_data,
     )
     
+    # Refresh to get relationships
+    await db.refresh(post, ["compound", "author"])
+    
     return PostResponse(
         id=post.id,
         compound_id=post.compound_id,
+        compound_name=post.compound.name if post.compound else None,
         author_id=post.author_id,
         author_name=current_user.name,
+        author_status=current_user.status.value if current_user.status else None,
         content=post.content,
+        category=post.category.value if post.category else None,
+        is_urgent=post.is_urgent if post.is_urgent else False,
         created_at=post.created_at,
         comments=[],
     )
@@ -215,11 +238,15 @@ async def create_comment_endpoint(
         comment_data=comment_data,
     )
     
+    # Refresh to get author relationship
+    await db.refresh(comment, ["author"])
+    
     return CommentResponse(
         id=comment.id,
         post_id=comment.post_id,
         author_id=comment.author_id,
         author_name=current_user.name,
+        author_status=current_user.status.value if current_user.status else None,
         content=comment.content,
         created_at=comment.created_at,
     )
@@ -249,12 +276,19 @@ async def get_announcements(
     # Convert to response format
     result = []
     for post in posts:
+        # Get compound name for context
+        compound_name = post.compound.name if post.compound else None
+        
         result.append(PostResponse(
             id=post.id,
             compound_id=post.compound_id,
+            compound_name=compound_name,
             author_id=post.author_id,
             author_name=post.author.name,
+            author_status=post.author.status.value if post.author.status else None,  # Include verification status
             content=post.content,
+            category=post.category.value if post.category else None,  # Include category
+            is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
             created_at=post.created_at,
             comments=[
                 CommentResponse(
@@ -262,6 +296,7 @@ async def get_announcements(
                     post_id=c.post_id,
                     author_id=c.author_id,
                     author_name=c.author.name,
+                    author_status=c.author.status.value if c.author.status else None,  # Include verification status
                     content=c.content,
                     created_at=c.created_at,
                 )

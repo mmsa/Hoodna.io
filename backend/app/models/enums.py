@@ -75,3 +75,15 @@ class NotificationType(str, Enum):
     LISTING_SAVED = "LISTING_SAVED"
     MENTION = "MENTION"
 
+
+class PostCategory(str, Enum):
+    """Post categories for better organization and structure."""
+    GENERAL = "GENERAL"
+    HELP = "HELP"  # Asking for help/assistance
+    LOST_FOUND = "LOST_FOUND"  # Lost and found items
+    EVENT = "EVENT"  # Community events
+    MARKETPLACE = "MARKETPLACE"  # Buy/sell items
+    ANNOUNCEMENT = "ANNOUNCEMENT"  # Official announcements
+    ALERT = "ALERT"  # Urgent alerts
+    DISCUSSION = "DISCUSSION"  # General discussions
+

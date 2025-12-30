@@ -72,7 +72,15 @@ export default function CompoundSelectPage() {
       return
     }
     setError('')
-    updateUserMutation.mutate(selectedCompoundId)
+    // Request access first, then update compound
+    api.post('/api/auth/me/request-compound-access', { compound_id: selectedCompoundId })
+      .then(() => {
+        updateUserMutation.mutate(selectedCompoundId)
+      })
+      .catch((err: any) => {
+        const errorMessage = err.response?.data?.detail || 'Failed to request compound access'
+        setError(errorMessage)
+      })
   }
 
   if (isLoading) {
@@ -128,7 +136,17 @@ export default function CompoundSelectPage() {
               disabled={!selectedCompoundId || updateUserMutation.isPending}
               size="lg"
             >
-              {updateUserMutation.isPending ? 'Saving...' : 'Continue'}
+              {updateUserMutation.isPending ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Setting up...
+                </>
+              ) : (
+                <>
+                  Continue
+                  <span className="ml-2">→</span>
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>

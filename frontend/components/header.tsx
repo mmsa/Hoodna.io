@@ -139,6 +139,15 @@ export function Header() {
           {/* Desktop Navigation */}
           {mounted && isAuthenticated && (
             <nav className="hidden md:flex items-center gap-1">
+              <Link href="/search">
+                <Button
+                  variant={isActive('/search') ? 'default' : 'ghost'}
+                  className={isActive('/search') ? 'bg-blue-50 text-blue-700' : ''}
+                  size="icon"
+                >
+                  <Search className="w-4 h-4" />
+                </Button>
+              </Link>
               <Link href="/feed">
                 <Button
                   variant={isActive('/feed') ? 'default' : 'ghost'}
@@ -155,6 +164,15 @@ export function Header() {
                 >
                   <ShoppingBag className="w-4 h-4 mr-2" />
                   Marketplace
+                </Button>
+              </Link>
+              <Link href="/services">
+                <Button
+                  variant={isActive('/services') ? 'default' : 'ghost'}
+                  className={isActive('/services') ? 'bg-green-50 text-green-700' : ''}
+                >
+                  <Wrench className="w-4 h-4 mr-2" />
+                  Services
                 </Button>
               </Link>
               <Link href="/marketplace/new">
@@ -368,6 +386,15 @@ export function Header() {
               >
                 <Home className="w-4 h-4 mr-2" />
                 Feed
+              </Button>
+            </Link>
+            <Link href="/services" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                variant={isActive('/services') ? 'default' : 'ghost'}
+                className="w-full justify-start"
+              >
+                <Wrench className="w-4 h-4 mr-2" />
+                Services
               </Button>
             </Link>
             <Link href="/marketplace" onClick={() => setMobileMenuOpen(false)}>

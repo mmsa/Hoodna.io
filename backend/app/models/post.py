@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
+from app.models.enums import PostCategory
 
 
 class Post(Base):
@@ -11,6 +12,8 @@ class Post(Base):
     compound_id = Column(Integer, ForeignKey("compounds.id"), nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
+    category = Column(SQLEnum(PostCategory), default=PostCategory.GENERAL, nullable=False, index=True)  # Post category for structure
+    is_urgent = Column(Boolean, default=False, nullable=False, index=True)  # Urgent flag for alerts section
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     # deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete - uncomment after migration
 

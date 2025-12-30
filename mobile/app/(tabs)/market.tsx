@@ -12,7 +12,7 @@ const CATEGORIES = [
   { value: "PROPERTY", label: "Property", icon: "🏠" },
   { value: "CAR", label: "Cars", icon: "🚗" },
   { value: "ITEM", label: "Items", icon: "📦" },
-  { value: "SERVICE", label: "Services", icon: "🔧" },
+  // SERVICE removed - now has dedicated Services tab
 ];
 
 const INTENTS = [
@@ -178,7 +178,9 @@ export default function MarketScreen() {
       params.sort_by = sortBy;
 
       const data = await apiClient.getListings(params);
-      setListings(data);
+      // Filter out SERVICES - they have their own tab now
+      const filteredData = (data || []).filter((listing: Listing) => listing.category !== "SERVICE");
+      setListings(filteredData);
     } catch (error) {
       console.error("Failed to load listings:", error);
     } finally {

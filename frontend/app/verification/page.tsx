@@ -332,21 +332,8 @@ export default function VerificationPage() {
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-blue-900 mb-2">
-                  Important: Your document must include:
-                </p>
-                <ul className="text-sm text-blue-800 space-y-1.5">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    <span><strong>Your name</strong> (must match your account name - flexible matching for Arabic/English variations)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    <span><strong>Compound name "{compound?.name || 'your compound'}"</strong> clearly visible in the document</span>
-                  </li>
-                </ul>
-                <p className="text-xs text-blue-700 mt-3 pt-3 border-t border-blue-200">
-                  <strong>Choose one:</strong> Upload either your National ID (if it shows the compound address) OR your Contract/Proof of Residency (if it shows your name and compound name).
+                <p className="text-sm text-blue-900 text-center">
+                  Upload <strong>National ID</strong> or <strong>Contract</strong> showing your name and compound name
                 </p>
               </div>
             </div>

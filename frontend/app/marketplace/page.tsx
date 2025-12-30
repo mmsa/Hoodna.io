@@ -55,7 +55,7 @@ const CATEGORIES = [
   { value: 'PROPERTY', label: 'Property', icon: HomeIcon },
   { value: 'CAR', label: 'Cars', icon: Car },
   { value: 'ITEM', label: 'Items', icon: Package },
-  { value: 'SERVICE', label: 'Services', icon: Wrench },
+  // SERVICE removed - now has dedicated Services page
 ]
 
 const INTENTS = [
@@ -313,7 +313,9 @@ export default function MarketplacePage() {
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
       const response = await api.get(`/api/listings?${queryString}`)
-      return response.data
+      // Filter out SERVICES - they have their own page now
+      const data = response.data || []
+      return data.filter((listing: Listing) => listing.category !== 'SERVICE')
     },
   })
 
@@ -461,22 +463,24 @@ export default function MarketplacePage() {
               </CardContent>
             </Card>
 
-            {/* Services Card */}
-            <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-white hover:shadow-lg transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Services</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {listings?.filter(l => l.category === 'SERVICE').length || 0}
-                    </p>
+            {/* Services Card - Links to Services page */}
+            <Link href="/services">
+              <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-white hover:shadow-lg transition-all cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Services</p>
+                      <p className="text-lg font-bold text-green-600 flex items-center gap-2">
+                        View Services <ArrowRight className="w-4 h-4" />
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <Wrench className="w-6 h-6 text-green-600" />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <Wrench className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </div>
 

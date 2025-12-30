@@ -6,8 +6,20 @@ import { PostCreate } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+const POST_CATEGORIES = [
+  { value: "GENERAL", label: "General", icon: "💬", color: "#6B7280" },
+  { value: "HELP", label: "Help", icon: "🆘", color: "#F59E0B" },
+  { value: "LOST_FOUND", label: "Lost & Found", icon: "🔍", color: "#EC4899" },
+  { value: "EVENT", label: "Event", icon: "📅", color: "#6366F1" },
+  { value: "MARKETPLACE", label: "Marketplace", icon: "🛒", color: "#10B981" },
+  { value: "DISCUSSION", label: "Discussion", icon: "💭", color: "#8B5CF6" },
+  { value: "ALERT", label: "Alert", icon: "⚠️", color: "#EF4444" },
+];
+
 export default function CreatePostScreen() {
   const [content, setContent] = useState("");
+  const [category, setCategory] = useState<string>("GENERAL");
+  const [isUrgent, setIsUrgent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { apiClient, user } = useAuth();
   const router = useRouter();
@@ -15,6 +27,11 @@ export default function CreatePostScreen() {
   async function handleSubmit() {
     if (!content.trim()) {
       Alert.alert("Error", "Please enter some content");
+      return;
+    }
+
+    if (!category) {
+      Alert.alert("Error", "Please select a category");
       return;
     }
 
@@ -27,7 +44,8 @@ export default function CreatePostScreen() {
     try {
       const data: PostCreate = {
         content: content.trim(),
-        compound_id: user.compound_id,
+        category: category as any,
+        is_urgent: isUrgent || category === "ALERT", // Auto-set urgent for ALERT category
       };
 
       await apiClient.createPost(data);
@@ -70,6 +88,95 @@ export default function CreatePostScreen() {
           <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
             What's on your mind?
           </Text>
+          
+          {/* Category Selection - REQUIRED */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: "#374151", marginBottom: 12 }}>
+              Category <Text style={{ color: "#EF4444" }}>*</Text>
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {POST_CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat.value}
+                  onPress={() => {
+                    setCategory(cat.value);
+                    if (cat.value === "ALERT") {
+                      setIsUrgent(true); // Auto-set urgent for alerts
+                    }
+                  }}
+                  style={{
+                    backgroundColor: category === cat.value ? cat.color : "#F3F4F6",
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 20,
+                    borderWidth: 2,
+                    borderColor: category === cat.value ? cat.color : "#E5E7EB",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: category === cat.value ? "#FFFFFF" : "#374151",
+                    }}
+                  >
+                    {cat.icon} {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Urgent Toggle - Only show if not ALERT category */}
+          {category !== "ALERT" && (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                backgroundColor: "#FFFFFF",
+                padding: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                marginBottom: 16,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>
+                    Mark as Urgent
+                  </Text>
+                  <Text style={{ fontSize: 12, color: "#6B7280" }}>
+                    This post will appear in the Alerts section
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsUrgent(!isUrgent)}
+                style={{
+                  width: 48,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: isUrgent ? "#EF4444" : "#D1D5DB",
+                  justifyContent: "center",
+                  paddingHorizontal: 2,
+                }}
+              >
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: "#FFFFFF",
+                    alignSelf: isUrgent ? "flex-end" : "flex-start",
+                  }}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
           <TextInput
             style={{
               backgroundColor: "#FFFFFF",

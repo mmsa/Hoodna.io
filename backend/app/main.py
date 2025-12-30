@@ -22,6 +22,7 @@ from app.api import (
     saved_listings,
     messages,
     notifications,
+    search,
 )
 from app.services.storage import (
     use_local_storage,
@@ -71,6 +72,7 @@ app.include_router(promotions.router, prefix="/api/promotions", tags=["promotion
 app.include_router(saved_listings.router, prefix="/api", tags=["saved-listings"])
 app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(search.router, prefix="/api/search", tags=["search"])
 from app.api import reports
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 from app.api import moderator
