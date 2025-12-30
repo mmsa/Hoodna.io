@@ -296,21 +296,8 @@ export default function VerificationScreen() {
               borderColor: "#93C5FD",
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#1E3A8A", marginBottom: 8 }}>
-              Important: Your document must include:
-            </Text>
-            <View style={{ marginBottom: 4 }}>
-              <Text style={{ fontSize: 13, color: "#1E40AF" }}>
-                ✓ <Text style={{ fontWeight: "600" }}>Your name</Text> (must match your account)
-              </Text>
-            </View>
-            <View style={{ marginBottom: 4 }}>
-              <Text style={{ fontSize: 13, color: "#1E40AF" }}>
-                ✓ <Text style={{ fontWeight: "600" }}>Compound name "{user?.compound_name || 'your compound'}"</Text> clearly visible
-              </Text>
-            </View>
-            <Text style={{ fontSize: 12, color: "#1E3A8A", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#93C5FD" }}>
-              <Text style={{ fontWeight: "600" }}>Choose one:</Text> Upload either your National ID (if it shows the compound address) OR your Contract/Proof of Residency (if it shows your name and compound name).
+            <Text style={{ fontSize: 14, color: "#1E40AF", textAlign: "center" }}>
+              Upload <Text style={{ fontWeight: "600" }}>National ID</Text> or <Text style={{ fontWeight: "600" }}>Contract</Text> showing your name and compound name
             </Text>
           </View>
 

@@ -486,11 +486,23 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       // Refresh the page to update all compound-specific data
       router.refresh()
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to switch compound",
-        variant: "destructive",
-      })
+      const errorMessage = error.response?.data?.detail || "Failed to switch compound"
+      
+      // If user is not verified for this compound, redirect to verification
+      if (errorMessage.includes("not verified") || error.response?.status === 403) {
+        toast({
+          title: "Verification Required",
+          description: "You need to submit verification documents for this compound.",
+          variant: "destructive",
+        })
+        router.push('/verification')
+      } else {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      }
     }
   }
 

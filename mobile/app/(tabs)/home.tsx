@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompound } from "@/contexts/CompoundContext";
 import { Post } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
+import { Ionicons } from "@expo/vector-icons";
 
 const POST_LABELS = [
   { value: "", label: "All Posts", icon: "📋" },
@@ -580,22 +582,37 @@ export default function HomeScreen() {
   const [newComments, setNewComments] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const { user, apiClient } = useAuth();
+  const { activeCompoundId } = useCompound();
   const router = useRouter();
 
+  // Refetch posts when compound changes
   useEffect(() => {
-    loadPosts();
-    loadAnnouncements();
-  }, [user?.compound_id]);
+    if (activeCompoundId) {
+      loadPosts();
+      loadAnnouncements();
+    }
+  }, [activeCompoundId]);
 
   async function loadPosts() {
-    if (!user?.compound_id) return;
+    // Use activeCompoundId from context (single source of truth)
+    const compoundId = activeCompoundId || user?.compound_id;
+    
+    if (!compoundId) {
+      setLoading(false);
+      setRefreshing(false);
+      setAllPosts([]);
+      return;
+    }
 
     try {
-      const data = await apiClient.getPosts(user.compound_id);
-      setAllPosts(data);
+      const data = await apiClient.getPosts(compoundId);
+      setAllPosts(data || []);
       // Filtering is handled by useMemo hook below
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load posts:", error);
+      // Set empty array on error to prevent stale data
+      setAllPosts([]);
+      // Don't show alert here - let the empty state handle it
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -603,13 +620,20 @@ export default function HomeScreen() {
   }
 
   async function loadAnnouncements() {
-    if (!user?.compound_id) return;
+    // Use activeCompoundId from context (single source of truth)
+    const compoundId = activeCompoundId || user?.compound_id;
+    
+    if (!compoundId) {
+      setAnnouncements([]);
+      return;
+    }
 
     try {
       const data = await apiClient.getAnnouncements(5);
-      setAnnouncements(data);
-    } catch (error) {
+      setAnnouncements(data || []);
+    } catch (error: any) {
       console.error("Failed to load announcements:", error);
+      setAnnouncements([]);
     }
   }
 
@@ -715,7 +739,8 @@ export default function HomeScreen() {
     );
   }
 
-  if (loading && posts.length === 0) {
+  // Show loading state
+  if (loading && posts.length === 0 && allPosts.length === 0) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
         <View style={{ alignItems: "center" }}>
@@ -723,6 +748,53 @@ export default function HomeScreen() {
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
             Loading your community... ✨
           </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show empty state if no compound selected
+  if (!activeCompoundId && !user?.compound_id && !loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+        <Header showLogo={true} />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }}>
+          <View
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              backgroundColor: colors.primaryLight + "30",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 24,
+            }}
+          >
+            <Text style={{ fontSize: 64 }}>🏠</Text>
+          </View>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
+            Select Your Compound
+          </Text>
+          <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24, marginBottom: 32 }}>
+            To see posts from your community, please select a compound first.
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onPress={() => router.push("/onboarding/compound-select")}
+          >
+            <Ionicons name="home" size={20} color="#FFFFFF" />
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
+              Select Compound
+            </Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

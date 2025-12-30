@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompound } from "@/contexts/CompoundContext";
 import { Compound } from "@hoodna/shared";
 
 interface HeaderProps {
@@ -26,19 +27,21 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 export function Header({ title, showLogo = true, showBackButton = false, rightAction }: HeaderProps) {
   const router = useRouter();
   const { user, apiClient, refreshUser } = useAuth();
+  const { activeCompoundId, isSwitching, switchCompound } = useCompound();
   const [compound, setCompound] = useState<Compound | null>(null);
   const [showCompoundSwitcher, setShowCompoundSwitcher] = useState(false);
   const [availableCompounds, setAvailableCompounds] = useState<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>([]);
   const [loadingCompounds, setLoadingCompounds] = useState(false);
   
-  // Only try to load compound if user is authenticated and has compound_id
-  const shouldLoadCompound = user && user.compound_id && apiClient;
+  // Use activeCompoundId from context (single source of truth)
+  const compoundIdToLoad = activeCompoundId || user?.compound_id;
+  const shouldLoadCompound = user && compoundIdToLoad && apiClient;
 
   useEffect(() => {
     if (shouldLoadCompound) {
       // Check cache first
       const now = Date.now();
-      if (compoundCache && compoundCache.id === user.compound_id && (now - cacheTimestamp) < CACHE_DURATION) {
+      if (compoundCache && compoundCache.id === compoundIdToLoad && (now - cacheTimestamp) < CACHE_DURATION) {
         setCompound(compoundCache as Compound);
       } else {
         // Load in background, don't block UI
@@ -49,16 +52,16 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
       setCompound(null);
       compoundCache = null;
     }
-  }, [user?.compound_id]); // Removed !!apiClient from dependencies to prevent unnecessary re-renders
+  }, [compoundIdToLoad]); // Watch activeCompoundId from context
 
   async function loadCompound() {
-    if (!shouldLoadCompound || !apiClient || !user?.compound_id) return;
+    if (!shouldLoadCompound || !apiClient || !compoundIdToLoad) return;
     
     // Load in background - don't block UI rendering
     // Use getUserCompounds which is optimized and includes current compound
     try {
       const userCompounds = await apiClient.getUserCompounds();
-      const foundCompound = userCompounds.find((c) => c.id === user.compound_id);
+      const foundCompound = userCompounds.find((c) => c.id === compoundIdToLoad);
       if (foundCompound) {
         // Convert to Compound format
         const compoundData = {
@@ -97,14 +100,17 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
   }
 
   async function handleSwitchCompound(compoundId: number) {
-    if (!apiClient) return;
+    if (isSwitching) return; // Prevent multiple switches
+    
     try {
-      await apiClient.switchCompound(compoundId);
-      await refreshUser();
       setShowCompoundSwitcher(false);
+      // Use compound context's switchCompound which handles persistence and invalidation
+      await switchCompound(compoundId);
       // Reload compound to show new one
       loadCompound();
-    } catch (error) {
+    } catch (error: any) {
+      // Error handling is done in CompoundContext
+      // Just log here for debugging
       console.error("Failed to switch compound:", error);
     }
   }
