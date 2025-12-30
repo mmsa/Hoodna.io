@@ -29,6 +29,17 @@ class ServiceProviderProfile(Base):
     rejection_reason = Column(Text, nullable=True)
     suspension_reason = Column(Text, nullable=True)
     
+    # Listing limits (admin controlled)
+    max_listings = Column(Integer, default=3, nullable=True)  # Maximum number of service listings allowed
+    
+    # Change requests (provider can request changes to category/compounds)
+    category_change_request = Column(Integer, ForeignKey("service_categories.id"), nullable=True)  # Requested category_id
+    compounds_change_request = Column(ARRAY(Integer), nullable=True)  # Requested compound IDs
+    change_request_reason = Column(Text, nullable=True)  # Reason for the change request
+    change_request_status = Column(String, nullable=True)  # PENDING, APPROVED, REJECTED
+    change_request_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    change_request_reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

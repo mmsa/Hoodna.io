@@ -321,20 +321,6 @@ export default function ProviderStatusScreen() {
                   <Text style={{ fontSize: 14, color: "#10B981", marginTop: 12, fontWeight: "600" }}>
                     ✓ Your provider profile has been approved! You can now provide services.
                   </Text>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: colors.primary,
-                      borderRadius: 12,
-                      padding: 16,
-                      alignItems: "center",
-                      marginTop: 16,
-                    }}
-                    onPress={() => router.replace("/(tabs)/services")}
-                  >
-                    <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-                      Go to Services
-                    </Text>
-                  </TouchableOpacity>
                 </>
               ) : profile.provider_status === "REJECTED" ? (
                 <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 12 }}>
@@ -362,6 +348,40 @@ export default function ProviderStatusScreen() {
                   {profile.provider_status === "REJECTED" ? "Update Profile" : profile.rejection_reason?.includes("More details requested") ? "Provide More Details" : "Complete Profile"}
                 </Text>
               </TouchableOpacity>
+            )}
+            {profile.provider_status === "APPROVED" && (
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#fff",
+                    borderWidth: 2,
+                    borderColor: colors.primary,
+                    borderRadius: 12,
+                    padding: 16,
+                    alignItems: "center",
+                  }}
+                  onPress={() => router.push("/onboarding/provider")}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600" }}>
+                    Edit Profile
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.primary,
+                    borderRadius: 12,
+                    padding: 16,
+                    alignItems: "center",
+                  }}
+                  onPress={() => router.push("/(tabs)/services")}
+                >
+                  <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+                    My Services
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
           </>
         ) : (

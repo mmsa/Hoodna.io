@@ -283,9 +283,14 @@ export default function ProviderStatusPage() {
                 </Button>
               )}
               {status === 'APPROVED' && (
-                <Button asChild className="flex-1">
-                  <Link href="/services">Go to Services</Link>
-                </Button>
+                <>
+                  <Button asChild variant="outline" className="flex-1">
+                    <Link href="/onboarding/provider">Edit Profile</Link>
+                  </Button>
+                  <Button asChild className="flex-1">
+                    <Link href="/services">Go to Services</Link>
+                  </Button>
+                </>
               )}
               {(status === 'SUBMITTED' || status === 'IN_REVIEW') && !profile.rejection_reason?.includes('More details requested') && (
                 <p className="text-sm text-gray-600 text-center w-full mt-4">

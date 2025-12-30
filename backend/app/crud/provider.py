@@ -60,17 +60,91 @@ async def update_provider_profile(
     user_id: int,
     profile_data: ServiceProviderProfileUpdate
 ) -> Optional[ServiceProviderProfile]:
-    """Update provider profile (only if DRAFT status)."""
+    """Update provider profile (allowed in DRAFT or APPROVED status, not SUSPENDED).
+    
+    Note: Providers cannot directly update category_id or service_area_compound_ids.
+    They must request changes through the change request endpoint.
+    """
     profile = await get_provider_profile(db, user_id)
     if not profile:
         return None
     
-    if profile.provider_status != ProviderStatus.DRAFT:
-        raise ValueError("Can only update profile in DRAFT status")
+    # Allow updates in DRAFT or APPROVED status, but not SUSPENDED
+    if profile.provider_status == ProviderStatus.SUSPENDED:
+        raise ValueError("Cannot update profile while suspended")
+    
+    if profile.provider_status not in [ProviderStatus.DRAFT, ProviderStatus.APPROVED]:
+        raise ValueError("Can only update profile in DRAFT or APPROVED status")
     
     update_data = profile_data.model_dump(exclude_unset=True)
+    
+    # Remove restricted fields - providers cannot update these directly
+    restricted_fields = {'category_id', 'service_area_compound_ids'}
+    if restricted_fields.intersection(update_data.keys()):
+        raise ValueError("Cannot update category_id or service_area_compound_ids directly. Please use the change request endpoint.")
+    
     for field, value in update_data.items():
         setattr(profile, field, value)
+    
+    # If updating from APPROVED status, reset to DRAFT to require re-approval
+    # (unless admin explicitly allows updates without re-approval)
+    # For now, we'll allow updates without changing status
+    # profile.updated_at will be automatically updated by SQLAlchemy
+    
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+async def request_category_compounds_change(
+    db: AsyncSession,
+    user_id: int,
+    category_id: int | None = None,
+    service_area_compound_ids: list[int] | None = None,
+    reason: str
+) -> ServiceProviderProfile:
+    """Request a change to category or service area compounds.
+    
+    Providers can request changes to their category_id or service_area_compound_ids.
+    These requests must be approved by an admin.
+    """
+    profile = await get_provider_profile(db, user_id)
+    if not profile:
+        raise ValueError("Provider profile not found")
+    
+    if profile.provider_status != ProviderStatus.APPROVED:
+        raise ValueError("Can only request changes when profile is APPROVED")
+    
+    # Check if there's already a pending request
+    if profile.change_request_status == "PENDING":
+        raise ValueError("You already have a pending change request. Please wait for admin review.")
+    
+    # Validate that at least one field is being changed
+    if category_id is None and service_area_compound_ids is None:
+        raise ValueError("Must request change to at least category_id or service_area_compound_ids")
+    
+    # Validate that something is actually changing
+    if category_id is not None and category_id == profile.category_id:
+        if service_area_compound_ids is None or set(service_area_compound_ids) == set(profile.service_area_compound_ids or []):
+            raise ValueError("No changes requested")
+    
+    if service_area_compound_ids is not None:
+        if not service_area_compound_ids:
+            raise ValueError("service_area_compound_ids cannot be empty")
+        if set(service_area_compound_ids) == set(profile.service_area_compound_ids or []):
+            if category_id is None or category_id == profile.category_id:
+                raise ValueError("No changes requested")
+    
+    # Set the change request fields
+    if category_id is not None:
+        profile.category_change_request = category_id
+    if service_area_compound_ids is not None:
+        profile.compounds_change_request = service_area_compound_ids
+    
+    profile.change_request_reason = reason
+    profile.change_request_status = "PENDING"
+    profile.change_request_reviewed_at = None
+    profile.change_request_reviewed_by = None
     
     await db.commit()
     await db.refresh(profile)

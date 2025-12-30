@@ -26,10 +26,22 @@ api.interceptors.response.use(
     const originalRequest = error.config
 
     // Handle compound selection requirement
+    // BUT: Don't redirect service providers or moderators (they don't need compound_id)
     if (error.response?.status === 400 && error.response?.data?.detail?.includes('compound')) {
       // Only redirect if we're not already on the compound selection page
+      // AND if user is not on service provider or moderator pages
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/onboarding/compound-select')) {
-        window.location.href = '/onboarding/compound-select'
+        const pathname = window.location.pathname
+        // Don't redirect if user is on service provider or moderator pages
+        const isServiceProviderPage = pathname.startsWith('/provider') || 
+                                      pathname.startsWith('/services') ||
+                                      pathname.startsWith('/onboarding/provider')
+        const isModeratorPage = pathname.startsWith('/moderator') ||
+                                pathname.startsWith('/onboarding/moderator')
+        
+        if (!isServiceProviderPage && !isModeratorPage) {
+          window.location.href = '/onboarding/compound-select'
+        }
         return Promise.reject(error)
       }
     }

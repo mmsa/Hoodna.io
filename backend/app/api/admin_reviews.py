@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import logging
 
 router = APIRouter()
@@ -30,6 +30,10 @@ class SuspendRequest(BaseModel):
 
 class RequestMoreDetailsRequest(BaseModel):
     reason: str  # Required reason for requesting more details
+
+
+class UpdateMaxListingsRequest(BaseModel):
+    max_listings: int = Field(..., ge=1, le=100, description="Maximum number of service listings allowed (1-100)")
 
 
 # Provider Review Endpoints
@@ -200,6 +204,143 @@ async def suspend_provider(
         profile.user_name = profile.user.name
     # Access updated_at while still in async context to ensure it's loaded
     _ = profile.updated_at
+    return profile
+
+
+@router.patch("/providers/{provider_id}/max-listings", response_model=ServiceProviderProfileResponse)
+async def update_provider_max_listings(
+    provider_id: int,
+    request: UpdateMaxListingsRequest,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the maximum number of listings allowed for a provider."""
+    profile = await db.get(ServiceProviderProfile, provider_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider profile not found"
+        )
+    
+    profile.max_listings = request.max_listings
+    await db.commit()
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
+    return profile
+
+
+@router.post("/providers/{provider_id}/change-request/approve", response_model=ServiceProviderProfileResponse)
+async def approve_provider_change_request(
+    provider_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Approve a provider's change request for category or compounds."""
+    profile = await db.get(ServiceProviderProfile, provider_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider profile not found"
+        )
+    
+    if profile.change_request_status != "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No pending change request found (status: {profile.change_request_status})"
+        )
+    
+    # Apply the changes
+    if profile.category_change_request is not None:
+        profile.category_id = profile.category_change_request
+    if profile.compounds_change_request is not None:
+        profile.service_area_compound_ids = profile.compounds_change_request
+    
+    # Update change request status
+    profile.change_request_status = "APPROVED"
+    profile.change_request_reviewed_at = datetime.utcnow()
+    profile.change_request_reviewed_by = current_user.id
+    
+    # Clear the request fields
+    profile.category_change_request = None
+    profile.compounds_change_request = None
+    
+    await db.commit()
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
+    _ = profile.updated_at
+    
+    # Send notification to provider
+    from app.services.notifications import create_notification
+    from app.models.notification import NotificationType
+    from app.schemas.notification import NotificationCreate
+    await create_notification(
+        db=db,
+        notification_data=NotificationCreate(
+            user_id=profile.user_id,
+            type=NotificationType.VERIFICATION_APPROVED,
+            title="Change Request Approved",
+            message="Your request to change category or service areas has been approved.",
+            data={"provider_id": profile.id}
+        )
+    )
+    
+    return profile
+
+
+@router.post("/providers/{provider_id}/change-request/reject", response_model=ServiceProviderProfileResponse)
+async def reject_provider_change_request(
+    provider_id: int,
+    request: RequestMoreDetailsRequest,  # Reuse this schema for rejection reason
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject a provider's change request for category or compounds."""
+    profile = await db.get(ServiceProviderProfile, provider_id)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider profile not found"
+        )
+    
+    if profile.change_request_status != "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No pending change request found (status: {profile.change_request_status})"
+        )
+    
+    # Update change request status
+    profile.change_request_status = "REJECTED"
+    profile.change_request_reviewed_at = datetime.utcnow()
+    profile.change_request_reviewed_by = current_user.id
+    profile.change_request_reason = f"{profile.change_request_reason}\n\nRejection reason: {request.reason}"
+    
+    # Clear the request fields
+    profile.category_change_request = None
+    profile.compounds_change_request = None
+    
+    await db.commit()
+    await db.refresh(profile, ["documents", "user", "category"])
+    if profile.user:
+        profile.user_name = profile.user.name
+    _ = profile.updated_at
+    
+    # Send notification to provider
+    from app.services.notifications import create_notification
+    from app.models.notification import NotificationType
+    from app.schemas.notification import NotificationCreate
+    await create_notification(
+        db=db,
+        notification_data=NotificationCreate(
+            user_id=profile.user_id,
+            type=NotificationType.VERIFICATION_REJECTED,
+            title="Change Request Rejected",
+            message=f"Your request to change category or service areas has been rejected. Reason: {request.reason}",
+            data={"provider_id": profile.id}
+        )
+    )
+    
     return profile
 
 

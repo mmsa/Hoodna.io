@@ -100,12 +100,13 @@ export default function ServicesPage() {
 
   // Determine scope: use 'my' for service providers, 'compound' for residents
   const scope = useMemo(() => {
-    if (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED') {
+    // For service providers, always use 'my' scope (don't wait for profile status)
+    if (user?.role === 'SERVICE_PROVIDER') {
       console.log('[ServicesPage] Using scope=my for service provider')
       return 'my'
     }
     return 'compound'
-  }, [user?.role, providerProfile?.provider_status])
+  }, [user?.role])
 
   const queryParams = useMemo(() => {
     const params: Record<string, string> = {
@@ -127,6 +128,7 @@ export default function ServicesPage() {
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
       console.log('[ServicesPage] Fetching listings:', `/api/listings?${queryString}`)
+      console.log('[ServicesPage] User role:', user?.role, 'Scope:', scope)
       const response = await api.get(`/api/listings?${queryString}`)
       console.log('[ServicesPage] Listings fetched:', {
         count: response.data?.length || 0,
@@ -134,14 +136,24 @@ export default function ServicesPage() {
       })
       return response.data || []
     },
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
     enabled: (() => {
-      // For service providers, wait for provider profile to be loaded
-      if (user?.role === 'SERVICE_PROVIDER') {
-        const enabled = providerProfile !== undefined
+      // Always wait for user to be loaded to determine correct scope
+      if (!user) {
+        console.log('[ServicesPage] Query disabled: user not loaded yet')
+        return false
+      }
+      
+      // For service providers, use scope=my (don't wait for profile, scope=my works regardless)
+      if (user.role === 'SERVICE_PROVIDER') {
+        const enabled = true
         console.log('[ServicesPage] Query enabled check for SERVICE_PROVIDER:', {
           enabled,
+          hasUser: !!user,
           hasProfile: !!providerProfile,
-          profileStatus: providerProfile?.provider_status
+          profileStatus: providerProfile?.provider_status,
+          scope: 'my'
         })
         return enabled
       }
@@ -202,11 +214,11 @@ export default function ServicesPage() {
                   : 'Find verified service providers in your compound'}
               </p>
             </div>
-            {user?.can_create_listing && (
+            {(user?.can_create_listing || (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED')) && (
               <Link href="/marketplace/new?category=SERVICE">
                 <Button className="bg-green-600 hover:bg-green-700">
                   <Wrench className="w-4 h-4 mr-2" />
-                  Offer Service
+                  {user?.role === 'SERVICE_PROVIDER' ? 'Add New Service' : 'Offer Service'}
                 </Button>
               </Link>
             )}
@@ -337,11 +349,11 @@ export default function ServicesPage() {
                   ? 'No services match your search'
                   : 'Be the first to offer a service in your compound!'}
               </p>
-              {user?.can_create_listing && (
+              {(user?.can_create_listing || (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED')) && (
                 <Link href="/marketplace/new?category=SERVICE">
                   <Button className="bg-green-600 hover:bg-green-700">
                     <Wrench className="w-4 h-4 mr-2" />
-                    Offer Your First Service
+                    {user?.role === 'SERVICE_PROVIDER' ? 'Add Your First Service' : 'Offer Your First Service'}
                   </Button>
                 </Link>
               )}

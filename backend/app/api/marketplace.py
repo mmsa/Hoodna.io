@@ -254,39 +254,102 @@ async def create_listing_endpoint(
 ):
     """Create a new listing. User must be verified for the compound."""
     from app.core.verification_helpers import is_user_verified_for_compound
+    from app.models.enums import UserRole, ListingCategory
+    from app.crud.provider import get_provider_profile
+    from app.models.enums import ProviderStatus
+    from sqlalchemy import select, func
+    from app.models.listing import Listing
+    from app.models.enums import ListingStatus
     
-    # Ensure user has a compound selected
+    # Service provider restrictions
+    if current_user.role == UserRole.SERVICE_PROVIDER:
+        # Service providers can only create SERVICE listings
+        if listing_data.category != ListingCategory.SERVICE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Service providers can only create SERVICE listings"
+            )
+        
+        # Check provider profile and status
+        provider_profile = await get_provider_profile(db, current_user.id)
+        if not provider_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Provider profile not found"
+            )
+        
+        if provider_profile.provider_status != ProviderStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your provider profile must be approved to create service listings"
+            )
+        
+        # Check listing limit
+        max_listings = provider_profile.max_listings or 3  # Default to 3 if not set
+        existing_count_result = await db.execute(
+            select(func.count(Listing.id)).where(
+                Listing.owner_id == current_user.id,
+                Listing.category == ListingCategory.SERVICE,
+                Listing.status == ListingStatus.ACTIVE
+            )
+        )
+        existing_count = existing_count_result.scalar_one() or 0
+        
+        if existing_count >= max_listings:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You have reached your maximum limit of {max_listings} service listings. Please delete an existing listing or contact admin to increase your limit."
+            )
+        
+        logger.info(f"[MarketplaceAPI] Service provider {current_user.id} creating listing. Current: {existing_count}/{max_listings}")
+    
+    # Ensure user has a compound selected (for non-service providers or service providers with compound)
     if not current_user.compound_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must select a compound first"
-        )
+        # Service providers might not have compound_id, use first service area compound
+        if current_user.role == UserRole.SERVICE_PROVIDER:
+            provider_profile = provider_profile or await get_provider_profile(db, current_user.id)
+            if provider_profile and provider_profile.service_area_compound_ids:
+                # Use first compound from service area
+                compound_id_to_use = provider_profile.service_area_compound_ids[0]
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Service provider must have at least one service area compound configured"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User must select a compound first"
+            )
+    else:
+        compound_id_to_use = current_user.compound_id
     
-    # Check if user is verified for their compound
-    is_verified = await is_user_verified_for_compound(
-        db=db,
-        user=current_user,
-        compound_id=current_user.compound_id
-    )
-    
-    if not is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You must be verified for this compound to create listings. Please complete verification first."
+    # Check if user is verified for their compound (only for residents)
+    if current_user.role != UserRole.SERVICE_PROVIDER:
+        is_verified = await is_user_verified_for_compound(
+            db=db,
+            user=current_user,
+            compound_id=compound_id_to_use
         )
-    """Create a new listing."""
-    if current_user.compound_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User must be assigned to a compound",
-        )
+        
+        if not is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be verified for this compound to create listings. Please complete verification first."
+            )
 
     listing = await create_listing(
         db=db,
-        compound_id=current_user.compound_id,
+        compound_id=compound_id_to_use,
         owner_id=current_user.id,
         listing_data=listing_data,
     )
+    
+    # Auto-activate listings for service providers (they're already approved)
+    if current_user.role == UserRole.SERVICE_PROVIDER:
+        listing.status = ListingStatus.ACTIVE
+        await db.commit()
+        await db.refresh(listing)
 
     return ListingResponse(
         id=listing.id,

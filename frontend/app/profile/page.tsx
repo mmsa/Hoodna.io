@@ -3,13 +3,24 @@
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Mail, Phone, MapPin, Shield, Loader2, Home } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Shield, Loader2, Home, Building2, Briefcase, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
+
+  // Fetch provider profile if user is a service provider
+  const { data: providerProfile } = useQuery({
+    queryKey: ['provider-profile'],
+    queryFn: async () => {
+      const response = await api.get('/api/providers/me')
+      return response.data
+    },
+    enabled: !!user && user.role === 'SERVICE_PROVIDER',
+    retry: false,
+  })
 
   // Fetch compound details if user has compound_id
   const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({
@@ -21,7 +32,21 @@ export default function ProfilePage() {
       const foundCompound = compounds.find((c: any) => c.id === user.compound_id)
       return foundCompound || null
     },
-    enabled: !!user?.compound_id,
+    enabled: !!user?.compound_id && user?.role !== 'SERVICE_PROVIDER',
+  })
+
+  // Fetch service area compounds for service providers
+  const { data: serviceAreaCompounds } = useQuery<Array<{ id: number; name: string; area?: string }>>({
+    queryKey: ['service-area-compounds', providerProfile?.service_area_compound_ids],
+    queryFn: async () => {
+      if (!providerProfile?.service_area_compound_ids?.length) return []
+      const response = await api.get(`/api/compounds?limit=200`)
+      const compounds = response.data.items || []
+      return providerProfile.service_area_compound_ids
+        .map((id: number) => compounds.find((c: any) => c.id === id))
+        .filter(Boolean)
+    },
+    enabled: !!providerProfile?.service_area_compound_ids?.length,
   })
 
   if (isLoading) {
@@ -78,6 +103,14 @@ export default function ProfilePage() {
                     <Shield className="w-4 h-4 text-purple-600" />
                     <span className="text-sm text-purple-600 font-medium">{user.role}</span>
                   </div>
+                ) : user.role === 'SERVICE_PROVIDER' ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Briefcase className="w-4 h-4 text-green-600" />
+                    <span className="text-sm text-green-600 font-medium">Service Provider</span>
+                    {providerProfile?.provider_status === 'APPROVED' && (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -109,7 +142,8 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {compound && (
+              {/* Show compound for residents */}
+              {compound && user.role !== 'SERVICE_PROVIDER' && (
                 <div className="flex items-center gap-3">
                   <Home className="w-5 h-5 text-gray-400" />
                   <div>
@@ -121,15 +155,81 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
+
+              {/* Show provider-specific information */}
+              {user.role === 'SERVICE_PROVIDER' && providerProfile && (
+                <>
+                  {providerProfile.business_name && (
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Business Name</p>
+                        <p className="font-medium">{providerProfile.business_name}</p>
+                      </div>
+                    </div>
+                  )}
+                  {providerProfile.category && (
+                    <div className="flex items-center gap-3">
+                      <Briefcase className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Service Category</p>
+                        <p className="font-medium">{providerProfile.category.name}</p>
+                      </div>
+                    </div>
+                  )}
+                  {serviceAreaCompounds && serviceAreaCompounds.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Service Areas</p>
+                        <p className="font-medium">
+                          {serviceAreaCompounds.map(c => c.name).join(', ')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-500">Provider Status</p>
+                      <p className="font-medium capitalize">
+                        {providerProfile.provider_status?.toLowerCase().replace('_', ' ')}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="pt-4 border-t flex gap-2">
-              <Link href="/verification">
-                <Button variant="outline">Verification Status</Button>
-              </Link>
-              <Link href="/settings">
-                <Button>Edit Profile</Button>
-              </Link>
+            <div className="pt-4 border-t flex gap-2 flex-wrap">
+              {/* Show provider-specific buttons for service providers */}
+              {user.role === 'SERVICE_PROVIDER' ? (
+                <>
+                  <Link href="/provider/status">
+                    <Button variant="outline" className="flex-1 min-w-[140px]">
+                      Verification Status
+                    </Button>
+                  </Link>
+                  {(providerProfile?.provider_status === 'DRAFT' || 
+                    providerProfile?.provider_status === 'APPROVED' ||
+                    providerProfile?.provider_status === 'REJECTED') && (
+                    <Link href="/onboarding/provider">
+                      <Button className="flex-1 min-w-[140px]">
+                        {providerProfile?.provider_status === 'APPROVED' ? 'Edit Profile' : 'Update Profile'}
+                      </Button>
+                    </Link>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Link href="/verification">
+                    <Button variant="outline">Verification Status</Button>
+                  </Link>
+                  <Link href="/settings">
+                    <Button>Edit Profile</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

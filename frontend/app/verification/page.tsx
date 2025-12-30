@@ -50,11 +50,25 @@ export default function VerificationPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Check if compound is selected first - redirect if not
+  // BUT: Service providers and moderators don't need compound_id and shouldn't be on this page
   useEffect(() => {
     if (userLoading) return; // Wait for user data to load
     if (!user) return; // Wait for user to load
     
-    // First priority: Check if compound is selected
+    // Redirect service providers and moderators to their status pages (they don't use resident verification)
+    if (user.role === 'SERVICE_PROVIDER') {
+      console.log('[Verification] Redirecting SERVICE_PROVIDER to /provider/status');
+      router.replace('/provider/status');
+      return;
+    }
+    
+    if (user.role === 'COMPOUND_MOD') {
+      console.log('[Verification] Redirecting COMPOUND_MOD to /moderator/status');
+      router.replace('/moderator/status');
+      return;
+    }
+    
+    // First priority: Check if compound is selected (only for residents)
     if (!user.compound_id) {
       router.push("/onboarding/compound-select");
       return;
@@ -62,7 +76,8 @@ export default function VerificationPage() {
   }, [user, userLoading, router]);
 
   // Only fetch verification status if compound is selected
-  const shouldFetchStatus = !!(user && user.compound_id);
+  // BUT: Service providers and moderators don't need compound_id, so skip verification status fetch for them
+  const shouldFetchStatus = !!(user && user.compound_id && user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD');
 
   // Fetch compound details to display name
   const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({
@@ -223,8 +238,23 @@ export default function VerificationPage() {
   };
 
   // Early return: Don't render anything if user doesn't have compound selected
+  // BUT: Skip for service providers and moderators (they don't need compound_id)
   // This prevents any API calls from being made
   if (!userLoading && user && !user.compound_id) {
+    // Skip compound check for service providers and moderators
+    if (user.role === 'SERVICE_PROVIDER' || user.role === 'COMPOUND_MOD') {
+      // Service providers and moderators should be redirected to their status pages
+      // This will be handled by the useEffect above or by other guards
+      // For now, redirect service providers away from verification page
+      if (user.role === 'SERVICE_PROVIDER') {
+        router.replace('/provider/status');
+        return null;
+      }
+      if (user.role === 'COMPOUND_MOD') {
+        router.replace('/moderator/status');
+        return null;
+      }
+    }
     // Redirect will happen in useEffect, but return early to prevent rendering
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

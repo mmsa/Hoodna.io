@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import api from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/use-auth'
 import {
   ArrowLeft,
   Upload,
@@ -29,10 +30,11 @@ import {
   Car,
   Package,
   Wrench,
-  DollarSign,
+  Coins,
   FileText,
   Sparkles,
   Loader2,
+  AlertCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -55,11 +57,48 @@ const CATEGORIES = [
 
 export default function NewListingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [images, setImages] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Check if user is a service provider
+  const isServiceProvider = user?.role === 'SERVICE_PROVIDER'
+  
+  // Fetch provider profile for service providers
+  const { data: providerProfile } = useQuery({
+    queryKey: ['provider-profile'],
+    queryFn: async () => {
+      const response = await api.get('/api/providers/me')
+      return response.data
+    },
+    enabled: isServiceProvider,
+    retry: false,
+  })
+
+  // Fetch current listing count for service providers
+  const { data: currentListings } = useQuery({
+    queryKey: ['my-services'],
+    queryFn: async () => {
+      const response = await api.get('/api/listings?scope=my&category=SERVICE')
+      return response.data || []
+    },
+    enabled: isServiceProvider && !!providerProfile,
+    retry: false,
+  })
+
+  // Determine available categories
+  const availableCategories = isServiceProvider 
+    ? CATEGORIES.filter(cat => cat.value === 'SERVICE')
+    : CATEGORIES
+
+  // Get category from URL params or default
+  const categoryFromUrl = searchParams?.get('category')
+  const defaultCategory = isServiceProvider ? 'SERVICE' : (categoryFromUrl || 'ITEM')
 
   const {
     register,
@@ -70,13 +109,28 @@ export default function NewListingPage() {
   } = useForm<ListingForm>({
     resolver: zodResolver(listingSchema),
     defaultValues: {
-      category: 'ITEM',
+      category: defaultCategory as 'PROPERTY' | 'CAR' | 'ITEM' | 'SERVICE',
       intent: 'SELL',
     },
   })
 
+  // Set category to SERVICE if service provider
+  useEffect(() => {
+    if (isServiceProvider) {
+      setValue('category', 'SERVICE')
+    } else if (categoryFromUrl) {
+      setValue('category', categoryFromUrl as 'PROPERTY' | 'CAR' | 'ITEM' | 'SERVICE')
+    }
+  }, [isServiceProvider, categoryFromUrl, setValue])
+
   const selectedCategory = watch('category')
   const selectedIntent = watch('intent')
+
+  // Calculate listing limit info
+  const maxListings = providerProfile?.max_listings || 3
+  const currentCount = currentListings?.length || 0
+  const canCreateMore = currentCount < maxListings
+  const remainingSlots = Math.max(0, maxListings - currentCount)
 
   const createListingMutation = useMutation({
     mutationFn: async (data: ListingForm & { image_urls: string[] }) => {
@@ -87,12 +141,22 @@ export default function NewListingPage() {
       return response.data
     },
     onSuccess: () => {
+      // Invalidate relevant queries to refresh the listings
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      queryClient.invalidateQueries({ queryKey: ['my-services'] })
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
+      
       toast({
         title: 'Listing created! 🎉',
         description: 'Your listing has been posted successfully.',
         variant: 'success',
       })
-      router.push('/marketplace')
+      // Redirect service providers to /services, others to /marketplace
+      if (isServiceProvider) {
+        router.push('/services')
+      } else {
+        router.push('/marketplace')
+      }
     },
     onError: (error: any) => {
       toast({
@@ -190,6 +254,16 @@ export default function NewListingPage() {
   }
 
   const onSubmit = (data: ListingForm) => {
+    // Check limit before submitting for service providers
+    if (isServiceProvider && !canCreateMore) {
+      toast({
+        title: 'Limit Reached',
+        description: `You have reached your maximum limit of ${maxListings} service listings. Please delete an existing listing or contact admin to increase your limit.`,
+        variant: 'destructive',
+      })
+      return
+    }
+    
     createListingMutation.mutate({ ...data, image_urls: images })
   }
 
@@ -213,11 +287,42 @@ export default function NewListingPage() {
                 Create New Listing
               </h1>
               <p className="text-gray-600 mt-1">
-                Share your item, property, car, or service with your community
+                {isServiceProvider 
+                  ? 'Create a new service listing for your approved category'
+                  : 'Share your item, property, car, or service with your community'}
               </p>
             </div>
           </div>
         </div>
+
+        {/* Service Provider Limit Info */}
+        {isServiceProvider && providerProfile && (
+          <Card className="mb-6 border-2 border-yellow-200 bg-yellow-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-700 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-yellow-900 mb-1">
+                    Service Listing Limit
+                  </p>
+                  <p className="text-sm text-yellow-800 mb-2">
+                    You can create up to <strong>{maxListings}</strong> service listings.
+                    {canCreateMore ? (
+                      <span> You have <strong>{remainingSlots}</strong> slot{remainingSlots !== 1 ? 's' : ''} remaining.</span>
+                    ) : (
+                      <span className="font-semibold text-red-700"> You have reached your limit!</span>
+                    )}
+                  </p>
+                  {providerProfile.category && (
+                    <p className="text-xs text-yellow-700">
+                      Approved category: <strong>{providerProfile.category.name}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Category Selection */}
@@ -227,18 +332,23 @@ export default function NewListingPage() {
                 <Package className="w-5 h-5 text-purple-600" />
                 Category
               </CardTitle>
-              <CardDescription>What are you listing?</CardDescription>
+              <CardDescription>
+                {isServiceProvider 
+                  ? 'Service providers can only create SERVICE listings'
+                  : 'What are you listing?'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {CATEGORIES.map((category) => {
+              <div className={`grid gap-4 ${isServiceProvider ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-4'}`}>
+                {availableCategories.map((category) => {
                   const Icon = category.icon
                   const isSelected = selectedCategory === category.value
                   return (
                     <button
                       key={category.value}
                       type="button"
-                      onClick={() => setValue('category', category.value as any)}
+                      onClick={() => !isServiceProvider && setValue('category', category.value as any)}
+                      disabled={isServiceProvider}
                       className={`relative p-4 rounded-xl border-2 transition-all ${
                         isSelected
                           ? category.value === 'PROPERTY'
@@ -309,7 +419,15 @@ export default function NewListingPage() {
                 <Input
                   id="title"
                   {...register('title')}
-                  placeholder="e.g., Samsung 55 inch Smart TV - Like New"
+                  placeholder={
+                    selectedCategory === 'SERVICE'
+                      ? "e.g., Professional Plumbing Services"
+                      : selectedCategory === 'PROPERTY'
+                      ? "e.g., 3BR Apartment in New Cairo"
+                      : selectedCategory === 'CAR'
+                      ? "e.g., 2020 Toyota Camry - Excellent Condition"
+                      : "e.g., Samsung 55 inch Smart TV - Like New"
+                  }
                   className="h-12 text-base"
                 />
                 {errors.title && (
@@ -324,7 +442,15 @@ export default function NewListingPage() {
                 <Textarea
                   id="description"
                   {...register('description')}
-                  placeholder="Describe your item in detail. Include condition, features, and any relevant information..."
+                  placeholder={
+                    selectedCategory === 'SERVICE'
+                      ? "Describe your service in detail. Include your experience, service area, availability, and what makes your service special..."
+                      : selectedCategory === 'PROPERTY'
+                      ? "Describe the property in detail. Include size, location, amenities, and any relevant information..."
+                      : selectedCategory === 'CAR'
+                      ? "Describe the car in detail. Include make, model, year, condition, mileage, and any relevant information..."
+                      : "Describe your item in detail. Include condition, features, and any relevant information..."
+                  }
                   className="min-h-[120px] text-base"
                 />
               </div>
@@ -335,7 +461,7 @@ export default function NewListingPage() {
           <Card className="border-2 border-gray-200 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
+                <Coins className="w-5 h-5 text-green-600" />
                 Pricing & Type
               </CardTitle>
               <CardDescription>Set your price and listing type</CardDescription>
@@ -347,20 +473,26 @@ export default function NewListingPage() {
                     Price (EGP)
                   </Label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm font-semibold">EGP</span>
                     <Input
                       id="price"
                       type="number"
                       {...register('price')}
                       placeholder="0.00"
-                      className="h-12 pl-10 text-base"
+                      className="h-12 pl-14 text-base"
                     />
                   </div>
-                  <p className="text-xs text-gray-500">Leave empty if price is negotiable</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedCategory === 'SERVICE'
+                      ? 'Price per service or per hour. Leave empty if negotiable.'
+                      : 'Leave empty if price is negotiable'}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-base font-semibold">Listing Type</Label>
+                  <Label className="text-base font-semibold">
+                    {selectedCategory === 'SERVICE' ? 'Service Type' : 'Listing Type'}
+                  </Label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
@@ -374,12 +506,14 @@ export default function NewListingPage() {
                       <div className={`w-10 h-10 rounded-lg ${
                         selectedIntent === 'SELL' ? 'bg-red-500' : 'bg-gray-200'
                       } flex items-center justify-center mx-auto mb-2`}>
-                        <span className="text-white font-bold">$</span>
+                        <span className="text-white font-bold">
+                          {selectedCategory === 'SERVICE' ? '1' : 'EGP'}
+                        </span>
                       </div>
                       <p className={`font-semibold text-sm ${
                         selectedIntent === 'SELL' ? 'text-red-700' : 'text-gray-700'
                       }`}>
-                        For Sale
+                        {selectedCategory === 'SERVICE' ? 'One-Time Service' : 'For Sale'}
                       </p>
                     </button>
                     <button
@@ -394,12 +528,14 @@ export default function NewListingPage() {
                       <div className={`w-10 h-10 rounded-lg ${
                         selectedIntent === 'RENT' ? 'bg-blue-500' : 'bg-gray-200'
                       } flex items-center justify-center mx-auto mb-2`}>
-                        <span className="text-white font-bold">R</span>
+                        <span className="text-white font-bold">
+                          {selectedCategory === 'SERVICE' ? 'H' : 'R'}
+                        </span>
                       </div>
                       <p className={`font-semibold text-sm ${
                         selectedIntent === 'RENT' ? 'text-blue-700' : 'text-gray-700'
                       }`}>
-                        For Rent
+                        {selectedCategory === 'SERVICE' ? 'Per Hour / Session' : 'For Rent'}
                       </p>
                     </button>
                   </div>
@@ -525,8 +661,8 @@ export default function NewListingPage() {
             </Link>
             <Button
               type="submit"
-              disabled={createListingMutation.isPending}
-              className="flex-1 h-12 text-base bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all"
+              disabled={createListingMutation.isPending || (isServiceProvider && !canCreateMore)}
+              className="flex-1 h-12 text-base bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createListingMutation.isPending ? (
                 <>

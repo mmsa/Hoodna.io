@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { Label } from '@/components/ui/label'
 import api from '@/lib/api'
 import { formatCompoundName } from '@/lib/format-compound'
+import { useAuth } from '@/hooks/use-auth'
 
 interface Compound {
   id: number
@@ -20,8 +21,39 @@ interface Compound {
 
 export default function CompoundSelectPage() {
   const router = useRouter()
+  const { user, isLoading: userLoading } = useAuth()
   const [selectedCompoundId, setSelectedCompoundId] = useState<number | null>(null)
   const [error, setError] = useState('')
+
+  // Redirect service providers and moderators away from compound selection IMMEDIATELY
+  useEffect(() => {
+    if (userLoading) return
+    if (!user) return
+    
+    if (user.role === 'SERVICE_PROVIDER') {
+      console.log('[CompoundSelect] Redirecting SERVICE_PROVIDER to /provider/status')
+      router.replace('/provider/status')
+      return
+    }
+    
+    if (user.role === 'COMPOUND_MOD') {
+      console.log('[CompoundSelect] Redirecting COMPOUND_MOD to /moderator/status')
+      router.replace('/moderator/status')
+      return
+    }
+  }, [user, userLoading, router])
+  
+  // Early return if user is service provider or moderator (prevent rendering)
+  if (!userLoading && user && (user.role === 'SERVICE_PROVIDER' || user.role === 'COMPOUND_MOD')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting...</p>
+        </div>
+      </div>
+    )
+  }
 
   const { data: compoundsData, isLoading } = useQuery<{ items: Compound[]; total: number }>({
     queryKey: ['compounds'],
@@ -30,6 +62,7 @@ export default function CompoundSelectPage() {
       const response = await api.get('/api/compounds?limit=200')
       return response.data
     },
+    enabled: !userLoading && !!user && user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD',
   })
 
   const compounds = compoundsData?.items || []

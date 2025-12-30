@@ -86,6 +86,7 @@ export function Header() {
   const savedCount = savedListings?.length || 0
 
   // Fetch compound details if user has compound_id
+  // BUT: Skip for service providers and moderators (they don't need compound_id)
   const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({
     queryKey: ['compound', user?.compound_id],
     queryFn: async () => {
@@ -95,7 +96,8 @@ export function Header() {
       const foundCompound = compounds.find((c: any) => c.id === user.compound_id)
       return foundCompound || null
     },
-    enabled: mounted && isAuthenticated && !!user?.compound_id,
+    enabled: mounted && isAuthenticated && !!user?.compound_id && 
+             user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD',
   })
 
   const handleLogout = async () => {
@@ -591,16 +593,21 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
             </div>
           </DropdownMenuItem>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => {
-            router.push('/onboarding/compound-select')
-          }}
-          className="text-blue-600 font-medium"
-        >
-          <Building2 className="w-4 h-4 mr-2" />
-          Request Access to New Neighbourhood
-        </DropdownMenuItem>
+        {/* Only show compound switcher for residents, not service providers or moderators */}
+        {(user?.role === 'RESIDENT' || user?.role === 'USER') && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                router.push('/onboarding/compound-select')
+              }}
+              className="text-blue-600 font-medium"
+            >
+              <Building2 className="w-4 h-4 mr-2" />
+              Request Access to New Neighbourhood
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

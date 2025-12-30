@@ -30,6 +30,13 @@ class ServiceProviderDocumentCreate(BaseModel):
     file_url: str
 
 
+class CategoryCompoundsChangeRequest(BaseModel):
+    """Schema for requesting changes to category or compounds."""
+    category_id: Optional[int] = None
+    service_area_compound_ids: Optional[List[int]] = Field(None, min_items=1)
+    reason: str = Field(..., min_length=10, description="Reason for the change request (minimum 10 characters)")
+
+
 class ServiceProviderProfileResponse(BaseModel):
     id: int
     user_id: int
@@ -48,6 +55,14 @@ class ServiceProviderProfileResponse(BaseModel):
     reviewed_by: Optional[int] = None
     rejection_reason: Optional[str] = None
     suspension_reason: Optional[str] = None
+    max_listings: Optional[int] = None  # Maximum number of service listings allowed
+    # Change request fields
+    category_change_request: Optional[int] = None
+    compounds_change_request: Optional[List[int]] = None
+    change_request_reason: Optional[str] = None
+    change_request_status: Optional[str] = None  # PENDING, APPROVED, REJECTED
+    change_request_reviewed_at: Optional[datetime] = None
+    change_request_reviewed_by: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     documents: List['ServiceProviderDocumentResponse'] = []

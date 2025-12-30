@@ -29,7 +29,7 @@ export function ReviewForm({ listingId, existingReview, onSuccess }: ReviewFormP
 
   const createMutation = useMutation({
     mutationFn: async (data: { rating: number; comment?: string }) => {
-      const response = await api.post(`/listings/${listingId}/reviews`, {
+      const response = await api.post(`/api/listings/${listingId}/reviews`, {
         listing_id: listingId,
         rating: data.rating,
         comment: data.comment || null,
@@ -52,7 +52,7 @@ export function ReviewForm({ listingId, existingReview, onSuccess }: ReviewFormP
 
   const updateMutation = useMutation({
     mutationFn: async (data: { rating: number; comment?: string }) => {
-      const response = await api.put(`/reviews/${existingReview!.id}`, {
+      const response = await api.put(`/api/reviews/${existingReview!.id}`, {
         rating: data.rating,
         comment: data.comment || null,
       })

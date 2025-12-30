@@ -12,7 +12,8 @@ from app.schemas.provider import (
     ServiceProviderProfileUpdate,
     ServiceProviderProfileResponse,
     ServiceProviderDocumentCreate,
-    ServiceProviderDocumentResponse
+    ServiceProviderDocumentResponse,
+    CategoryCompoundsChangeRequest
 )
 from app.crud.provider import (
     get_provider_profile,
@@ -20,7 +21,8 @@ from app.crud.provider import (
     update_provider_profile,
     add_provider_document,
     submit_provider_profile,
-    get_approved_providers
+    get_approved_providers,
+    request_category_compounds_change
 )
 from app.models.service_provider import ServiceProviderDocument
 from typing import List
@@ -54,7 +56,7 @@ async def update_provider_profile_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update provider profile (only in DRAFT status)."""
+    """Update provider profile (allowed in DRAFT or APPROVED status)."""
     if not current_user.role or current_user.role != UserRole.SERVICE_PROVIDER:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -69,6 +71,66 @@ async def update_provider_profile_endpoint(
                 detail="Provider profile not found"
             )
         await db.refresh(profile, ["documents", "category"])
+        return profile
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.post("/me/request-change", response_model=ServiceProviderProfileResponse)
+async def request_category_compounds_change_endpoint(
+    request_data: CategoryCompoundsChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Request a change to category or service area compounds.
+    
+    Providers cannot directly update category_id or service_area_compound_ids.
+    They must request changes through this endpoint, which requires admin approval.
+    """
+    if not current_user.role or current_user.role != UserRole.SERVICE_PROVIDER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a service provider"
+        )
+    
+    try:
+        profile = await request_category_compounds_change(
+            db,
+            current_user.id,
+            category_id=request_data.category_id,
+            service_area_compound_ids=request_data.service_area_compound_ids,
+            reason=request_data.reason
+        )
+        await db.refresh(profile, ["documents", "category"])
+        
+        # Send notification to admins
+        from app.services.notifications import create_notification
+        from app.models.notification import NotificationType
+        from app.schemas.notification import NotificationCreate
+        from app.models.user import User as UserModel
+        from sqlalchemy import select
+        
+        # Get all admins
+        admins_result = await db.execute(
+            select(UserModel).where(UserModel.role == UserRole.ADMIN)
+        )
+        admins = admins_result.scalars().all()
+        
+        for admin in admins:
+            await create_notification(
+                db=db,
+                notification=NotificationCreate(
+                    user_id=admin.id,
+                    type=NotificationType.PROVIDER_CHANGE_REQUEST,
+                    title="Provider Change Request",
+                    message=f"Provider {profile.business_name} has requested changes to their category or service areas.",
+                    data={"provider_id": profile.id, "user_id": profile.user_id}
+                )
+            )
+        
         return profile
     except ValueError as e:
         raise HTTPException(

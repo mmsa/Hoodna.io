@@ -91,8 +91,37 @@ async def get_current_user(
 
 async def get_current_approved_user(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Get the current user, ensuring they are approved."""
+    """Get the current user, ensuring they are approved.
+    
+    For service providers and moderators, checks their profile status instead of user status.
+    """
+    # Service providers: check provider profile status
+    if current_user.role == UserRole.SERVICE_PROVIDER:
+        from app.crud.provider import get_provider_profile
+        from app.models.enums import ProviderStatus
+        provider_profile = await get_provider_profile(db, current_user.id)
+        if not provider_profile or provider_profile.provider_status != ProviderStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your provider profile must be approved to perform this action",
+            )
+        return current_user
+    
+    # Moderators: check moderator profile status
+    if current_user.role == UserRole.COMPOUND_MOD:
+        from app.crud.moderator import get_moderator_profile
+        from app.models.enums import ModeratorStatus
+        moderator_profile = await get_moderator_profile(db, current_user.id)
+        if not moderator_profile or moderator_profile.moderator_status != ModeratorStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your moderator profile must be approved to perform this action",
+            )
+        return current_user
+    
+    # Regular users: check user status
     if current_user.status != UserStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

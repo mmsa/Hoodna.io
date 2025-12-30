@@ -258,7 +258,7 @@ async def get_current_user_info(
 ):
     """Get current user information with verification status."""
     from app.crud.verification import get_user_documents
-    from app.models.enums import DocumentType, UserStatus
+    from app.models.enums import DocumentType, UserStatus, UserRole
     
     # Map UserStatus to verification_status string
     verification_status_map = {
@@ -318,6 +318,20 @@ async def get_current_user_info(
     # Approved users can comment and create listings
     can_comment = current_user.status == UserStatus.APPROVED
     can_create_listing = current_user.status == UserStatus.APPROVED
+    
+    # For service providers and moderators, check their profile status instead
+    if current_user.role == UserRole.SERVICE_PROVIDER:
+        from app.crud.provider import get_provider_profile
+        from app.models.enums import ProviderStatus
+        provider_profile = await get_provider_profile(db, current_user.id)
+        if provider_profile:
+            can_create_listing = provider_profile.provider_status == ProviderStatus.APPROVED
+    elif current_user.role == UserRole.COMPOUND_MOD:
+        from app.crud.moderator import get_moderator_profile
+        from app.models.enums import ModeratorStatus
+        moderator_profile = await get_moderator_profile(db, current_user.id)
+        if moderator_profile:
+            can_create_listing = moderator_profile.moderator_status == ModeratorStatus.APPROVED
     
     return UserResponse(
         id=current_user.id,

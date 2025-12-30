@@ -25,7 +25,7 @@ export function ReviewsList({ listingId }: ReviewsListProps) {
   const { data: reviews, isLoading } = useQuery<Review[]>({
     queryKey: ['reviews', listingId],
     queryFn: async () => {
-      const response = await api.get(`/listings/${listingId}/reviews`)
+      const response = await api.get(`/api/listings/${listingId}/reviews`)
       return response.data
     },
   })

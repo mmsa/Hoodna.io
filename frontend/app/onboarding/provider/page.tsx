@@ -11,10 +11,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ArrowLeft, ArrowRight, Upload, CheckCircle, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Upload, CheckCircle, X, AlertCircle } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface Compound {
   id: number
@@ -53,6 +54,12 @@ export default function ProviderOnboardingPage() {
   const [selectedCompounds, setSelectedCompounds] = useState<number[]>([])
   const [occupationText, setOccupationText] = useState('')
   const [uploadedDocs, setUploadedDocs] = useState<Record<string, string>>({})
+  
+  // Change request state
+  const [showChangeRequestModal, setShowChangeRequestModal] = useState(false)
+  const [changeRequestCategoryId, setChangeRequestCategoryId] = useState<number | null>(null)
+  const [changeRequestCompounds, setChangeRequestCompounds] = useState<number[]>([])
+  const [changeRequestReason, setChangeRequestReason] = useState('')
 
   // Fetch compounds
   const { data: compoundsData } = useQuery<{ items: Compound[] }>({
@@ -116,8 +123,9 @@ export default function ProviderOnboardingPage() {
         setUploadedDocs(docs)
       }
 
-      // Redirect if already submitted (not DRAFT)
-      if (existingProfile.provider_status && existingProfile.provider_status !== 'DRAFT') {
+      // Redirect if status is SUBMITTED, IN_REVIEW, or SUSPENDED (but allow editing if APPROVED or REJECTED)
+      if (existingProfile.provider_status && 
+          !['DRAFT', 'APPROVED', 'REJECTED'].includes(existingProfile.provider_status)) {
         router.push('/provider/status')
         return
       }
@@ -161,6 +169,49 @@ export default function ProviderOnboardingPage() {
     },
     onSuccess: () => {
       toast.success('Profile submitted for review!')
+      router.push('/provider/status')
+    },
+  })
+
+  const changeRequestMutation = useMutation({
+    mutationFn: async (data: { category_id?: number | null; service_area_compound_ids?: number[] | null; reason: string }) => {
+      const response = await api.post('/api/providers/me/request-change', data)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider-profile'] })
+      toast.success('Change request submitted! An admin will review it.')
+      setShowChangeRequestModal(false)
+      setChangeRequestCategoryId(null)
+      setChangeRequestCompounds([])
+      setChangeRequestReason('')
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.detail || 'Failed to submit change request')
+    },
+  })
+
+  const saveChangesMutation = useMutation({
+    mutationFn: async () => {
+      // Save all current form data (excluding category_id and service_area_compound_ids for approved providers)
+      const updateData: any = {}
+      if (businessName) updateData.business_name = businessName
+      if (phone) updateData.phone = phone
+      // Only include category_id and service_area_compound_ids if profile is not approved
+      if (existingProfile?.provider_status !== 'APPROVED') {
+        if (categoryId) updateData.category_id = categoryId
+        if (selectedCompounds.length > 0) updateData.service_area_compound_ids = selectedCompounds
+      }
+      if (occupationText) updateData.occupation_text = occupationText
+      if (providerType) updateData.provider_type = providerType
+      if (verificationMethod) updateData.verification_method = verificationMethod
+      
+      const response = await api.patch('/api/providers/me', updateData)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider-profile'] })
+      toast.success('Profile updated successfully!')
       router.push('/provider/status')
     },
   })
@@ -361,22 +412,59 @@ export default function ProviderOnboardingPage() {
             </div>
             <div>
               <Label htmlFor="category">Service Category *</Label>
-              <Combobox
-                options={categoryOptions}
-                value={categoryId}
-                onValueChange={(value) => {
-                  // Ensure value is converted to number
-                  setCategoryId(value ? Number(value) : null)
-                }}
-                placeholder="Select a service category..."
-                searchPlaceholder="Search categories..."
-                emptyMessage="No categories found"
-                className="w-full"
-              />
-              {categories && categoryId && (
-                <p className="text-sm text-gray-500 mt-2">
-                  {categories.find(c => c.id === categoryId)?.description}
-                </p>
+              {existingProfile?.provider_status === 'APPROVED' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="px-3 py-2 border rounded-md bg-gray-50">
+                        {categories?.find(c => c.id === categoryId)?.name || 'Not set'}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Category changes require admin approval
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setChangeRequestCategoryId(categoryId) // Start with current value
+                        setChangeRequestCompounds([...selectedCompounds]) // Start with current values
+                        setChangeRequestReason('')
+                        setShowChangeRequestModal(true)
+                      }}
+                      className="ml-2"
+                    >
+                      Request Change
+                    </Button>
+                  </div>
+                  {existingProfile?.change_request_status === 'PENDING' && (
+                    <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Change request pending admin review</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Combobox
+                    options={categoryOptions}
+                    value={categoryId}
+                    onValueChange={(value) => {
+                      // Ensure value is converted to number
+                      setCategoryId(value ? Number(value) : null)
+                    }}
+                    placeholder="Select a service category..."
+                    searchPlaceholder="Search categories..."
+                    emptyMessage="No categories found"
+                    className="w-full"
+                  />
+                  {categories && categoryId && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      {categories.find(c => c.id === categoryId)?.description}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             <div>
@@ -396,29 +484,74 @@ export default function ProviderOnboardingPage() {
           <div className="space-y-6">
             <div>
               <Label>Select Service Areas *</Label>
-              <p className="text-sm text-gray-500 mb-4">
-                Select all compounds where you provide services
-              </p>
-              <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
-                {compounds.map((compound) => (
-                  <div key={compound.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`compound-${compound.id}`}
-                      checked={selectedCompounds.includes(compound.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedCompounds([...selectedCompounds, compound.id])
-                        } else {
-                          setSelectedCompounds(selectedCompounds.filter((id) => id !== compound.id))
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`compound-${compound.id}`} className="cursor-pointer">
-                      {compound.name} {compound.area && `(${compound.area})`}
-                    </Label>
+              {existingProfile?.provider_status === 'APPROVED' ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-500 mb-4">
+                    Current service areas: {selectedCompounds.length} compound(s)
+                  </p>
+                  <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                    {compounds
+                      .filter(c => selectedCompounds.includes(c.id))
+                      .map((compound) => (
+                        <div key={compound.id} className="flex items-center space-x-2">
+                          <Checkbox checked={true} disabled />
+                          <Label className="cursor-not-allowed opacity-60">
+                            {compound.name} {compound.area && `(${compound.area})`}
+                          </Label>
+                        </div>
+                      ))}
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center justify-between mt-4">
+                    <p className="text-xs text-gray-500">
+                      Service area changes require admin approval
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setChangeRequestCategoryId(categoryId)
+                        setChangeRequestCompounds(selectedCompounds)
+                        setShowChangeRequestModal(true)
+                      }}
+                    >
+                      Request Change
+                    </Button>
+                  </div>
+                  {existingProfile?.change_request_status === 'PENDING' && (
+                    <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Change request pending admin review</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Select all compounds where you provide services
+                  </p>
+                  <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+                    {compounds.map((compound) => (
+                      <div key={compound.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`compound-${compound.id}`}
+                          checked={selectedCompounds.includes(compound.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedCompounds([...selectedCompounds, compound.id])
+                            } else {
+                              setSelectedCompounds(selectedCompounds.filter((id) => id !== compound.id))
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`compound-${compound.id}`} className="cursor-pointer">
+                          {compound.name} {compound.area && `(${compound.area})`}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )
@@ -650,12 +783,23 @@ export default function ProviderOnboardingPage() {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               ) : (
-                <Button
-                  onClick={() => submitMutation.mutate()}
-                  disabled={submitMutation.isPending}
-                >
-                  {submitMutation.isPending ? 'Submitting...' : 'Submit for Review'}
-                </Button>
+                <>
+                  {existingProfile?.provider_status === 'APPROVED' ? (
+                    <Button
+                      onClick={() => saveChangesMutation.mutate()}
+                      disabled={saveChangesMutation.isPending}
+                    >
+                      {saveChangesMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => submitMutation.mutate()}
+                      disabled={submitMutation.isPending}
+                    >
+                      {submitMutation.isPending ? 'Submitting...' : 'Submit for Review'}
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </CardContent>
@@ -663,6 +807,141 @@ export default function ProviderOnboardingPage() {
           </>
         )}
       </div>
+      
+      {/* Change Request Modal */}
+      <Dialog open={showChangeRequestModal} onOpenChange={setShowChangeRequestModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Request Category or Service Areas Change</DialogTitle>
+            <DialogDescription>
+              Changes to your category or service areas require admin approval. Please provide a reason for your request.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="change-category">New Service Category (optional)</Label>
+              <Combobox
+                options={categoryOptions}
+                value={changeRequestCategoryId}
+                onValueChange={(value) => {
+                  setChangeRequestCategoryId(value ? Number(value) : null)
+                }}
+                placeholder="Select a new category (leave unchanged if not changing)..."
+                searchPlaceholder="Search categories..."
+                emptyMessage="No categories found"
+                className="w-full"
+              />
+              {changeRequestCategoryId && categories && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Current: {categories.find(c => c.id === categoryId)?.name} → 
+                  New: {categories.find(c => c.id === changeRequestCategoryId)?.name}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <Label>New Service Areas (optional)</Label>
+              <p className="text-sm text-gray-500 mb-2">
+                Select new compounds (leave unchanged if not changing)
+              </p>
+              <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4">
+                {compounds.map((compound) => (
+                  <div key={compound.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`change-compound-${compound.id}`}
+                      checked={changeRequestCompounds.includes(compound.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setChangeRequestCompounds([...changeRequestCompounds, compound.id])
+                        } else {
+                          setChangeRequestCompounds(changeRequestCompounds.filter((id) => id !== compound.id))
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`change-compound-${compound.id}`} className="cursor-pointer">
+                      {compound.name} {compound.area && `(${compound.area})`}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {changeRequestCompounds.length > 0 && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Current: {selectedCompounds.length} compound(s) → 
+                  New: {changeRequestCompounds.length} compound(s)
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <Label htmlFor="change-reason">Reason for Change *</Label>
+              <Textarea
+                id="change-reason"
+                value={changeRequestReason}
+                onChange={(e) => setChangeRequestReason(e.target.value)}
+                placeholder="Please explain why you need to change your category or service areas..."
+                rows={4}
+                minLength={10}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Minimum 10 characters required
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowChangeRequestModal(false)
+                setChangeRequestCategoryId(null)
+                setChangeRequestCompounds([])
+                setChangeRequestReason('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (changeRequestReason.length < 10) {
+                  toast.error('Please provide a reason (minimum 10 characters)')
+                  return
+                }
+                
+                const hasChanges = 
+                  (changeRequestCategoryId !== null && changeRequestCategoryId !== categoryId) ||
+                  (changeRequestCompounds.length > 0 && 
+                   JSON.stringify([...changeRequestCompounds].sort()) !== JSON.stringify([...selectedCompounds].sort()))
+                
+                if (!hasChanges) {
+                  toast.error('Please select at least one change')
+                  return
+                }
+                
+                const requestData: any = {
+                  reason: changeRequestReason,
+                }
+                
+                // Only include fields that are actually changing
+                if (changeRequestCategoryId !== null && changeRequestCategoryId !== categoryId) {
+                  requestData.category_id = changeRequestCategoryId
+                }
+                
+                const currentCompoundsSorted = [...(selectedCompounds || [])].sort()
+                const newCompoundsSorted = [...changeRequestCompounds].sort()
+                if (JSON.stringify(newCompoundsSorted) !== JSON.stringify(currentCompoundsSorted)) {
+                  requestData.service_area_compound_ids = changeRequestCompounds
+                }
+                
+                changeRequestMutation.mutate(requestData)
+              }}
+              disabled={changeRequestMutation.isPending}
+            >
+              {changeRequestMutation.isPending ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
