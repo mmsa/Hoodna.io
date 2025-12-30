@@ -219,8 +219,8 @@ export default function ModeratorOnboardingPage() {
                   label: c.name,
                   description: c.area || '',
                 }))}
-                value={compoundId?.toString() || ''}
-                onValueChange={(value) => setCompoundId(parseInt(value) || null)}
+                value={compoundId || null}
+                onValueChange={(value) => setCompoundId(value ? Number(value) : null)}
                 placeholder="Search for a compound..."
               />
             </div>

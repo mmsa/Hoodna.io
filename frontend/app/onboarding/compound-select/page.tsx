@@ -116,9 +116,9 @@ export default function CompoundSelectPage() {
               <Label htmlFor="compound-select">Neighbourhood</Label>
               <Combobox
                 options={compoundOptions}
-                value={selectedCompoundId}
+                value={selectedCompoundId || null}
                 onValueChange={(value) => {
-                  setSelectedCompoundId(value as number | null)
+                  setSelectedCompoundId(value ? Number(value) : null)
                   setError('')
                 }}
                 placeholder="Search for your neighbourhood..."
