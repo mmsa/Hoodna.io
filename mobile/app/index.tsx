@@ -20,16 +20,29 @@ export default function SplashScreen() {
     // Only navigate after minimum splash time AND auth is loaded
     if (!loading && minSplashShown) {
       if (user) {
-        if (user.compound_id) {
-          router.replace("/(tabs)/home");
+        // Check if user has selected a role
+        if (!user.role) {
+          router.replace("/onboarding/choose-role");
+        } else if (user.role === "RESIDENT" || user.role === "USER") {
+          if (!user.compound_id) {
+            router.replace("/onboarding/compound-select");
+          } else if (user.status !== "APPROVED") {
+            router.replace("/verification");
+          } else {
+            router.replace("/(tabs)/home");
+          }
+        } else if (user.role === "SERVICE_PROVIDER") {
+          router.replace("/provider/status");
+        } else if (user.role === "COMPOUND_MOD") {
+          router.replace("/moderator/status");
         } else {
-          router.replace("/onboarding/compound-select");
+          router.replace("/(tabs)/home");
         }
       } else {
         router.replace("/auth");
       }
     }
-  }, [loading, user, minSplashShown]);
+  }, [loading, user, minSplashShown, router]);
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' }}>

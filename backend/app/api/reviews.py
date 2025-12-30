@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.database import get_db
+from app.db.session import get_db
 from app.core.dependencies import get_current_approved_user
 from app.models.user import User
 from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse

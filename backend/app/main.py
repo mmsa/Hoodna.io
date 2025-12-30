@@ -9,6 +9,13 @@ from app.models.user import User
 
 # Import all models to ensure SQLAlchemy relationships are properly set up
 from app.models import notification  # noqa: F401
+from app.models import review  # noqa: F401
+from app.models import user  # noqa: F401
+from app.models import listing  # noqa: F401
+from app.models import post  # noqa: F401
+from app.models import compound  # noqa: F401
+from app.models import service_provider  # noqa: F401
+from app.models import compound_moderator  # noqa: F401
 
 from app.api import (
     auth,
