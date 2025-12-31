@@ -19,7 +19,7 @@ from app.crud.listing import (
     update_listing,
 )
 from app.crud.saved_listing import is_listing_saved
-from app.core.dependencies import get_current_approved_user, get_current_user_optional
+from app.core.dependencies import get_current_approved_user, get_current_user_optional, get_current_user
 from app.services.s3 import generate_presigned_put_url
 from app.models.user import User
 from typing import List, Optional
@@ -286,12 +286,12 @@ async def get_listing(
 @router.post("", response_model=ListingResponse, status_code=status.HTTP_201_CREATED)
 async def create_listing_endpoint(
     listing_data: ListingCreate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new listing. User must be verified for the compound."""
     from app.core.verification_helpers import is_user_verified_for_compound
-    from app.models.enums import UserRole, ListingCategory
+    from app.models.enums import UserRole, ListingCategory, UserStatus
     from app.crud.provider import get_provider_profile
     from app.models.enums import ProviderStatus
     from sqlalchemy import select, func
@@ -361,8 +361,22 @@ async def create_listing_endpoint(
     else:
         compound_id_to_use = current_user.compound_id
     
-    # Check if user is verified for their compound (only for residents)
-    if current_user.role != UserRole.SERVICE_PROVIDER:
+    # For marketplace items (non-SERVICE listings), only verified APPROVED residents can post
+    if listing_data.category != ListingCategory.SERVICE:
+        # Only residents can post marketplace items (not moderators, admins, or service providers)
+        if current_user.role != UserRole.RESIDENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only verified residents can post marketplace items. Service providers can only post services."
+            )
+        
+        # Check if user is verified and approved for their compound
+        if current_user.status != UserStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be approved to create marketplace listings. Please complete verification first."
+            )
+        
         is_verified = await is_user_verified_for_compound(
             db=db,
             user=current_user,
@@ -372,7 +386,7 @@ async def create_listing_endpoint(
         if not is_verified:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You must be verified for this compound to create listings. Please complete verification first."
+                detail="You must be verified for this compound to create marketplace listings. Please complete verification first."
             )
 
     listing = await create_listing(

@@ -5,7 +5,7 @@ from app.schemas.community import PostCreate, PostResponse, CommentCreate, Comme
 from app.crud.post import get_feed_posts, create_post, create_comment, get_compound_announcements
 from app.crud.listing import get_listings
 from app.crud.compound import get_compound_by_id
-from app.core.dependencies import get_current_approved_user, get_current_verified_user, get_current_user_optional
+from app.core.dependencies import get_current_approved_user, get_current_verified_user, get_current_user_optional, get_current_user
 from app.models.user import User
 from typing import List, Optional
 from pydantic import BaseModel
@@ -188,15 +188,76 @@ async def get_feed(
 @router.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_endpoint(
     post_data: PostCreate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new post."""
+    from app.models.enums import UserRole, UserStatus, PostCategory, ModeratorStatus
+    from app.core.verification_helpers import is_user_verified_for_compound
+    from app.crud.moderator import get_moderator_profile
+    
     if current_user.compound_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must be assigned to a compound"
         )
+    
+    # Check if this is an official announcement
+    if post_data.category == PostCategory.ANNOUNCEMENT:
+        # Only approved moderators for this compound can post announcements
+        if current_user.role != UserRole.COMPOUND_MOD:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only approved moderators can post official announcements"
+            )
+        
+        # Check moderator profile and status
+        moderator_profile = await get_moderator_profile(db, current_user.id)
+        if not moderator_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Moderator profile not found"
+            )
+        
+        if moderator_profile.moderator_status != ModeratorStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your moderator profile must be approved to post official announcements"
+            )
+        
+        # Verify moderator is assigned to this compound
+        if moderator_profile.compound_id != current_user.compound_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only post announcements for your assigned compound"
+            )
+    else:
+        # For regular posts, only verified APPROVED residents can post
+        if current_user.role != UserRole.RESIDENT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only verified residents can post in the feed. Moderators can only post official announcements."
+            )
+        
+        # Check if user is approved
+        if current_user.status != UserStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be approved to create posts. Please complete verification first."
+            )
+        
+        # Check if user is verified for their compound
+        is_verified = await is_user_verified_for_compound(
+            db=db,
+            user=current_user,
+            compound_id=current_user.compound_id
+        )
+        
+        if not is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be verified for this compound to create posts. Please complete verification first."
+            )
     
     post = await create_post(
         db=db,
