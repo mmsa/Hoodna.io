@@ -215,7 +215,13 @@ export default function FeedPage() {
   const { user, isLoading: userLoading } = useAuth();
   const [newPost, setNewPost] = useState("");
   const [newComments, setNewComments] = useState<Record<number, string>>({});
+  const [isMounted, setIsMounted] = useState(false);
   const queryClient = useQueryClient();
+
+  // Prevent hydration mismatch by only rendering conditional content after mount
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch moderator profile if user is COMPOUND_MOD
   const { data: moderatorProfile, isLoading: moderatorProfileLoading } = useQuery({
@@ -900,7 +906,7 @@ export default function FeedPage() {
                               : ""
                           }`}
                         >
-                          {isRecent && (
+                          {isMounted && isRecent && (
                             <div className="mb-2 flex items-center gap-2">
                               <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
                                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -908,7 +914,7 @@ export default function FeedPage() {
                               </span>
                             </div>
                           )}
-                          {hasManyComments && !isRecent && (
+                          {isMounted && hasManyComments && !isRecent && (
                             <div className="mb-2 flex items-center gap-2">
                               <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full flex items-center gap-1">
                                 <MessageCircle className="w-3 h-3" />
@@ -1409,6 +1415,11 @@ function PostCard({
   currentUser?: any;
 }) {
   const { toast } = useToast();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   
   // Category mapping for display
   const CATEGORY_INFO: Record<string, { icon: string; color: string; label: string; type: string; badgeColor: string }> = {
@@ -1433,7 +1444,8 @@ function PostCard({
   
   const postType = getPostType();
   const timeAgo = formatTimeAgo(post.created_at);
-  const isNew =
+  // Only calculate isNew on client to prevent hydration mismatch
+  const isNew = isMounted && 
     new Date().getTime() - new Date(post.created_at).getTime() < 3600000; // Less than 1 hour
 
   // Color mapping for post types
@@ -1472,13 +1484,13 @@ function PostCard({
                 {post.author_name.charAt(0).toUpperCase()}
               </span>
             </div>
-            {isNew && (
+            {isMounted && isNew && (
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
             )}
           </div>
           <div className="flex-1 min-w-0">
             {/* Compound Name - Prominently displayed */}
-            {post.compound_name && (
+            {isMounted && post.compound_name && (
               <div className="mb-2 flex items-center gap-1.5">
                 <Home className="w-3 h-3 text-gray-500" />
                 <span className="text-xs font-medium text-gray-600">
@@ -1492,7 +1504,7 @@ function PostCard({
                   {post.author_name}
                 </div>
                 {/* Verified Resident Badge */}
-                {post.author_status === "APPROVED" && (
+                {isMounted && post.author_status === "APPROVED" && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
                     <CheckCircle className="w-3 h-3" />
                     <span className="text-xs font-semibold">Verified</span>
@@ -1509,7 +1521,7 @@ function PostCard({
                   {postType.icon} {postType.label}
                 </span>
                 {/* Urgent Badge */}
-                {post.is_urgent && (
+                {isMounted && post.is_urgent && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
                     <Bell className="w-3 h-3" />
                     <span className="text-xs font-semibold">Urgent</span>

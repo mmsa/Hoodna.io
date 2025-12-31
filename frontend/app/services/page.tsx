@@ -75,13 +75,21 @@ export default function ServicesPage() {
   // Redirect service providers to status page if not approved
   useEffect(() => {
     if (user?.role === 'SERVICE_PROVIDER') {
+      // Wait for profile to load
+      if (isLoadingProfile) {
+        return
+      }
+      
       console.log('[ServicesPage] User is SERVICE_PROVIDER, checking status...', {
         hasProfile: !!providerProfile,
-        status: providerProfile?.provider_status
+        status: providerProfile?.provider_status,
+        isLoadingProfile
       })
       
       if (!providerProfile) {
-        // Profile doesn't exist or is loading
+        // Profile doesn't exist, redirect to status page
+        console.log('[ServicesPage] No profile found, redirecting to status page')
+        router.push('/provider/status')
         return
       }
       
@@ -91,13 +99,15 @@ export default function ServicesPage() {
         isApproved: status === 'APPROVED'
       })
       
+      // Only redirect if NOT approved
       if (status !== 'APPROVED') {
         console.log('[ServicesPage] Provider not approved, redirecting to status page')
         router.push('/provider/status')
         return
       }
+      // If approved, allow access to services page
     }
-  }, [user, providerProfile, router])
+  }, [user, providerProfile, isLoadingProfile, router])
 
   // Fetch feed summary to get compound name (only for residents, not service providers)
   const { data: feedSummary } = useQuery({
@@ -125,8 +135,10 @@ export default function ServicesPage() {
   }, [user?.role])
 
   const queryParams = useMemo(() => {
+    // Ensure scope is correct for service providers
+    const finalScope = user?.role === 'SERVICE_PROVIDER' ? 'my' : scope
     const params: Record<string, string> = {
-      scope: scope,
+      scope: finalScope,
       category: 'SERVICE', // Only services
       sort_by: sortBy,
     }
@@ -135,16 +147,16 @@ export default function ServicesPage() {
       params.search = searchQuery.trim()
     }
     
-    console.log('[ServicesPage] Query params:', params)
+    console.log('[ServicesPage] Query params:', params, 'User role:', user?.role, 'Original scope:', scope)
     return params
-  }, [scope, searchQuery, sortBy])
+  }, [scope, searchQuery, sortBy, user?.role])
 
   const { data: services, isLoading, error } = useQuery<Listing[]>({
-    queryKey: ['services', scope, queryParams],
+    queryKey: ['services', user?.role, scope, queryParams],
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
       console.log('[ServicesPage] Fetching listings:', `/api/listings?${queryString}`)
-      console.log('[ServicesPage] User role:', user?.role, 'Scope:', scope)
+      console.log('[ServicesPage] User role:', user?.role, 'Scope in params:', queryParams.scope)
       const response = await api.get(`/api/listings?${queryString}`)
       console.log('[ServicesPage] Listings fetched:', {
         count: response.data?.length || 0,
@@ -161,15 +173,30 @@ export default function ServicesPage() {
         return false
       }
       
-      // For service providers, use scope=my (don't wait for profile, scope=my works regardless)
+      // For service providers, wait for profile to load and check if approved
       if (user.role === 'SERVICE_PROVIDER') {
+        // Wait for profile to finish loading
+        if (isLoadingProfile) {
+          console.log('[ServicesPage] Query disabled: profile still loading')
+          return false
+        }
+        
+        // If no profile or not approved, don't enable query (will redirect)
+        if (!providerProfile || providerProfile.provider_status !== 'APPROVED') {
+          console.log('[ServicesPage] Query disabled: provider not approved or no profile', {
+            hasProfile: !!providerProfile,
+            status: providerProfile?.provider_status
+          })
+          return false
+        }
+        
         const enabled = true
         console.log('[ServicesPage] Query enabled check for SERVICE_PROVIDER:', {
           enabled,
           hasUser: !!user,
           hasProfile: !!providerProfile,
           profileStatus: providerProfile?.provider_status,
-          scope: 'my'
+          scope: scope
         })
         return enabled
       }
@@ -203,7 +230,8 @@ export default function ServicesPage() {
     },
   })
 
-  if (isLoading) {
+  // Show loading state while checking provider profile
+  if (isLoading || (user?.role === 'SERVICE_PROVIDER' && isLoadingProfile)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

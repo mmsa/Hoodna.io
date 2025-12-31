@@ -137,6 +137,20 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5 text-gray-400" />
                 <div>
+                  <p className="text-sm text-gray-500">Account Type</p>
+                  <p className="font-medium capitalize">
+                    {user.role === 'SERVICE_PROVIDER' ? 'Service Provider' :
+                     user.role === 'COMPOUND_MOD' ? 'Compound Moderator' :
+                     user.role === 'ADMIN' ? 'Administrator' :
+                     user.role === 'MODERATOR' ? 'Moderator' :
+                     'Resident'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-gray-400" />
+                <div>
                   <p className="text-sm text-gray-500">Status</p>
                   <p className="font-medium capitalize">{user.status.toLowerCase().replace('_', ' ')}</p>
                 </div>
