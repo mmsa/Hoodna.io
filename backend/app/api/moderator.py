@@ -32,7 +32,7 @@ async def delete_post_endpoint(
         )
     
     # Moderators can only delete posts from their compound
-    if current_user.role == "MODERATOR" and current_user.compound_id != post.compound_id:
+    if current_user.role == "COMPOUND_MOD" and current_user.compound_id != post.compound_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete posts from your own compound"
@@ -80,7 +80,7 @@ async def ban_user_endpoint(
         )
     
     # Moderators can only ban users from their compound
-    if current_user.role == "MODERATOR" and current_user.compound_id != user.compound_id:
+    if current_user.role == "COMPOUND_MOD" and current_user.compound_id != user.compound_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only ban users from your own compound"
@@ -131,7 +131,7 @@ async def delete_listing_endpoint(
         )
     
     # Moderators can only delete listings from their compound
-    if current_user.role == "MODERATOR" and current_user.compound_id != owner.compound_id:
+    if current_user.role == "COMPOUND_MOD" and current_user.compound_id != owner.compound_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete listings from your own compound"
@@ -170,7 +170,7 @@ async def restore_post_endpoint(
         )
     
     # Moderators can only restore posts from their compound
-    if current_user.role == "MODERATOR" and current_user.compound_id != post.compound_id:
+    if current_user.role == "COMPOUND_MOD" and current_user.compound_id != post.compound_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only restore posts from your own compound"
@@ -217,7 +217,7 @@ async def restore_listing_endpoint(
         )
     
     # Moderators can only restore listings from their compound
-    if current_user.role == "MODERATOR" and current_user.compound_id != owner.compound_id:
+    if current_user.role == "COMPOUND_MOD" and current_user.compound_id != owner.compound_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only restore listings from your own compound"

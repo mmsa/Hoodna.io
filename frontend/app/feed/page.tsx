@@ -247,7 +247,7 @@ export default function FeedPage() {
     }
   }, [user, userLoading, router]);
 
-  // Block SERVICE_PROVIDER users from accessing the feed
+  // Block SERVICE_PROVIDER users from accessing the feed, but allow COMPOUND_MOD
   if (!userLoading && user && user.role === "SERVICE_PROVIDER") {
     return (
       <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
@@ -1460,8 +1460,8 @@ function PostCard({
                 )}
               </div>
               {/* Moderator Actions - Only show if user is admin OR moderator of this compound */}
-              {currentUser && (currentUser.role === "MODERATOR" || currentUser.role === "ADMIN") && (
-                (currentUser.role === "ADMIN" || (currentUser.role === "MODERATOR" && post.compound_id === currentUser.compound_id)) && (
+              {currentUser && (currentUser.role === "COMPOUND_MOD" || currentUser.role === "MODERATOR" || currentUser.role === "ADMIN") && (
+                (currentUser.role === "ADMIN" || ((currentUser.role === "MODERATOR" || currentUser.role === "COMPOUND_MOD") && post.compound_id === currentUser.compound_id)) && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={async () => {

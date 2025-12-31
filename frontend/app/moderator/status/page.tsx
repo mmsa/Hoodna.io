@@ -86,14 +86,9 @@ export default function ModeratorStatusPage() {
       return
     }
 
-    // Redirect approved moderators to feed
-    if (profile && profile.moderator_status === 'APPROVED') {
-      router.push('/feed')
-      return
-    }
-
-    // Prevent bypassing status page if not approved
-    if (profile && profile.moderator_status !== 'APPROVED' && profile.moderator_status !== 'DRAFT') {
+    // Prevent bypassing status page if not approved (but allow APPROVED to stay)
+    const normalizedStatus = profile?.moderator_status?.trim().toUpperCase()
+    if (normalizedStatus && normalizedStatus !== 'APPROVED' && normalizedStatus !== 'DRAFT') {
       // User must stay on status page until approved
       // This prevents accessing other pages
     }
@@ -114,7 +109,8 @@ export default function ModeratorStatusPage() {
     return null
   }
 
-  const status = profile.moderator_status as keyof typeof STATUS_CONFIG
+  const normalizedStatus = profile.moderator_status?.trim().toUpperCase() || 'DRAFT'
+  const status = normalizedStatus as keyof typeof STATUS_CONFIG
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT
   const Icon = config.icon
 
@@ -206,9 +202,14 @@ export default function ModeratorStatusPage() {
                 </Button>
               )}
               {status === 'APPROVED' && (
-                <Button asChild className="flex-1">
-                  <Link href="/feed">Go to Feed</Link>
-                </Button>
+                <>
+                  <Button asChild className="flex-1">
+                    <Link href="/feed">Go to Feed</Link>
+                  </Button>
+                  <Button asChild variant="outline" className="flex-1">
+                    <Link href="/moderator/dashboard">Moderation Dashboard</Link>
+                  </Button>
+                </>
               )}
               {(status === 'SUBMITTED' || status === 'IN_REVIEW') && !profile.rejection_reason?.includes('More details requested') && (
                 <p className="text-sm text-gray-600 text-center w-full mt-4">

@@ -173,8 +173,23 @@ async def get_current_admin(
 
 async def get_current_moderator_or_admin(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Get the current user, ensuring they are a moderator or admin."""
+    """Get the current user, ensuring they are a moderator or admin.
+    
+    For COMPOUND_MOD role, also checks that their moderator profile is approved.
+    """
+    if current_user.role == UserRole.COMPOUND_MOD:
+        from app.crud.moderator import get_moderator_profile
+        from app.models.enums import ModeratorStatus
+        moderator_profile = await get_moderator_profile(db, current_user.id)
+        if not moderator_profile or moderator_profile.moderator_status != ModeratorStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your moderator profile must be approved to perform this action",
+            )
+        return current_user
+    
     if current_user.role not in [UserRole.ADMIN, UserRole.MODERATOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -182,13 +182,22 @@ async def get_reports_list(
     db: AsyncSession = Depends(get_db),
 ):
     """Get reports (moderators/admins only)."""
+    # For COMPOUND_MOD, filter by their compound_id
+    # For ADMIN, show all reports
+    compound_id_filter = None
+    if current_user.role == "COMPOUND_MOD":
+        compound_id_filter = current_user.compound_id
+    elif current_user.role != "ADMIN":
+        # Legacy MODERATOR role - filter by compound_id
+        compound_id_filter = current_user.compound_id
+    
     reports = await get_reports(
         db=db,
         skip=skip,
         limit=limit,
         status_filter=status_filter,
         reported_type=reported_type,
-        compound_id=current_user.compound_id if current_user.role != "ADMIN" else None,
+        compound_id=compound_id_filter,
     )
     
     result = []
