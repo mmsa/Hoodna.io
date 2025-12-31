@@ -475,17 +475,51 @@ eljiran.com/
 │   │   └── main.py       # FastAPI app
 │   ├── alembic/          # Database migrations
 │   ├── scripts/          # Seed scripts
+│   ├── tests/            # Test files
 │   ├── Dockerfile
+│   ├── pytest.ini        # Pytest configuration
 │   └── requirements.txt
 ├── frontend/
 │   ├── app/              # Next.js app router pages
 │   ├── components/       # React components
 │   ├── lib/              # Utilities and API client
+│   ├── tests/            # Test files
+│   ├── vitest.config.ts  # Vitest configuration
 │   ├── Dockerfile
 │   └── package.json
 ├── docker-compose.yml
-└── README.md
+├── README.md
+└── TESTING.md            # Testing guide
 ```
+
+## Testing
+
+See [TESTING.md](./TESTING.md) for comprehensive testing documentation.
+
+### Quick Start
+
+**Backend:**
+```bash
+cd backend
+pytest                    # Run all tests
+pytest --cov=app          # Run with coverage
+pytest -m unit            # Run only unit tests
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm run test              # Run tests in watch mode
+npm run test:unit         # Run tests once
+npm run test:coverage     # Run with coverage
+npm run test:e2e          # Run E2E tests
+```
+
+### Test Coverage Goals
+
+- Unit tests: 80%+ coverage
+- Integration tests: Critical API endpoints
+- E2E tests: All user flows (signup, login, verification, posting, marketplace)
 
 ## Critical Path (End-to-End Flow)
 

@@ -410,5 +410,193 @@ export class ApiClient {
       method: "DELETE",
     });
   }
+
+  // Update listing (for owners)
+  async updateListing(listingId: number, data: Partial<ListingCreate>): Promise<Listing> {
+    return this.request<Listing>(`/api/listings/${listingId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete listing (for owners - soft delete)
+  async deleteOwnListing(listingId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/listings/${listingId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Feed endpoints
+  async getFeedSummary(): Promise<{
+    compound_name: string | null;
+    compound_area: string | null;
+    compound_developer: string | null;
+    compound_status: string | null;
+    recent_listings_count: number;
+    recent_posts_count: number;
+    total_neighbors: number;
+  }> {
+    return this.request("/api/feed/summary");
+  }
+
+  async getFeed(limit = 15): Promise<Post[]> {
+    return this.request<Post[]>(`/api/feed?limit=${limit}`);
+  }
+
+  // Provider endpoints
+  async getProviderProfile(): Promise<any> {
+    return this.request("/api/providers/me");
+  }
+
+  async updateProviderProfile(data: any): Promise<any> {
+    return this.request("/api/providers/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async requestProviderChange(data: {
+    category_id?: number;
+    service_area_compound_ids?: number[];
+    reason: string;
+  }): Promise<any> {
+    return this.request("/api/providers/me/request-change", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Moderator endpoints
+  async getModeratorProfile(): Promise<any> {
+    return this.request("/api/moderators/me");
+  }
+
+  async getModeratorReports(): Promise<any[]> {
+    return this.request("/api/reports");
+  }
+
+  async resolveReport(reportId: number): Promise<any> {
+    return this.request(`/api/reports/${reportId}/resolve`, {
+      method: "POST",
+    });
+  }
+
+  async getModeratorPosts(compoundId: number): Promise<Post[]> {
+    return this.request<Post[]>(`/api/community/posts?compound_id=${compoundId}`);
+  }
+
+  async restorePost(postId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/moderator/posts/${postId}/restore`, {
+      method: "POST",
+    });
+  }
+
+  async restoreListing(listingId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/moderator/listings/${listingId}/restore`, {
+      method: "POST",
+    });
+  }
+
+  // Reviews endpoints
+  async getListingReviews(listingId: number): Promise<any[]> {
+    return this.request<any[]>(`/api/listings/${listingId}/reviews`);
+  }
+
+  async createReview(listingId: number, data: {
+    rating: number;
+    comment?: string;
+  }): Promise<any> {
+    return this.request(`/api/listings/${listingId}/reviews`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateReview(reviewId: number, data: {
+    rating: number;
+    comment?: string;
+  }): Promise<any> {
+    return this.request(`/api/reviews/${reviewId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteReview(reviewId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/reviews/${reviewId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Saved items
+  async getSavedListings(): Promise<Listing[]> {
+    return this.request<Listing[]>("/api/saved-listings");
+  }
+
+  async getSavedPosts(): Promise<Post[]> {
+    return this.request<Post[]>("/api/saved-posts");
+  }
+
+  async savePost(postId: number): Promise<{ message: string; saved: boolean }> {
+    return this.request<{ message: string; saved: boolean }>(`/api/posts/${postId}/save`, {
+      method: "POST",
+    });
+  }
+
+  async unsavePost(postId: number): Promise<{ message: string; saved: boolean }> {
+    return this.request<{ message: string; saved: boolean }>(`/api/posts/${postId}/save`, {
+      method: "DELETE",
+    });
+  }
+
+  // Promotions
+  async createPromotionCheckout(listingId: number, data: {
+    scope: "CROSS_COMPOUND" | "PUBLIC";
+  }): Promise<{ checkout_url: string; session_id: string }> {
+    return this.request<{ checkout_url: string; session_id: string }>("/api/promotions/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        listing_id: listingId,
+        ...data,
+      }),
+    });
+  }
+
+  // Admin endpoints (for admin panel - web only typically)
+  async getAdminProviders(statusFilter?: string): Promise<any[]> {
+    const params = statusFilter ? `?status_filter=${statusFilter}` : "";
+    return this.request<any[]>(`/api/admin/providers${params}`);
+  }
+
+  async approveProvider(providerId: number): Promise<any> {
+    return this.request(`/api/admin/providers/${providerId}/approve`, {
+      method: "POST",
+    });
+  }
+
+  async rejectProvider(providerId: number, reason: string): Promise<any> {
+    return this.request(`/api/admin/providers/${providerId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async getAdminModerators(statusFilter?: string): Promise<any[]> {
+    const params = statusFilter ? `?status_filter=${statusFilter}` : "";
+    return this.request<any[]>(`/api/admin/moderators${params}`);
+  }
+
+  async approveModerator(moderatorId: number): Promise<any> {
+    return this.request(`/api/admin/moderators/${moderatorId}/approve`, {
+      method: "POST",
+    });
+  }
+
+  async rejectModerator(moderatorId: number, reason: string): Promise<any> {
+    return this.request(`/api/admin/moderators/${moderatorId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
 }
 

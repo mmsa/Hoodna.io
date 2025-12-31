@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export const UserRoleSchema = z.enum(["USER", "ADMIN", "MODERATOR"]);
+export const UserRoleSchema = z.enum([
+  "USER",           // Legacy - same as RESIDENT
+  "ADMIN", 
+  "MODERATOR",      // Legacy - use COMPOUND_MOD
+  "RESIDENT",       // Explicit resident role
+  "SERVICE_PROVIDER",
+  "COMPOUND_MOD"
+]);
 
 export const UserStatusSchema = z.enum([
   "PENDING_VERIFICATION",
