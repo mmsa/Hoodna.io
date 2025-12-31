@@ -71,9 +71,29 @@ async def list_listings(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required for compound scope"
             )
-        if not current_user.compound_id:
+        
+        # Get compound_id - for moderators, use their profile's compound_id
+        from app.models.enums import UserRole
+        effective_compound_id = current_user.compound_id
+        
+        if current_user.role == UserRole.COMPOUND_MOD:
+            from app.crud.moderator import get_moderator_profile
+            from app.models.enums import ModeratorStatus
+            moderator_profile = await get_moderator_profile(db, current_user.id)
+            if not moderator_profile or moderator_profile.moderator_status != ModeratorStatus.APPROVED:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your moderator profile must be approved to access the marketplace."
+                )
+            if not moderator_profile.compound_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Moderator must have a compound assigned"
+                )
+            effective_compound_id = moderator_profile.compound_id
+        
+        if not effective_compound_id:
             # Check if user is a service provider - suggest using scope=my
-            from app.models.enums import UserRole
             if current_user.role == UserRole.SERVICE_PROVIDER:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -84,20 +104,21 @@ async def list_listings(
                 detail="User must select a compound first"
             )
         
-        # Check if user is verified for this compound
-        is_verified = await is_user_verified_for_compound(
-            db=db,
-            user=current_user,
-            compound_id=current_user.compound_id
-        )
-        
-        if not is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You must be verified for this compound to access its marketplace. Please complete verification first."
+        # Check if user is verified for this compound (skip for moderators as they're already checked)
+        if current_user.role != UserRole.COMPOUND_MOD:
+            is_verified = await is_user_verified_for_compound(
+                db=db,
+                user=current_user,
+                compound_id=effective_compound_id
             )
+            
+            if not is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You must be verified for this compound to access its marketplace. Please complete verification first."
+                )
         
-        compound_id = current_user.compound_id
+        compound_id = effective_compound_id
     
     # Parse category and intent filters
     category_filter = None

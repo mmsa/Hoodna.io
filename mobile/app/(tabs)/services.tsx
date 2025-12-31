@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
+import { formatCompoundName } from "@/utils/formatCompound";
 
 const SORT_OPTIONS = [
   { value: "date_desc", label: "Newest First" },
@@ -160,22 +161,50 @@ export default function ServicesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
+  const [compoundName, setCompoundName] = useState<string | null>(null);
   const { user, apiClient } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     loadServices();
-  }, [user?.compound_id, searchQuery, sortBy]);
+    // Only load compound name for residents, not service providers
+    if (user?.role !== "SERVICE_PROVIDER") {
+      loadCompoundName();
+    }
+  }, [user?.compound_id, user?.role, searchQuery, sortBy]);
+
+  async function loadCompoundName() {
+    if (!user?.compound_id || !apiClient) return;
+    
+    try {
+      const userCompounds = await apiClient.getUserCompounds();
+      const foundCompound = userCompounds.find((c) => c.id === user.compound_id);
+      if (foundCompound) {
+        setCompoundName(foundCompound.name);
+      }
+    } catch (error) {
+      console.error("Failed to load compound name:", error);
+    }
+  }
 
   async function loadServices() {
-    if (!user?.compound_id || !apiClient) {
+    // For service providers, use scope=my to show only their own services
+    // For residents, use scope=compound to show all services in their compound
+    const isServiceProvider = user?.role === "SERVICE_PROVIDER";
+    
+    if (!isServiceProvider && !user?.compound_id) {
+      setLoading(false);
+      return;
+    }
+    
+    if (!apiClient) {
       setLoading(false);
       return;
     }
 
     try {
       const params: any = {
-        scope: "compound",
+        scope: isServiceProvider ? "my" : "compound",
         category: "SERVICE", // Only services
       };
       if (searchQuery.trim()) params.search = searchQuery.trim();
@@ -185,8 +214,8 @@ export default function ServicesScreen() {
       setServices(data || []);
     } catch (error: any) {
       console.error("Failed to load services:", error);
-      // Redirect to verification if user is not verified for compound
-      if (error?.message?.includes("403") || error?.response?.status === 403) {
+      // Redirect to verification if user is not verified for compound (only for residents)
+      if (!isServiceProvider && (error?.message?.includes("403") || error?.response?.status === 403)) {
         router.push("/verification");
       }
     } finally {
@@ -249,7 +278,7 @@ export default function ServicesScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
       <Header
-        title="Services"
+        title={user?.role === "SERVICE_PROVIDER" ? "My Services" : "Services"}
         showLogo={false}
         rightAction={
           canCreateService
@@ -268,29 +297,31 @@ export default function ServicesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-            {/* Info Banner */}
-            <View
-              style={{
-                backgroundColor: "#FEF3C7",
-                borderRadius: 12,
-                padding: 12,
-                marginBottom: 16,
-                borderWidth: 1,
-                borderColor: "#FDE68A",
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="information-circle" size={20} color="#92400E" />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E", marginBottom: 2 }}>
-                    Verified Service Providers
-                  </Text>
-                  <Text style={{ fontSize: 12, color: "#78350F" }}>
-                    All services are from verified neighbors in your compound
-                  </Text>
+            {/* Info Banner - Only show for residents, not service providers */}
+            {user?.role !== "SERVICE_PROVIDER" && (
+              <View
+                style={{
+                  backgroundColor: "#FEF3C7",
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: "#FDE68A",
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="information-circle" size={20} color="#92400E" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: "#92400E", marginBottom: 2 }}>
+                      Verified Service Providers
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#78350F" }}>
+                      All services are from verified neighbors in {compoundName ? formatCompoundName(compoundName) : "your compound"}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
 
             {/* Search */}
             <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
@@ -368,7 +399,7 @@ export default function ServicesScreen() {
             <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: "center" }}>
               {searchQuery.trim()
                 ? "No services match your search"
-                : "Be the first to offer a service in your compound!"}
+                : `Be the first to offer a service in ${compoundName ? formatCompoundName(compoundName) : "your compound"}!`}
             </Text>
           </View>
         }

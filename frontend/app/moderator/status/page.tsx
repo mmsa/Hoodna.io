@@ -201,13 +201,20 @@ export default function ModeratorStatusPage() {
                   </Link>
                 </Button>
               )}
-              {status === 'APPROVED' && (
+              {normalizedStatus === 'APPROVED' && (
                 <>
-                  <Button asChild className="flex-1">
-                    <Link href="/feed">Go to Feed</Link>
+                  <Button 
+                    className="flex-1"
+                    onClick={() => router.replace('/feed')}
+                  >
+                    Go to Feed
                   </Button>
-                  <Button asChild variant="outline" className="flex-1">
-                    <Link href="/moderator/dashboard">Moderation Dashboard</Link>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => router.replace('/moderator/dashboard')}
+                  >
+                    Moderation Dashboard
                   </Button>
                 </>
               )}

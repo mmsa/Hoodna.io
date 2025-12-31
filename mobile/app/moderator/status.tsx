@@ -258,7 +258,7 @@ export default function ModeratorStatusScreen() {
               ) : profile.moderator_status === "APPROVED" ? (
                 <>
                   <Text style={{ fontSize: 14, color: "#10B981", marginTop: 12, fontWeight: "600" }}>
-                    ✓ Your moderator profile has been approved! You can now moderate your compound.
+                    ✓ Your moderator profile has been approved! You can now moderate {profile.compound_name ? formatCompoundName(profile.compound_name) : "your compound"}.
                   </Text>
                   <TouchableOpacity
                     style={{

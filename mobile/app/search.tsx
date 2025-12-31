@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
+import { formatCompoundName } from "@/utils/formatCompound";
 // apiClient is available from useAuth hook
 
 interface SearchResult {
@@ -215,6 +216,7 @@ export default function SearchScreen() {
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [compoundName, setCompoundName] = useState<string | null>(null);
 
   // Debounce search query
   useEffect(() => {
@@ -224,6 +226,27 @@ export default function SearchScreen() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Load compound name
+  useEffect(() => {
+    async function loadCompoundName() {
+      if (!user?.compound_id || !apiClient) return;
+      
+      try {
+        const userCompounds = await apiClient.getUserCompounds();
+        const foundCompound = userCompounds.find((c) => c.id === user.compound_id);
+        if (foundCompound) {
+          setCompoundName(foundCompound.name);
+        }
+      } catch (error) {
+        console.error("Failed to load compound name:", error);
+      }
+    }
+    
+    if (user?.compound_id) {
+      loadCompoundName();
+    }
+  }, [user?.compound_id, apiClient]);
 
   // Perform search
   useEffect(() => {
@@ -338,7 +361,7 @@ export default function SearchScreen() {
               Start searching
             </Text>
             <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: "center", marginBottom: 24 }}>
-              Search across posts, marketplace items, and services in your compound
+              Search across posts, marketplace items, and services in {compoundName ? formatCompoundName(compoundName) : "your compound"}
             </Text>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <View

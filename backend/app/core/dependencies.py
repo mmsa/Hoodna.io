@@ -144,8 +144,32 @@ async def get_current_user_with_compound(
 
 async def get_current_verified_user(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Get the current user, ensuring they are verified (approved status)."""
+    """Get the current user, ensuring they are verified (approved status).
+    
+    For moderators, checks their moderator profile status and compound_id.
+    """
+    # Moderators: check moderator profile status and compound_id
+    if current_user.role == UserRole.COMPOUND_MOD:
+        from app.crud.moderator import get_moderator_profile
+        from app.models.enums import ModeratorStatus
+        moderator_profile = await get_moderator_profile(db, current_user.id)
+        if not moderator_profile or moderator_profile.moderator_status != ModeratorStatus.APPROVED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your moderator profile must be approved to access the community. Please complete verification first.",
+            )
+        if moderator_profile.compound_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Moderator must have a compound assigned",
+            )
+        # Temporarily set compound_id on user object for API compatibility
+        current_user.compound_id = moderator_profile.compound_id
+        return current_user
+    
+    # Regular users: check user status
     if current_user.status != UserStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

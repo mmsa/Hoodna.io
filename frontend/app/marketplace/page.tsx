@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,6 +36,7 @@ import {
   TrendingUp
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { formatCompoundName } from '@/lib/format-compound'
 
 interface Listing {
   id: number
@@ -217,7 +218,7 @@ function ListingCard({ listing }: { listing: Listing }) {
 }
 
 export default function MarketplacePage() {
-  const { user } = useAuth()
+  const { user, isLoading: userLoading } = useAuth()
   const queryClient = useQueryClient()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
@@ -227,6 +228,45 @@ export default function MarketplacePage() {
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+
+  // Block moderators from accessing marketplace
+  useEffect(() => {
+    if (userLoading) return
+    if (user && user.role === 'COMPOUND_MOD') {
+      router.push('/feed')
+    }
+  }, [user, userLoading, router])
+
+  // Block moderators from accessing marketplace
+  if (!userLoading && user && user.role === 'COMPOUND_MOD') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-32 h-32 mx-auto mb-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <span className="text-6xl">🚫</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Access Restricted
+          </h1>
+          <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+            Moderators are not allowed to browse the marketplace. Please manage content from the Feed or Moderation Dashboard.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link href="/feed">
+              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                Go to Feed
+              </Button>
+            </Link>
+            <Link href="/moderator/dashboard">
+              <Button variant="outline" className="px-8 py-6 text-lg font-semibold rounded-xl">
+                Moderation Dashboard
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Block SERVICE_PROVIDER users from accessing the marketplace
   if (user && user.role === "SERVICE_PROVIDER") {
@@ -308,6 +348,21 @@ export default function MarketplacePage() {
   })
 
   const savedCount = savedListings?.length || 0
+
+  // Fetch feed summary to get compound name
+  const { data: feedSummary } = useQuery({
+    queryKey: ['feed-summary'],
+    queryFn: async () => {
+      const response = await api.get('/api/feed/summary')
+      return response.data
+    },
+    enabled: !!user && user.role !== 'COMPOUND_MOD' && user.role !== 'SERVICE_PROVIDER',
+    retry: false,
+  })
+
+  const compoundName = feedSummary?.compound_name 
+    ? formatCompoundName(feedSummary.compound_name) 
+    : 'your compound'
 
   // Build query params
   const queryParams = useMemo(() => {
@@ -402,7 +457,7 @@ export default function MarketplacePage() {
                 Marketplace
               </h1>
               <p className="text-gray-600 text-lg">
-                Buy, sell, and rent within your compound community
+                Buy, sell, and rent within {compoundName}
               </p>
             </div>
             
@@ -690,7 +745,7 @@ export default function MarketplacePage() {
                   <p className="text-gray-600 mb-6 max-w-md mx-auto">
                     {hasActiveFilters
                       ? 'Try adjusting your search or filters to see more results.'
-                      : 'Be the first to list something for sale or rent in your compound!'}
+                      : `Be the first to list something for sale or rent in ${compoundName}!`}
                   </p>
                   {hasActiveFilters ? (
                     <Button onClick={clearFilters} variant="outline">

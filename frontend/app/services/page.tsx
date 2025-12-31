@@ -12,6 +12,7 @@ import { Wrench, Star, Search, ArrowRight, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
+import { formatCompoundName } from '@/lib/format-compound'
 
 interface Listing {
   id: number
@@ -97,6 +98,21 @@ export default function ServicesPage() {
       }
     }
   }, [user, providerProfile, router])
+
+  // Fetch feed summary to get compound name (only for residents, not service providers)
+  const { data: feedSummary } = useQuery({
+    queryKey: ['feed-summary'],
+    queryFn: async () => {
+      const response = await api.get('/api/feed/summary')
+      return response.data
+    },
+    enabled: !!user && user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD',
+    retry: false,
+  })
+
+  const compoundName = feedSummary?.compound_name 
+    ? formatCompoundName(feedSummary.compound_name) 
+    : 'your compound'
 
   // Determine scope: use 'my' for service providers, 'compound' for residents
   const scope = useMemo(() => {
@@ -211,7 +227,7 @@ export default function ServicesPage() {
               <p className="text-gray-600">
                 {user?.role === 'SERVICE_PROVIDER' 
                   ? 'Manage your service listings' 
-                  : 'Find verified service providers in your compound'}
+                  : `Find verified service providers in ${compoundName}`}
               </p>
             </div>
             {(user?.can_create_listing || (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED')) && (
@@ -330,7 +346,7 @@ export default function ServicesPage() {
               <p className="text-gray-600 mb-6">
                 {searchQuery.trim()
                   ? 'No services match your search'
-                  : 'Be the first to offer a service in your compound!'}
+                  : `Be the first to offer a service in ${compoundName}!`}
               </p>
               {(user?.can_create_listing || (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED')) && (
                 <Link href="/marketplace/new?category=SERVICE">

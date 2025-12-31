@@ -25,6 +25,7 @@ import {
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
+import { formatCompoundName } from '@/lib/format-compound'
 import Link from 'next/link'
 
 interface Post {
@@ -70,6 +71,21 @@ export default function ModeratorDashboardPage() {
   const [banDialogOpen, setBanDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [banReason, setBanReason] = useState('')
+
+  // Fetch moderator profile to get compound name
+  const { data: moderatorProfile } = useQuery({
+    queryKey: ['moderator-profile'],
+    queryFn: async () => {
+      const response = await api.get('/api/moderators/me')
+      return response.data
+    },
+    enabled: !!user && user.role === 'COMPOUND_MOD',
+    retry: false,
+  })
+
+  const compoundName = moderatorProfile?.compound_name 
+    ? formatCompoundName(moderatorProfile.compound_name) 
+    : 'your compound'
 
   // Check if user is moderator
   if (!user || user.role !== 'COMPOUND_MOD') {
@@ -255,7 +271,7 @@ export default function ModeratorDashboardPage() {
               <Shield className="w-8 h-8 text-blue-600" />
               Moderator Dashboard
             </h1>
-            <p className="text-gray-600">Manage content and users in your compound</p>
+            <p className="text-gray-600">Manage content and users in {compoundName}</p>
           </div>
           <Link href="/feed">
             <Button variant="outline">
@@ -374,7 +390,7 @@ export default function ModeratorDashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Compound Posts</CardTitle>
-                <CardDescription>Manage posts in your compound</CardDescription>
+                <CardDescription>Manage posts in {compoundName}</CardDescription>
               </CardHeader>
               <CardContent>
                 {postsLoading ? (
@@ -447,7 +463,7 @@ export default function ModeratorDashboardPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Compound Users</CardTitle>
-                <CardDescription>Manage users in your compound</CardDescription>
+                <CardDescription>Manage users in {compoundName}</CardDescription>
               </CardHeader>
               <CardContent>
                 {usersLoading ? (

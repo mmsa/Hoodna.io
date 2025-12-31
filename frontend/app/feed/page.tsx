@@ -217,12 +217,33 @@ export default function FeedPage() {
   const [newComments, setNewComments] = useState<Record<number, string>>({});
   const queryClient = useQueryClient();
 
+  // Fetch moderator profile if user is COMPOUND_MOD
+  const { data: moderatorProfile, isLoading: moderatorProfileLoading } = useQuery({
+    queryKey: ['moderator-profile'],
+    queryFn: async () => {
+      const response = await api.get('/api/moderators/me')
+      return response.data
+    },
+    enabled: !!user && user.role === 'COMPOUND_MOD',
+    retry: false,
+  })
+
   // Proactively check compound selection first, then verification
   // This must happen BEFORE any API calls to prevent wrong redirects
+  const isModerator = user?.role === 'COMPOUND_MOD'
+  const isModeratorProfileLoaded = !isModerator || moderatorProfile !== undefined
+  const isModeratorApproved = isModerator && moderatorProfile?.moderator_status === 'APPROVED'
+  const isResidentApproved = !isModerator && user?.status === 'APPROVED'
+  
+  // For moderators, use compound_id from their profile; for residents, use user.compound_id
+  const effectiveCompoundId = isModerator ? moderatorProfile?.compound_id : user?.compound_id
+  
   const shouldFetchData = !!(
     user &&
-    user.compound_id &&
-    user.status === "APPROVED"
+    !userLoading &&
+    isModeratorProfileLoaded &&
+    effectiveCompoundId &&
+    (isModeratorApproved || (isResidentApproved && !isModerator))
   );
 
   useEffect(() => {
@@ -234,18 +255,54 @@ export default function FeedPage() {
       return; // Show access denied message below
     }
 
+    // For moderators, check moderator profile approval status
+    if (user.role === "COMPOUND_MOD") {
+      // Wait for moderator profile to load
+      if (moderatorProfileLoading || moderatorProfile === undefined) {
+        return; // Still loading, don't redirect yet
+      }
+      
+      // Check if moderator is approved
+      if (moderatorProfile?.moderator_status !== "APPROVED") {
+        router.replace("/moderator/status");
+        return;
+      }
+      
+      // Check if compound is assigned (from profile, not user.compound_id)
+      if (!moderatorProfile?.compound_id) {
+        router.replace("/moderator/status");
+        return;
+      }
+      
+      // Moderator is approved and has compound, allow access
+      return;
+    }
+
+    // For regular users/residents
     // First priority: Check if compound is selected
     if (!user.compound_id) {
-      router.push("/onboarding/compound-select");
+      router.replace("/onboarding/compound-select");
       return;
     }
 
     // Second priority: Check if user is verified (only if compound is selected)
     if (user.compound_id && user.status !== "APPROVED") {
-      router.push("/verification");
+      router.replace("/verification");
       return;
     }
-  }, [user, userLoading, router]);
+  }, [user, userLoading, moderatorProfile, moderatorProfileLoading, router]);
+
+  // Show loading state while checking moderator profile
+  if (userLoading || (user?.role === "COMPOUND_MOD" && moderatorProfileLoading)) {
+    return (
+      <div className="min-h-screen bg-gradient-soft flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-600" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Block SERVICE_PROVIDER users from accessing the feed, but allow COMPOUND_MOD
   if (!userLoading && user && user.role === "SERVICE_PROVIDER") {
@@ -302,7 +359,7 @@ export default function FeedPage() {
       const response = await api.get("/api/feed/summary");
       return response.data;
     },
-    enabled: shouldFetchData,
+    enabled: shouldFetchData && !moderatorProfileLoading,
     retry: false,
   });
 
@@ -313,7 +370,7 @@ export default function FeedPage() {
       const response = await api.get("/api/listings?scope=compound&limit=20");
       return response.data;
     },
-    enabled: shouldFetchData,
+    enabled: shouldFetchData && !moderatorProfileLoading,
     retry: false,
   });
 
@@ -326,7 +383,7 @@ export default function FeedPage() {
       );
       return response.data;
     },
-    enabled: shouldFetchData,
+    enabled: shouldFetchData && !moderatorProfileLoading,
     retry: false,
   });
 
@@ -339,7 +396,7 @@ export default function FeedPage() {
       );
       return response.data;
     },
-    enabled: shouldFetchData,
+    enabled: shouldFetchData && !moderatorProfileLoading,
     retry: false,
   });
 
@@ -352,7 +409,7 @@ export default function FeedPage() {
       );
       return response.data;
     },
-    enabled: shouldFetchData,
+    enabled: shouldFetchData && !moderatorProfileLoading,
     retry: false,
   });
 
@@ -453,7 +510,7 @@ export default function FeedPage() {
       const response = await api.get(`/api/feed?limit=${postsLimit}`);
       return response.data;
     },
-    enabled: shouldFetchData,
+    enabled: shouldFetchData && !moderatorProfileLoading,
     retry: false,
   });
 

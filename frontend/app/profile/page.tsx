@@ -159,6 +159,17 @@ export default function ProfilePage() {
               {/* Show provider-specific information */}
               {user.role === 'SERVICE_PROVIDER' && providerProfile && (
                 <>
+                  {providerProfile.provider_type && (
+                    <div className="flex items-center gap-3">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Profile Type</p>
+                        <p className="font-medium capitalize">
+                          {providerProfile.provider_type.toLowerCase().replace('_', ' ')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   {providerProfile.business_name && (
                     <div className="flex items-center gap-3">
                       <Building2 className="w-5 h-5 text-gray-400" />
