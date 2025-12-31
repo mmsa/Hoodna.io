@@ -258,11 +258,11 @@ export default function ServicesPage() {
                   : `Find verified service providers in ${compoundName}`}
               </p>
             </div>
-            {(user?.can_create_listing || (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED')) && (
+            {user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED' && (
               <Link href="/marketplace/new?category=SERVICE">
                 <Button className="bg-green-600 hover:bg-green-700">
                   <Wrench className="w-4 h-4 mr-2" />
-                  {user?.role === 'SERVICE_PROVIDER' ? 'Add New Service' : 'Offer Service'}
+                  Add New Service
                 </Button>
               </Link>
             )}
@@ -376,11 +376,11 @@ export default function ServicesPage() {
                   ? 'No services match your search'
                   : `Be the first to offer a service in ${compoundName}!`}
               </p>
-              {(user?.can_create_listing || (user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED')) && (
+              {user?.role === 'SERVICE_PROVIDER' && providerProfile?.provider_status === 'APPROVED' && (
                 <Link href="/marketplace/new?category=SERVICE">
                   <Button className="bg-green-600 hover:bg-green-700">
                     <Wrench className="w-4 h-4 mr-2" />
-                    {user?.role === 'SERVICE_PROVIDER' ? 'Add Your First Service' : 'Offer Your First Service'}
+                    Add Your First Service
                   </Button>
                 </Link>
               )}

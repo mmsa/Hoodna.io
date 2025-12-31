@@ -230,14 +230,6 @@ export default function MarketplacePage() {
   const [showFilters, setShowFilters] = useState(false)
 
   // Block moderators from accessing marketplace
-  useEffect(() => {
-    if (userLoading) return
-    if (user && user.role === 'COMPOUND_MOD') {
-      router.push('/feed')
-    }
-  }, [user, userLoading, router])
-
-  // Block moderators from accessing marketplace
   if (!userLoading && user && user.role === 'COMPOUND_MOD') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">

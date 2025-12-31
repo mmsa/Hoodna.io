@@ -155,6 +155,11 @@ function ServiceCard({ service, router }: { service: Listing; router: any }) {
   );
 }
 
+interface ProviderProfile {
+  id: number;
+  provider_status: string;
+}
+
 export default function ServicesScreen() {
   const [services, setServices] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,6 +167,7 @@ export default function ServicesScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
   const [compoundName, setCompoundName] = useState<string | null>(null);
+  const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
   const { user, apiClient } = useAuth();
   const router = useRouter();
 
@@ -170,6 +176,10 @@ export default function ServicesScreen() {
     // Only load compound name for residents, not service providers
     if (user?.role !== "SERVICE_PROVIDER") {
       loadCompoundName();
+    }
+    // Load provider profile for service providers
+    if (user?.role === "SERVICE_PROVIDER") {
+      loadProviderProfile();
     }
   }, [user?.compound_id, user?.role, searchQuery, sortBy]);
 
@@ -184,6 +194,21 @@ export default function ServicesScreen() {
       }
     } catch (error) {
       console.error("Failed to load compound name:", error);
+    }
+  }
+
+  async function loadProviderProfile() {
+    if (!user || user.role !== "SERVICE_PROVIDER" || !apiClient) return;
+    
+    try {
+      const profile = await apiClient.request("GET", "/api/providers/me");
+      setProviderProfile(profile);
+    } catch (error: any) {
+      console.error("Failed to load provider profile:", error);
+      // If profile doesn't exist (404), that's okay - user needs to complete onboarding
+      if (error?.status !== 404) {
+        setProviderProfile(null);
+      }
     }
   }
 
@@ -229,7 +254,8 @@ export default function ServicesScreen() {
     loadServices();
   }
 
-  const canCreateService = user?.can_create_listing || false;
+  // Only allow approved service providers to create services
+  const canCreateService = user?.role === "SERVICE_PROVIDER" && providerProfile?.provider_status === "APPROVED";
 
   if (loading) {
     return (
