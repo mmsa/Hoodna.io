@@ -252,112 +252,6 @@ export default function FeedPage() {
     (isModeratorApproved || (isResidentApproved && !isModerator))
   );
 
-  useEffect(() => {
-    if (userLoading) return; // Wait for user data to load
-    if (!user) return; // Wait for user to load
-
-    // Block service providers from accessing feed
-    if (user.role === "SERVICE_PROVIDER") {
-      return; // Show access denied message below
-    }
-
-    // For moderators, check moderator profile approval status
-    if (user.role === "COMPOUND_MOD") {
-      // Wait for moderator profile to load
-      if (moderatorProfileLoading || moderatorProfile === undefined) {
-        return; // Still loading, don't redirect yet
-      }
-      
-      // Check if moderator is approved
-      if (moderatorProfile?.moderator_status !== "APPROVED") {
-        router.replace("/moderator/status");
-        return;
-      }
-      
-      // Check if compound is assigned (from profile, not user.compound_id)
-      if (!moderatorProfile?.compound_id) {
-        router.replace("/moderator/status");
-        return;
-      }
-      
-      // Moderator is approved and has compound, allow access
-      return;
-    }
-
-    // For regular users/residents
-    // First priority: Check if compound is selected
-    if (!user.compound_id) {
-      router.replace("/onboarding/compound-select");
-      return;
-    }
-
-    // Second priority: Check if user is verified (only if compound is selected)
-    if (user.compound_id && user.status !== "APPROVED") {
-      router.replace("/verification");
-      return;
-    }
-  }, [user, userLoading, moderatorProfile, moderatorProfileLoading, router]);
-
-  // Show loading state while checking moderator profile
-  if (userLoading || (user?.role === "COMPOUND_MOD" && moderatorProfileLoading)) {
-    return (
-      <div className="min-h-screen bg-gradient-soft flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-600" />
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Block SERVICE_PROVIDER users from accessing the feed, but allow COMPOUND_MOD
-  if (!userLoading && user && user.role === "SERVICE_PROVIDER") {
-    return (
-      <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="w-32 h-32 mx-auto mb-8 bg-orange-100 rounded-full flex items-center justify-center">
-            <span className="text-6xl">🚫</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Access Restricted
-          </h1>
-          <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-            Service providers are not allowed to browse the community feed. Please manage your services from the Services page.
-          </p>
-          <Link href="/services">
-            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              Go to My Services
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Block REJECTED users from accessing the feed
-  if (!userLoading && user && user.status === "REJECTED") {
-    return (
-      <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="w-32 h-32 mx-auto mb-8 bg-red-100 rounded-full flex items-center justify-center">
-            <span className="text-6xl">🚫</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Verification Not Granted
-          </h1>
-          <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-            Your verification request has been rejected. You cannot access the community feed at this time.
-          </p>
-          <Link href="/verification">
-            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              Review Verification Status
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   // Fetch feed summary - only if compound is selected and user is verified
   const { data: feedSummary } = useQuery<FeedSummary>({
     queryKey: ["feed-summary"],
@@ -545,11 +439,17 @@ export default function FeedPage() {
       // Only check verification if compound is already selected
       // (to avoid redirecting to verification when compound is missing)
       if (
-        user?.compound_id &&
+        effectiveCompoundId &&
         errorResponse?.status === 403 &&
         (errorDetail.includes("verified") || errorDetail.includes("approved"))
       ) {
-        // Refresh user data first in case status was just updated
+        // For moderators, redirect to moderator status page
+        if (isModerator) {
+          router.push("/moderator/status");
+          return;
+        }
+        
+        // For residents, refresh user data first in case status was just updated
         queryClient.invalidateQueries({ queryKey: ['current-user'] });
         // Small delay to allow user data to refresh, then check verification status
         setTimeout(async () => {
@@ -569,7 +469,7 @@ export default function FeedPage() {
         }, 500);
       }
     }
-  }, [error, user, router, queryClient]);
+  }, [error, user, router, queryClient, isModerator, effectiveCompoundId]);
 
   const createPostMutation = useMutation({
     mutationFn: async (data: { content: string; category?: string; is_urgent?: boolean } | string) => {
@@ -668,10 +568,47 @@ export default function FeedPage() {
 
   const posts = allPosts;
 
+  // Block SERVICE_PROVIDER users from accessing the feed
+  if (!userLoading && user && user.role === "SERVICE_PROVIDER") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-32 h-32 mx-auto mb-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <span className="text-6xl">🚫</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Access Restricted
+          </h1>
+          <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+            Service providers are not allowed to browse the feed. Please manage your services from the Services page.
+          </p>
+          <Link href="/services">
+            <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              Go to My Services
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while user data or moderator profile is being fetched
+  if (userLoading || !user || (isModerator && moderatorProfileLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Early return: Don't render anything if user doesn't meet requirements
   // This prevents any API calls from being made
-  if (!userLoading && user) {
-    if (!user.compound_id) {
+  if (user) {
+    // For moderators, check moderator profile; for residents, check user.compound_id
+    if (!effectiveCompoundId) {
       // Redirect will happen in useEffect, but return early to prevent rendering
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -684,29 +621,32 @@ export default function FeedPage() {
         </div>
       );
     }
-    if (user.compound_id && user.status !== "APPROVED") {
+    
+    // For moderators, check moderator_status; for residents, check user.status
+    if (effectiveCompoundId && !isModeratorApproved && !isResidentApproved) {
       // Redirect will happen in useEffect, but return early to prevent rendering
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-gray-600">Redirecting to verification...</p>
+      if (isModerator) {
+        // Moderator not approved - redirect to moderator status page
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-600">Redirecting to moderator status...</p>
+            </div>
           </div>
-        </div>
-      );
+        );
+      } else {
+        // Resident not approved - redirect to verification
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-600">Redirecting to verification...</p>
+            </div>
+          </div>
+        );
+      }
     }
-  }
-
-  // Show loading while user data is being fetched
-  if (userLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
   }
 
   if (isLoading) {
@@ -746,6 +686,31 @@ export default function FeedPage() {
                   {formatCompoundWithArea(feedSummary.compound_name, feedSummary.compound_area)}
                 </p>
               </div>
+            )}
+
+            {/* Moderator Dashboard Link - Only for approved moderators */}
+            {isModerator && isModeratorApproved && (
+              <Card className="mb-6 border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center">
+                        <Settings className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Moderation Dashboard</h3>
+                        <p className="text-sm text-gray-600">Manage content and reports for {moderatorProfile?.compound_name || 'your compound'}</p>
+                      </div>
+                    </div>
+                    <Link href="/moderator/dashboard">
+                      <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Open Dashboard
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {/* Create Post Input - At the top */}
@@ -1465,7 +1430,10 @@ function PostCard({
     general: "bg-gray-100 text-gray-800 border-gray-200",
   };
 
-  const IconComponent = postType.icon;
+  // Normalize icon handling: CATEGORY_INFO has string icons, detectPostType has component icons
+  // Only render component icons after mount to prevent hydration mismatch
+  const IconComponent = typeof postType.icon === 'string' ? null : postType.icon;
+  const iconString = typeof postType.icon === 'string' ? postType.icon : null;
 
   return (
     <Card
@@ -1518,7 +1486,11 @@ function PostCard({
                       : badgeColors[postType.type] || "bg-gray-100 text-gray-800 border-gray-200"
                   }`}
                 >
-                  {postType.icon} {postType.label}
+                  {isMounted && IconComponent ? (
+                    <IconComponent className="w-3 h-3 inline mr-1" />
+                  ) : iconString ? (
+                    iconString
+                  ) : null} {postType.label}
                 </span>
                 {/* Urgent Badge */}
                 {isMounted && post.is_urgent && (

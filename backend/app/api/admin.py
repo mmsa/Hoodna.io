@@ -31,7 +31,6 @@ from typing import List
 from app.models.service_provider import ServiceProviderProfile
 from app.models.compound_moderator import CompoundModeratorProfile
 from sqlalchemy import select
-from datetime import datetime
 
 router = APIRouter()
 

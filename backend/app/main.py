@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
+import logging
 from app.core.config import settings
 from app.core.dependencies import get_current_user
 from app.models.user import User
@@ -36,7 +37,7 @@ from app.api import (
     providers,
     moderators,
 )
-from app.api import service_categories
+from app.api import service_categories, reports, admin_reviews, moderator, saved_posts
 from app.services.storage import (
     use_local_storage,
     save_file_locally,
@@ -59,7 +60,6 @@ if cors_origins != ["*"] and "http://localhost:3001" not in cors_origins:
     cors_origins.append("http://localhost:3001")
 
 # Debug: Log CORS origins on startup
-import logging
 logger = logging.getLogger(__name__)
 logger.info(f"CORS allowed origins: {cors_origins}")
 
@@ -83,7 +83,6 @@ app.include_router(community.router, prefix="/api", tags=["community"])
 app.include_router(marketplace.router, prefix="/api/listings", tags=["marketplace"])
 app.include_router(promotions.router, prefix="/api/promotions", tags=["promotions"])
 app.include_router(saved_listings.router, prefix="/api", tags=["saved-listings"])
-from app.api import saved_posts
 app.include_router(saved_posts.router, prefix="/api", tags=["saved-posts"])
 app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
@@ -92,11 +91,8 @@ app.include_router(reviews.router, prefix="/api", tags=["reviews"])
 app.include_router(providers.router, prefix="/api/providers", tags=["providers"])
 app.include_router(moderators.router, prefix="/api/moderators", tags=["moderators"])
 app.include_router(service_categories.router, prefix="/api/service-categories", tags=["service-categories"])
-from app.api import reports, admin_reviews
 app.include_router(admin_reviews.router, prefix="/api/admin", tags=["admin-reviews"])
-from app.api import reports
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
-from app.api import moderator
 app.include_router(moderator.router, prefix="/api/moderator", tags=["moderator"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
