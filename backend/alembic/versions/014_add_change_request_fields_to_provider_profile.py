@@ -18,6 +18,39 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Ensure service_categories exists (previously created by script, make migration-safe)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS service_categories (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR NOT NULL,
+            description TEXT,
+            icon VARCHAR,
+            display_order INTEGER DEFAULT 0,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+    """)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes WHERE tablename = 'service_categories' AND indexname = 'ix_service_categories_id'
+            ) THEN
+                CREATE INDEX ix_service_categories_id ON service_categories (id);
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes WHERE tablename = 'service_categories' AND indexname = 'ix_service_categories_name'
+            ) THEN
+                CREATE INDEX ix_service_categories_name ON service_categories (name);
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_indexes WHERE tablename = 'service_categories' AND indexname = 'ix_service_categories_is_active'
+            ) THEN
+                CREATE INDEX ix_service_categories_is_active ON service_categories (is_active);
+            END IF;
+        END$$;
+    """)
+
     # Add change request fields to service_provider_profiles
     op.add_column('service_provider_profiles', 
                   sa.Column('category_change_request', sa.Integer(), nullable=True))
@@ -63,4 +96,3 @@ def downgrade() -> None:
     op.drop_column('service_provider_profiles', 'change_request_reason')
     op.drop_column('service_provider_profiles', 'compounds_change_request')
     op.drop_column('service_provider_profiles', 'category_change_request')
-
