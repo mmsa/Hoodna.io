@@ -18,6 +18,7 @@ services:
       - eljiran-network
 
   backend:
+    image: ${BACKEND_IMAGE:-deploy-backend:latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.backend.prod
@@ -60,6 +61,7 @@ services:
       - "8000"
 
   frontend:
+    image: ${FRONTEND_IMAGE:-deploy-frontend:latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend.prod
