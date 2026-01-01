@@ -55,6 +55,10 @@ interface Post {
   content: string;
   created_at: string;
   compound_id?: number;
+  compound_name?: string;
+  author_status?: string;
+  category?: string;
+  is_urgent?: boolean;
   comments: Comment[];
 }
 
