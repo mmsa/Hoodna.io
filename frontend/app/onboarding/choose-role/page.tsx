@@ -12,6 +12,11 @@ import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 
+// Prevent SSR from crashing when global location is unavailable during prerender
+if (typeof globalThis.location === 'undefined') {
+  ;(globalThis as any).location = { pathname: '/', href: '/' }
+}
+
 export default function ChooseRolePage() {
   const router = useRouter()
   const { user, isLoading: userLoading } = useAuth()
