@@ -39,7 +39,8 @@ echo "Step 1: Pulling latest changes from Git"
 echo "=========================================="
 git fetch origin
 git reset --hard origin/main  # or origin/master, adjust as needed
-git clean -fd
+# Preserve environment/secrets and certbot/ssl folders; clean everything else.
+git clean -fd -e .env -e ".env.*" -e deploy/nginx/certbot -e deploy/nginx/ssl
 echo "✓ Git pull complete"
 echo ""
 
