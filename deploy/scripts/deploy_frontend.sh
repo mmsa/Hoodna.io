@@ -8,12 +8,18 @@ IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-$
 NEW_IMAGE="${IMAGE_REPO_FRONTEND}:${IMAGE_TAG}"
 PREV_IMAGE="$(docker ps --filter name=eljiran-frontend --format '{{.Image}}' | head -n1 || true)"
 
-if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
-  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+# If image not present locally, attempt to pull (when creds provided). If already loaded (from docker load), skip pull.
+if ! docker image inspect "${NEW_IMAGE}" >/dev/null 2>&1; then
+  if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
+    echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+    log "Pulling frontend image ${NEW_IMAGE}"
+    docker pull "${NEW_IMAGE}"
+  else
+    log "Image ${NEW_IMAGE} not present locally and no registry credentials provided; assuming image was loaded via docker load."
+  fi
+else
+  log "Image ${NEW_IMAGE} already present locally; skipping pull."
 fi
-
-log "Pulling frontend image ${NEW_IMAGE}"
-docker pull "${NEW_IMAGE}"
 
 log "Deploying frontend with image ${NEW_IMAGE}"
 FRONTEND_IMAGE="${NEW_IMAGE}" docker compose -f deploy/docker-compose.prod.yml up -d frontend

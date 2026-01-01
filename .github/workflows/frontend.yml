@@ -26,32 +26,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Ensure GHCR_TOKEN is set
+      - name: Build frontend image (no push)
         run: |
-          if [ -z "${{ secrets.GHCR_TOKEN }}" ]; then
-            echo "GHCR_TOKEN is required for pushing images to GHCR. Create a PAT with write:packages scope and add it as a repo secret."
-            exit 1
-          fi
+          docker buildx build \
+            -f deploy/Dockerfile.frontend.prod \
+            -t eljiran-frontend:${SHORT_SHA} \
+            --load \
+            .
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
+      - name: Save frontend image
+        run: docker save eljiran-frontend:${SHORT_SHA} -o frontend.tar
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v5
+      - name: Copy image to EC2
+        uses: appleboy/scp-action@v0.1.7
         with:
-          context: .
-          file: deploy/Dockerfile.frontend.prod
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/eljiran-frontend:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/eljiran-frontend:${{ env.SHORT_SHA }}
-            ghcr.io/${{ github.repository_owner }}/eljiran-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "frontend.tar"
+          target: "/home/${{ secrets.EC2_USER }}/frontend.tar"
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
@@ -64,9 +57,8 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
+            docker load -i /home/ubuntu/frontend.tar
             IMAGE_TAG="${SHORT_SHA}"
-            IMAGE_REPO_FRONTEND="ghcr.io/${GITHUB_REPOSITORY_OWNER}/eljiran-frontend"
-            GHCR_USERNAME="${GITHUB_REPOSITORY_OWNER}"
-            GHCR_TOKEN="${GHCR_TOKEN:-}"
+            IMAGE_REPO_FRONTEND="eljiran-frontend"
             IMAGE_TAG="${IMAGE_TAG}" IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND}" GHCR_USERNAME="${GHCR_USERNAME}" GHCR_TOKEN="${GHCR_TOKEN}" \
               bash ./deploy/scripts/deploy_frontend.sh
