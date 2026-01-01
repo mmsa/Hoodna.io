@@ -11,7 +11,7 @@ const createTestQueryClient = () =>
     defaultOptions: {
       queries: {
         retry: false,
-        cacheTime: 0,
+        gcTime: 0,
       },
       mutations: {
         retry: false,
@@ -37,4 +37,3 @@ const customRender = (
 
 export * from '@testing-library/react'
 export { customRender as render }
-
