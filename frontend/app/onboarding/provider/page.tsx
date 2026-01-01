@@ -260,8 +260,8 @@ export default function ProviderOnboardingPage() {
           toast.error('Please complete all previous steps')
           return
         }
-        // Ensure provider_type and verification_method are valid enum values, not empty strings
-        if (!providerType || providerType === '' || !verificationMethod || verificationMethod === '') {
+        // Ensure provider_type and verification_method are selected
+        if (!providerType || !verificationMethod) {
           toast.error('Please select provider type and verification method')
           return
         }
@@ -1007,4 +1007,3 @@ function FileUpload({
     </div>
   )
 }
-
