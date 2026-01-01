@@ -84,8 +84,14 @@ export default function ChooseRolePage() {
     )
   }
 
+  // Redirect unauthenticated users on the client to avoid SSR router errors
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/auth/login')
+    }
+  }, [user, userLoading, router])
+
   if (!user) {
-    router.push('/auth/login')
     return null
   }
 
