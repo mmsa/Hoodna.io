@@ -27,10 +27,23 @@ target_metadata = Base.metadata
 
 
 def get_url():
-    # Use alembic.ini URL for migrations, fallback to settings for Docker
-    url = config.get_main_option("sqlalchemy.url")
-    if url:
-        return url
+    """
+    Resolve DB URL with precedence:
+    1) DATABASE_URL env var (e.g., production/compose)
+    2) alembic.ini sqlalchemy.url (local override)
+    3) app settings default (local fallback)
+    """
+    env_url = context.get_x_argument(as_dictionary=True).get("url") if context.get_x_argument(as_dictionary=True) else None
+    if not env_url:
+        env_url = os.getenv("DATABASE_URL")
+
+    if env_url:
+        return env_url
+
+    ini_url = config.get_main_option("sqlalchemy.url")
+    if ini_url:
+        return ini_url
+
     return settings.DATABASE_URL
 
 
@@ -94,4 +107,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
