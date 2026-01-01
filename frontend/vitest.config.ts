@@ -1,11 +1,11 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
-import type { PluginOption } from 'vite'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()] as PluginOption[],
+  // Cast to any to sidestep Vite version type mismatches between Vitest's bundled Vite and workspace Vite
+  plugins: [react()] as any,
   test: {
     environment: 'jsdom',
     globals: true,
