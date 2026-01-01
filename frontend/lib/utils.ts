@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString)
+export function formatTimeAgo(dateInput: string | Date): string {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
@@ -19,4 +19,3 @@ export function formatTimeAgo(dateString: string): string {
   if (diffDays < 7) return `${diffDays}d ago`
   return date.toLocaleDateString()
 }
-
