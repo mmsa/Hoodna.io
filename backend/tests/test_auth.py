@@ -5,6 +5,7 @@ import pytest
 from httpx import AsyncClient
 from app.models.user import User
 from app.models.enums import UserRole, UserStatus
+from app.schemas.user import UserCreate
 from app.core.security import get_password_hash
 
 
@@ -19,6 +20,7 @@ async def test_signup_success(async_client: AsyncClient, db_session):
             "email": "newuser@example.com",
             "phone": "+201234567890",
             "password": "password123",
+            "role": "USER",
         },
     )
     assert response.status_code == 201
@@ -41,6 +43,7 @@ async def test_signup_duplicate_email(async_client: AsyncClient, db_session):
             "email": "duplicate@example.com",
             "phone": "+201234567890",
             "password": "password123",
+            "role": "USER",
         },
     )
     
@@ -52,6 +55,7 @@ async def test_signup_duplicate_email(async_client: AsyncClient, db_session):
             "email": "duplicate@example.com",
             "phone": "+201234567891",
             "password": "password123",
+            "role": "USER",
         },
     )
     assert response.status_code == 400
@@ -64,15 +68,13 @@ async def test_login_success(async_client: AsyncClient, db_session):
     """Test successful login."""
     # Create user first
     from app.crud.user import create_user
-    user_data = {
-        "name": "Test User",
-        "email": "login@example.com",
-        "phone": "+201234567890",
-        "password_hash": get_password_hash("password123"),
-        "role": UserRole.USER,
-        "status": UserStatus.PENDING,
-    }
-    await create_user(db_session, **user_data)
+    user_data = UserCreate(
+        name="Test User",
+        email="login@example.com",
+        phone="+201234567890",
+        password="password123",
+    )
+    await create_user(db_session, user_data, role=UserRole.USER)
     
     # Login
     response = await async_client.post(
@@ -107,16 +109,15 @@ async def test_login_invalid_credentials(async_client: AsyncClient, db_session):
 async def test_get_current_user_authenticated(async_client: AsyncClient, db_session):
     """Test getting current user info when authenticated."""
     # Create and login user
-    from app.crud.user import create_user
-    user_data = {
-        "name": "Test User",
-        "email": "me@example.com",
-        "phone": "+201234567890",
-        "password_hash": get_password_hash("password123"),
-        "role": UserRole.USER,
-        "status": UserStatus.APPROVED,
-    }
-    user = await create_user(db_session, **user_data)
+    from app.crud.user import create_user, update_user_status
+    user_data = UserCreate(
+        name="Test User",
+        email="me@example.com",
+        phone="+201234567890",
+        password="password123",
+    )
+    user = await create_user(db_session, user_data, role=UserRole.USER)
+    await update_user_status(db_session, user.id, UserStatus.APPROVED)
     
     # Login to get token
     login_response = await async_client.post(
@@ -144,4 +145,3 @@ async def test_get_current_user_unauthenticated(async_client: AsyncClient):
     """Test getting current user info without authentication."""
     response = await async_client.get("/api/auth/me")
     assert response.status_code == 401
-
