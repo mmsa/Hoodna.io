@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Any
 
 
 class Settings(BaseSettings):
@@ -39,6 +40,17 @@ class Settings(BaseSettings):
     
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def split_cors_origins(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            # Accept comma-separated origins or JSON-like strings
+            if v.strip().startswith("["):
+                # Let pydantic parse JSON array strings
+                return v
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
     
     class Config:
         env_file = [".env", "../.env"]  # Look in current dir and parent dir
@@ -46,4 +58,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
