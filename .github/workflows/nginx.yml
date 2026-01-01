@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -22,6 +25,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: SHORT_SHA
           script: |
             set -euo pipefail
             cd /home/ubuntu/eljiran
