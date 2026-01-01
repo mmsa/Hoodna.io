@@ -17,6 +17,21 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Reuse existing enum if present to avoid duplicate creation errors
+    notification_enum = postgresql.ENUM(
+        'MESSAGE',
+        'COMMENT',
+        'POST_LIKE',
+        'VERIFICATION_APPROVED',
+        'VERIFICATION_REJECTED',
+        'VERIFICATION_REQUEST_MORE',
+        'LISTING_INQUIRY',
+        'LISTING_SAVED',
+        'MENTION',
+        name='notificationtype',
+        create_type=False,
+    )
+
     # Create NotificationType enum if it does not already exist (handles reruns/partial failures)
     op.execute("""
         DO $$
@@ -42,7 +57,7 @@ def upgrade() -> None:
         'notifications',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('type', postgresql.ENUM('MESSAGE', 'COMMENT', 'POST_LIKE', 'VERIFICATION_APPROVED', 'VERIFICATION_REJECTED', 'VERIFICATION_REQUEST_MORE', 'LISTING_INQUIRY', 'LISTING_SAVED', 'MENTION', name='notificationtype'), nullable=False),
+        sa.Column('type', notification_enum, nullable=False),
         sa.Column('title', sa.String(), nullable=False),
         sa.Column('message', sa.Text(), nullable=False),
         sa.Column('read', sa.Boolean(), nullable=False, server_default='false'),
