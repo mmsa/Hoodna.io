@@ -126,7 +126,7 @@ export default function ModeratorDashboardPage() {
   })
 
   // Note: User management endpoint doesn't exist yet, so we'll show a message
-  const users: User[] | undefined = undefined
+  const users: User[] = []
   const usersLoading = false
 
   // Hide post mutation
@@ -567,4 +567,3 @@ export default function ModeratorDashboardPage() {
     </div>
   )
 }
-
