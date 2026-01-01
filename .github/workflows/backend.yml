@@ -60,10 +60,15 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
+            TAR_PATH="/home/ubuntu/backend.tar"
             # Ensure backend.tar is a file (clean up any previous directory)
-            if [ -d /home/ubuntu/backend.tar ]; then rm -rf /home/ubuntu/backend.tar; fi
-            if [ -f /home/ubuntu/backend.tar/backend.tar ]; then mv /home/ubuntu/backend.tar/backend.tar /home/ubuntu/backend.tar; fi
-            docker load -i /home/ubuntu/backend.tar
+            if [ -d "${TAR_PATH}" ]; then rm -rf "${TAR_PATH}"; fi
+            if [ -f "${TAR_PATH}/backend.tar" ]; then mv "${TAR_PATH}/backend.tar" "${TAR_PATH}"; fi
+            if [ ! -f "${TAR_PATH}" ]; then
+              echo "ERROR: ${TAR_PATH} not found. Check the scp step."
+              exit 1
+            fi
+            docker load -i "${TAR_PATH}"
             IMAGE_TAG="${SHORT_SHA}"
             IMAGE_REPO_BACKEND="eljiran-backend"
             IMAGE_TAG="${IMAGE_TAG}" IMAGE_REPO_BACKEND="${IMAGE_REPO_BACKEND}" GHCR_USERNAME="${GHCR_USERNAME}" GHCR_TOKEN="${GHCR_TOKEN}" \
