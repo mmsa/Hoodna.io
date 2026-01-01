@@ -203,32 +203,35 @@ export default function ServicesPage() {
       // For other users, enable immediately
       return true
     })(),
-    onError: (error: any) => {
-      console.error('[ServicesPage] Error fetching listings:', {
-        status: error.response?.status,
-        message: error.message,
-        data: error.response?.data,
-        userRole: user?.role
-      })
-      // Redirect to verification if user is not verified for compound
-      if (error?.response?.status === 403) {
-        router.push('/verification')
-      } else if (error?.response?.status === 400) {
-        const errorDetail = error.response?.data?.detail || ''
-        console.log('[ServicesPage] 400 error detail:', errorDetail)
-        // If service provider gets 400 suggesting scope=my, they might not be approved
-        if (user?.role === 'SERVICE_PROVIDER') {
-          if (errorDetail.includes('scope=my')) {
-            // This means they tried scope=compound, redirect to status page
-            router.push('/provider/status')
-          } else {
-            // Other 400 error, still redirect to status page
-            router.push('/provider/status')
-          }
-        }
-      }
-    },
   })
+
+  useEffect(() => {
+    if (!error) return
+
+    const status = (error as any).response?.status
+    const message = (error as any).message
+    const data = (error as any).response?.data
+
+    console.error('[ServicesPage] Error fetching listings:', {
+      status,
+      message,
+      data,
+      userRole: user?.role
+    })
+
+    if (status === 403) {
+      router.push('/verification')
+      return
+    }
+
+    if (status === 400) {
+      const errorDetail = data?.detail || ''
+      console.log('[ServicesPage] 400 error detail:', errorDetail)
+      if (user?.role === 'SERVICE_PROVIDER') {
+        router.push('/provider/status')
+      }
+    }
+  }, [error, router, user])
 
   // Show loading state while checking provider profile
   if (isLoading || (user?.role === 'SERVICE_PROVIDER' && isLoadingProfile)) {
@@ -391,4 +394,3 @@ export default function ServicesPage() {
     </div>
   )
 }
-
