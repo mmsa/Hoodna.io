@@ -4,6 +4,7 @@ set -euo pipefail
 log() { echo "[$(date -Is)] $*"; }
 
 : "${IMAGE_TAG:?IMAGE_TAG is required}"
+ENV_FILE="${ENV_FILE:-/home/ubuntu/eljiran/.env}"
 IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY:-unknown}}/eljiran-frontend}"
 NEW_IMAGE="${IMAGE_REPO_FRONTEND}:${IMAGE_TAG}"
 PREV_IMAGE="$(docker ps --filter name=eljiran-frontend --format '{{.Image}}' | head -n1 || true)"
@@ -21,8 +22,9 @@ else
   log "Image ${NEW_IMAGE} already present locally; skipping pull."
 fi
 
+log "Using env file: ${ENV_FILE}"
 log "Deploying frontend with image ${NEW_IMAGE}"
-FRONTEND_IMAGE="${NEW_IMAGE}" docker compose -f deploy/docker-compose.prod.yml up -d frontend
+FRONTEND_IMAGE="${NEW_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
 
 log "Running frontend health checks..."
 health_ok=true
@@ -33,7 +35,7 @@ if [[ "${health_ok}" != "true" ]]; then
   log "Health check FAILED. Rolling back to previous image: ${PREV_IMAGE:-<none>}"
   if [[ -n "${PREV_IMAGE}" ]]; then
     docker pull "${PREV_IMAGE}" || true
-    FRONTEND_IMAGE="${PREV_IMAGE}" docker compose -f deploy/docker-compose.prod.yml up -d frontend
+    FRONTEND_IMAGE="${PREV_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
   else
     log "No previous image recorded; skipping rollback."
   fi
