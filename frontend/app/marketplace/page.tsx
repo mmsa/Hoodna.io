@@ -391,29 +391,31 @@ export default function MarketplacePage() {
       const data = response.data || []
       return data.filter((listing: Listing) => listing.category !== 'SERVICE')
     },
-    onError: async (error: any) => {
-      // Redirect to verification if user is not verified for compound
-      if (error?.response?.status === 403) {
-        // Refresh user data first in case status was just updated
-        queryClient.invalidateQueries({ queryKey: ['current-user'] });
-        // Small delay to allow user data to refresh, then check verification status
-        setTimeout(async () => {
-          try {
-            const statusResponse = await api.get('/api/verification/status');
-            // If verification status shows user is now approved, refresh and stay on page
-            if (statusResponse.data.user_status === 'APPROVED') {
-              queryClient.invalidateQueries({ queryKey: ['current-user'] });
-              queryClient.invalidateQueries({ queryKey: ['listings'] });
-            } else {
-              router.push('/verification');
-            }
-          } catch {
-            router.push('/verification');
-          }
-        }, 500);
-      }
-    },
   })
+
+  useEffect(() => {
+    if (!error) return
+
+    const status = (error as any)?.response?.status
+    if (status !== 403) return
+
+    queryClient.invalidateQueries({ queryKey: ['current-user'] })
+    const timeoutId = setTimeout(async () => {
+      try {
+        const statusResponse = await api.get('/api/verification/status')
+        if (statusResponse.data.user_status === 'APPROVED') {
+          queryClient.invalidateQueries({ queryKey: ['current-user'] })
+          queryClient.invalidateQueries({ queryKey: ['listings'] })
+        } else {
+          router.push('/verification')
+        }
+      } catch {
+        router.push('/verification')
+      }
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [error, queryClient, router])
 
   const hasActiveFilters = selectedCategory || selectedIntent || minPrice || maxPrice || searchQuery
 
