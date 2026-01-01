@@ -1426,7 +1426,7 @@ function PostCard({
     general: "border-l-gray-200",
   };
 
-  const badgeColors = {
+  const badgeColors: Record<string, string> = {
     help: "bg-amber-100 text-amber-800 border-amber-200",
     lost: "bg-pink-100 text-pink-800 border-pink-200",
     event: "bg-indigo-100 text-indigo-800 border-indigo-200",
