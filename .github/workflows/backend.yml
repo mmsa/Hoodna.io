@@ -37,6 +37,9 @@ jobs:
       - name: Save backend image
         run: docker save eljiran-backend:${SHORT_SHA} -o backend.tar
 
+      - name: Fix permissions on image tar
+        run: chmod 644 backend.tar
+
       - name: Copy image to EC2
         uses: appleboy/scp-action@v0.1.7
         with:

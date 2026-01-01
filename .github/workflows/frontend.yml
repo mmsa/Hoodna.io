@@ -37,6 +37,9 @@ jobs:
       - name: Save frontend image
         run: docker save eljiran-frontend:${SHORT_SHA} -o frontend.tar
 
+      - name: Fix permissions on image tar
+        run: chmod 644 frontend.tar
+
       - name: Copy image to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
