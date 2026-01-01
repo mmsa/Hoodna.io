@@ -65,6 +65,7 @@ interface Post {
 interface Comment {
   id: number;
   author_name: string;
+  author_status?: string;
   content: string;
   created_at: string;
 }
