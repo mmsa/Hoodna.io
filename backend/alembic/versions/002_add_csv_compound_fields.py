@@ -1,6 +1,6 @@
 """Add CSV compound fields
 
-Revision ID: 002
+Revision ID: 002_add_csv_compound_fields
 Revises: 001
 Create Date: 2025-12-28 15:35:00.000000
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '002'
+revision: str = '002_add_csv_compound_fields'
 down_revision: Union[str, None] = '001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -83,4 +83,3 @@ def downgrade() -> None:
     
     # Make city NOT NULL again
     op.alter_column('compounds', 'city', nullable=False)
-
