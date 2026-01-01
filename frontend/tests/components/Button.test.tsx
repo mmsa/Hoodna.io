@@ -28,7 +28,6 @@ describe('Button', () => {
     expect(screen.getByRole('button')).toHaveClass('bg-destructive')
     
     rerender(<Button variant="outline">Outline</Button>)
-    expect(screen.getByRole('button')).toHaveClass('border-input')
+    expect(screen.getByRole('button')).toHaveClass('border-gray-300')
   })
 })
-

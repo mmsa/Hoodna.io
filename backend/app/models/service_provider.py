@@ -3,6 +3,27 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
 from app.models.enums import ProviderType, ProviderVerificationMethod, ProviderStatus
+from sqlalchemy.types import TypeDecorator
+
+
+class IntArray(TypeDecorator):
+    """
+    Stores list[int] as ARRAY on Postgres and JSON on other dialects (e.g., SQLite for tests).
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(ARRAY(Integer))
+        return dialect.type_descriptor(JSON)
+
+    def process_bind_param(self, value, dialect):
+        return value
+
+    def process_result_value(self, value, dialect):
+        return value
 
 
 class ServiceProviderProfile(Base):
@@ -18,7 +39,7 @@ class ServiceProviderProfile(Base):
     business_name = Column(String, nullable=True)
     category_id = Column(Integer, ForeignKey("service_categories.id"), nullable=True)
     phone = Column(String, nullable=True)
-    service_area_compound_ids = Column(ARRAY(Integer), nullable=True)  # List of compound IDs
+    service_area_compound_ids = Column(IntArray(), nullable=True)  # List of compound IDs
     occupation_text = Column(String, nullable=True)  # Required if NATIONAL_ID_OCCUPATION
     
     # Status tracking
@@ -34,7 +55,7 @@ class ServiceProviderProfile(Base):
     
     # Change requests (provider can request changes to category/compounds)
     category_change_request = Column(Integer, ForeignKey("service_categories.id"), nullable=True)  # Requested category_id
-    compounds_change_request = Column(ARRAY(Integer), nullable=True)  # Requested compound IDs
+    compounds_change_request = Column(IntArray(), nullable=True)  # Requested compound IDs
     change_request_reason = Column(Text, nullable=True)  # Reason for the change request
     change_request_status = Column(String, nullable=True)  # PENDING, APPROVED, REJECTED
     change_request_reviewed_at = Column(DateTime(timezone=True), nullable=True)
@@ -71,4 +92,3 @@ class ServiceProviderDocument(Base):
 
     # Relationships
     profile = relationship("ServiceProviderProfile", back_populates="documents")
-
