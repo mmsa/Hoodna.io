@@ -19,41 +19,56 @@ depends_on: str | None = None
 
 
 def upgrade() -> None:
-    # Create enums
+    # Create or reuse enums (idempotent)
+    providertype_enum = postgresql.ENUM(
+        'INDIVIDUAL',
+        'REGISTERED_BUSINESS',
+        name='providertype',
+        create_type=False,
+    )
+    providerverificationmethod_enum = postgresql.ENUM(
+        'COMMERCIAL_REGISTER',
+        'NATIONAL_ID_OCCUPATION',
+        name='providerverificationmethod',
+        create_type=False,
+    )
+    providerstatus_enum = postgresql.ENUM(
+        'DRAFT',
+        'SUBMITTED',
+        'IN_REVIEW',
+        'APPROVED',
+        'REJECTED',
+        'SUSPENDED',
+        name='providerstatus',
+        create_type=False,
+    )
+    moderatorstatus_enum = postgresql.ENUM(
+        'DRAFT',
+        'SUBMITTED',
+        'IN_REVIEW',
+        'APPROVED',
+        'REJECTED',
+        'SUSPENDED',
+        name='moderatorstatus',
+        create_type=False,
+    )
+
     op.execute("""
-        CREATE TYPE providertype AS ENUM (
-            'INDIVIDUAL',
-            'REGISTERED_BUSINESS'
-        )
-    """)
-    
-    op.execute("""
-        CREATE TYPE providerverificationmethod AS ENUM (
-            'COMMERCIAL_REGISTER',
-            'NATIONAL_ID_OCCUPATION'
-        )
-    """)
-    
-    op.execute("""
-        CREATE TYPE providerstatus AS ENUM (
-            'DRAFT',
-            'SUBMITTED',
-            'IN_REVIEW',
-            'APPROVED',
-            'REJECTED',
-            'SUSPENDED'
-        )
-    """)
-    
-    op.execute("""
-        CREATE TYPE moderatorstatus AS ENUM (
-            'DRAFT',
-            'SUBMITTED',
-            'IN_REVIEW',
-            'APPROVED',
-            'REJECTED',
-            'SUSPENDED'
-        )
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'providertype') THEN
+                CREATE TYPE providertype AS ENUM ('INDIVIDUAL', 'REGISTERED_BUSINESS');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'providerverificationmethod') THEN
+                CREATE TYPE providerverificationmethod AS ENUM ('COMMERCIAL_REGISTER', 'NATIONAL_ID_OCCUPATION');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'providerstatus') THEN
+                CREATE TYPE providerstatus AS ENUM ('DRAFT', 'SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED');
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'moderatorstatus') THEN
+                CREATE TYPE moderatorstatus AS ENUM ('DRAFT', 'SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED');
+            END IF;
+        END$$;
     """)
     
     # Create service_provider_profiles table
@@ -61,14 +76,14 @@ def upgrade() -> None:
         'service_provider_profiles',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False),
-        sa.Column('provider_type', postgresql.ENUM('INDIVIDUAL', 'REGISTERED_BUSINESS', name='providertype'), nullable=True),
-        sa.Column('verification_method', postgresql.ENUM('COMMERCIAL_REGISTER', 'NATIONAL_ID_OCCUPATION', name='providerverificationmethod'), nullable=True),
+        sa.Column('provider_type', providertype_enum, nullable=True),
+        sa.Column('verification_method', providerverificationmethod_enum, nullable=True),
         sa.Column('business_name', sa.String(), nullable=True),
         sa.Column('category_id', sa.Integer(), nullable=True),
         sa.Column('phone', sa.String(), nullable=True),
         sa.Column('service_area_compound_ids', postgresql.ARRAY(sa.Integer()), nullable=True),
         sa.Column('occupation_text', sa.String(), nullable=True),
-        sa.Column('provider_status', postgresql.ENUM('DRAFT', 'SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED', name='providerstatus'), nullable=False, server_default='DRAFT'),
+        sa.Column('provider_status', providerstatus_enum, nullable=False, server_default='DRAFT'),
         sa.Column('submitted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('reviewed_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('reviewed_by', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
@@ -103,7 +118,7 @@ def upgrade() -> None:
         sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'), nullable=False),
         sa.Column('compound_id', sa.Integer(), sa.ForeignKey('compounds.id'), nullable=False),
         sa.Column('role_title', sa.String(), nullable=True),
-        sa.Column('moderator_status', postgresql.ENUM('DRAFT', 'SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED', name='moderatorstatus'), nullable=False, server_default='DRAFT'),
+        sa.Column('moderator_status', moderatorstatus_enum, nullable=False, server_default='DRAFT'),
         sa.Column('submitted_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('reviewed_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('reviewed_by', sa.Integer(), sa.ForeignKey('users.id'), nullable=True),
@@ -158,12 +173,11 @@ def downgrade() -> None:
     op.drop_table('service_provider_profiles')
     
     # Drop enums
-    op.execute("DROP TYPE moderatorstatus")
-    op.execute("DROP TYPE providerstatus")
-    op.execute("DROP TYPE providerverificationmethod")
-    op.execute("DROP TYPE providertype")
+    op.execute("DROP TYPE IF EXISTS moderatorstatus")
+    op.execute("DROP TYPE IF EXISTS providerstatus")
+    op.execute("DROP TYPE IF EXISTS providerverificationmethod")
+    op.execute("DROP TYPE IF EXISTS providertype")
     
     # Revert users.role to NOT NULL (set default for existing NULLs first)
     op.execute("UPDATE users SET role = 'USER' WHERE role IS NULL")
     op.alter_column('users', 'role', nullable=False)
-
