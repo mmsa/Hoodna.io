@@ -17,19 +17,24 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create NotificationType enum
+    # Create NotificationType enum if it does not already exist (handles reruns/partial failures)
     op.execute("""
-        CREATE TYPE notificationtype AS ENUM (
-            'MESSAGE',
-            'COMMENT',
-            'POST_LIKE',
-            'VERIFICATION_APPROVED',
-            'VERIFICATION_REJECTED',
-            'VERIFICATION_REQUEST_MORE',
-            'LISTING_INQUIRY',
-            'LISTING_SAVED',
-            'MENTION'
-        )
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'notificationtype') THEN
+                CREATE TYPE notificationtype AS ENUM (
+                    'MESSAGE',
+                    'COMMENT',
+                    'POST_LIKE',
+                    'VERIFICATION_APPROVED',
+                    'VERIFICATION_REJECTED',
+                    'VERIFICATION_REQUEST_MORE',
+                    'LISTING_INQUIRY',
+                    'LISTING_SAVED',
+                    'MENTION'
+                );
+            END IF;
+        END$$;
     """)
     
     # Create notifications table
@@ -61,5 +66,4 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_notifications_read'), table_name='notifications')
     op.drop_index(op.f('ix_notifications_user_id'), table_name='notifications')
     op.drop_table('notifications')
-    op.execute('DROP TYPE notificationtype')
-
+    op.execute("DROP TYPE IF EXISTS notificationtype")
