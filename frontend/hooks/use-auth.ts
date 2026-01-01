@@ -31,7 +31,7 @@ export function useAuth() {
     }
   }, [token, queryClient])
 
-  const { data: user, isLoading, error } = useQuery<User | null>({
+  const { data: user, isLoading, error, refetch } = useQuery<User | null>({
     queryKey: ['current-user', token], // Include token in query key to prevent stale data
     queryFn: async () => {
       if (!token) return null
@@ -69,6 +69,11 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     isAdmin: user?.role === 'ADMIN' || user?.role === 'MODERATOR',
+    refreshUser: async () => {
+      // Invalidate both generic and token-scoped keys, then refetch
+      await queryClient.invalidateQueries({ queryKey: ['current-user'] })
+      await queryClient.invalidateQueries({ queryKey: ['current-user', token] })
+      return refetch()
+    },
   }
 }
-
