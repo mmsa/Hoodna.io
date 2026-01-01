@@ -60,6 +60,9 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
+            # Ensure backend.tar is a file (clean up any previous directory)
+            if [ -d /home/ubuntu/backend.tar ]; then rm -rf /home/ubuntu/backend.tar; fi
+            if [ -f /home/ubuntu/backend.tar/backend.tar ]; then mv /home/ubuntu/backend.tar/backend.tar /home/ubuntu/backend.tar; fi
             docker load -i /home/ubuntu/backend.tar
             IMAGE_TAG="${SHORT_SHA}"
             IMAGE_REPO_BACKEND="eljiran-backend"

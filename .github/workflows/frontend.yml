@@ -60,6 +60,9 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
+            # Ensure frontend.tar is a file (clean up any previous directory)
+            if [ -d /home/ubuntu/frontend.tar ]; then rm -rf /home/ubuntu/frontend.tar; fi
+            if [ -f /home/ubuntu/frontend.tar/frontend.tar ]; then mv /home/ubuntu/frontend.tar/frontend.tar /home/ubuntu/frontend.tar; fi
             docker load -i /home/ubuntu/frontend.tar
             IMAGE_TAG="${SHORT_SHA}"
             IMAGE_REPO_FRONTEND="eljiran-frontend"
