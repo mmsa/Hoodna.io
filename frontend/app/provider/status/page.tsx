@@ -90,23 +90,29 @@ export default function ProviderStatusPage() {
     },
     enabled: !!user && user.role === 'SERVICE_PROVIDER',
     retry: false,
-    onSuccess: (data) => {
+  })
+
+  useEffect(() => {
+    if (!profile && !profileError) return
+
+    if (profile) {
       console.log('[ProviderStatus] Query success:', {
-        provider_status: data?.provider_status,
-        normalizedStatus: data?.provider_status?.toString().trim().toUpperCase(),
-        hasData: !!data
-      })
-    },
-    onError: (error: any) => {
-      console.error('[ProviderStatus] Query error:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        is404: error.response?.status === 404,
-        is403: error.response?.status === 403
+        provider_status: profile?.provider_status,
+        normalizedStatus: profile?.provider_status?.toString().trim().toUpperCase(),
+        hasData: !!profile
       })
     }
-  })
+
+    if (profileError) {
+      console.error('[ProviderStatus] Query error:', {
+        message: profileError.message,
+        status: (profileError as any).response?.status,
+        data: (profileError as any).response?.data,
+        is404: (profileError as any).response?.status === 404,
+        is403: (profileError as any).response?.status === 403
+      })
+    }
+  }, [profile, profileError])
 
   useEffect(() => {
     console.log('[ProviderStatus] useEffect triggered:', {
@@ -304,4 +310,3 @@ export default function ProviderStatusPage() {
     </div>
   )
 }
-
