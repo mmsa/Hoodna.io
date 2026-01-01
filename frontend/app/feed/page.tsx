@@ -1418,7 +1418,7 @@ function PostCard({
     new Date().getTime() - new Date(post.created_at).getTime() < 3600000; // Less than 1 hour
 
   // Color mapping for post types
-  const colorClasses = {
+  const colorClasses: Record<string, string> = {
     help: "border-l-amber-500 bg-amber-50/30",
     lost: "border-l-pink-500 bg-pink-50/30",
     event: "border-l-indigo-500 bg-indigo-50/30",
@@ -1443,7 +1443,7 @@ function PostCard({
     <Card
       id={`post-${post.id}`}
       className={`border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 bg-white ${
-        colorClasses[postType.type]
+        colorClasses[postType.type] || colorClasses.general
       }`}
     >
       <CardContent className="p-5">
