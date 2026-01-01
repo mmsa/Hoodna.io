@@ -1494,7 +1494,7 @@ function PostCard({
                     <IconComponent className="w-3 h-3 inline mr-1" />
                   ) : iconString ? (
                     iconString
-                  ) : null} {postType.label}
+                  ) : null} {'label' in postType ? postType.label : postType.badge}
                 </span>
                 {/* Urgent Badge */}
                 {isMounted && post.is_urgent && (
