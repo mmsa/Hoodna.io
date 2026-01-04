@@ -58,9 +58,9 @@ export default function SignupPage() {
     resolver: zodResolver(signupSchema),
     defaultValues: {
       // Only pre-fill safe fields (name, email, phone) - NEVER password
-      name: searchParams.get('name') || '',
-      email: searchParams.get('email') || '',
-      phone: searchParams.get('phone') || '',
+      name: searchParams?.get?.('name') || '',
+      email: searchParams?.get?.('email') || '',
+      phone: searchParams?.get?.('phone') || '',
       password: '', // Always empty - never from URL
     },
   })
@@ -287,4 +287,3 @@ export default function SignupPage() {
     </div>
   )
 }
-
