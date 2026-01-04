@@ -47,7 +47,7 @@ export default function SearchPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+  const [searchQuery, setSearchQuery] = useState(searchParams?.get?.('q') || '')
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery)
 
   // Debounce search query
@@ -287,4 +287,3 @@ export default function SearchPage() {
     </div>
   )
 }
-
