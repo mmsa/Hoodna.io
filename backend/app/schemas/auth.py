@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from app.models.enums import UserRole
+from app.schemas.user import UserResponse
 
 
 class UserSignup(BaseModel):
@@ -20,6 +21,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user: Optional[UserResponse] = None
 
 
 class RefreshTokenRequest(BaseModel):
@@ -48,4 +50,3 @@ class PhoneAuthVerifyRequest(BaseModel):
     phone: str
     otp_code: str
     name: Optional[str] = None  # Required for new users
-

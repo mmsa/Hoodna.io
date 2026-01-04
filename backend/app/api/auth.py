@@ -129,7 +129,8 @@ async def phone_auth_verify(
     
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        user=user
     )
 
 
@@ -158,7 +159,8 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        user=user
     )
 
 
@@ -201,7 +203,8 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     logger.info(f"Successful login for user {user.email}")
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        user=user
     )
 
 
@@ -240,7 +243,8 @@ async def refresh_token(token_data: RefreshTokenRequest, db: AsyncSession = Depe
     
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
+        user=user
     )
 
 
@@ -745,4 +749,3 @@ async def reset_password(
     return {
         "message": "Password has been reset successfully. You can now login with your new password."
     }
-
