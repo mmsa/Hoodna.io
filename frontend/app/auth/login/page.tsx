@@ -49,7 +49,7 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       // Only pre-fill email - NEVER password
-      email: searchParams.get('email') || '',
+      email: searchParams?.get?.('email') || '',
       password: '', // Always empty - never from URL
     },
   })
@@ -180,4 +180,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
