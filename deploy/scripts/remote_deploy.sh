@@ -58,7 +58,7 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down || true
 
 # Build images
 echo "Building Docker images..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build --no-cache
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build
 
 # Start services
 echo "Starting services..."

@@ -81,7 +81,12 @@ jobs:
       - name: Deploy to EC2
         run: |
           echo "Deploying to EC2..."
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
             cd /home/ubuntu/eljiran || {
               echo "ERROR: Deployment directory not found. Please run first_time_ec2_setup.md first."
@@ -98,7 +103,12 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Verifying deployment..."
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             cd /home/ubuntu/eljiran
             docker-compose -f deploy/docker-compose.prod.yml ps
             echo ""
@@ -124,4 +134,3 @@ jobs:
           echo "Deployment failed! Check the logs above for details."
           # TODO: Add Slack/Discord/Email notification here
           exit 1
-
