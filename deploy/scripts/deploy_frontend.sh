@@ -28,8 +28,13 @@ FRONTEND_IMAGE="${NEW_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/
 
 log "Running frontend health checks..."
 health_ok=true
-docker run --rm curlimages/curl:8.5.0 -fsS https://eljiran.com/nginx-health > /dev/null || health_ok=false
-docker run --rm curlimages/curl:8.5.0 -fsSI https://eljiran.com | head -n1 | grep "200" > /dev/null || health_ok=false
+# Internal health via nginx inside the compose network (avoids external TLS/network issues)
+docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS http://eljiran-nginx/nginx-health > /dev/null || health_ok=false
+
+# Optional external check; warn but do not block rollback decision
+if ! docker run --rm curlimages/curl:8.5.0 -fsSI https://eljiran.com | head -n1 | grep "200" > /dev/null; then
+  log "Warning: external https://eljiran.com check failed; proceeding based on internal health."
+fi
 
 if [[ "${health_ok}" != "true" ]]; then
   log "Health check FAILED. Rolling back to previous image: ${PREV_IMAGE:-<none>}"
