@@ -46,7 +46,7 @@ type ListingForm = z.infer<typeof listingSchema>
 export default function EditListingPage() {
   const router = useRouter()
   const params = useParams()
-  const listingId = parseInt(params.id as string)
+  const listingId = params?.id ? parseInt(params.id as string) : NaN
   const { toast } = useToast()
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -65,7 +65,7 @@ export default function EditListingPage() {
       const response = await api.get(`/api/listings/${listingId}`)
       return response.data
     },
-    enabled: !!listingId,
+    enabled: !Number.isNaN(listingId),
   })
 
   // Redirect if not owner
@@ -428,4 +428,3 @@ export default function EditListingPage() {
     </div>
   )
 }
-
