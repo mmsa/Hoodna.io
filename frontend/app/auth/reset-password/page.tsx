@@ -31,7 +31,7 @@ export default function ResetPasswordPage() {
   const [token, setToken] = useState<string | null>(null)
 
   useEffect(() => {
-    const tokenParam = searchParams.get('token')
+    const tokenParam = searchParams?.get?.('token')
     if (!tokenParam) {
       setError('Invalid reset link. Please request a new password reset.')
     } else {
@@ -158,4 +158,3 @@ export default function ResetPasswordPage() {
     </div>
   )
 }
-
