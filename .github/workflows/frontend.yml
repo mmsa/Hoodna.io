@@ -34,20 +34,23 @@ jobs:
             --load \
             .
 
-      - name: Save frontend image
-        run: docker save eljiran-frontend:${SHORT_SHA} -o frontend.tar
+      - name: Stream image to EC2 and load
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts || true
 
-      - name: Fix permissions on image tar
-        run: chmod 644 frontend.tar
-
-      - name: Copy image to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "frontend.tar"
-          target: "/home/${{ secrets.EC2_USER }}/eljiran/frontend.tar"
+          echo "Streaming image to EC2 and loading with docker..."
+          docker save eljiran-frontend:${SHORT_SHA} | gzip | ssh \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -i ~/.ssh/deploy_key \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "gzip -d | docker load"
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
@@ -60,18 +63,6 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
-            TAR_BASE="/home/ubuntu/eljiran/frontend.tar"
-            # drone-scp untars into a directory; handle both dir and file cases
-            if [ -d "${TAR_BASE}" ]; then
-              TAR_PATH="${TAR_BASE}/frontend.tar"
-            else
-              TAR_PATH="${TAR_BASE}"
-            fi
-            if [ ! -f "${TAR_PATH}" ]; then
-              echo "ERROR: ${TAR_PATH} not found. Check the scp step."
-              exit 1
-            fi
-            docker load -i "${TAR_PATH}"
             IMAGE_TAG="${SHORT_SHA}"
             IMAGE_REPO_FRONTEND="eljiran-frontend"
             IMAGE_TAG="${IMAGE_TAG}" IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND}" GHCR_USERNAME="${GHCR_USERNAME:-}" GHCR_TOKEN="${GHCR_TOKEN:-}" \
