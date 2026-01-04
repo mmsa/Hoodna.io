@@ -37,6 +37,7 @@ echo ""
 echo "=========================================="
 echo "Step 1: Pulling latest changes from Git"
 echo "=========================================="
+export GIT_SSH_COMMAND="ssh -i ~/.ssh/github_deploy -o StrictHostKeyChecking=yes"
 git fetch origin
 git reset --hard origin/main  # or origin/master, adjust as needed
 # Preserve environment/secrets and certbot/ssl folders; clean everything else.
