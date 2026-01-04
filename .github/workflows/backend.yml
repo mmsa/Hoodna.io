@@ -47,7 +47,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "backend.tar"
-          target: "/home/${{ secrets.EC2_USER }}/backend.tar"
+          target: "/home/${{ secrets.EC2_USER }}/eljiran/backend.tar"
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
@@ -60,7 +60,7 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
-            TAR_PATH="/home/ubuntu/backend.tar"
+            TAR_PATH="/home/ubuntu/eljiran/backend.tar"
             # Ensure backend.tar is a file (clean up any previous directory)
             if [ -d "${TAR_PATH}" ]; then rm -rf "${TAR_PATH}"; fi
             if [ -f "${TAR_PATH}/backend.tar" ]; then mv "${TAR_PATH}/backend.tar" "${TAR_PATH}"; fi
