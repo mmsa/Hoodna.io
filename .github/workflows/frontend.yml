@@ -74,5 +74,5 @@ jobs:
             docker load -i "${TAR_PATH}"
             IMAGE_TAG="${SHORT_SHA}"
             IMAGE_REPO_FRONTEND="eljiran-frontend"
-            IMAGE_TAG="${IMAGE_TAG}" IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND}" GHCR_USERNAME="${GHCR_USERNAME}" GHCR_TOKEN="${GHCR_TOKEN}" \
+            IMAGE_TAG="${IMAGE_TAG}" IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND}" GHCR_USERNAME="${GHCR_USERNAME:-}" GHCR_TOKEN="${GHCR_TOKEN:-}" \
               bash ./deploy/scripts/deploy_frontend.sh
