@@ -1,12 +1,12 @@
 name: Deploy Backend
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Tests"]
     branches: [main]
-    paths:
-      - 'backend/**'
-      - 'deploy/**'
-      - '.github/workflows/backend.yml'
+    types:
+      - completed
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,6 +16,11 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    # Only proceed automatically if the Tests workflow concluded successfully.
+    # Manual workflow_dispatch acts as an operator override.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
