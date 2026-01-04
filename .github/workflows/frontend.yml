@@ -60,10 +60,13 @@ jobs:
             set -euo pipefail
             cd /home/ubuntu/eljiran
             git pull
-            TAR_PATH="/home/ubuntu/eljiran/frontend.tar"
-            # Ensure frontend.tar is a file (clean up any previous directory)
-            if [ -d "${TAR_PATH}" ]; then rm -rf "${TAR_PATH}"; fi
-            if [ -f "${TAR_PATH}/frontend.tar" ]; then mv "${TAR_PATH}/frontend.tar" "${TAR_PATH}"; fi
+            TAR_BASE="/home/ubuntu/eljiran/frontend.tar"
+            # drone-scp untars into a directory; handle both dir and file cases
+            if [ -d "${TAR_BASE}" ]; then
+              TAR_PATH="${TAR_BASE}/frontend.tar"
+            else
+              TAR_PATH="${TAR_BASE}"
+            fi
             if [ ! -f "${TAR_PATH}" ]; then
               echo "ERROR: ${TAR_PATH} not found. Check the scp step."
               exit 1
