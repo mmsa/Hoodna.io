@@ -23,8 +23,8 @@ export default function NewMessagePage() {
   const { toast } = useToast()
   const [messageContent, setMessageContent] = useState('')
 
-  const recipientId = searchParams.get('recipient_id')
-  const listingId = searchParams.get('listing_id')
+  const recipientId = searchParams?.get?.('recipient_id')
+  const listingId = searchParams?.get?.('listing_id')
 
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
@@ -146,4 +146,3 @@ export default function NewMessagePage() {
     </div>
   )
 }
-
