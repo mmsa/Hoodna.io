@@ -18,6 +18,7 @@ export function RoleGuard({ children, allowedRoles, requireApproved = false }: R
 
   useEffect(() => {
     if (isLoading) return
+    if (!pathname) return
 
     // Public routes that don't require authentication
     const publicRoutes = [
@@ -121,4 +122,3 @@ export function RoleGuard({ children, allowedRoles, requireApproved = false }: R
 
   return <>{children}</>
 }
-
