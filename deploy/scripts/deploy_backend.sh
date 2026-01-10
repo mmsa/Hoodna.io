@@ -8,6 +8,7 @@ ENV_FILE="${ENV_FILE:-/home/ubuntu/eljiran/.env}"
 IMAGE_REPO_BACKEND="${IMAGE_REPO_BACKEND:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY:-unknown}}/eljiran-backend}"
 NEW_IMAGE="${IMAGE_REPO_BACKEND}:${IMAGE_TAG}"
 COMPOSE_PROJECT_NAME="eljiran"
+NETWORK_NAME="${COMPOSE_PROJECT_NAME}_eljiran-network"
 PREV_IMAGE="$(docker ps --filter name=eljiran-backend --format '{{.Image}}' | head -n1 || true)"
 
 # If image not present locally, attempt to pull (when creds provided). If already loaded (from docker load), skip pull.
@@ -25,15 +26,17 @@ fi
 
 log "Using env file: ${ENV_FILE}"
 log "Deploying backend with image ${NEW_IMAGE}"
-BACKEND_IMAGE="${NEW_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d backend
+BACKEND_IMAGE="${NEW_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d --no-deps backend
 
 log "Running backend health check..."
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://eljiran-backend:8000/health}"
-if ! docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS "${HEALTHCHECK_URL}" > /dev/null; then
+if ! docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -fsS "${HEALTHCHECK_URL}" > /dev/null; then
   log "Health check FAILED. Rolling back to previous image: ${PREV_IMAGE:-<none>}"
   if [[ -n "${PREV_IMAGE}" ]]; then
-    docker pull "${PREV_IMAGE}" || true
-    BACKEND_IMAGE="${PREV_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d backend
+    if ! docker image inspect "${PREV_IMAGE}" >/dev/null 2>&1; then
+      docker pull "${PREV_IMAGE}" || true
+    fi
+    BACKEND_IMAGE="${PREV_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d --no-deps backend
   else
     log "No previous image recorded; skipping rollback."
   fi

@@ -15,6 +15,7 @@ DEPLOY_DIR="/home/ubuntu/eljiran"
 COMPOSE_FILE="$DEPLOY_DIR/deploy/docker-compose.prod.yml"
 ENV_FILE="$DEPLOY_DIR/.env"
 COMPOSE_PROJECT_NAME="eljiran"
+NETWORK_NAME="${COMPOSE_PROJECT_NAME}_eljiran-network"
 
 # Check if .env file exists
 if [ ! -f "$ENV_FILE" ]; then
@@ -78,7 +79,7 @@ echo "=========================================="
 # Check backend health
 echo "Checking backend health..."
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://eljiran-backend:8000/health}"
-BACKEND_HEALTH=$(docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${BACKEND_HEALTH_URL}" || echo "000")
+BACKEND_HEALTH=$(docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${BACKEND_HEALTH_URL}" || echo "000")
 if [ "$BACKEND_HEALTH" = "200" ]; then
     echo "✓ Backend is healthy"
 else
@@ -91,7 +92,7 @@ fi
 # Check frontend health
 echo "Checking frontend health..."
 FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://eljiran-frontend:3000/health}"
-FRONTEND_HEALTH=$(docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${FRONTEND_HEALTH_URL}" 2>/dev/null || echo "000")
+FRONTEND_HEALTH=$(docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${FRONTEND_HEALTH_URL}" 2>/dev/null || echo "000")
 if [ "$FRONTEND_HEALTH" = "200" ]; then
     echo "✓ Frontend is healthy"
 else

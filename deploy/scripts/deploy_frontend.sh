@@ -8,6 +8,7 @@ ENV_FILE="${ENV_FILE:-/home/ubuntu/eljiran/.env}"
 IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY:-unknown}}/eljiran-frontend}"
 NEW_IMAGE="${IMAGE_REPO_FRONTEND}:${IMAGE_TAG}"
 COMPOSE_PROJECT_NAME="eljiran"
+NETWORK_NAME="${COMPOSE_PROJECT_NAME}_eljiran-network"
 PREV_IMAGE="$(docker ps --filter name=eljiran-frontend --format '{{.Image}}' | head -n1 || true)"
 
 # If image not present locally, attempt to pull (when creds provided). If already loaded (from docker load), skip pull.
@@ -25,13 +26,13 @@ fi
 
 log "Using env file: ${ENV_FILE}"
 log "Deploying frontend with image ${NEW_IMAGE}"
-FRONTEND_IMAGE="${NEW_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
+FRONTEND_IMAGE="${NEW_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d --no-deps frontend
 
 log "Running frontend health checks..."
 health_ok=true
 FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://eljiran-frontend:3000/health}"
 for attempt in {1..12}; do
-  if docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS "${FRONTEND_HEALTH_URL}" > /dev/null; then
+  if docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -fsS "${FRONTEND_HEALTH_URL}" > /dev/null; then
     health_ok=true
     break
   fi
@@ -50,7 +51,7 @@ if [[ "${health_ok}" != "true" ]]; then
     if ! docker image inspect "${PREV_IMAGE}" >/dev/null 2>&1; then
       docker pull "${PREV_IMAGE}" || true
     fi
-    FRONTEND_IMAGE="${PREV_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
+    FRONTEND_IMAGE="${PREV_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d --no-deps frontend
   else
     log "No previous image recorded; skipping rollback."
   fi
