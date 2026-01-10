@@ -76,7 +76,8 @@ echo "=========================================="
 
 # Check backend health
 echo "Checking backend health..."
-BACKEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://eljiran-backend:8000/health}"
+BACKEND_HEALTH=$(docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${BACKEND_HEALTH_URL}" || echo "000")
 if [ "$BACKEND_HEALTH" = "200" ]; then
     echo "✓ Backend is healthy"
 else
@@ -88,7 +89,8 @@ fi
 
 # Check frontend health
 echo "Checking frontend health..."
-FRONTEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
+FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://eljiran-frontend:3000/health}"
+FRONTEND_HEALTH=$(docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${FRONTEND_HEALTH_URL}" 2>/dev/null || echo "000")
 if [ "$FRONTEND_HEALTH" = "200" ]; then
     echo "✓ Frontend is healthy"
 else
