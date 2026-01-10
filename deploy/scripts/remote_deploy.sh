@@ -79,7 +79,14 @@ echo "=========================================="
 # Check backend health
 echo "Checking backend health..."
 BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-http://eljiran-backend:8000/health}"
-BACKEND_HEALTH=$(docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${BACKEND_HEALTH_URL}" || echo "000")
+BACKEND_HEALTH="000"
+for attempt in {1..12}; do
+    BACKEND_HEALTH=$(docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -s -o /dev/null -w "%{http_code}" "${BACKEND_HEALTH_URL}" || echo "000")
+    if [ "$BACKEND_HEALTH" = "200" ]; then
+        break
+    fi
+    sleep 5
+done
 if [ "$BACKEND_HEALTH" = "200" ]; then
     echo "✓ Backend is healthy"
 else

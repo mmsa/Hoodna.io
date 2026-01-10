@@ -30,7 +30,16 @@ BACKEND_IMAGE="${NEW_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-f
 
 log "Running backend health check..."
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://eljiran-backend:8000/health}"
-if ! docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -fsS "${HEALTHCHECK_URL}" > /dev/null; then
+health_ok=true
+for attempt in {1..12}; do
+  if docker run --rm --network "${NETWORK_NAME}" curlimages/curl:8.5.0 -fsS "${HEALTHCHECK_URL}" > /dev/null; then
+    health_ok=true
+    break
+  fi
+  health_ok=false
+  sleep 5
+done
+if [[ "${health_ok}" != "true" ]]; then
   log "Health check FAILED. Rolling back to previous image: ${PREV_IMAGE:-<none>}"
   if [[ -n "${PREV_IMAGE}" ]]; then
     if ! docker image inspect "${PREV_IMAGE}" >/dev/null 2>&1; then
