@@ -47,14 +47,21 @@ done
 
 if [ -f "$SELF_SIGNED_MARKER" ]; then
   log "Removing temporary self-signed certificate before certbot..."
-  if command -v sudo >/dev/null 2>&1; then
-    sudo rm -rf "$CONF_DIR/live/${CERT_NAME}"* \
-      "$CONF_DIR/archive/${CERT_NAME}"* \
-      "$CONF_DIR/renewal/${CERT_NAME}"*.conf
-  else
-    rm -rf "$CONF_DIR/live/${CERT_NAME}"* \
-      "$CONF_DIR/archive/${CERT_NAME}"* \
-      "$CONF_DIR/renewal/${CERT_NAME}"*.conf
+  SUDO=""
+  if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+      SUDO="sudo"
+    elif [ -x /usr/bin/sudo ]; then
+      SUDO="/usr/bin/sudo"
+    fi
+  fi
+  ${SUDO} rm -rf "$CONF_DIR/live/${CERT_NAME}"* \
+    "$CONF_DIR/archive/${CERT_NAME}"* \
+    "$CONF_DIR/renewal/${CERT_NAME}"*.conf
+  if [ -d "$CONF_DIR/archive/${CERT_NAME}" ] || [ -d "$CONF_DIR/live/${CERT_NAME}" ]; then
+    echo "ERROR: Could not remove old cert files. Please run:"
+    echo "  sudo rm -rf $CONF_DIR/live/${CERT_NAME}* $CONF_DIR/archive/${CERT_NAME}* $CONF_DIR/renewal/${CERT_NAME}*.conf"
+    exit 1
   fi
 fi
 
