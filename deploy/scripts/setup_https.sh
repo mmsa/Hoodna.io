@@ -19,8 +19,17 @@ fi
 CERTBOT_DIR="$DEPLOY_DIR/deploy/nginx/certbot"
 CONF_DIR="$CERTBOT_DIR/conf"
 WWW_DIR="$CERTBOT_DIR/www"
+LIVE_DIR="$CONF_DIR/live/eljiran.com"
 
-mkdir -p "$CONF_DIR" "$WWW_DIR"
+mkdir -p "$CONF_DIR" "$WWW_DIR" "$LIVE_DIR"
+
+if [ ! -f "$LIVE_DIR/fullchain.pem" ] || [ ! -f "$LIVE_DIR/privkey.pem" ]; then
+  log "Creating temporary self-signed certificate..."
+  openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+    -keyout "$LIVE_DIR/privkey.pem" \
+    -out "$LIVE_DIR/fullchain.pem" \
+    -subj "/CN=eljiran.com" > /dev/null 2>&1
+fi
 
 log "Ensuring nginx is running for ACME challenge..."
 docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d nginx
