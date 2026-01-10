@@ -19,9 +19,10 @@ fi
 CERTBOT_DIR="$DEPLOY_DIR/deploy/nginx/certbot"
 CONF_DIR="$CERTBOT_DIR/conf"
 WWW_DIR="$CERTBOT_DIR/www"
-LIVE_DIR="$CONF_DIR/live/eljiran.com"
-ARCHIVE_DIR="$CONF_DIR/archive/eljiran.com"
-RENEWAL_CONF="$CONF_DIR/renewal/eljiran.com.conf"
+CERT_NAME="eljiran.com"
+LIVE_DIR="$CONF_DIR/live/$CERT_NAME"
+ARCHIVE_DIR="$CONF_DIR/archive/$CERT_NAME"
+RENEWAL_CONF="$CONF_DIR/renewal/$CERT_NAME.conf"
 SELF_SIGNED_MARKER="$LIVE_DIR/.selfsigned"
 
 mkdir -p "$CONF_DIR" "$WWW_DIR" "$LIVE_DIR"
@@ -46,7 +47,15 @@ done
 
 if [ -f "$SELF_SIGNED_MARKER" ]; then
   log "Removing temporary self-signed certificate before certbot..."
-  rm -rf "$LIVE_DIR" "$ARCHIVE_DIR" "$RENEWAL_CONF"
+  if command -v sudo >/dev/null 2>&1; then
+    sudo rm -rf "$CONF_DIR/live/${CERT_NAME}"* \
+      "$CONF_DIR/archive/${CERT_NAME}"* \
+      "$CONF_DIR/renewal/${CERT_NAME}"*.conf
+  else
+    rm -rf "$CONF_DIR/live/${CERT_NAME}"* \
+      "$CONF_DIR/archive/${CERT_NAME}"* \
+      "$CONF_DIR/renewal/${CERT_NAME}"*.conf
+  fi
 fi
 
 docker run --rm \
@@ -54,6 +63,7 @@ docker run --rm \
   -v "$WWW_DIR:/var/www/certbot" \
   certbot/certbot \
   certonly --webroot -w /var/www/certbot \
+  --cert-name "$CERT_NAME" \
   --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email \
   "${DOMAIN_ARGS[@]}"
 
