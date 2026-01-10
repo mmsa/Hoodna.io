@@ -27,7 +27,8 @@ log "Deploying backend with image ${NEW_IMAGE}"
 BACKEND_IMAGE="${NEW_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d backend
 
 log "Running backend health check..."
-if ! docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS https://eljiran.com/api/health > /dev/null; then
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://eljiran-backend:8000/health}"
+if ! docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS "${HEALTHCHECK_URL}" > /dev/null; then
   log "Health check FAILED. Rolling back to previous image: ${PREV_IMAGE:-<none>}"
   if [[ -n "${PREV_IMAGE}" ]]; then
     docker pull "${PREV_IMAGE}" || true
