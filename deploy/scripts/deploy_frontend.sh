@@ -7,6 +7,7 @@ log() { echo "[$(date -Is)] $*"; }
 ENV_FILE="${ENV_FILE:-/home/ubuntu/eljiran/.env}"
 IMAGE_REPO_FRONTEND="${IMAGE_REPO_FRONTEND:-ghcr.io/${GITHUB_REPOSITORY_OWNER:-${GITHUB_REPOSITORY:-unknown}}/eljiran-frontend}"
 NEW_IMAGE="${IMAGE_REPO_FRONTEND}:${IMAGE_TAG}"
+COMPOSE_PROJECT_NAME="eljiran"
 PREV_IMAGE="$(docker ps --filter name=eljiran-frontend --format '{{.Image}}' | head -n1 || true)"
 
 # If image not present locally, attempt to pull (when creds provided). If already loaded (from docker load), skip pull.
@@ -24,12 +25,19 @@ fi
 
 log "Using env file: ${ENV_FILE}"
 log "Deploying frontend with image ${NEW_IMAGE}"
-FRONTEND_IMAGE="${NEW_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
+FRONTEND_IMAGE="${NEW_IMAGE}" docker compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
 
 log "Running frontend health checks..."
 health_ok=true
-# Internal health via nginx inside the compose network (avoids external TLS/network issues)
-docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS http://eljiran-nginx/nginx-health > /dev/null || health_ok=false
+FRONTEND_HEALTH_URL="${FRONTEND_HEALTH_URL:-http://eljiran-frontend:3000/health}"
+for attempt in {1..12}; do
+  if docker run --rm --network deploy_eljiran-network curlimages/curl:8.5.0 -fsS "${FRONTEND_HEALTH_URL}" > /dev/null; then
+    health_ok=true
+    break
+  fi
+  health_ok=false
+  sleep 5
+done
 
 # Optional external check; warn but do not block rollback decision
 if ! docker run --rm curlimages/curl:8.5.0 -fsSI https://eljiran.com | head -n1 | grep "200" > /dev/null; then
@@ -39,7 +47,9 @@ fi
 if [[ "${health_ok}" != "true" ]]; then
   log "Health check FAILED. Rolling back to previous image: ${PREV_IMAGE:-<none>}"
   if [[ -n "${PREV_IMAGE}" ]]; then
-    docker pull "${PREV_IMAGE}" || true
+    if ! docker image inspect "${PREV_IMAGE}" >/dev/null 2>&1; then
+      docker pull "${PREV_IMAGE}" || true
+    fi
     FRONTEND_IMAGE="${PREV_IMAGE}" docker compose --env-file "${ENV_FILE}" -f deploy/docker-compose.prod.yml up -d frontend
   else
     log "No previous image recorded; skipping rollback."

@@ -14,6 +14,7 @@ echo ""
 DEPLOY_DIR="/home/ubuntu/eljiran"
 COMPOSE_FILE="$DEPLOY_DIR/deploy/docker-compose.prod.yml"
 ENV_FILE="$DEPLOY_DIR/.env"
+COMPOSE_PROJECT_NAME="eljiran"
 
 # Check if .env file exists
 if [ ! -f "$ENV_FILE" ]; then
@@ -52,18 +53,18 @@ echo "=========================================="
 
 # Stop existing containers (if any)
 echo "Stopping existing containers..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down || true
+docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down || true
 
 # Pull latest images (if using pre-built images)
 # docker-compose -f "$COMPOSE_FILE" pull || true
 
 # Build images
 echo "Building Docker images..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build
+docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build
 
 # Start services
 echo "Starting services..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
 
 # Wait for services to be healthy
 echo "Waiting for services to be healthy..."
@@ -83,7 +84,7 @@ if [ "$BACKEND_HEALTH" = "200" ]; then
 else
     echo "✗ Backend health check failed (HTTP $BACKEND_HEALTH)"
     echo "Backend logs:"
-    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs --tail=50 backend
+    docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs --tail=50 backend
     exit 1
 fi
 
@@ -99,7 +100,7 @@ fi
 
 # Check database connection
 echo "Checking database connection..."
-DB_CHECK=$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres pg_isready -U hoodna 2>/dev/null || echo "not ready")
+DB_CHECK=$(docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres pg_isready -U hoodna 2>/dev/null || echo "not ready")
 if echo "$DB_CHECK" | grep -q "accepting connections"; then
     echo "✓ Database is ready"
 else
@@ -112,7 +113,7 @@ echo ""
 echo "=========================================="
 echo "Step 4: Service status"
 echo "=========================================="
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
+docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
 
 # Cleanup old images (optional)
 echo ""
