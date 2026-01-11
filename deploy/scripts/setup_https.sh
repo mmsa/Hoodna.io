@@ -72,6 +72,7 @@ docker run --rm \
   certonly --webroot -w /var/www/certbot \
   --cert-name "$CERT_NAME" \
   --email "$LETSENCRYPT_EMAIL" --agree-tos --no-eff-email \
+  --non-interactive --keep-until-expiring --expand \
   "${DOMAIN_ARGS[@]}"
 
 log "Reloading nginx..."
