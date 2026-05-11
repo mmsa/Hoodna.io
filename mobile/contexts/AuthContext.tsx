@@ -3,12 +3,12 @@ import * as SecureStore from "expo-secure-store";
 import { ApiClient, User } from "@hoodna/shared";
 import Constants from "expo-constants";
 
-// Get API URL from expo config or default to localhost
-// For physical device, update this to your computer's local IP (e.g., http://192.168.1.XXX:8000)
+// Get API URL from env first, then Expo config, then localhost fallback.
+// For physical device, use your computer's reachable LAN IP and matching backend port.
 const API_BASE_URL = 
-  Constants.expoConfig?.extra?.apiUrl || 
   process.env.EXPO_PUBLIC_API_URL || 
-  "http://localhost:8000";
+  Constants.expoConfig?.extra?.apiUrl || 
+  "http://localhost:8001";
 
 // Log API URL for debugging (only in development)
 if (__DEV__) {
@@ -122,4 +122,3 @@ export function useAuth() {
   }
   return context;
 }
-

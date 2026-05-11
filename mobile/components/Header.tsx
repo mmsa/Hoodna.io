@@ -121,6 +121,10 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
     setShowCompoundSwitcher(true);
   }
 
+  const compactHeader = !!rightAction;
+  const useTitleLayout = !!title;
+  const showLogoOnly = showLogo && !useTitleLayout;
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
@@ -132,7 +136,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         )}
 
         {/* Logo Section */}
-        {showLogo && (
+        {showLogoOnly && (
           <View style={styles.logoSection}>
             <TouchableOpacity
               style={styles.logoContainer}
@@ -141,7 +145,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
             >
               <Image
                 source={require('@/assets/logo_light.jpg')}
-                style={styles.logoImage}
+                style={[styles.logoImage, compactHeader && styles.logoImageCompact]}
                 resizeMode="contain"
               />
             </TouchableOpacity>
@@ -153,7 +157,13 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 activeOpacity={0.7}
               >
                 <Ionicons name="home" size={10} color={colors.primary} />
-                <Text style={styles.compoundTextInline}>{formatCompoundName(compound.name)}</Text>
+                <Text
+                  style={styles.compoundTextInline}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {formatCompoundName(compound.name)}
+                </Text>
                 <Ionicons name="chevron-down" size={10} color={colors.primary} />
               </TouchableOpacity>
             )}
@@ -161,7 +171,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         )}
 
         {/* Title Section */}
-        {title && (
+        {useTitleLayout && (
           <View style={styles.titleContainer}>
             <Text style={styles.title}>{title}</Text>
             {compound && (
@@ -171,57 +181,50 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 activeOpacity={0.7}
               >
                 <Ionicons name="home" size={12} color={colors.primary} />
-                <Text style={styles.compoundText}>{formatCompoundName(compound.name)}</Text>
+                <Text style={styles.compoundText} numberOfLines={1} ellipsizeMode="tail">
+                  {formatCompoundName(compound.name)}
+                </Text>
                 <Ionicons name="chevron-down" size={12} color={colors.primary} />
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* Compound Badge in title section - also clickable */}
-        {title && compound && (
-          <TouchableOpacity 
-            style={styles.compoundBadge}
-            onPress={openCompoundSwitcher}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="home" size={12} color={colors.primary} />
-            <Text style={styles.compoundText}>{compound.name}</Text>
-            <Ionicons name="chevron-down" size={12} color={colors.primary} />
-          </TouchableOpacity>
-        )}
-
-        {/* Search Button */}
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => router.push("/search")}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="search" size={22} color={colors.textMain} />
-        </TouchableOpacity>
-
-        {/* Right Action */}
-        {rightAction && (
+        <View style={styles.actionsSection}>
+          {/* Search Button */}
           <TouchableOpacity
-            style={[
-              styles.rightButton,
-              rightAction.disabled && styles.rightButtonDisabled,
-            ]}
-            onPress={rightAction.onPress}
-            disabled={rightAction.disabled}
+            style={styles.searchButton}
+            onPress={() => router.push("/search")}
             activeOpacity={0.7}
           >
-            {rightAction.icon && (
-              <Ionicons
-                name={rightAction.icon}
-                size={16}
-                color="#FFFFFF"
-                style={{ marginRight: 4 }}
-              />
-            )}
-            <Text style={styles.rightButtonText}>{rightAction.label}</Text>
+            <Ionicons name="search" size={22} color={colors.textMain} />
           </TouchableOpacity>
-        )}
+
+          {/* Right Action */}
+          {rightAction && (
+            <TouchableOpacity
+              style={[
+                styles.rightButton,
+                rightAction.disabled && styles.rightButtonDisabled,
+              ]}
+              onPress={rightAction.onPress}
+              disabled={rightAction.disabled}
+              activeOpacity={0.7}
+            >
+              {rightAction.icon && (
+                <Ionicons
+                  name={rightAction.icon}
+                  size={16}
+                  color="#FFFFFF"
+                  style={{ marginRight: 4 }}
+                />
+              )}
+              <Text style={styles.rightButtonText} numberOfLines={1}>
+                {rightAction.label}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Compound Switcher Modal */}
@@ -321,6 +324,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    minWidth: 0,
   },
   backButton: {
     marginRight: 16,
@@ -330,11 +334,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   compoundBadgeInline: {
     flexDirection: "row",
@@ -344,20 +351,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: 150,
   },
   compoundTextInline: {
     fontSize: 11,
     fontWeight: "500",
     color: colors.primary,
+    flexShrink: 1,
   },
   logoImage: {
     width: 150,
     height: 50,
   },
+  logoImageCompact: {
+    width: 120,
+    height: 44,
+  },
   titleContainer: {
     flex: 1,
     flexDirection: "column",
     gap: 4,
+    minWidth: 0,
   },
   title: {
     fontSize: 28,
@@ -373,15 +389,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     alignSelf: "flex-start",
+    maxWidth: "100%",
   },
   compoundText: {
     fontSize: 12,
     fontWeight: "500",
     color: colors.primary,
+    flexShrink: 1,
+  },
+  actionsSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 0,
+    marginLeft: 8,
   },
   searchButton: {
     padding: 8,
     marginRight: 8,
+    flexShrink: 0,
   },
   rightButton: {
     backgroundColor: colors.primary, // Blue-500 (matching web app)
@@ -390,6 +415,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
+    maxWidth: 112,
   },
   rightButtonDisabled: {
     backgroundColor: "#D1D5DB",
