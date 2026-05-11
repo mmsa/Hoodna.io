@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
-import { useAuth } from "@/contexts/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header } from "@/components/Header";
-import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
-import { Notification } from "@hoodna/shared";
+import { Header } from "@/components/Header";
+import { useAuth } from "@/contexts/AuthContext";
+import { colors } from "@/constants/colors";
+import { Notification, NotificationListResponse } from "@hoodna/shared";
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -30,6 +30,7 @@ function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
     POST_LIKE: "heart",
     VERIFICATION_APPROVED: "checkmark-circle",
     VERIFICATION_REJECTED: "close-circle",
+    VERIFICATION_REQUEST_MORE: "alert-circle",
     LISTING_INQUIRY: "bag",
     LISTING_SAVED: "bookmark",
     MENTION: "at",
@@ -38,132 +39,184 @@ function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
 }
 
 function getNotificationColor(type: string): string {
-  const colors_map: Record<string, string> = {
+  const palette: Record<string, string> = {
     MESSAGE: colors.primary,
     COMMENT: colors.purple,
     POST_LIKE: colors.pink,
     VERIFICATION_APPROVED: colors.success,
     VERIFICATION_REJECTED: colors.error,
+    VERIFICATION_REQUEST_MORE: colors.accent,
     LISTING_INQUIRY: colors.accent,
     LISTING_SAVED: colors.purple,
     MENTION: colors.primary,
   };
-  return colors_map[type] || colors.textMuted;
+  return palette[type] || colors.textMuted;
+}
+
+function FilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={{
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 999,
+        backgroundColor: active ? colors.primary : colors.backgroundCard,
+        borderWidth: 1,
+        borderColor: active ? colors.primary : colors.border,
+      }}
+      activeOpacity={0.82}
+      onPress={onPress}
+    >
+      <Text style={{ fontSize: 13, fontWeight: "700", color: active ? "#FFFFFF" : colors.textMain }}>{label}</Text>
+    </TouchableOpacity>
+  );
 }
 
 export default function NotificationsScreen() {
+  const router = useRouter();
+  const { apiClient, user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { apiClient, user } = useAuth();
-  const router = useRouter();
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [busyNotificationId, setBusyNotificationId] = useState<number | null>(null);
 
-  useEffect(() => {
-    // Only load if user is approved
-    if (user?.status === "APPROVED") {
-      loadNotifications();
-      loadUnreadCount();
-      // Poll for new notifications every 30 seconds (only if approved)
-      const interval = setInterval(() => {
-        loadNotifications();
-        loadUnreadCount();
-      }, 30000);
-      return () => clearInterval(interval);
-    } else {
-      setLoading(false);
-    }
-  }, [user?.status]);
-
-  async function loadNotifications() {
-    // Don't make API calls if user is not approved
-    if (user?.status !== "APPROVED") {
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-    
+  const loadNotifications = useCallback(async () => {
     try {
-      const data = await apiClient.getNotifications({ limit: 50 });
-      setNotifications(data.items || []);
-      setUnreadCount(data.unread_count || 0);
+      const data = await apiClient.getNotifications({
+        limit: 50,
+        unread_only: filter === "unread",
+      });
+      const response = data as NotificationListResponse;
+      setNotifications(response.items || []);
+      setUnreadCount(response.unread_count || 0);
     } catch (error: any) {
-      // Stop polling on 403 errors (user not approved)
-      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
-        console.log("User not approved, stopping notification polling");
-        return;
-      }
       console.error("Failed to load notifications:", error);
+      if (error?.message) {
+        setNotifications([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [apiClient, filter]);
 
-  async function loadUnreadCount() {
-    // Don't make API calls if user is not approved
-    if (user?.status !== "APPROVED") {
-      return;
-    }
-    
+  const loadUnreadCount = useCallback(async () => {
     try {
       const data = await apiClient.getUnreadNotificationCount();
       setUnreadCount(data.unread_count || 0);
-    } catch (error: any) {
-      // Silently fail on 403 errors (user not approved)
-      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
-        return;
-      }
-      console.error("Failed to load unread count:", error);
+    } catch (error) {
+      console.error("Failed to load unread notification count:", error);
     }
-  }
+  }, [apiClient]);
 
-  function handleRefresh() {
-    setRefreshing(true);
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     loadNotifications();
     loadUnreadCount();
-  }
+
+    const interval = setInterval(() => {
+      loadNotifications();
+      loadUnreadCount();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [loadNotifications, loadUnreadCount, user]);
+
+  const stats = useMemo(() => {
+    const unreadItems = notifications.filter((item) => !item.read).length;
+    const readItems = notifications.length - unreadItems;
+    return {
+      total: notifications.length,
+      unread: unreadItems,
+      read: readItems,
+    };
+  }, [notifications]);
 
   async function handleNotificationPress(notification: Notification) {
-    if (!notification.read) {
-      try {
+    try {
+      if (!notification.read) {
         await apiClient.markNotificationRead(notification.id);
-        await loadNotifications();
-        await loadUnreadCount();
-      } catch (error) {
-        console.error("Failed to mark notification as read:", error);
       }
-    }
 
-    // Navigate based on notification type
-    if (notification.related_type === "post" && notification.related_id) {
-      router.push(`/post/${notification.related_id}`);
-    } else if (notification.related_type === "listing" && notification.related_id) {
-      router.push(`/listing/${notification.related_id}`);
-    } else if (notification.related_type === "message" && notification.related_id) {
-      router.push(`/messages/${notification.related_id}`);
+      if (notification.related_type === "post" && notification.related_id) {
+        router.push(`/post/${notification.related_id}`);
+      } else if (notification.related_type === "listing" && notification.related_id) {
+        router.push(`/listing/${notification.related_id}`);
+      } else if (notification.related_type === "message" && notification.related_id) {
+        router.push(`/messages/${notification.related_id}`);
+      } else if (notification.type.startsWith("VERIFICATION")) {
+        router.push("/verification");
+      }
+
+      loadNotifications();
+      loadUnreadCount();
+    } catch (error) {
+      console.error("Failed to open notification:", error);
     }
   }
 
   async function handleMarkAllRead() {
     try {
       await apiClient.markAllNotificationsRead();
-      await loadNotifications();
-      await loadUnreadCount();
+      loadNotifications();
+      loadUnreadCount();
       Alert.alert("Success", "All notifications marked as read");
     } catch (error) {
-      Alert.alert("Error", "Failed to mark all as read");
+      Alert.alert("Error", "Failed to mark all notifications as read");
     }
+  }
+
+  async function handleDelete(notificationId: number) {
+    try {
+      setBusyNotificationId(notificationId);
+      await apiClient.deleteNotification(notificationId);
+      setNotifications((current) => current.filter((item) => item.id !== notificationId));
+      loadUnreadCount();
+    } catch (error) {
+      Alert.alert("Error", "Failed to delete notification");
+    } finally {
+      setBusyNotificationId(null);
+    }
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+        <Header showLogo={true} showBackButton={true} title="Notifications" />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 8 }}>
+            Sign in required
+          </Text>
+          <Text style={{ fontSize: 14, textAlign: "center", color: colors.textMuted }}>
+            Notifications are only available for signed-in users.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
         <Header showLogo={true} showBackButton={true} title="Notifications" />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
-            Loading notifications... 🔔
+            Loading notifications...
           </Text>
         </View>
       </SafeAreaView>
@@ -179,7 +232,7 @@ export default function NotificationsScreen() {
         rightAction={
           unreadCount > 0
             ? {
-                label: "Mark all read",
+                label: "Read all",
                 onPress: handleMarkAllRead,
                 icon: "checkmark-done",
               }
@@ -187,115 +240,188 @@ export default function NotificationsScreen() {
         }
       />
 
+      <View
+        style={{
+          flexDirection: "row",
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          gap: 10,
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.backgroundCard,
+            borderRadius: 16,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ fontSize: 22, fontWeight: "800", color: colors.textMain }}>{stats.total}</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>Loaded</Text>
+        </View>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: `${colors.primary}12`,
+            borderRadius: 16,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: `${colors.primary}30`,
+          }}
+        >
+          <Text style={{ fontSize: 22, fontWeight: "800", color: colors.primary }}>{unreadCount}</Text>
+          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>Unread</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingBottom: 12 }}>
+        <FilterChip label="All notifications" active={filter === "all"} onPress={() => setFilter("all")} />
+        <FilterChip label="Unread only" active={filter === "unread"} onPress={() => setFilter("unread")} />
+      </View>
+
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.id.toString()}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              loadNotifications();
+              loadUnreadCount();
+            }}
+            tintColor={colors.primary}
+          />
+        }
+        ListEmptyComponent={
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginTop: 12,
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.backgroundCard,
+              padding: 26,
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="notifications-off-outline" size={38} color={colors.textMuted} />
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginTop: 12, marginBottom: 8 }}>
+              No notifications
+            </Text>
+            <Text style={{ fontSize: 14, lineHeight: 21, color: colors.textMuted, textAlign: "center" }}>
+              {filter === "unread"
+                ? "You are caught up. There are no unread notifications right now."
+                : "New activity will show up here as messages, saves, comments, or verification updates arrive."}
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => {
           const icon = getNotificationIcon(item.type);
           const iconColor = getNotificationColor(item.type);
 
           return (
-            <TouchableOpacity
+            <View
               style={{
-                backgroundColor: item.read ? colors.backgroundCard : colors.primary + "08",
+                backgroundColor: item.read ? colors.backgroundCard : `${iconColor}10`,
                 marginHorizontal: 16,
                 marginVertical: 6,
-                borderRadius: 16,
+                borderRadius: 18,
                 padding: 16,
                 borderLeftWidth: 4,
                 borderLeftColor: iconColor,
-                borderWidth: item.read ? 1 : 2,
-                borderColor: item.read ? colors.border : iconColor,
-                shadowColor: item.read ? "#000" : iconColor,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: item.read ? 0.05 : 0.1,
-                shadowRadius: 8,
-                elevation: item.read ? 1 : 3,
+                borderWidth: 1,
+                borderColor: item.read ? colors.border : `${iconColor}30`,
               }}
-              onPress={() => handleNotificationPress(item)}
-              activeOpacity={0.7}
             >
               <View style={{ flexDirection: "row", gap: 12 }}>
-                <View
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: iconColor + "20",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                <TouchableOpacity
+                  style={{ flex: 1, flexDirection: "row", gap: 12 }}
+                  activeOpacity={0.8}
+                  onPress={() => handleNotificationPress(item)}
                 >
-                  <Ionicons name={icon} size={24} color={iconColor} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: item.read ? "600" : "700",
-                        color: colors.textMain,
-                        flex: 1,
-                      }}
-                    >
-                      {item.title}
-                    </Text>
-                    {!item.read && (
-                      <View
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: iconColor,
-                        }}
-                      />
-                    )}
-                  </View>
-                  <Text
+                  <View
                     style={{
-                      fontSize: 14,
-                      color: colors.textMuted,
-                      lineHeight: 20,
-                      marginBottom: 4,
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: `${iconColor}18`,
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {item.message}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                    {formatTime(item.created_at)}
-                  </Text>
-                </View>
+                    <Ionicons name={icon} size={24} color={iconColor} />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 5 }}>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: item.read ? "600" : "800",
+                          color: colors.textMain,
+                          flex: 1,
+                        }}
+                      >
+                        {item.title}
+                      </Text>
+                      {!item.read ? (
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: iconColor,
+                          }}
+                        />
+                      ) : null}
+                    </View>
+                    <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textMuted, marginBottom: 8 }}>
+                      {item.message}
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: iconColor }}>{formatTime(item.created_at)}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                  activeOpacity={0.82}
+                  onPress={() =>
+                    Alert.alert("Delete notification", "Remove this notification from your list?", [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => handleDelete(item.id),
+                      },
+                    ])
+                  }
+                  disabled={busyNotificationId === item.id}
+                >
+                  {busyNotificationId === item.id ? (
+                    <ActivityIndicator size="small" color={colors.error} />
+                  ) : (
+                    <Ionicons name="trash-outline" size={18} color={colors.error} />
+                  )}
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
+            </View>
           );
         }}
-        ListEmptyComponent={
-          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 }}>
-            <View
-              style={{
-                width: 120,
-                height: 120,
-                borderRadius: 60,
-                backgroundColor: colors.purpleLight + "20",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 24,
-              }}
-            >
-              <Ionicons name="notifications-outline" size={64} color={colors.purple} />
-            </View>
-            <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
-              No notifications yet 🔔
-            </Text>
-            <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24 }}>
-              You're all caught up! We'll notify you when there's something new.
-            </Text>
-          </View>
-        }
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
       />
     </SafeAreaView>
   );
 }
-

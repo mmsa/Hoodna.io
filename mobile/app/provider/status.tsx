@@ -87,8 +87,7 @@ export default function ProviderStatusScreen() {
     try {
       setLoading(true);
       console.log("[ProviderStatus] Fetching provider profile...");
-      // Use the API client to fetch provider profile
-      const response = await apiClient.request("GET", "/api/providers/me");
+      const response = await apiClient.getProviderProfile();
       console.log("[ProviderStatus] Profile fetched:", {
         id: response?.id,
         provider_status: response?.provider_status,

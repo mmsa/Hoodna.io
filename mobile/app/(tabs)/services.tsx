@@ -201,7 +201,7 @@ export default function ServicesScreen() {
     if (!user || user.role !== "SERVICE_PROVIDER" || !apiClient) return;
     
     try {
-      const profile = await apiClient.request("GET", "/api/providers/me");
+      const profile = await apiClient.getProviderProfile();
       setProviderProfile(profile);
     } catch (error: any) {
       console.error("Failed to load provider profile:", error);
@@ -434,4 +434,3 @@ export default function ServicesScreen() {
     </SafeAreaView>
   );
 }
-

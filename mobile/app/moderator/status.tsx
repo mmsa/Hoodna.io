@@ -65,8 +65,7 @@ export default function ModeratorStatusScreen() {
   async function fetchProfile() {
     try {
       setLoading(true);
-      // Use the API client to fetch moderator profile
-      const response = await apiClient.request("GET", "/api/moderators/me");
+      const response = await apiClient.getModeratorProfile();
       setProfile(response);
     } catch (error: any) {
       console.error("Failed to fetch moderator profile:", error);

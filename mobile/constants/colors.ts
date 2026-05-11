@@ -22,6 +22,8 @@ export const colors = {
   // Text
   textMain: "#0F172A", // slate-900 (softer black)
   textMuted: "#64748B", // slate-500
+  text: "#0F172A", // compatibility alias used across existing screens
+  textSecondary: "#64748B", // compatibility alias used across existing screens
   
   // Accent colors (vibrant and emotional)
   accent: "#F59E0B", // amber-500 (warmer yellow)
@@ -64,4 +66,3 @@ export const colors = {
   gray400: "#94A3B8", // slate-400
   gray500: "#64748B", // slate-500
 };
-
