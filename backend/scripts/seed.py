@@ -6,8 +6,23 @@ Note: For seeding compounds, use scripts/seed_compounds.py instead.
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
-# Import all models to ensure relationships are set up
-from app.models import compound, user, post, listing, verification  # noqa
+# Import model modules so SQLAlchemy can resolve string relationships.
+from app.models import (  # noqa: F401
+    compound,
+    compound_moderator,
+    listing,
+    message,
+    notification,
+    post,
+    report,
+    review,
+    saved_listing,
+    saved_post,
+    service_category,
+    service_provider,
+    user,
+    verification,
+)
 from app.models.user import User
 from app.core.security import get_password_hash
 from app.models.enums import UserRole, UserStatus
@@ -53,4 +68,3 @@ async def seed_admin():
 
 if __name__ == "__main__":
     asyncio.run(seed_admin())
-
