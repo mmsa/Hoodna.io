@@ -140,6 +140,11 @@ async def get_verification_status(
         
         if user_should_be_approved:
             current_user.status = UserStatus.APPROVED
+            if current_user.compound_id:
+                from app.crud.user_compound_membership import ensure_user_compound_membership
+                await ensure_user_compound_membership(
+                    db, current_user.id, current_user.compound_id
+                )
             await db.commit()
             await db.refresh(current_user)
             # Send notification

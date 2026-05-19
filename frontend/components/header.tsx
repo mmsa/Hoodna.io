@@ -35,7 +35,7 @@ import Image from 'next/image'
 import { NotificationsDropdown } from './notifications-dropdown'
 import Cookies from 'js-cookie'
 import { useToast } from '@/hooks/use-toast'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatCompoundName, formatCompoundWithArea } from '@/lib/format-compound'
 
@@ -498,6 +498,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   const { user, refreshUser } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   
   const { data: availableCompounds, isLoading } = useQuery<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>({
     queryKey: ['user-compounds'],
@@ -514,6 +515,8 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
     try {
       await api.post('/api/auth/me/switch-compound', { compound_id: compoundId })
       await refreshUser()
+      queryClient.invalidateQueries({ queryKey: ['user-compounds'] })
+      queryClient.invalidateQueries({ queryKey: ['compound'] })
           toast({
             title: "Neighbourhood switched",
             description: "Your active neighbourhood has been updated.",

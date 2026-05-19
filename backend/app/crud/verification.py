@@ -101,6 +101,11 @@ async def approve_document(
 
     await db.flush()
 
+    user = await db.get(User, doc.user_id)
+    if user and user.compound_id:
+        from app.crud.user_compound_membership import ensure_user_compound_membership
+        await ensure_user_compound_membership(db, user.id, user.compound_id)
+
     # Check if user can be approved based on new rules:
     # 1. National ID approved + has compound name → approve user
     # 2. Contract approved (name match + compound match) → approve user  
@@ -109,7 +114,6 @@ async def approve_document(
     national_id = docs[DocumentType.NATIONAL_ID]
     contract = docs[DocumentType.CONTRACT]
     
-    user = await db.get(User, doc.user_id)
     if not user or user.status != UserStatus.PENDING_VERIFICATION:
         await db.refresh(doc)
         return doc

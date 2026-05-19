@@ -19,6 +19,7 @@ from app.models import compound  # noqa: F401
 from app.models import service_provider  # noqa: F401
 from app.models import compound_moderator  # noqa: F401
 from app.models import service_category  # noqa: F401
+from app.models import user_compound_membership  # noqa: F401
 
 from app.api import (
     auth,

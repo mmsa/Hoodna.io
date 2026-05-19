@@ -50,4 +50,9 @@ class User(Base):
         uselist=False, 
         cascade="all, delete-orphan"
     )
+    compound_memberships = relationship(
+        "UserCompoundMembership",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 

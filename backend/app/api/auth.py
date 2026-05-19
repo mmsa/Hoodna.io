@@ -361,13 +361,23 @@ async def update_current_user(
 ):
     """Update current user information."""
     if user_update.compound_id is not None:
-        # Verify compound exists
         from app.crud.compound import get_compound_by_id
+        from app.crud.user_compound_membership import ensure_user_compound_membership
+        from app.models.enums import UserStatus
+
         compound = await get_compound_by_id(db, user_update.compound_id)
         if not compound:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Compound not found"
+            )
+        if (
+            current_user.status == UserStatus.APPROVED
+            and current_user.compound_id
+            and current_user.compound_id != user_update.compound_id
+        ):
+            await ensure_user_compound_membership(
+                db, current_user.id, current_user.compound_id
             )
         current_user.compound_id = user_update.compound_id
     
@@ -391,81 +401,20 @@ async def get_user_compounds(
     db: AsyncSession = Depends(get_db),
 ):
     """Get all compounds the user is verified for (for switching)."""
-    from app.crud.compound import get_compounds, get_compound_by_id
-    from app.crud.verification import get_user_documents
-    from app.models.enums import UserStatus, DocumentStatus, DocumentType
     from sqlalchemy import select
     from app.models.compound import Compound
-    
-    # Get user's verification documents
-    docs = await get_user_documents(db, current_user.id)
-    national_id = docs.get(DocumentType.NATIONAL_ID)
-    contract = docs.get(DocumentType.CONTRACT)
-    
-    # Extract verified compound IDs from documents
-    verified_compound_ids = set()
-    
-    # Check if user is approved (verified)
-    if current_user.status == UserStatus.APPROVED:
-        # Check National ID - if it has compound name in address, user is verified for that compound
-        if national_id and national_id.status == DocumentStatus.APPROVED:
-            if national_id.llm_extracted_info:
-                compound_name = None
-                if isinstance(national_id.llm_extracted_info, dict):
-                    # Try to extract compound name from various fields
-                    compound_name = (
-                        national_id.llm_extracted_info.get("compound_name") or
-                        national_id.llm_extracted_info.get("compound_name_in_address") or
-                        national_id.llm_extracted_info.get("address", {}).get("compound") if isinstance(national_id.llm_extracted_info.get("address"), dict) else None
-                    )
-                    
-                    if compound_name:
-                        # Find compound by name (case-insensitive, but more efficient)
-                        # Try exact match first, then partial match
-                        result = await db.execute(
-                            select(Compound).where(
-                                Compound.name.ilike(f"{compound_name}%")  # Starts with is faster than %...%
-                            ).limit(10)  # Limit results to prevent too many matches
-                        )
-                        matching_compounds = result.scalars().all()
-                        for compound in matching_compounds:
-                            verified_compound_ids.add(compound.id)
-        
-        # Check Contract - if approved and matches compound, user is verified
-        if contract and contract.status == DocumentStatus.APPROVED:
-            if contract.llm_extracted_info:
-                compound_name = None
-                if isinstance(contract.llm_extracted_info, dict):
-                    compound_name = (
-                        contract.llm_extracted_info.get("compound_name") or
-                        contract.llm_extracted_info.get("property_address", {}).get("compound") if isinstance(contract.llm_extracted_info.get("property_address"), dict) else None
-                    )
-                    
-                    if compound_name:
-                        # Find compound by name (case-insensitive, but more efficient)
-                        # Try exact match first, then partial match
-                        result = await db.execute(
-                            select(Compound).where(
-                                Compound.name.ilike(f"{compound_name}%")  # Starts with is faster than %...%
-                            ).limit(10)  # Limit results to prevent too many matches
-                        )
-                        matching_compounds = result.scalars().all()
-                        for compound in matching_compounds:
-                            verified_compound_ids.add(compound.id)
-        
-        # Always include current compound if user has one (they're using it)
-        if current_user.compound_id:
-            verified_compound_ids.add(current_user.compound_id)
-    
-    # Batch fetch all verified compounds in one query (much faster)
-    if verified_compound_ids:
-        result_query = await db.execute(
-            select(Compound).where(Compound.id.in_(verified_compound_ids))
-        )
-        verified_compounds = result_query.scalars().all()
-    else:
-        verified_compounds = []
-    
+    from app.crud.user_compound_membership import sync_user_compound_memberships
+
+    verified_compound_ids = await sync_user_compound_memberships(db, current_user)
+
+    if not verified_compound_ids:
+        return []
+
+    result_query = await db.execute(
+        select(Compound).where(Compound.id.in_(verified_compound_ids))
+    )
+    verified_compounds = result_query.scalars().all()
+
     result = []
     for compound in verified_compounds:
         result.append({
@@ -474,10 +423,8 @@ async def get_user_compounds(
             "area": compound.area,
             "is_current": compound.id == current_user.compound_id,
         })
-    
-    # Sort: current compound first, then alphabetically
+
     result.sort(key=lambda x: (not x["is_current"], x["name"]))
-    
     return result
 
 
@@ -489,69 +436,33 @@ async def switch_compound(
 ):
     """Switch the user's current compound (only to verified compounds)."""
     from app.crud.compound import get_compound_by_id
-    from app.crud.verification import get_user_documents
-    from app.models.enums import DocumentStatus, DocumentType
-    from sqlalchemy import select
-    from app.models.compound import Compound
-    
+    from app.crud.user_compound_membership import user_has_compound_membership
+    from app.models.enums import UserStatus
+
     compound_id = request.get("compound_id")
     if compound_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="compound_id is required"
         )
-    
-    # Verify compound exists
+
     compound = await get_compound_by_id(db, compound_id)
     if not compound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Compound not found"
         )
-    
-    # Check if user is verified for this compound
-    verified_compound_ids = set()
-    docs = await get_user_documents(db, current_user.id)
-    national_id = docs.get(DocumentType.NATIONAL_ID)
-    contract = docs.get(DocumentType.CONTRACT)
-    
-    # Extract verified compounds (same logic as get_user_compounds)
-    if current_user.status == UserStatus.APPROVED:
-        if national_id and national_id.status == DocumentStatus.APPROVED and national_id.llm_extracted_info:
-            if isinstance(national_id.llm_extracted_info, dict):
-                compound_name = (
-                    national_id.llm_extracted_info.get("compound_name") or
-                    national_id.llm_extracted_info.get("compound_name_in_address") or
-                    national_id.llm_extracted_info.get("address", {}).get("compound") if isinstance(national_id.llm_extracted_info.get("address"), dict) else None
-                )
-                if compound_name:
-                    result = await db.execute(
-                        select(Compound).where(Compound.name.ilike(f"%{compound_name}%"))
-                    )
-                    for c in result.scalars().all():
-                        verified_compound_ids.add(c.id)
-        
-        if contract and contract.status == DocumentStatus.APPROVED and contract.llm_extracted_info:
-            if isinstance(contract.llm_extracted_info, dict):
-                compound_name = (
-                    contract.llm_extracted_info.get("compound_name") or
-                    contract.llm_extracted_info.get("property_address", {}).get("compound") if isinstance(contract.llm_extracted_info.get("property_address"), dict) else None
-                )
-                if compound_name:
-                    result = await db.execute(
-                        select(Compound).where(Compound.name.ilike(f"%{compound_name}%"))
-                    )
-                    for c in result.scalars().all():
-                        verified_compound_ids.add(c.id)
-        
-        if current_user.compound_id:
-            verified_compound_ids.add(current_user.compound_id)
-    
-    # Check if user is verified for this compound
-    if compound_id not in verified_compound_ids:
+
+    if current_user.status != UserStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not verified for this compound. Please request access and submit verification documents."
+            detail="You are not verified for this compound. Please request access and submit verification documents.",
+        )
+
+    if not await user_has_compound_membership(db, current_user, compound_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not verified for this compound. Please request access and submit verification documents.",
         )
     
     # Update user's current compound
