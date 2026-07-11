@@ -1,5 +1,6 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.models.user import User
@@ -87,6 +88,56 @@ async def get_current_user(
         )
     
     return user
+
+
+async def get_upload_user_id(
+    object_key: str = Query(...),
+    upload_token: Optional[str] = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> int:
+    """Resolve user for S3 proxy upload via Bearer token or presign upload_token."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    if credentials is not None:
+        payload = decode_token(credentials.credentials)
+        if payload is not None and payload.get("type") == "access":
+            user_id = payload.get("sub")
+            if user_id is not None:
+                if isinstance(user_id, str):
+                    try:
+                        user_id = int(user_id)
+                    except ValueError:
+                        user_id = None
+                if user_id is not None:
+                    user = await db.get(User, user_id)
+                    if user is not None:
+                        return user.id
+
+    if upload_token:
+        from app.core.security import verify_upload_token
+
+        user_id = verify_upload_token(upload_token, object_key)
+        if user_id is not None:
+            user = await db.get(User, user_id)
+            if user is not None:
+                return user.id
+        logger.warning(
+            "S3 upload token rejected: object_key=%s",
+            object_key,
+        )
+    else:
+        logger.warning(
+            "S3 upload unauthorized (no Bearer token or upload_token): object_key=%s",
+            object_key,
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or missing upload credentials",
+    )
 
 
 async def get_current_approved_user(

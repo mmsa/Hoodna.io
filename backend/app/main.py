@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 import logging
 from app.core.config import settings
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_upload_user_id
 from app.models.user import User
 
 # Import all models to ensure SQLAlchemy relationships are properly set up
@@ -264,7 +264,7 @@ async def upload_file_to_s3_post(
     file: UploadFile = File(...),
     object_key: str = Query(..., description="S3 object key from presign"),
     content_type: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_upload_user_id),
 ):
     """Upload via API → S3 (multipart POST)."""
     content = await file.read()
@@ -273,7 +273,7 @@ async def upload_file_to_s3_post(
         content=content,
         object_key=object_key,
         content_type=mime,
-        user_id=current_user.id,
+        user_id=user_id,
     )
 
 
@@ -282,7 +282,7 @@ async def upload_file_to_s3_put(
     request: Request,
     object_key: str = Query(..., description="S3 object key from presign"),
     content_type: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_upload_user_id),
 ):
     """Upload via API → S3 (raw PUT body — legacy clients)."""
     content = await request.body()
@@ -291,7 +291,7 @@ async def upload_file_to_s3_put(
         content=content,
         object_key=object_key,
         content_type=mime,
-        user_id=current_user.id,
+        user_id=user_id,
     )
 
 
@@ -325,6 +325,7 @@ async def get_upload_presigned_url(
             file_name=file_name,
             file_type=file_type,
             folder="uploads",
+            user_id=current_user.id,
         )
         return PresignResponse(
             presigned_url=presigned_url,

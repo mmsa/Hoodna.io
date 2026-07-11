@@ -162,6 +162,7 @@ async def get_provider_document_upload_url(
             file_name=file_name,
             file_type=file_type,
             folder="providers",
+            user_id=current_user.id,
         )
         return PresignResponse(
             presigned_url=presigned_url,

@@ -99,6 +99,7 @@ async def get_moderator_document_upload_url(
             file_name=file_name,
             file_type=file_type,
             folder="moderators",
+            user_id=current_user.id,
         )
         return PresignResponse(
             presigned_url=presigned_url,

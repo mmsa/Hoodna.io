@@ -219,6 +219,7 @@ def generate_presigned_put_url(
     file_type: str,
     expiration: int = 3600,
     folder: str = "uploads",
+    user_id: Optional[int] = None,
 ) -> tuple[str, str]:
     """
     Generate a pre-signed URL for uploading a file.
@@ -258,11 +259,16 @@ def generate_presigned_put_url(
         # Route browser uploads through the API to avoid S3 CORS configuration.
         base_url = settings.BACKEND_URL.rstrip("/")
         from urllib.parse import quote
+        from app.core.security import create_upload_token
+
         presigned_url = (
             f"{base_url}/api/uploads/s3"
             f"?object_key={quote(object_key)}"
             f"&content_type={quote(content_type)}"
         )
+        if user_id is not None:
+            upload_token = create_upload_token(user_id, object_key)
+            presigned_url += f"&upload_token={quote(upload_token)}"
         return presigned_url, file_url
     except ClientError as e:
         raise Exception(f"Error generating presigned URL: {str(e)}") from e

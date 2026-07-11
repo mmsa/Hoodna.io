@@ -584,6 +584,7 @@ async def get_listing_image_presigned_url(
             file_name=request.file_name,
             file_type=request.file_type,
             folder="listings",
+            user_id=current_user.id,
         )
         return PresignResponse(presigned_url=presigned_url, file_url=file_url)
     except Exception as e:

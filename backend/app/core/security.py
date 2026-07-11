@@ -78,3 +78,31 @@ def create_password_reset_token(data: dict) -> str:
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+
+def create_upload_token(user_id: int, object_key: str, expires_minutes: int = 15) -> str:
+    """Short-lived token so browser uploads work without Bearer header (cross-origin fetch)."""
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    to_encode = {
+        "sub": str(user_id),
+        "object_key": object_key,
+        "exp": expire,
+        "type": "upload",
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def verify_upload_token(token: str, object_key: str) -> Optional[int]:
+    """Return user_id if upload token is valid for this object key."""
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "upload":
+        return None
+    if payload.get("object_key") != object_key:
+        return None
+    sub = payload.get("sub")
+    if sub is None:
+        return None
+    try:
+        return int(sub)
+    except (TypeError, ValueError):
+        return None
+
