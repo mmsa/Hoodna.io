@@ -324,6 +324,74 @@ export default function ResidentVerifications() {
                   </span>
                 </div>
 
+                {doc.status !== 'PENDING' && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-900">
+                    AI or system set this to <strong>{doc.status.replace(/_/g, ' ')}</strong>.
+                    Use the actions below to override.
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border rounded-lg">
+                  <span className="w-full text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                    Admin — change status
+                  </span>
+                  {doc.status !== 'APPROVED' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(doc)}
+                      disabled={approveMutation.isPending}
+                      variant={doc.status === 'REJECTED' ? 'default' : 'outline'}
+                      className={doc.status === 'REJECTED' ? 'bg-green-600 hover:bg-green-700' : 'text-green-700 border-green-200 hover:bg-green-50'}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      {doc.status === 'REJECTED' ? 'Override & Approve' : 'Approve'}
+                    </Button>
+                  )}
+                  {doc.status !== 'REJECTED' && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleReject(doc)}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Reject
+                    </Button>
+                  )}
+                  {doc.status !== 'REQUEST_MORE_DETAILS' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRequestMore(doc)}
+                    >
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      Request more details
+                    </Button>
+                  )}
+                  {doc.status !== 'PENDING' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        statusOverrideMutation.mutate({
+                          docId: doc.id,
+                          status: 'PENDING',
+                          notes: `[Admin override: ${doc.status} → PENDING]`,
+                        })
+                      }}
+                      disabled={statusOverrideMutation.isPending}
+                    >
+                      Set to Pending
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openOverrideDialog(doc)}
+                  >
+                    Change status…
+                  </Button>
+                </div>
+
                 {/* AI Verification Results */}
                 {doc.llm_verified !== undefined && (
                   <div className={`p-3 rounded border ${
@@ -366,58 +434,6 @@ export default function ResidentVerifications() {
                     <p className="text-yellow-800 mt-1">{doc.notes}</p>
                   </div>
                 )}
-
-                {doc.status !== 'PENDING' && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-900">
-                    AI or system set this to <strong>{doc.status.replace(/_/g, ' ')}</strong>.
-                    Use the actions below to override.
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2 pt-4 border-t">
-                  <span className="w-full text-xs font-medium text-gray-500 uppercase tracking-wide">
-                    Admin actions
-                  </span>
-                  {doc.status !== 'APPROVED' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(doc)}
-                      disabled={approveMutation.isPending}
-                      className="text-green-700 border-green-200 hover:bg-green-50"
-                      variant="outline"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      {doc.status === 'REJECTED' ? 'Override & Approve' : 'Approve'}
-                    </Button>
-                  )}
-                  {doc.status !== 'REJECTED' && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleReject(doc)}
-                    >
-                      <XCircle className="w-4 h-4 mr-1" />
-                      Reject
-                    </Button>
-                  )}
-                  {doc.status !== 'REQUEST_MORE_DETAILS' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRequestMore(doc)}
-                    >
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      Request more details
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openOverrideDialog(doc)}
-                  >
-                    Change status…
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           ))}
