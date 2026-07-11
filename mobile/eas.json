@@ -14,14 +14,14 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.eljiran.com",
+        "EXPO_PUBLIC_API_URL": "https://eljiran-api.onrender.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.eljiran.com",
+        "EXPO_PUBLIC_API_URL": "https://eljiran-api.onrender.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     }

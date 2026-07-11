@@ -37,7 +37,7 @@
     ],
     "scheme": "eljiran",
     "extra": {
-      "apiUrl": "https://api.eljiran.com",
+      "apiUrl": "https://eljiran-api.onrender.com",
       "eas": {
         "projectId": "63b7e09f-03e0-46e9-a783-9a659a5d5c83"
       },

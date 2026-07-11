@@ -3,6 +3,15 @@ from pydantic import field_validator
 from typing import List, Any
 
 
+def normalize_database_url(url: str) -> str:
+    """Render/Heroku provide postgres://; SQLAlchemy async needs postgresql+asyncpg://."""
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 class Settings(BaseSettings):
     # Database
     # Default to localhost:5434 for local development (Docker Compose maps 5434->5432)
@@ -42,6 +51,13 @@ class Settings(BaseSettings):
     
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return normalize_database_url(v)
+        return v
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
