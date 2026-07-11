@@ -614,5 +614,41 @@ export class ApiClient {
       body: JSON.stringify({ reason }),
     });
   }
+
+  async getAdminUsers(params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    role_filter?: string;
+    status_filter?: string;
+  }): Promise<{ items: any[]; total: number; skip: number; limit: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.skip != null) searchParams.set("skip", String(params.skip));
+    if (params?.limit != null) searchParams.set("limit", String(params.limit));
+    if (params?.search) searchParams.set("search", params.search);
+    if (params?.role_filter) searchParams.set("role_filter", params.role_filter);
+    if (params?.status_filter) searchParams.set("status_filter", params.status_filter);
+    const qs = searchParams.toString();
+    return this.request(`/api/admin/users${qs ? `?${qs}` : ""}`);
+  }
+
+  async adminResetUserPassword(data: { email: string; new_password: string }): Promise<{ message: string }> {
+    return this.request("/api/admin/users/reset-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async approveUser(userId: number): Promise<any> {
+    return this.request(`/api/admin/users/${userId}/approve`, { method: "POST" });
+  }
+
+  async rejectUser(userId: number): Promise<any> {
+    return this.request(`/api/admin/users/${userId}/reject`, { method: "POST" });
+  }
+
+  async banUser(userId: number): Promise<any> {
+    return this.request(`/api/admin/users/${userId}/ban`, { method: "POST" });
+  }
 }
 

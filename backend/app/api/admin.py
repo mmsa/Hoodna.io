@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from typing import Optional
-from pydantic import BaseModel, EmailStr
-from app.schemas.admin import DocumentReviewRequest, UserStatusUpdate
+from pydantic import BaseModel
+from app.schemas.admin import DocumentReviewRequest, UserStatusUpdate, AdminResetPasswordRequest, AdminUserListResponse, AdminUserListItem
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
 from app.schemas.compound import CompoundResponse, CompoundUpdate
@@ -26,13 +26,14 @@ from app.crud.post import delete_post
 from app.crud.compound import get_all_compounds, update_compound, get_compound_by_id
 from app.core.dependencies import get_current_admin
 from app.models.user import User
-from app.models.enums import UserStatus, DocumentStatus, DocumentType, ProviderStatus, ModeratorStatus
+from app.models.enums import UserStatus, DocumentStatus, DocumentType, ProviderStatus, ModeratorStatus, UserRole
 from typing import List
 from app.models.service_provider import ServiceProviderProfile
 from app.models.compound_moderator import CompoundModeratorProfile
 from sqlalchemy import select
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class VerificationListResponse(BaseModel):
@@ -42,9 +43,71 @@ class VerificationListResponse(BaseModel):
     limit: int
 
 
-class AdminResetPasswordRequest(BaseModel):
-    email: EmailStr
-    new_password: str
+@router.get("/users", response_model=AdminUserListResponse)
+async def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    search: Optional[str] = Query(None, description="Search by name, email, or phone"),
+    role_filter: Optional[str] = Query(None, description="Filter by role"),
+    status_filter: Optional[str] = Query(None, description="Filter by status"),
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all users with search and filters."""
+    from app.crud.user import list_users as crud_list_users
+    from app.models.compound import Compound
+
+    role = None
+    if role_filter and role_filter.upper() != "ALL":
+        try:
+            role = UserRole[role_filter.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role filter: {role_filter}",
+            )
+
+    user_status = None
+    if status_filter and status_filter.upper() != "ALL":
+        try:
+            user_status = UserStatus[status_filter.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status filter: {status_filter}",
+            )
+
+    users, total = await crud_list_users(
+        db,
+        skip=skip,
+        limit=limit,
+        search=search,
+        role=role,
+        status=user_status,
+    )
+
+    items: list[AdminUserListItem] = []
+    for user in users:
+        compound_name = None
+        if user.compound_id:
+            compound = await db.get(Compound, user.compound_id)
+            if compound:
+                compound_name = compound.name
+        items.append(
+            AdminUserListItem(
+                id=user.id,
+                name=user.name,
+                email=user.email,
+                phone=user.phone,
+                role=user.role,
+                status=user.status,
+                compound_id=user.compound_id,
+                compound_name=compound_name,
+                created_at=user.created_at,
+            )
+        )
+
+    return AdminUserListResponse(items=items, total=total, skip=skip, limit=limit)
 
 
 @router.get("/verifications", response_model=VerificationListResponse)

@@ -75,3 +75,33 @@ export function formatDocumentType(documentType: string | null | undefined): str
   return typeMap[documentType] || documentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
+/**
+ * Format user role enum to human-readable text
+ */
+export function formatUserRole(role: string | null | undefined): string {
+  if (!role) return 'Not set'
+  const roleMap: Record<string, string> = {
+    USER: 'Resident',
+    RESIDENT: 'Resident',
+    ADMIN: 'Admin',
+    MODERATOR: 'Moderator',
+    COMPOUND_MOD: 'Compound Moderator',
+    SERVICE_PROVIDER: 'Service Provider',
+  }
+  return roleMap[role] || role
+}
+
+/**
+ * Format user account status enum to human-readable text
+ */
+export function formatUserStatus(status: string | null | undefined): string {
+  if (!status) return 'Unknown'
+  const statusMap: Record<string, string> = {
+    PENDING_VERIFICATION: 'Pending Verification',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+    BANNED: 'Banned',
+  }
+  return statusMap[status] || status
+}
+

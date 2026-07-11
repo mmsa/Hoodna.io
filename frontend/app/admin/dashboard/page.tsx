@@ -1,28 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { CheckCircle, XCircle, AlertCircle, Loader2, ExternalLink, Users, Wrench, Shield } from 'lucide-react'
-import api from '@/lib/api'
+import { Users, Wrench, Shield, Contact } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import { toast } from 'sonner'
-import Link from 'next/link'
 
-// Import components from existing pages
 import ResidentVerifications from './components/resident-verifications'
 import ProviderReviews from './components/provider-reviews'
 import ModeratorReviews from './components/moderator-reviews'
+import UserManagement from './components/user-management'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('residents')
+  const [activeTab, setActiveTab] = useState('users')
 
   if (!user || user.role !== 'ADMIN') {
     return (
@@ -41,14 +32,18 @@ export default function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Review and manage user verifications and applications</p>
+          <p className="text-gray-600">Review verifications, manage users, and handle applications</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Contact className="w-4 h-4" />
+              Users
+            </TabsTrigger>
             <TabsTrigger value="residents" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Residents
+              Verifications
             </TabsTrigger>
             <TabsTrigger value="providers" className="flex items-center gap-2">
               <Wrench className="w-4 h-4" />
@@ -59,6 +54,10 @@ export default function AdminDashboardPage() {
               Moderators
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="users" className="mt-0">
+            <UserManagement />
+          </TabsContent>
 
           <TabsContent value="residents" className="mt-0">
             <ResidentVerifications />

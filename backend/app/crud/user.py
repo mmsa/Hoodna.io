@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.core.security import get_password_hash
@@ -91,4 +91,44 @@ async def get_compound_moderators_and_admins(db: AsyncSession, compound_id: int)
         )
     )
     return list(result.scalars().all())
+
+
+async def list_users(
+    db: AsyncSession,
+    *,
+    skip: int = 0,
+    limit: int = 50,
+    search: str | None = None,
+    role: UserRole | None = None,
+    status: UserStatus | None = None,
+) -> tuple[list[User], int]:
+    """List users with optional filters and pagination."""
+    filters = []
+    if search:
+        term = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                User.name.ilike(term),
+                User.email.ilike(term),
+                User.phone.ilike(term),
+            )
+        )
+    if role:
+        filters.append(User.role == role)
+    if status:
+        filters.append(User.status == status)
+
+    base = select(User)
+    count_stmt = select(func.count()).select_from(User)
+    if filters:
+        from sqlalchemy import and_
+        condition = and_(*filters)
+        base = base.where(condition)
+        count_stmt = count_stmt.where(condition)
+
+    total = (await db.execute(count_stmt)).scalar_one()
+    result = await db.execute(
+        base.order_by(User.created_at.desc()).offset(skip).limit(limit)
+    )
+    return list(result.scalars().all()), total
 
