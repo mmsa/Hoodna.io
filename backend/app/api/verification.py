@@ -5,7 +5,7 @@ from app.schemas.verification import (
     PresignRequest, PresignResponse, DocumentSubmit,
     VerificationStatusResponse, VerificationDocumentResponse
 )
-from app.services.s3 import generate_presigned_put_url, generate_presigned_get_url
+from app.services.s3 import generate_presigned_put_url, build_download_proxy_url
 from app.crud.verification import (
     create_document, get_user_documents, check_and_update_user_status
 )
@@ -113,12 +113,12 @@ async def get_signed_file_url(
     if not file_url.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file_url is required")
     try:
-        signed = generate_presigned_get_url(file_url.strip())
-        return {"url": signed, "expires_in": 3600}
+        url = build_download_proxy_url(file_url.strip(), current_user.id)
+        return {"url": url, "expires_in": 900}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate signed URL: {e}",
+            detail=f"Failed to generate view URL: {e}",
         )
 
 

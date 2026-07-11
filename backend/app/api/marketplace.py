@@ -185,7 +185,10 @@ async def list_listings(
                 price=listing.price,
                 currency=listing.currency,
                 intent=listing.intent,
-                image_urls=sign_file_urls(listing.image_urls or []),
+                image_urls=sign_file_urls(
+                    listing.image_urls or [],
+                    user_id=current_user.id if current_user else None,
+                ),
                 status=listing.status,
                 created_at=listing.created_at,
                 average_rating=stats.get('average_rating'),
@@ -270,7 +273,10 @@ async def get_listing(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        image_urls=sign_file_urls(listing.image_urls or []),
+        image_urls=sign_file_urls(
+            listing.image_urls or [],
+            user_id=current_user.id if current_user else None,
+        ),
         status=listing.status,
         created_at=listing.created_at,
         average_rating=stats.get('average_rating'),
@@ -414,7 +420,7 @@ async def create_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        image_urls=sign_file_urls(listing.image_urls or []),
+        image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
         status=listing.status,
         created_at=listing.created_at,
     )
@@ -497,7 +503,7 @@ async def update_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        image_urls=sign_file_urls(listing.image_urls or []),
+        image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
         status=listing.status,
         created_at=listing.created_at,
     )

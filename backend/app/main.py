@@ -2,11 +2,11 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends, Q
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pathlib import Path
 import logging
 from app.core.config import settings
-from app.core.dependencies import get_current_user, get_upload_user_id
+from app.core.dependencies import get_current_user, get_upload_user_id, get_download_user_id
 from app.models.user import User
 
 # Import all models to ensure SQLAlchemy relationships are properly set up
@@ -295,6 +295,45 @@ async def upload_file_to_s3_put(
     )
 
 
+@app.get("/api/uploads/download")
+async def download_uploaded_file(
+    file_url: str = Query(..., description="Stored file URL"),
+    user_id: int = Depends(get_download_user_id),
+):
+    """Stream a private file through the API (token or Bearer auth)."""
+    from app.services.s3 import download_file_bytes, extract_s3_object_key
+    import mimetypes
+
+    stored = file_url.strip()
+    try:
+        data = download_file_bytes(stored)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    except Exception as e:
+        logger.error(
+            "Download failed: user_id=%s file_url=%s error=%s",
+            user_id,
+            stored,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to download file",
+        )
+
+    key = extract_s3_object_key(stored) or "file"
+    filename = key.rsplit("/", 1)[-1]
+    ext = f".{filename.rsplit('.', 1)[-1].lower()}" if "." in filename else ""
+    media_type = mimetypes.types_map.get(ext, "application/octet-stream")
+
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 # General presign endpoint for uploads (used by mobile)
 @app.post("/api/uploads/presign")
 async def get_upload_presigned_url(
@@ -343,18 +382,18 @@ async def get_upload_signed_url(
     file_url: str = Query(..., description="Stored file URL"),
     current_user: User = Depends(get_current_user),
 ):
-    """Short-lived download URL for private S3 (or local) objects."""
-    from app.services.s3 import generate_presigned_get_url
+    """Short-lived view URL for private S3 (or local) objects."""
+    from app.services.s3 import build_download_proxy_url
 
     if not file_url.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file_url is required")
     try:
-        signed = generate_presigned_get_url(file_url.strip())
-        return {"url": signed, "expires_in": 3600}
+        url = build_download_proxy_url(file_url.strip(), current_user.id)
+        return {"url": url, "expires_in": 900}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate signed URL: {e}",
+            detail=f"Failed to generate view URL: {e}",
         )
 
 

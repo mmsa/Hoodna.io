@@ -106,3 +106,31 @@ def verify_upload_token(token: str, object_key: str) -> Optional[int]:
     except (TypeError, ValueError):
         return None
 
+
+def create_download_token(user_id: int, file_url: str, expires_minutes: int = 15) -> str:
+    """Short-lived token for viewing a private file via API proxy (no S3 presign)."""
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    to_encode = {
+        "sub": str(user_id),
+        "file_url": file_url,
+        "exp": expire,
+        "type": "download",
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def verify_download_token(token: str, file_url: str) -> Optional[int]:
+    """Return user_id if download token is valid for this file URL."""
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "download":
+        return None
+    if payload.get("file_url") != file_url:
+        return None
+    sub = payload.get("sub")
+    if sub is None:
+        return None
+    try:
+        return int(sub)
+    except (TypeError, ValueError):
+        return None
+

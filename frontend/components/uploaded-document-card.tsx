@@ -40,7 +40,11 @@ function fileNameFromUrl(url: string) {
 }
 
 function needsSignedUrl(url: string) {
-  return url.includes('amazonaws.com') || url.includes('s3.')
+  return (
+    url.includes('amazonaws.com') ||
+    url.includes('s3.') ||
+    url.includes('/api/uploads/download')
+  )
 }
 
 export function UploadedDocumentCard({
@@ -69,12 +73,12 @@ export function UploadedDocumentCard({
       }
       setLoadingUrl(true)
       try {
-        const url = await resolveViewUrl(storedUrl)
+        const url = await resolveViewUrl(fileUrl || storedUrl)
         if (!cancelled) {
           setViewUrl(url)
         }
       } catch {
-        if (!cancelled) setViewUrl(storedUrl)
+        if (!cancelled) setViewUrl('')
       } finally {
         if (!cancelled) setLoadingUrl(false)
       }
@@ -148,6 +152,10 @@ export function UploadedDocumentCard({
           <ExternalLink className="h-4 w-4" />
           View uploaded file
         </a>
+      )}
+
+      {!url && !loadingUrl && storedUrl && needsSignedUrl(storedUrl) && (
+        <p className="text-sm text-red-600">Could not prepare file link. Refresh and try again.</p>
       )}
 
       {status && status !== 'REJECTED' && (

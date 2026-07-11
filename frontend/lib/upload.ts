@@ -99,7 +99,7 @@ export async function uploadToPresignedUrl(
 export async function resolveViewUrl(fileUrl: string | null | undefined): Promise<string> {
   const stored = normalizeFileUrl(fileUrl || '')
   if (!stored) return ''
-  if (!stored.includes('amazonaws.com') && !stored.includes('s3.')) {
+  if (!stored.includes('amazonaws.com') && !stored.includes('s3.') && !stored.includes('/api/uploads/download')) {
     return stored
   }
   try {

@@ -78,6 +78,29 @@ def extract_s3_object_key(file_url: str) -> Optional[str]:
     return match.group(1) if match else path or None
 
 
+def build_download_proxy_url(file_url: str, user_id: int, expires_minutes: int = 15) -> str:
+    """
+    Return an API URL that streams the file (avoids brittle S3 presigned GET signatures).
+    Works in browser tabs without Authorization headers.
+    """
+    from urllib.parse import quote
+    from app.core.security import create_download_token
+
+    stored = file_url.strip()
+    if use_local_storage() or not is_s3_file_url(stored):
+        if stored.startswith("/"):
+            return f"{settings.BACKEND_URL.rstrip('/')}{stored}"
+        return stored
+
+    token = create_download_token(user_id, stored, expires_minutes=expires_minutes)
+    base = settings.BACKEND_URL.rstrip("/")
+    return (
+        f"{base}/api/uploads/download"
+        f"?file_url={quote(stored, safe='')}"
+        f"&download_token={quote(token, safe='')}"
+    )
+
+
 def generate_presigned_get_url(file_url: str, expiration: int = 3600) -> str:
     """
     Return a temporary URL that can be opened in a browser.
@@ -95,9 +118,10 @@ def generate_presigned_get_url(file_url: str, expiration: int = 3600) -> str:
     s3_client = get_s3_client()
     try:
         return s3_client.generate_presigned_url(
-            "get_object",
+            ClientMethod="get_object",
             Params={"Bucket": settings.S3_BUCKET_NAME, "Key": key},
             ExpiresIn=expiration,
+            HttpMethod="GET",
         )
     except ClientError as e:
         raise Exception(f"Error generating download URL: {str(e)}") from e
@@ -274,8 +298,12 @@ def generate_presigned_put_url(
         raise Exception(f"Error generating presigned URL: {str(e)}") from e
 
 
-def sign_file_urls(urls: list[str] | None, expiration: int = 3600) -> list[str]:
-    """Replace stored S3 URLs with temporary signed GET URLs (passthrough for local)."""
+def sign_file_urls(
+    urls: list[str] | None,
+    expiration: int = 3600,
+    user_id: Optional[int] = None,
+) -> list[str]:
+    """Replace stored S3 URLs with viewable URLs (API proxy or presigned GET)."""
     if not urls:
         return []
     signed: list[str] = []
@@ -283,7 +311,10 @@ def sign_file_urls(urls: list[str] | None, expiration: int = 3600) -> list[str]:
         if not url:
             continue
         try:
-            signed.append(generate_presigned_get_url(url, expiration=expiration))
+            if user_id is not None:
+                signed.append(build_download_proxy_url(url, user_id))
+            else:
+                signed.append(generate_presigned_get_url(url, expiration=expiration))
         except Exception:
             signed.append(url)
     return signed

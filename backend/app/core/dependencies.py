@@ -140,6 +140,51 @@ async def get_upload_user_id(
     )
 
 
+async def get_download_user_id(
+    file_url: str = Query(...),
+    download_token: Optional[str] = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> int:
+    """Resolve user for file download via Bearer token or presign download_token."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+    stored = file_url.strip()
+
+    if credentials is not None:
+        payload = decode_token(credentials.credentials)
+        if payload is not None and payload.get("type") == "access":
+            user_id = payload.get("sub")
+            if user_id is not None:
+                if isinstance(user_id, str):
+                    try:
+                        user_id = int(user_id)
+                    except ValueError:
+                        user_id = None
+                if user_id is not None:
+                    user = await db.get(User, user_id)
+                    if user is not None:
+                        return user.id
+
+    if download_token:
+        from app.core.security import verify_download_token
+
+        user_id = verify_download_token(download_token, stored)
+        if user_id is not None:
+            user = await db.get(User, user_id)
+            if user is not None:
+                return user.id
+        logger.warning("Download token rejected for file_url=%s", stored)
+    else:
+        logger.warning("Download unauthorized (no Bearer or download_token)")
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or missing download credentials",
+    )
+
+
 async def get_current_approved_user(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
