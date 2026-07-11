@@ -22,12 +22,14 @@ function DocBlock({
   fileUrl,
   docLabel,
   docColor,
+  apiClient,
 }: {
   title: string;
   status?: string;
   fileUrl?: string;
   docLabel: (s: string | undefined) => string;
   docColor: (s: string | undefined) => string;
+  apiClient: import("@hoodna/shared").ApiClient;
 }) {
   const url = normalizeFileUrl(fileUrl);
   return (
@@ -47,7 +49,7 @@ function DocBlock({
         <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>PDF document on file</Text>
       ) : null}
       {url ? (
-        <TouchableOpacity onPress={() => openFileUrl(url)}>
+        <TouchableOpacity onPress={() => openFileUrl(url, apiClient)}>
           <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 6 }}>
             View uploaded file
           </Text>
@@ -215,6 +217,7 @@ export default function VerificationPendingScreen() {
             fileUrl={nationalId?.file_url}
             docLabel={docLabel}
             docColor={docColor}
+            apiClient={apiClient}
           />
           <View style={{ height: 14 }} />
           <DocBlock
@@ -223,6 +226,7 @@ export default function VerificationPendingScreen() {
             fileUrl={contract?.file_url}
             docLabel={docLabel}
             docColor={docColor}
+            apiClient={apiClient}
           />
         </View>
 

@@ -51,12 +51,20 @@ Optional but recommended for uploads/email:
 - `OPENAI_API_KEY`
 - Stripe keys if you use promotions
 
-> Render disks are ephemeral. Without S3, uploaded verification files are lost on
-> every redeploy/restart. Configure AWS S3 env vars for production uploads.
+After creating the bucket and IAM user:
 
-**Known local-storage bug (fixed):** month folders must be zero-padded (`2026/07`),
-matching both disk path and `/api/uploads/...` URL. Re-upload docs after deploying
-this fix if older file links 404.
+1. Attach the bucket policy / permissions to `eljiran-s3`
+2. Create an access key (Security credentials → Create access key → Application running outside AWS)
+3. Set on Render `eljiran-api`:
+
+| Key | Value |
+|-----|--------|
+| `AWS_ACCESS_KEY_ID` | from IAM |
+| `AWS_SECRET_ACCESS_KEY` | from IAM |
+| `AWS_REGION` | `eu-central-1` |
+| `S3_BUCKET_NAME` | `eljiran-uploads` |
+
+4. Redeploy the API. Keep **Block all public access** ON — the API issues short-lived signed download URLs.
 
 After deploy, confirm:
 

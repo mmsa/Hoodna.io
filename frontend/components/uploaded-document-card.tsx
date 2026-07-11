@@ -1,7 +1,9 @@
 'use client'
 
-import { CheckCircle, ExternalLink, FileText } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CheckCircle, ExternalLink, FileText, Loader2 } from 'lucide-react'
 import { normalizeFileUrl } from '@/lib/file-url'
+import api from '@/lib/api'
 
 type DocStatus = string | undefined
 
@@ -37,6 +39,10 @@ function fileNameFromUrl(url: string) {
   }
 }
 
+function needsSignedUrl(url: string) {
+  return url.includes('amazonaws.com') || url.includes('s3.')
+}
+
 export function UploadedDocumentCard({
   title,
   status,
@@ -46,6 +52,41 @@ export function UploadedDocumentCard({
   status?: string | null
   fileUrl?: string | null
 }) {
+  const storedUrl = normalizeFileUrl(fileUrl || '')
+  const [viewUrl, setViewUrl] = useState(storedUrl)
+  const [loadingUrl, setLoadingUrl] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function resolve() {
+      if (!storedUrl) {
+        setViewUrl('')
+        return
+      }
+      if (!needsSignedUrl(storedUrl)) {
+        setViewUrl(storedUrl)
+        return
+      }
+      setLoadingUrl(true)
+      try {
+        const res = await api.get('/api/verification/signed-url', {
+          params: { file_url: storedUrl },
+        })
+        if (!cancelled) {
+          setViewUrl(res.data.url || storedUrl)
+        }
+      } catch {
+        if (!cancelled) setViewUrl(storedUrl)
+      } finally {
+        if (!cancelled) setLoadingUrl(false)
+      }
+    }
+    resolve()
+    return () => {
+      cancelled = true
+    }
+  }, [storedUrl])
+
   if (!status && !fileUrl) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-white p-4">
@@ -62,21 +103,28 @@ export function UploadedDocumentCard({
     )
   }
 
-  const url = normalizeFileUrl(fileUrl || '')
+  const url = viewUrl || storedUrl
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-slate-900">{title}</p>
-          <p className="text-sm text-slate-500 truncate">{fileNameFromUrl(url || title)}</p>
+          <p className="text-sm text-slate-500 truncate">{fileNameFromUrl(storedUrl || title)}</p>
         </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(status || undefined)}`}>
           {statusLabel(status || undefined)}
         </span>
       </div>
 
-      {url && isImage(url) && (
+      {loadingUrl && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Preparing secure preview…
+        </div>
+      )}
+
+      {url && isImage(storedUrl) && !loadingUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
@@ -85,14 +133,14 @@ export function UploadedDocumentCard({
         />
       )}
 
-      {url && isPdf(url) && (
+      {url && isPdf(storedUrl) && (
         <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-sm text-slate-700">
           <FileText className="h-4 w-4 text-slate-500" />
           PDF document on file
         </div>
       )}
 
-      {url && (
+      {url && !loadingUrl && (
         <a
           href={url}
           target="_blank"

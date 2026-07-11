@@ -392,7 +392,7 @@ export default function VerificationScreen() {
                 ) : (
                   <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Document on file</Text>
                 )}
-                <TouchableOpacity onPress={() => openFileUrl(status?.national_id?.file_url || pendingNationalId)}>
+                <TouchableOpacity onPress={() => openFileUrl(status?.national_id?.file_url || pendingNationalId, apiClient)}>
                   <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 8 }}>
                     View uploaded file
                   </Text>
@@ -474,7 +474,7 @@ export default function VerificationScreen() {
                 ) : (
                   <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Document on file</Text>
                 )}
-                <TouchableOpacity onPress={() => openFileUrl(status?.contract?.file_url || pendingContract)}>
+                <TouchableOpacity onPress={() => openFileUrl(status?.contract?.file_url || pendingContract, apiClient)}>
                   <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 8 }}>
                     View uploaded file
                   </Text>

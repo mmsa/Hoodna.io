@@ -86,28 +86,34 @@ async def verify_document_with_llm(
                         "extracted_info": {}
                     }
         
-        # Ensure file_url is absolute
+        # Ensure file_url is absolute for local storage checks
         if file_url.startswith('/api/uploads/'):
-            # Local storage - make absolute URL
             base_url = settings.BACKEND_URL.rstrip("/")
             if not file_url.startswith('http'):
                 file_url = f"{base_url}{file_url}"
         
-        # Download the image/document
-        async with httpx.AsyncClient() as client:
-            response = await client.get(file_url, timeout=30.0)
-            if response.status_code == 404:
-                logger.warning(f"File not found at URL: {file_url}")
-                return {
-                    "verified": False,
-                    "confidence": 0.0,
-                    "issues": [f"File not found: The document file is missing (404 Not Found). This may have occurred due to an upload error. Please ask the user to re-upload the document."],
-                    "recommendation": "REQUEST_MORE_DETAILS",
-                    "reasoning": f"The document file could not be found at the URL: {file_url}. This typically happens when a file was uploaded before a system update or if the upload process failed. Please request the user to re-upload the document.",
-                    "extracted_info": {}
-                }
-            response.raise_for_status()
-            file_data = response.content
+        # Download from local disk or private S3
+        import asyncio
+        from app.services.s3 import download_file_bytes
+
+        try:
+            file_data = await asyncio.to_thread(download_file_bytes, file_url)
+        except Exception as download_error:
+            logger.warning(f"File download failed for {file_url}: {download_error}")
+            return {
+                "verified": False,
+                "confidence": 0.0,
+                "issues": [
+                    "File not found: The document file is missing. Please ask the user to re-upload the document."
+                ],
+                "recommendation": "REQUEST_MORE_DETAILS",
+                "reasoning": (
+                    f"The document file could not be downloaded ({download_error}). "
+                    "This typically happens when a file was uploaded before a system update "
+                    "or if the upload process failed. Please request the user to re-upload the document."
+                ),
+                "extracted_info": {},
+            }
         
         # Determine file type and handle PDFs
         is_pdf = file_url.lower().endswith('.pdf')

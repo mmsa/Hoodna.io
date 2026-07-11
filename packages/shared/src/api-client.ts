@@ -194,6 +194,14 @@ export class ApiClient {
     });
   }
 
+  async getSignedFileUrl(fileUrl: string): Promise<string> {
+    const params = new URLSearchParams({ file_url: fileUrl });
+    const res = await this.request<{ url: string }>(
+      `/api/verification/signed-url?${params.toString()}`
+    );
+    return res.url;
+  }
+
   // Posts
   async getPosts(compoundId?: number, skip = 0, limit = 50): Promise<Post[]> {
     const params = new URLSearchParams({

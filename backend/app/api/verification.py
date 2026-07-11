@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.verification import (
     PresignRequest, PresignResponse, DocumentSubmit,
     VerificationStatusResponse, VerificationDocumentResponse
 )
-from app.services.s3 import generate_presigned_put_url
+from app.services.s3 import generate_presigned_put_url, generate_presigned_get_url
 from app.crud.verification import (
     create_document, get_user_documents, check_and_update_user_status
 )
@@ -97,6 +97,27 @@ async def submit_document(
         file_url=document_data.file_url,
     )
     return doc
+
+
+@router.get("/signed-url")
+async def get_signed_file_url(
+    file_url: str = Query(..., description="Stored file URL from verification document"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return a short-lived URL for viewing a private S3 (or local) file.
+    Authenticated users only — required when the bucket blocks public access.
+    """
+    if not file_url.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file_url is required")
+    try:
+        signed = generate_presigned_get_url(file_url.strip())
+        return {"url": signed, "expires_in": 3600}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate signed URL: {e}",
+        )
 
 
 @router.get("/status", response_model=VerificationStatusResponse)

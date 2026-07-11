@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/lib/config";
 import { Linking } from "react-native";
+import type { ApiClient } from "@hoodna/shared";
 
 export function normalizeFileUrl(fileUrl: string | null | undefined): string {
   if (!fileUrl) return "";
@@ -20,9 +21,22 @@ export function isPdfUrl(url: string) {
   return /\.pdf(\?|$)/i.test(url);
 }
 
-export function openFileUrl(fileUrl: string | null | undefined) {
-  const url = normalizeFileUrl(fileUrl);
-  if (url) {
-    Linking.openURL(url).catch(() => undefined);
+function needsSignedUrl(url: string) {
+  return url.includes("amazonaws.com") || url.includes("s3.");
+}
+
+export async function openFileUrl(
+  fileUrl: string | null | undefined,
+  apiClient?: ApiClient
+) {
+  let url = normalizeFileUrl(fileUrl);
+  if (!url) return;
+  if (apiClient && needsSignedUrl(url)) {
+    try {
+      url = await apiClient.getSignedFileUrl(url);
+    } catch {
+      // fall back to stored URL
+    }
   }
+  Linking.openURL(url).catch(() => undefined);
 }
