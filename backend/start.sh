@@ -10,4 +10,9 @@ if ! python -m scripts.seed_compounds; then
   echo "⚠️  Compound seed failed; continuing API startup"
 fi
 
+# Ensure admin account exists (idempotent upsert)
+if ! python -m scripts.seed; then
+  echo "⚠️  Admin seed failed; continuing API startup"
+fi
+
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

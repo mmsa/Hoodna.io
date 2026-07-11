@@ -1,11 +1,15 @@
 """
-Seed script to create initial admin user.
+Seed script to create/update the initial admin user.
 
-Note: For seeding compounds, use scripts/seed_compounds.py instead.
+Default credentials (override with ADMIN_EMAIL / ADMIN_PASSWORD env vars):
+  admin@admin.com / mmsammsa
 """
 import asyncio
+import os
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
+
 # Import model modules so SQLAlchemy can resolve string relationships.
 from app.models import (  # noqa: F401
     compound,
@@ -21,6 +25,7 @@ from app.models import (  # noqa: F401
     service_category,
     service_provider,
     user,
+    user_compound_membership,
     verification,
 )
 from app.models.user import User
@@ -31,39 +36,42 @@ from scripts.utils import get_db_url
 
 async def seed_admin():
     """Seed the database with admin user."""
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@admin.com").strip().lower()
+    admin_password = os.getenv("ADMIN_PASSWORD", "mmsammsa")
+    admin_name = os.getenv("ADMIN_NAME", "Admin User")
+
     db_url = get_db_url()
-    engine = create_async_engine(db_url, echo=True)
+    engine = create_async_engine(db_url, echo=False)
     async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async with async_session() as session:
-        # Create admin user
-        admin_email = "admin@admin.com"
-        result = await session.execute(
-            select(User).where(User.email == admin_email)
-        )
+        result = await session.execute(select(User).where(User.email == admin_email))
         admin_user = result.scalar_one_or_none()
-        
+
         if not admin_user:
             admin_user = User(
-                name="Admin User",
+                name=admin_name,
                 email=admin_email,
-                password_hash=get_password_hash("mmsammsa1234"),
+                password_hash=get_password_hash(admin_password),
                 role=UserRole.ADMIN,
                 status=UserStatus.APPROVED,
             )
             session.add(admin_user)
             await session.flush()
-            print(f"✅ Created admin user: {admin_email} / mmsammsa1234")
+            print(f"✅ Created admin user: {admin_email}")
         else:
-            # Update existing admin user with new password
-            admin_user.password_hash = get_password_hash("mmsammsa1234")
+            admin_user.password_hash = get_password_hash(admin_password)
             admin_user.role = UserRole.ADMIN
             admin_user.status = UserStatus.APPROVED
+            if admin_name:
+                admin_user.name = admin_name
             await session.flush()
-            print(f"✅ Updated admin user: {admin_email} / mmsammsa1234")
-        
+            print(f"✅ Updated admin user: {admin_email}")
+
         await session.commit()
         print("Admin user seeding completed!")
+
+    await engine.dispose()
 
 
 if __name__ == "__main__":
