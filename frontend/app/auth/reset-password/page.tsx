@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,7 +22,7 @@ const resetPasswordSchema = z.object({
 
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>
 
-export default function ResetPasswordPage() {
+function ResetPasswordFormInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState('')
@@ -34,18 +34,9 @@ export default function ResetPasswordPage() {
     const tokenParam = searchParams?.get?.('token')
     if (!tokenParam) {
       setError('Invalid reset link. Please request a new password reset.')
-    } else {
-      // Decode URL-encoded token (handle + as space, %20, etc.)
-      try {
-        const decodedToken = decodeURIComponent(tokenParam)
-        console.log('Token from URL:', tokenParam.substring(0, 50) + '...')
-        console.log('Decoded token:', decodedToken.substring(0, 50) + '...')
-        setToken(decodedToken)
-      } catch (e) {
-        console.error('Error decoding token:', e)
-        setError('Invalid reset link format. Please request a new password reset.')
-      }
+      return
     }
+    setToken(tokenParam)
   }, [searchParams])
 
   const {
@@ -67,9 +58,8 @@ export default function ResetPasswordPage() {
     setLoading(true)
 
     try {
-      console.log('Sending reset request with token:', token ? token.substring(0, 50) + '...' : 'null')
       await api.post('/api/auth/reset-password', {
-        token: token,
+        token,
         new_password: data.password,
       })
       setSuccess(true)
@@ -156,5 +146,21 @@ export default function ResetPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6 text-center text-gray-600">Loading...</CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <ResetPasswordFormInner />
+    </Suspense>
   )
 }

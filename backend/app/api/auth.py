@@ -14,6 +14,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from datetime import timedelta
 from app.core.config import settings
+from typing import Optional
 import random
 import string
 
@@ -535,29 +536,36 @@ async def forgot_password(
     email_lower = request.email.lower().strip()
     user = await get_user_by_email(db, email_lower)
     
+    email_sent = False
+    reset_link: Optional[str] = None
+    
     # Always return success to prevent email enumeration
     if user:
         reset_token = create_password_reset_token(data={"sub": user.id, "email": user.email})
-        # URL-encode the token to prevent corruption in email links
-        import urllib.parse
-        encoded_token = urllib.parse.quote(reset_token, safe='')
-        reset_link = f"{settings.FRONTEND_URL}/auth/reset-password?token={encoded_token}"
+        frontend = settings.effective_frontend_url
+        reset_link = f"{frontend}/auth/reset-password?token={reset_token}"
         
-        # Send password reset email via AWS SES
+        # Send password reset email
         email_sent = send_password_reset_email(user.email, reset_link)
         
         if not email_sent:
-            # Fallback: log the reset link if email sending fails (for development/testing)
-            logger.warning(f"Email sending failed. Password reset link for {user.email}: {reset_link}")
-            print(f"\n{'='*80}")
-            print(f"PASSWORD RESET TOKEN for {user.email}:")
-            print(f"Token: {reset_token}")
-            print(f"Reset Link: {reset_link}")
-            print(f"{'='*80}\n")
+            logger.warning(
+                "Password reset email NOT delivered for %s. Link: %s",
+                user.email,
+                reset_link,
+            )
+            if settings.ENVIRONMENT != "production":
+                print(f"\n{'='*80}")
+                print(f"PASSWORD RESET for {user.email}:")
+                print(f"Reset Link: {reset_link}")
+                print(f"{'='*80}\n")
     
-    return {
+    response: dict = {
         "message": "If an account with that email exists, a password reset link has been sent."
     }
+    if settings.ENVIRONMENT != "production" and user and not email_sent:
+        response["reset_link"] = reset_link
+    return response
 
 
 @router.post("/reset-password")
@@ -570,20 +578,11 @@ async def reset_password(
     logger = logging.getLogger(__name__)
     
     # Decode and verify reset token
-    # Handle URL-encoded tokens (spaces might be encoded as + or %20)
     import urllib.parse
-    token = request.token.strip()
+    token = urllib.parse.unquote(request.token.strip())
     
-    # Try multiple decoding strategies
-    # First, decode URL encoding
-    token = urllib.parse.unquote(token)
-    # Handle + as space encoding
-    token = token.replace(' ', '+')
+    logger.info(f"Attempting to decode reset token. Length: {len(token)}")
     
-    logger.info(f"Attempting to decode reset token. Length: {len(token)}, First 50 chars: {token[:50]}")
-    logger.info(f"Token ends with: ...{token[-20:]}")
-    
-    # Try to decode the token
     payload = decode_token(token)
     
     if payload is None:

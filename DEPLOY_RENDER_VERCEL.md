@@ -48,8 +48,14 @@ Link the Postgres database so Render injects `DATABASE_URL`.
 Optional but recommended for uploads/email:
 
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME`
+- **Password reset email** — one of:
+  - `RESEND_API_KEY` (recommended; verify sender in [Resend](https://resend.com))
+  - AWS SES: verify `SES_FROM_EMAIL` in the same region as `AWS_REGION`, exit sandbox mode
+  - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`
 - `OPENAI_API_KEY`
 - Stripe keys if you use promotions
+
+If no mail provider is configured, forgot-password still returns success but emails are **not** sent (check Render logs for the reset link).
 
 After creating the bucket and IAM user:
 

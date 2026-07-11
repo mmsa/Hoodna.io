@@ -21,7 +21,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     setError("");
     try {
-      await apiClient.forgotPassword({ email });
+      await apiClient.forgotPassword({ email: email.trim().toLowerCase() });
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || "Failed to send reset email. Please try again.");

@@ -13,6 +13,8 @@ interface RoleGuardProps {
 const PUBLIC_ROUTES = [
   '/auth/login',
   '/auth/signup',
+  '/auth/forgot-password',
+  '/auth/reset-password',
   '/auth/phone-login',
   '/auth/otp-verify',
   '/',

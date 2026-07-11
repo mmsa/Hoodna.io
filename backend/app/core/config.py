@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     # AWS SES
     SES_FROM_EMAIL: str = "noreply@eljiran.com"  # Must be verified in AWS SES
     SES_FROM_NAME: str = "eljiran.com"
+    SES_REGION: str = ""  # Defaults to AWS_REGION when empty
+
+    # Optional transactional email (used when SES unavailable)
+    RESEND_API_KEY: str = ""
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
     
     # App
     ENVIRONMENT: str = "development"
@@ -81,6 +90,22 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> List[str]:
         return parse_cors_origins(self.CORS_ORIGINS)
+
+    @property
+    def ses_region(self) -> str:
+        return (self.SES_REGION or self.AWS_REGION or "eu-central-1").strip()
+
+    @property
+    def effective_frontend_url(self) -> str:
+        """Public web URL for links in emails (never localhost in production)."""
+        url = (self.FRONTEND_URL or "").strip().rstrip("/")
+        if self.ENVIRONMENT == "production" and (
+            not url or url.startswith("http://localhost") or url.startswith("https://localhost")
+        ):
+            for origin in self.cors_origin_list:
+                if origin.startswith("http") and "localhost" not in origin:
+                    return origin.rstrip("/")
+        return url or "http://localhost:3000"
     
     class Config:
         env_file = [".env", "../.env"]  # Look in current dir and parent dir
