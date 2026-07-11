@@ -41,6 +41,7 @@ export default function CreateListingScreen() {
         title: title.trim(),
         description: description.trim() || undefined,
         price: price ? parseFloat(price) : undefined,
+        currency: "EGP",
         intent,
         image_urls: [], // TODO: Add image upload
       };

@@ -171,7 +171,7 @@ if use_local_storage():
 
         # Return the file URL (absolute)
         relative_path = save_path.relative_to(LOCAL_STORAGE_DIR)
-        base_url = settings.FRONTEND_URL.replace(":3000", ":8000")  # Backend URL
+        base_url = settings.BACKEND_URL.rstrip("/")
         file_url = f"{base_url}/api/uploads/{relative_path}"
 
         return {"file_url": file_url, "message": "File uploaded successfully"}

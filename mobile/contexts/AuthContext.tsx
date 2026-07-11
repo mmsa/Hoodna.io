@@ -1,19 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import * as SecureStore from "expo-secure-store";
 import { ApiClient, User } from "@hoodna/shared";
-import Constants from "expo-constants";
-
-// Get API URL from env first, then Expo config, then localhost fallback.
-// For physical device, use your computer's reachable LAN IP and matching backend port.
-const API_BASE_URL = 
-  process.env.EXPO_PUBLIC_API_URL || 
-  Constants.expoConfig?.extra?.apiUrl || 
-  "http://localhost:8001";
-
-// Log API URL for debugging (only in development)
-if (__DEV__) {
-  console.log("🔗 Mobile App API URL:", API_BASE_URL);
-}
+import { API_BASE_URL } from "@/lib/config";
 
 interface AuthContextType {
   user: User | null;

@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # App
     ENVIRONMENT: str = "development"
     FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for email links
+    # Public backend URL for local-storage upload/file links (set to LAN IP for physical devices)
+    BACKEND_URL: str = "http://localhost:8000"
     
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification

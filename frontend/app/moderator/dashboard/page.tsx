@@ -119,7 +119,7 @@ export default function ModeratorDashboardPage() {
   const { data: posts, isLoading: postsLoading, refetch: refetchPosts } = useQuery<Post[]>({
     queryKey: ['moderator-posts', user.compound_id],
     queryFn: async () => {
-      const response = await api.get(`/api/community/posts?compound_id=${user.compound_id}`)
+      const response = await api.get(`/api/posts?compound_id=${user.compound_id}`)
       return response.data || []
     },
     enabled: !!user?.compound_id,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image, ActivityIndicator, TextInput, ScrollView, Modal } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image, ActivityIndicator, TextInput, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { Listing } from "@hoodna/shared";
@@ -9,25 +9,57 @@ import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 
 const CATEGORIES = [
-  { value: "", label: "All Categories", icon: "🛒" },
-  { value: "PROPERTY", label: "Property", icon: "🏠" },
-  { value: "CAR", label: "Cars", icon: "🚗" },
-  { value: "ITEM", label: "Items", icon: "📦" },
-  // SERVICE removed - now has dedicated Services tab
+  { value: "", label: "All" },
+  { value: "PROPERTY", label: "Property" },
+  { value: "CAR", label: "Cars" },
+  { value: "ITEM", label: "Items" },
 ];
 
 const INTENTS = [
-  { value: "", label: "All Types" },
+  { value: "", label: "Any" },
   { value: "SELL", label: "For Sale" },
   { value: "RENT", label: "For Rent" },
 ];
 
 const SORT_OPTIONS = [
-  { value: "date_desc", label: "Newest First" },
-  { value: "date_asc", label: "Oldest First" },
-  { value: "price_asc", label: "Price: Low to High" },
-  { value: "price_desc", label: "Price: High to Low" },
+  { value: "date_desc", label: "Newest" },
+  { value: "date_asc", label: "Oldest" },
+  { value: "price_asc", label: "Price ↑" },
+  { value: "price_desc", label: "Price ↓" },
 ];
+
+function SheetOption({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={{
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: selected ? colors.primary : colors.gray100,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: selected ? "600" : "500",
+          color: selected ? "#FFFFFF" : colors.textMain,
+        }}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 function getCategoryIcon(category: string): string {
   const icons: Record<string, string> = {
@@ -67,9 +99,8 @@ function ListingCard({ listing, router }: { listing: Listing; router: any }) {
         shadowRadius: 8,
         elevation: 3,
       }}
-      activeOpacity={0.8}
-      onPress={() => router.push(`/listing/${listing.id}`)}
       activeOpacity={0.9}
+      onPress={() => router.push(`/listing/${listing.id}`)}
     >
       {listing.image_urls && listing.image_urls.length > 0 ? (
         <Image
@@ -164,6 +195,61 @@ export default function MarketScreen() {
   const { user, apiClient } = useAuth();
   const router = useRouter();
 
+  useEffect(() => {
+    if (user?.role === "SERVICE_PROVIDER") {
+      setLoading(false);
+      return;
+    }
+    loadListings();
+  }, [user?.compound_id, user?.role, searchQuery, selectedCategory, selectedIntent, sortBy, minPrice, maxPrice]);
+
+  async function loadListings() {
+    try {
+      const params: any = { scope: "compound" };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (selectedCategory) params.category = selectedCategory;
+      if (selectedIntent) params.intent = selectedIntent;
+      if (minPrice) params.min_price = minPrice;
+      if (maxPrice) params.max_price = maxPrice;
+      params.sort_by = sortBy;
+
+      const data = await apiClient.getListings(params);
+      // Filter out SERVICES - they have their own tab now
+      const filteredData = (data || []).filter((listing: Listing) => listing.category !== "SERVICE");
+      setListings(filteredData);
+    } catch (error: any) {
+      console.error("Failed to load listings:", error);
+      // Redirect to verification if user is not verified for compound
+      if (error?.message?.includes("403") || error?.response?.status === 403) {
+        router.push("/verification");
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  function handleRefresh() {
+    setRefreshing(true);
+    loadListings();
+  }
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedCategory("");
+    setSelectedIntent("");
+    setMinPrice("");
+    setMaxPrice("");
+    setSortBy("date_desc");
+  }
+
+  const canCreateListing = user?.can_create_listing || false;
+  const sheetFilterCount = [selectedIntent, minPrice, maxPrice, sortBy !== "date_desc" ? sortBy : ""].filter(Boolean).length;
+  const hasActiveFilters = !!(selectedCategory || selectedIntent || minPrice || maxPrice || searchQuery || sortBy !== "date_desc");
+  const verificationStatus = user?.verification_status || "UNVERIFIED";
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label || "Newest";
+  const intentLabel = INTENTS.find((o) => o.value === selectedIntent)?.label;
+
   // Block SERVICE_PROVIDER users from accessing the marketplace
   if (user && user.role === "SERVICE_PROVIDER") {
     return (
@@ -208,54 +294,6 @@ export default function MarketScreen() {
       </SafeAreaView>
     );
   }
-
-  useEffect(() => {
-    loadListings();
-  }, [user?.compound_id, searchQuery, selectedCategory, selectedIntent, sortBy, minPrice, maxPrice]);
-
-  async function loadListings() {
-    try {
-      const params: any = { scope: "compound" };
-      if (searchQuery.trim()) params.search = searchQuery.trim();
-      if (selectedCategory) params.category = selectedCategory;
-      if (selectedIntent) params.intent = selectedIntent;
-      if (minPrice) params.min_price = minPrice;
-      if (maxPrice) params.max_price = maxPrice;
-      params.sort_by = sortBy;
-
-      const data = await apiClient.getListings(params);
-      // Filter out SERVICES - they have their own tab now
-      const filteredData = (data || []).filter((listing: Listing) => listing.category !== "SERVICE");
-      setListings(filteredData);
-    } catch (error: any) {
-      console.error("Failed to load listings:", error);
-      // Redirect to verification if user is not verified for compound
-      if (error?.message?.includes("403") || error?.response?.status === 403) {
-        router.push("/verification");
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  function handleRefresh() {
-    setRefreshing(true);
-    loadListings();
-  }
-
-  function clearFilters() {
-    setSearchQuery("");
-    setSelectedCategory("");
-    setSelectedIntent("");
-    setMinPrice("");
-    setMaxPrice("");
-    setSortBy("date_desc");
-  }
-
-  const canCreateListing = user?.can_create_listing || false;
-  const hasActiveFilters = selectedCategory || selectedIntent || minPrice || maxPrice || searchQuery;
-  const verificationStatus = user?.verification_status || "UNVERIFIED";
 
   // Block REJECTED users from accessing the marketplace
   if (verificationStatus === "REJECTED") {
@@ -356,239 +394,266 @@ export default function MarketScreen() {
                 disabled: !canCreateListing,
               }}
             />
-            <View
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: "#E5E7EB",
-                backgroundColor: "#FFFFFF",
-              }}
-            >
-
-              {/* Search */}
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-                <TextInput
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8, backgroundColor: colors.background }}>
+              {/* Search + filter */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <View
                   style={{
                     flex: 1,
-                    backgroundColor: colors.gray50,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: colors.backgroundWhite,
                     borderRadius: 12,
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    fontSize: 15,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    color: colors.textMain,
+                    paddingHorizontal: 12,
                   }}
-                  placeholder="Search listings..."
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.trim() ? (
-                  <TouchableOpacity
+                >
+                  <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+                  <TextInput
                     style={{
-                      backgroundColor: colors.gray300,
-                      paddingHorizontal: 16,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      justifyContent: "center",
+                      flex: 1,
+                      paddingHorizontal: 8,
+                      paddingVertical: 11,
+                      fontSize: 15,
+                      color: colors.textMain,
                     }}
-                    onPress={() => setSearchQuery("")}
-                  >
-                    <Text style={{ fontSize: 16 }}>✕</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: colors.primary,
-                      paddingHorizontal: 16,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      justifyContent: "center",
-                    }}
-                    onPress={() => setShowFilters(!showFilters)}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>🔍</Text>
-                  </TouchableOpacity>
-                )}
+                    placeholder="Search listings..."
+                    placeholderTextColor={colors.textMuted}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                  />
+                  {searchQuery.trim() ? (
+                    <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setShowFilters(true)}
+                  activeOpacity={0.7}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: sheetFilterCount > 0 ? colors.primary : colors.backgroundWhite,
+                    borderWidth: 1,
+                    borderColor: sheetFilterCount > 0 ? colors.primary : colors.border,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name="options-outline"
+                    size={20}
+                    color={sheetFilterCount > 0 ? "#FFFFFF" : colors.textMain}
+                  />
+                  {sheetFilterCount > 0 ? (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: -4,
+                        right: -4,
+                        minWidth: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        backgroundColor: colors.accent,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#FFFFFF" }}>
+                        {sheetFilterCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
               </View>
 
-              {/* Category Pills */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  {CATEGORIES.map((cat) => (
+              {/* Category tabs */}
+              <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                {CATEGORIES.map((cat) => {
+                  const selected = selectedCategory === cat.value;
+                  return (
                     <TouchableOpacity
                       key={cat.value}
-                      style={{
-                        backgroundColor: selectedCategory === cat.value ? "#8B5CF6" : "#FFFFFF",
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        borderColor: selectedCategory === cat.value ? "#8B5CF6" : "#E5E7EB",
-                      }}
                       onPress={() => setSelectedCategory(cat.value)}
+                      activeOpacity={0.7}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        alignItems: "center",
+                        borderBottomWidth: 2,
+                        borderBottomColor: selected ? colors.primary : "transparent",
+                        marginBottom: -1,
+                      }}
                     >
                       <Text
                         style={{
                           fontSize: 13,
-                          fontWeight: "600",
-                          color: selectedCategory === cat.value ? "#FFFFFF" : "#111827",
+                          fontWeight: selected ? "700" : "500",
+                          color: selected ? colors.primary : colors.textMuted,
                         }}
                       >
-                        {cat.icon} {cat.label}
+                        {cat.label}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+                  );
+                })}
+              </View>
 
-              {/* Intent Pills */}
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                {INTENTS.map((int) => (
-                  <TouchableOpacity
-                    key={int.value}
-                    style={{
-                      flex: 1,
-                      backgroundColor: selectedIntent === int.value ? "#3B82F6" : "#FFFFFF",
-                      paddingVertical: 8,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: selectedIntent === int.value ? "#3B82F6" : "#E5E7EB",
-                      alignItems: "center",
-                    }}
-                    onPress={() => setSelectedIntent(int.value)}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: "600",
-                        color: selectedIntent === int.value ? "#FFFFFF" : "#111827",
-                      }}
-                    >
-                      {int.label}
+              {/* Active filter summary */}
+              {sheetFilterCount > 0 ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingTop: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, color: colors.textMuted, flex: 1 }} numberOfLines={1}>
+                    {[
+                      selectedIntent ? intentLabel : null,
+                      sortBy !== "date_desc" ? sortLabel : null,
+                      minPrice || maxPrice
+                        ? `${minPrice || "0"}–${maxPrice || "∞"} EGP`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
+                  <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
+                      Reset
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Sort */}
-              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
-                <Text style={{ fontSize: 13, color: "#6B7280", marginRight: 8 }}>Sort:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    {SORT_OPTIONS.map((opt) => (
-                      <TouchableOpacity
-                        key={opt.value}
-                        style={{
-                          backgroundColor: sortBy === opt.value ? "#3B82F6" : "#F3F4F6",
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                          borderRadius: 8,
-                        }}
-                        onPress={() => setSortBy(opt.value)}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 12,
-                            fontWeight: "500",
-                            color: sortBy === opt.value ? "#FFFFFF" : "#6B7280",
-                          }}
-                        >
-                          {opt.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-
-              {hasActiveFilters && (
-                <TouchableOpacity
-                  style={{
-                    marginTop: 12,
-                    paddingVertical: 8,
-                    alignItems: "center",
-                  }}
-                  onPress={clearFilters}
-                >
-                  <Text style={{ fontSize: 13, color: "#EF4444", fontWeight: "500" }}>
-                    ✕ Clear Filters
-                  </Text>
-                </TouchableOpacity>
-              )}
+                </View>
+              ) : null}
             </View>
 
-            {/* Filters Modal */}
+            {/* Filters sheet */}
             <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
-              <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
-                <View style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: "70%" }}>
+              <View style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" }}>
+                <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFilters(false)} />
+                <View
+                  style={{
+                    backgroundColor: colors.backgroundWhite,
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    paddingHorizontal: 20,
+                    paddingTop: 12,
+                    paddingBottom: 28,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: colors.gray300,
+                      alignSelf: "center",
+                      marginBottom: 16,
+                    }}
+                  />
+
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#111827" }}>Filters</Text>
-                    <TouchableOpacity onPress={() => setShowFilters(false)}>
-                      <Text style={{ fontSize: 18, color: "#6B7280" }}>✕</Text>
+                    <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain }}>Filter & sort</Text>
+                    <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary }}>Reset</Text>
                     </TouchableOpacity>
                   </View>
 
-                  <ScrollView>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>Price Range</Text>
-                    <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 8 }}>Min Price</Text>
-                        <TextInput
-                          style={{
-                            backgroundColor: "#F9FAFB",
-                            borderRadius: 12,
-                            paddingHorizontal: 12,
-                            paddingVertical: 10,
-                            fontSize: 15,
-                            borderWidth: 1,
-                            borderColor: "#E5E7EB",
-                            color: "#1B1B1B",
-                          }}
-                          placeholder="0"
-                          placeholderTextColor="#9CA3AF"
-                          value={minPrice}
-                          onChangeText={setMinPrice}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 8 }}>Max Price</Text>
-                        <TextInput
-                          style={{
-                            backgroundColor: "#F9FAFB",
-                            borderRadius: 12,
-                            paddingHorizontal: 12,
-                            paddingVertical: 10,
-                            fontSize: 15,
-                            borderWidth: 1,
-                            borderColor: "#E5E7EB",
-                            color: "#1B1B1B",
-                          }}
-                          placeholder="No limit"
-                          placeholderTextColor="#9CA3AF"
-                          value={maxPrice}
-                          onChangeText={setMaxPrice}
-                          keyboardType="numeric"
-                        />
-                      </View>
-                    </View>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    Listing type
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+                    {INTENTS.map((int) => (
+                      <SheetOption
+                        key={int.value}
+                        label={int.label}
+                        selected={selectedIntent === int.value}
+                        onPress={() => setSelectedIntent(int.value)}
+                      />
+                    ))}
+                  </View>
 
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: "#3B82F6",
-                        borderRadius: 12,
-                        paddingVertical: 14,
-                        alignItems: "center",
-                        marginTop: 8,
-                      }}
-                      onPress={() => setShowFilters(false)}
-                    >
-                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>Apply Filters</Text>
-                    </TouchableOpacity>
-                  </ScrollView>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    Sort by
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <SheetOption
+                        key={opt.value}
+                        label={opt.label}
+                        selected={sortBy === opt.value}
+                        onPress={() => setSortBy(opt.value)}
+                      />
+                    ))}
+                  </View>
+
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    Price (EGP)
+                  </Text>
+                  <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
+                    <View style={{ flex: 1 }}>
+                      <TextInput
+                        style={{
+                          backgroundColor: colors.gray50,
+                          borderRadius: 12,
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          fontSize: 15,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          color: colors.textMain,
+                        }}
+                        placeholder="Min"
+                        placeholderTextColor={colors.textMuted}
+                        value={minPrice}
+                        onChangeText={setMinPrice}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                    <View style={{ justifyContent: "center" }}>
+                      <Text style={{ color: colors.textMuted }}>–</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <TextInput
+                        style={{
+                          backgroundColor: colors.gray50,
+                          borderRadius: 12,
+                          paddingHorizontal: 14,
+                          paddingVertical: 12,
+                          fontSize: 15,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          color: colors.textMain,
+                        }}
+                        placeholder="Max"
+                        placeholderTextColor={colors.textMuted}
+                        value={maxPrice}
+                        onChangeText={setMaxPrice}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.primary,
+                      borderRadius: 14,
+                      paddingVertical: 15,
+                      alignItems: "center",
+                    }}
+                    onPress={() => setShowFilters(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>Show results</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </Modal>

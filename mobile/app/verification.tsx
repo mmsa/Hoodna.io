@@ -263,23 +263,6 @@ export default function VerificationScreen() {
             <Text style={{ fontSize: 28, fontWeight: "bold", color: "#111827", marginBottom: 8 }}>
               Verification Documents
             </Text>
-            {user?.compound_name && (
-              <View
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  marginBottom: 8,
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                }}
-              >
-                <Text style={{ fontSize: 14, color: "#6B7280" }}>
-                  📍 Verifying for <Text style={{ fontWeight: "600", color: "#111827" }}>{user.compound_name}</Text>
-                </Text>
-              </View>
-            )}
             <Text style={{ fontSize: 16, color: "#6B7280", textAlign: "center", marginTop: 8 }}>
               Upload <Text style={{ fontWeight: "600", color: "#3B82F6" }}>one document</Text> to get verified
             </Text>

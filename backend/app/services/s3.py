@@ -46,7 +46,7 @@ def generate_presigned_put_url(
         # For local storage, return a direct upload endpoint URL
         file_path, file_url_path = generate_local_file_path(file_name)
         # The presigned_url will be the upload endpoint
-        base_url = settings.FRONTEND_URL.replace(':3000', ':8000')  # Backend URL
+        base_url = settings.BACKEND_URL.rstrip("/")
         relative_path = file_path.relative_to(LOCAL_STORAGE_DIR)
         presigned_url = f"{base_url}/api/uploads/upload?file_path={relative_path}"
         # Make file_url absolute

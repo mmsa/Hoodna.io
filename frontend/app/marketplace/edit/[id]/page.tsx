@@ -107,21 +107,47 @@ export default function EditListingPage() {
   }, [listing, form])
 
   const uploadImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload an image file.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setUploading(true)
     try {
-      const response = await api.post('/api/listings/upload-url', {
+      const response = await api.post('/api/listings/images/presign', {
         file_name: file.name,
         file_type: file.type,
       })
-      const { upload_url, file_url } = response.data
+      const { presigned_url, file_url } = response.data
 
-      await fetch(upload_url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      })
+      const isLocalStorage = presigned_url.includes('/api/uploads/upload')
+
+      if (isLocalStorage) {
+        const formData = new FormData()
+        formData.append('file', file)
+        const urlParams = new URL(presigned_url).searchParams
+        const filePath = urlParams.get('file_path')
+        if (filePath) {
+          formData.append('file_path', filePath)
+        }
+
+        await fetch(presigned_url, {
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        await fetch(presigned_url, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        })
+      }
 
       return file_url
     } catch (error: any) {

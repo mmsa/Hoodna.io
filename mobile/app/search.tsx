@@ -259,7 +259,7 @@ export default function SearchScreen() {
       setLoading(true);
       try {
         const response = await apiClient.globalSearch(debouncedQuery.trim());
-        setSearchResults(response);
+        setSearchResults(response as SearchResponse);
       } catch (error) {
         console.error("Search failed:", error);
         setSearchResults(null);

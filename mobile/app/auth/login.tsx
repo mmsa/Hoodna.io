@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import Constants from "expo-constants";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -48,8 +48,7 @@ export default function LoginScreen() {
       
       // Provide more helpful error messages for network issues
       if (errorMessage.includes("Cannot connect") || errorMessage.includes("Network error") || errorMessage.includes("timed out")) {
-        const apiUrl = Constants.expoConfig?.extra?.apiUrl || "Not configured";
-        errorMessage = `${errorMessage}\n\nAPI URL: ${apiUrl}\n\nMake sure:\n• Backend is running\n• Phone and computer are on same WiFi\n• IP address matches your computer's IP`;
+        errorMessage = `${errorMessage}\n\nAPI URL: ${API_BASE_URL}\n\nMake sure:\n• Backend is running on port 8000\n• Phone and computer are on same WiFi\n• IP address matches your computer's IP (see mobile/.env)`;
       }
       
       Alert.alert("Error", errorMessage);

@@ -21,7 +21,7 @@ interface HeaderProps {
 }
 
 // Cache compound data to avoid reloading on every page
-let compoundCache: { id: number; name: string; area?: string } | null = null;
+let compoundCache: Compound | null = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -43,7 +43,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
       // Check cache first
       const now = Date.now();
       if (compoundCache && compoundCache.id === compoundIdToLoad && (now - cacheTimestamp) < CACHE_DURATION) {
-        setCompound(compoundCache as Compound);
+        setCompound(compoundCache);
       } else {
         // Load in background, don't block UI
         loadCompound();
@@ -65,11 +65,14 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
       const foundCompound = userCompounds.find((c) => c.id === compoundIdToLoad);
       if (foundCompound) {
         // Convert to Compound format
-        const compoundData = {
+        const compoundData: Compound = {
           id: foundCompound.id,
           name: foundCompound.name,
-          area: foundCompound.area || undefined,
-        } as Compound;
+          area: foundCompound.area ?? null,
+          developer: null,
+          status_2025: null,
+          category: null,
+        };
         setCompound(compoundData);
         // Cache it
         compoundCache = compoundData;
@@ -144,10 +147,18 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
               activeOpacity={0.7}
             >
               <Image
-                source={require('@/assets/logo_light.jpg')}
-                style={[styles.logoImage, compactHeader && styles.logoImageCompact]}
-                resizeMode="contain"
+                source={require("@/assets/icon_light.jpg")}
+                style={[styles.logoIcon, compactHeader && styles.logoIconCompact]}
+                resizeMode="cover"
               />
+              <View style={styles.logoTextGroup}>
+                <Text style={[styles.logoText, compactHeader && styles.logoTextCompact]}>
+                  eljiran
+                </Text>
+                <Text style={[styles.logoDomain, compactHeader && styles.logoDomainCompact]}>
+                  .com
+                </Text>
+              </View>
             </TouchableOpacity>
             {/* Always show compound badge next to logo when no title */}
             {!title && compound && (
@@ -314,11 +325,11 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   content: {
     flexDirection: "row",
@@ -340,34 +351,60 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     flexShrink: 0,
+  },
+  logoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+  },
+  logoIconCompact: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+  },
+  logoTextGroup: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1B4332",
+    letterSpacing: -0.3,
+  },
+  logoTextCompact: {
+    fontSize: 18,
+  },
+  logoDomain: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.primary,
+    letterSpacing: -0.3,
+  },
+  logoDomainCompact: {
+    fontSize: 18,
   },
   compoundBadgeInline: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: colors.backgroundWhite,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     flexShrink: 1,
     minWidth: 0,
     maxWidth: 150,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   compoundTextInline: {
     fontSize: 11,
     fontWeight: "500",
     color: colors.primary,
     flexShrink: 1,
-  },
-  logoImage: {
-    width: 150,
-    height: 50,
-  },
-  logoImageCompact: {
-    width: 120,
-    height: 44,
   },
   titleContainer: {
     flex: 1,

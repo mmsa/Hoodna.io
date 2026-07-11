@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from "react-native";
+import { useState, useEffect, useMemo } from "react";
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +21,50 @@ interface Conversation {
   };
   unread_count: number;
   updated_at: string;
+}
+
+const TABS = [
+  { value: "all", label: "All" },
+  { value: "unread", label: "Unread" },
+];
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recent" },
+  { value: "unread_first", label: "Unread first" },
+  { value: "name", label: "Name A–Z" },
+];
+
+function SheetOption({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={{
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: selected ? colors.primary : colors.gray100,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: selected ? "600" : "500",
+          color: selected ? "#FFFFFF" : colors.textMain,
+        }}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
 }
 
 function formatTime(dateString: string): string {
@@ -67,6 +111,11 @@ export default function MessagesTab() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTab, setSelectedTab] = useState("all");
+  const [sortBy, setSortBy] = useState("recent");
+  const [listingOnly, setListingOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const { apiClient, user } = useAuth();
   const router = useRouter();
 
@@ -89,7 +138,7 @@ export default function MessagesTab() {
       setRefreshing(false);
       return;
     }
-    
+
     try {
       const data = await apiClient.getConversations();
       setConversations(data);
@@ -111,8 +160,47 @@ export default function MessagesTab() {
     loadConversations();
   }
 
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedTab("all");
+    setSortBy("recent");
+    setListingOnly(false);
+  }
+
   const unreadCount = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
-  const hasUnread = unreadCount > 0;
+  const sheetFilterCount = [sortBy !== "recent" ? sortBy : "", listingOnly ? "listing" : ""].filter(Boolean).length;
+
+  const filteredConversations = useMemo(() => {
+    let list = [...conversations];
+
+    if (selectedTab === "unread") {
+      list = list.filter((c) => (c.unread_count || 0) > 0);
+    }
+
+    if (listingOnly) {
+      list = list.filter((c) => !!c.listing_id || !!c.listing_title);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.other_user_name.toLowerCase().includes(q) ||
+          c.listing_title?.toLowerCase().includes(q) ||
+          c.last_message?.content.toLowerCase().includes(q)
+      );
+    }
+
+    if (sortBy === "unread_first") {
+      list.sort((a, b) => (b.unread_count || 0) - (a.unread_count || 0) || new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    } else if (sortBy === "name") {
+      list.sort((a, b) => a.other_user_name.localeCompare(b.other_user_name));
+    } else {
+      list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    }
+
+    return list;
+  }, [conversations, selectedTab, listingOnly, searchQuery, sortBy]);
 
   if (loading) {
     return (
@@ -121,7 +209,7 @@ export default function MessagesTab() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
-            Loading messages... 💬
+            Loading messages...
           </Text>
         </View>
       </SafeAreaView>
@@ -130,86 +218,235 @@ export default function MessagesTab() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      <Header
-        showLogo={true}
-        title={hasUnread ? `Messages (${unreadCount})` : undefined}
-        rightAction={
-          hasUnread
-            ? {
-                label: `${unreadCount} unread`,
-                onPress: () => {},
-                disabled: true,
-                icon: "notifications",
-              }
-            : undefined
-        }
-      />
+      <Header showLogo={true} />
 
-      {/* Stats Cards */}
-      <View
-        style={{
-          flexDirection: "row",
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          gap: 12,
-          backgroundColor: colors.backgroundCard,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.primary + "15",
-            borderRadius: 12,
-            padding: 12,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "700", color: colors.primary }}>
-            {conversations.length}
-          </Text>
-          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>Conversations</Text>
-        </View>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.errorLight + "30",
-            borderRadius: 12,
-            padding: 12,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "700", color: colors.error }}>
-            {unreadCount}
-          </Text>
-          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>Unread</Text>
-        </View>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.success + "15",
-            borderRadius: 12,
-            padding: 12,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "700", color: colors.success }}>
-            {conversations.filter((c) => c.last_message).length}
-          </Text>
-          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>Active</Text>
-        </View>
-      </View>
-
-      {/* Conversations List */}
       <FlatList
-        data={conversations}
+        data={filteredConversations}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            {/* Search + filter */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: colors.backgroundWhite,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+                <TextInput
+                  style={{
+                    flex: 1,
+                    paddingHorizontal: 8,
+                    paddingVertical: 11,
+                    fontSize: 15,
+                    color: colors.textMain,
+                  }}
+                  placeholder="Search messages..."
+                  placeholderTextColor={colors.textMuted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                />
+                {searchQuery.trim() ? (
+                  <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+                    <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowFilters(true)}
+                activeOpacity={0.7}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: sheetFilterCount > 0 ? colors.primary : colors.backgroundWhite,
+                  borderWidth: 1,
+                  borderColor: sheetFilterCount > 0 ? colors.primary : colors.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={20}
+                  color={sheetFilterCount > 0 ? "#FFFFFF" : colors.textMain}
+                />
+                {sheetFilterCount > 0 ? (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      minWidth: 18,
+                      height: 18,
+                      borderRadius: 9,
+                      backgroundColor: colors.accent,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 4,
+                    }}
+                  >
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: "#FFFFFF" }}>
+                      {sheetFilterCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            </View>
+
+            {/* Tabs */}
+            <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              {TABS.map((tab) => {
+                const selected = selectedTab === tab.value;
+                const label =
+                  tab.value === "unread" && unreadCount > 0
+                    ? `Unread (${unreadCount})`
+                    : tab.label;
+                return (
+                  <TouchableOpacity
+                    key={tab.value}
+                    onPress={() => setSelectedTab(tab.value)}
+                    activeOpacity={0.7}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      alignItems: "center",
+                      borderBottomWidth: 2,
+                      borderBottomColor: selected ? colors.primary : "transparent",
+                      marginBottom: -1,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: selected ? "700" : "500",
+                        color: selected ? colors.primary : colors.textMuted,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Active filter summary */}
+            {sheetFilterCount > 0 ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingTop: 10,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: colors.textMuted, flex: 1 }} numberOfLines={1}>
+                  {[
+                    sortBy !== "recent" ? SORT_OPTIONS.find((o) => o.value === sortBy)?.label : null,
+                    listingOnly ? "Listing chats" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+                <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
+                    Reset
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Filters sheet */}
+            <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+              <View style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" }}>
+                <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFilters(false)} />
+                <View
+                  style={{
+                    backgroundColor: colors.backgroundWhite,
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    paddingHorizontal: 20,
+                    paddingTop: 12,
+                    paddingBottom: 28,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: colors.gray300,
+                      alignSelf: "center",
+                      marginBottom: 16,
+                    }}
+                  />
+
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                    <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain }}>Filter & sort</Text>
+                    <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary }}>Reset</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    Sort by
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <SheetOption
+                        key={opt.value}
+                        label={opt.label}
+                        selected={sortBy === opt.value}
+                        onPress={() => setSortBy(opt.value)}
+                      />
+                    ))}
+                  </View>
+
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    Show
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+                    <SheetOption
+                      label="All chats"
+                      selected={!listingOnly}
+                      onPress={() => setListingOnly(false)}
+                    />
+                    <SheetOption
+                      label="Listing chats"
+                      selected={listingOnly}
+                      onPress={() => setListingOnly(true)}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.primary,
+                      borderRadius: 14,
+                      paddingVertical: 15,
+                      alignItems: "center",
+                    }}
+                    onPress={() => setShowFilters(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>Show results</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+          </View>
+        }
         renderItem={({ item }) => {
           const hasUnread = item.unread_count > 0;
-          const isRecent =
-            (new Date().getTime() - new Date(item.updated_at).getTime()) / 3600000 < 24;
           const avatarColor = getAvatarColor(item.other_user_name);
           const initials = getInitials(item.other_user_name);
 
@@ -223,31 +460,23 @@ export default function MessagesTab() {
                 padding: 16,
                 borderWidth: hasUnread ? 2 : 1,
                 borderColor: hasUnread ? colors.primary : colors.border,
-                shadowColor: hasUnread ? colors.primary : "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: hasUnread ? 0.2 : 0.05,
-                shadowRadius: 8,
-                elevation: hasUnread ? 4 : 2,
               }}
               onPress={() => router.push(`/messages/${item.id}`)}
               activeOpacity={0.7}
             >
               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                {/* Avatar */}
                 <View style={{ position: "relative" }}>
                   <View
                     style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
+                      width: 52,
+                      height: 52,
+                      borderRadius: 26,
                       backgroundColor: avatarColor,
                       alignItems: "center",
                       justifyContent: "center",
-                      borderWidth: hasUnread ? 3 : 2,
-                      borderColor: hasUnread ? colors.primary : colors.border,
                     }}
                   >
-                    <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "700" }}>
+                    <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}>
                       {initials}
                     </Text>
                   </View>
@@ -275,12 +504,11 @@ export default function MessagesTab() {
                   )}
                 </View>
 
-                {/* Content */}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                     <Text
                       style={{
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: hasUnread ? "700" : "600",
                         color: colors.textMain,
                         flex: 1,
@@ -289,21 +517,6 @@ export default function MessagesTab() {
                     >
                       {item.other_user_name}
                     </Text>
-                    {isRecent && (
-                      <View
-                        style={{
-                          backgroundColor: colors.success + "20",
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 8,
-                          marginLeft: 8,
-                        }}
-                      >
-                        <Text style={{ fontSize: 10, fontWeight: "600", color: colors.success }}>
-                          Recent
-                        </Text>
-                      </View>
-                    )}
                     <Text style={{ fontSize: 12, color: colors.textMuted, marginLeft: 8 }}>
                       {formatTime(item.updated_at)}
                     </Text>
@@ -318,9 +531,9 @@ export default function MessagesTab() {
                         gap: 6,
                       }}
                     >
-                      <Ionicons name="bag" size={14} color={colors.purple} />
+                      <Ionicons name="bag-outline" size={13} color={colors.purple} />
                       <Text
-                        style={{ fontSize: 13, color: colors.textMuted, flex: 1 }}
+                        style={{ fontSize: 12, color: colors.textMuted, flex: 1 }}
                         numberOfLines={1}
                       >
                         {item.listing_title}
@@ -329,28 +542,16 @@ export default function MessagesTab() {
                   )}
 
                   {item.last_message && (
-                    <View
+                    <Text
                       style={{
-                        backgroundColor: hasUnread ? colors.primary + "10" : colors.gray50,
-                        borderRadius: 12,
-                        padding: 10,
-                        marginTop: 4,
+                        fontSize: 14,
+                        color: hasUnread ? colors.textMain : colors.textMuted,
+                        fontWeight: hasUnread ? "500" : "400",
                       }}
+                      numberOfLines={2}
                     >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: hasUnread ? colors.textMain : colors.textMuted,
-                          fontWeight: hasUnread ? "500" : "400",
-                        }}
-                        numberOfLines={2}
-                      >
-                        <Text style={{ fontWeight: "600", color: colors.primary }}>
-                          {item.last_message.sender_name}:
-                        </Text>{" "}
-                        {item.last_message.content}
-                      </Text>
-                    </View>
+                      {item.last_message.content}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -361,30 +562,34 @@ export default function MessagesTab() {
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 }}>
             <View
               style={{
-                width: 120,
-                height: 120,
-                borderRadius: 60,
+                width: 100,
+                height: 100,
+                borderRadius: 50,
                 backgroundColor: colors.purpleLight + "20",
                 alignItems: "center",
                 justifyContent: "center",
-                marginBottom: 24,
+                marginBottom: 20,
               }}
             >
-              <Ionicons name="chatbubbles-outline" size={64} color={colors.purple} />
+              <Ionicons name="chatbubbles-outline" size={48} color={colors.purple} />
             </View>
-            <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
-              No messages yet 💬
+            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: 8, textAlign: "center" }}>
+              {searchQuery.trim() || selectedTab === "unread" || sheetFilterCount > 0
+                ? "No messages match"
+                : "No messages yet"}
             </Text>
-            <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24, marginBottom: 32 }}>
-              Start a conversation by messaging a seller from a listing page. Connect with your neighbors and build your community! ✨
+            <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: "center", lineHeight: 22, marginBottom: 24 }}>
+              {searchQuery.trim() || selectedTab === "unread" || sheetFilterCount > 0
+                ? "Try adjusting your search or filters"
+                : "Message a seller from a listing to start a conversation"}
             </Text>
-            <View style={{ flexDirection: "row", gap: 12 }}>
+            {!searchQuery.trim() && selectedTab === "all" && sheetFilterCount === 0 ? (
               <TouchableOpacity
                 style={{
                   backgroundColor: colors.primary,
                   paddingHorizontal: 20,
                   paddingVertical: 14,
-                  borderRadius: 16,
+                  borderRadius: 14,
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 8,
@@ -396,29 +601,16 @@ export default function MessagesTab() {
                   Browse Marketplace
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: colors.backgroundCard,
-                  paddingHorizontal: 20,
-                  paddingVertical: 14,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-                onPress={() => router.push("/(tabs)/home")}
-              >
-                <Ionicons name="home-outline" size={18} color={colors.primary} />
-                <Text style={{ fontSize: 15, fontWeight: "600", color: colors.primary }}>
-                  Explore Feed
+            ) : (
+              <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary }}>
+                  Reset filters
                 </Text>
               </TouchableOpacity>
-            </View>
+            )}
           </View>
         }
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 20 }}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 20 }}
       />
     </SafeAreaView>
   );

@@ -475,14 +475,15 @@ export class ApiClient {
     return this.request("/api/reports");
   }
 
-  async resolveReport(reportId: number): Promise<any> {
-    return this.request(`/api/reports/${reportId}/resolve`, {
-      method: "POST",
+  async resolveReport(reportId: number, status: "REVIEWED" | "RESOLVED" | "DISMISSED" = "RESOLVED"): Promise<any> {
+    return this.request(`/api/reports/${reportId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
     });
   }
 
   async getModeratorPosts(compoundId: number): Promise<Post[]> {
-    return this.request<Post[]>(`/api/community/posts?compound_id=${compoundId}`);
+    return this.request<Post[]>(`/api/posts?compound_id=${compoundId}`);
   }
 
   async restorePost(postId: number): Promise<{ message: string }> {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput, Alert, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
@@ -11,13 +11,51 @@ import { Ionicons } from "@expo/vector-icons";
 import { formatCompoundName } from "@/utils/formatCompound";
 
 const POST_LABELS = [
-  { value: "", label: "All Posts", icon: "📋" },
-  { value: "help", label: "Help", icon: "🆘" },
-  { value: "lost", label: "Lost & Found", icon: "🔍" },
-  { value: "event", label: "Events", icon: "📅" },
-  { value: "marketplace", label: "Marketplace", icon: "🛒" },
-  { value: "general", label: "General", icon: "💬" },
+  { value: "", label: "All" },
+  { value: "help", label: "Help" },
+  { value: "lost", label: "Lost" },
+  { value: "event", label: "Events" },
+  { value: "marketplace", label: "Market" },
+  { value: "general", label: "General" },
 ];
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+];
+
+function SheetOption({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={{
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: selected ? colors.primary : colors.gray100,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 14,
+          fontWeight: selected ? "600" : "500",
+          color: selected ? "#FFFFFF" : colors.textMain,
+        }}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString);
@@ -127,7 +165,7 @@ function PostCard({
   const postType = getPostType(post);
 
   // Background color based on post type (using new vibrant colors)
-  const bgColors = {
+  const bgColors: Record<string, string> = {
     help: colors.help,
     lost: colors.lost,
     event: colors.event,
@@ -138,7 +176,7 @@ function PostCard({
   return (
     <View
       style={{
-        backgroundColor: bgColors[postType.type],
+        backgroundColor: bgColors[postType.type] || colors.backgroundCard,
         marginHorizontal: 16,
         marginBottom: 16,
         borderRadius: 16,
@@ -615,59 +653,18 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLabel, setSelectedLabel] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
+  const [showFilters, setShowFilters] = useState(false);
   const [newComments, setNewComments] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const { user, apiClient } = useAuth();
   const { activeCompoundId } = useCompound();
   const router = useRouter();
 
-  // Block SERVICE_PROVIDER users from accessing the feed
-  if (user && user.role === "SERVICE_PROVIDER") {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <Header />
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
-          <View style={{ 
-            width: 120, 
-            height: 120, 
-            borderRadius: 60, 
-            backgroundColor: "#FEF3C7", 
-            justifyContent: "center", 
-            alignItems: "center",
-            marginBottom: 24
-          }}>
-            <Text style={{ fontSize: 64 }}>🚫</Text>
-          </View>
-          <Text style={{ fontSize: 28, fontWeight: "bold", color: colors.text, marginBottom: 12, textAlign: "center" }}>
-            Access Restricted
-          </Text>
-          <Text style={{ fontSize: 16, color: colors.textSecondary, marginBottom: 32, textAlign: "center", lineHeight: 24 }}>
-            Service providers are not allowed to browse the community feed. Please manage your services from the Services page.
-          </Text>
-          <TouchableOpacity
-            style={{
-              backgroundColor: colors.primary,
-              paddingHorizontal: 32,
-              paddingVertical: 16,
-              borderRadius: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-            }}
-            onPress={() => router.push("/(tabs)/services")}
-          >
-            <Ionicons name="construct-outline" size={20} color="#FFFFFF" />
-            <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
-              Go to My Services
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // Load compound name
   useEffect(() => {
+    if (user?.role === "SERVICE_PROVIDER") return;
+
     async function loadCompoundName() {
       const compoundId = activeCompoundId || user?.compound_id;
       if (!compoundId || !apiClient) return;
@@ -686,15 +683,19 @@ export default function HomeScreen() {
     if (activeCompoundId || user?.compound_id) {
       loadCompoundName();
     }
-  }, [activeCompoundId, user?.compound_id, apiClient]);
+  }, [activeCompoundId, user?.compound_id, user?.role, apiClient]);
 
   // Refetch posts when compound changes
   useEffect(() => {
+    if (user?.role === "SERVICE_PROVIDER") {
+      setLoading(false);
+      return;
+    }
     if (activeCompoundId) {
       loadPosts();
       loadAnnouncements();
     }
-  }, [activeCompoundId]);
+  }, [activeCompoundId, user?.role]);
 
   // Organize posts into sections: Alerts, Announcements, Discussions
   const organizePosts = (allPosts: Post[], announcements: Post[]) => {
@@ -780,9 +781,15 @@ export default function HomeScreen() {
     // Apply label filter
     if (selectedLabel) {
       filtered = filtered.filter((post) => {
-        const postType = detectPostType(post.content);
+        const postType = getPostType(post);
         return postType.type === selectedLabel;
       });
+    }
+
+    if (sortBy === "oldest") {
+      filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    } else {
+      filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
 
     setPosts(filtered);
@@ -790,7 +797,15 @@ export default function HomeScreen() {
 
   useEffect(() => {
     applyFilters(allPosts);
-  }, [selectedLabel, searchQuery, allPosts]);
+  }, [selectedLabel, searchQuery, allPosts, sortBy]);
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedLabel("");
+    setSortBy("newest");
+  }
+
+  const sheetFilterCount = sortBy !== "newest" ? 1 : 0;
 
   async function handleCreateComment(postId: number) {
     const content = newComments[postId];
@@ -818,6 +833,51 @@ export default function HomeScreen() {
 
   const canPost = user?.can_post || false;
   const verificationStatus = user?.verification_status || "UNVERIFIED";
+
+  // Block SERVICE_PROVIDER users from accessing the feed
+  if (user && user.role === "SERVICE_PROVIDER") {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <Header />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <View style={{ 
+            width: 120, 
+            height: 120, 
+            borderRadius: 60, 
+            backgroundColor: "#FEF3C7", 
+            justifyContent: "center", 
+            alignItems: "center",
+            marginBottom: 24
+          }}>
+            <Text style={{ fontSize: 64 }}>🚫</Text>
+          </View>
+          <Text style={{ fontSize: 28, fontWeight: "bold", color: colors.text, marginBottom: 12, textAlign: "center" }}>
+            Access Restricted
+          </Text>
+          <Text style={{ fontSize: 16, color: colors.textSecondary, marginBottom: 32, textAlign: "center", lineHeight: 24 }}>
+            Service providers are not allowed to browse the community feed. Please manage your services from the Services page.
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 32,
+              paddingVertical: 16,
+              borderRadius: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onPress={() => router.push("/(tabs)/services")}
+          >
+            <Ionicons name="construct-outline" size={20} color="#FFFFFF" />
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
+              Go to My Services
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Block REJECTED users from accessing the feed
   if (verificationStatus === "REJECTED") {
@@ -1165,82 +1225,219 @@ export default function HomeScreen() {
             <View
               style={{
                 paddingHorizontal: 16,
-                paddingVertical: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: "#E5E7EB",
-                backgroundColor: "#FFFFFF",
+                paddingTop: 12,
+                paddingBottom: 8,
+                backgroundColor: colors.background,
               }}
             >
-              {/* Search */}
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-                <TextInput
+              {/* Search + filter */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <View
                   style={{
                     flex: 1,
-                    backgroundColor: colors.gray50,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: colors.backgroundWhite,
                     borderRadius: 12,
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    fontSize: 15,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    color: colors.textMain,
+                    paddingHorizontal: 12,
                   }}
-                  placeholder="Search posts, comments..."
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.trim() && (
-                  <TouchableOpacity
+                >
+                  <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+                  <TextInput
                     style={{
-                      backgroundColor: colors.gray300,
-                      paddingHorizontal: 16,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      justifyContent: "center",
+                      flex: 1,
+                      paddingHorizontal: 8,
+                      paddingVertical: 11,
+                      fontSize: 15,
+                      color: colors.textMain,
                     }}
-                    onPress={() => setSearchQuery("")}
-                  >
-                    <Text style={{ fontSize: 16 }}>✕</Text>
-                  </TouchableOpacity>
-                )}
+                    placeholder="Search posts..."
+                    placeholderTextColor={colors.textMuted}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                  />
+                  {searchQuery.trim() ? (
+                    <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setShowFilters(true)}
+                  activeOpacity={0.7}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: sheetFilterCount > 0 ? colors.primary : colors.backgroundWhite,
+                    borderWidth: 1,
+                    borderColor: sheetFilterCount > 0 ? colors.primary : colors.border,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name="options-outline"
+                    size={20}
+                    color={sheetFilterCount > 0 ? "#FFFFFF" : colors.textMain}
+                  />
+                  {sheetFilterCount > 0 ? (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: -4,
+                        right: -4,
+                        minWidth: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        backgroundColor: colors.accent,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        paddingHorizontal: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: "#FFFFFF" }}>
+                        {sheetFilterCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
               </View>
 
-              {/* Label Filters */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  {POST_LABELS.map((label) => (
+              {/* Category tabs */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+              >
+                {POST_LABELS.map((label) => {
+                  const selected = selectedLabel === label.value;
+                  return (
                     <TouchableOpacity
                       key={label.value}
-                      style={{
-                        backgroundColor: selectedLabel === label.value ? colors.primary : colors.backgroundCard,
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        borderRadius: 24,
-                        borderWidth: 2,
-                        borderColor: selectedLabel === label.value ? colors.primary : colors.border,
-                        shadowColor: selectedLabel === label.value ? colors.primary : "transparent",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: selectedLabel === label.value ? 0.3 : 0,
-                        shadowRadius: 4,
-                        elevation: selectedLabel === label.value ? 3 : 0,
-                      }}
                       onPress={() => setSelectedLabel(label.value)}
                       activeOpacity={0.7}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                        borderBottomWidth: 2,
+                        borderBottomColor: selected ? colors.primary : "transparent",
+                        marginBottom: -1,
+                      }}
                     >
                       <Text
                         style={{
-                          fontSize: 14,
-                          fontWeight: "700",
-                          color: selectedLabel === label.value ? "#FFFFFF" : colors.textMain,
+                          fontSize: 13,
+                          fontWeight: selected ? "700" : "500",
+                          color: selected ? colors.primary : colors.textMuted,
                         }}
                       >
-                        {label.icon} {label.label}
+                        {label.label}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  );
+                })}
               </ScrollView>
+
+              {sheetFilterCount > 0 ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingTop: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                    {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
+                  </Text>
+                  <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
+                      Reset
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {/* Filters sheet */}
+              <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
+                <View style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" }}>
+                  <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFilters(false)} />
+                  <View
+                    style={{
+                      backgroundColor: colors.backgroundWhite,
+                      borderTopLeftRadius: 24,
+                      borderTopRightRadius: 24,
+                      paddingHorizontal: 20,
+                      paddingTop: 12,
+                      paddingBottom: 28,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor: colors.gray300,
+                        alignSelf: "center",
+                        marginBottom: 16,
+                      }}
+                    />
+
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain }}>Filter & sort</Text>
+                      <TouchableOpacity onPress={clearFilters} hitSlop={8}>
+                        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary }}>Reset</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      Category
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+                      {POST_LABELS.map((label) => (
+                        <SheetOption
+                          key={label.value || "all"}
+                          label={label.value === "" ? "All posts" : label.label}
+                          selected={selectedLabel === label.value}
+                          onPress={() => setSelectedLabel(label.value)}
+                        />
+                      ))}
+                    </View>
+
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      Sort by
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+                      {SORT_OPTIONS.map((opt) => (
+                        <SheetOption
+                          key={opt.value}
+                          label={opt.label}
+                          selected={sortBy === opt.value}
+                          onPress={() => setSortBy(opt.value)}
+                        />
+                      ))}
+                    </View>
+
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: colors.primary,
+                        borderRadius: 14,
+                        paddingVertical: 15,
+                        alignItems: "center",
+                      }}
+                      onPress={() => setShowFilters(false)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>Show results</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
             </View>
           </View>
         }

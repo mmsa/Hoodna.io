@@ -12,10 +12,10 @@ export default function SignupScreen() {
   const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"RESIDENT" | "SERVICE_PROVIDER" | "COMPOUND_MOD" | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
-  const { apiClient, setTokens, loadUser } = useAuth();
+  const { apiClient, login } = useAuth();
 
   function validate() {
     const newErrors: Record<string, string> = {};
@@ -48,9 +48,8 @@ export default function SignupScreen() {
         role: selectedRole!,
       });
 
-      setTokens(response.access_token, response.refresh_token);
-      await loadUser();
-      
+      await login(response.access_token, response.refresh_token);
+
       // Redirect based on role
       if (selectedRole === "RESIDENT") {
         router.replace("/onboarding/compound-select");

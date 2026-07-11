@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -21,6 +22,11 @@ import { formatCompoundName } from '@/lib/format-compound'
 
 export default function Home() {
   const { isAuthenticated } = useAuth()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const features = [
     {
@@ -123,7 +129,7 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center mb-16">
-              {isAuthenticated ? (
+              {mounted && isAuthenticated ? (
                 <>
                   <Link href="/feed">
                     <Button size="lg" className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 px-10 py-7 text-lg font-bold rounded-2xl group">
@@ -377,7 +383,7 @@ export default function Home() {
             <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
               Start connecting with verified neighbors today. It's free to join and takes less than 5 minutes.
             </p>
-            {!isAuthenticated && (
+            {!(mounted && isAuthenticated) && (
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/auth/signup">
                   <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 shadow-xl px-8 py-6 text-lg font-semibold">
@@ -392,7 +398,7 @@ export default function Home() {
                 </Link>
               </div>
             )}
-            {isAuthenticated && (
+            {mounted && isAuthenticated && (
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/feed">
                   <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 shadow-xl px-8 py-6 text-lg font-semibold">
