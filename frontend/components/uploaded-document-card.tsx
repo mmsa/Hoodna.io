@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle, ExternalLink, FileText, Loader2 } from 'lucide-react'
-import { normalizeFileUrl } from '@/lib/file-url'
+import { normalizeFileUrl, needsPrivateFileUrl } from '@/lib/file-url'
 import { resolveViewUrl } from '@/lib/upload'
 
 type DocStatus = string | undefined
@@ -39,14 +39,6 @@ function fileNameFromUrl(url: string) {
   }
 }
 
-function needsSignedUrl(url: string) {
-  return (
-    url.includes('amazonaws.com') ||
-    url.includes('s3.') ||
-    url.includes('/api/uploads/download')
-  )
-}
-
 export function UploadedDocumentCard({
   title,
   status,
@@ -67,7 +59,7 @@ export function UploadedDocumentCard({
         setViewUrl('')
         return
       }
-      if (!needsSignedUrl(storedUrl)) {
+      if (!needsPrivateFileUrl(storedUrl)) {
         setViewUrl(storedUrl)
         return
       }
@@ -87,7 +79,7 @@ export function UploadedDocumentCard({
     return () => {
       cancelled = true
     }
-  }, [storedUrl])
+  }, [fileUrl, storedUrl])
 
   if (!status && !fileUrl) {
     return (
@@ -154,7 +146,7 @@ export function UploadedDocumentCard({
         </a>
       )}
 
-      {!url && !loadingUrl && storedUrl && needsSignedUrl(storedUrl) && (
+      {!url && !loadingUrl && storedUrl && needsPrivateFileUrl(storedUrl) && (
         <p className="text-sm text-red-600">Could not prepare file link. Refresh and try again.</p>
       )}
 

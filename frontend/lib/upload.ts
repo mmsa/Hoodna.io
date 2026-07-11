@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie'
 import api from '@/lib/api'
-import { normalizeFileUrl } from '@/lib/file-url'
+import { normalizeFileUrl, needsPrivateFileUrl } from '@/lib/file-url'
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -99,22 +99,22 @@ export async function uploadToPresignedUrl(
 export async function resolveViewUrl(fileUrl: string | null | undefined): Promise<string> {
   const stored = normalizeFileUrl(fileUrl || '')
   if (!stored) return ''
-  if (!stored.includes('amazonaws.com') && !stored.includes('s3.') && !stored.includes('/api/uploads/download')) {
-    return stored
-  }
+  if (!needsPrivateFileUrl(stored)) return stored
   try {
     const res = await api.get('/api/uploads/signed-url', {
       params: { file_url: stored },
     })
-    return res.data.url || stored
+    if (res.data?.url) return res.data.url
   } catch {
-    try {
-      const res = await api.get('/api/verification/signed-url', {
-        params: { file_url: stored },
-      })
-      return res.data.url || stored
-    } catch {
-      return stored
-    }
+    // fall through to verification endpoint
   }
+  try {
+    const res = await api.get('/api/verification/signed-url', {
+      params: { file_url: stored },
+    })
+    if (res.data?.url) return res.data.url
+  } catch {
+    // fail closed — never return a raw private S3 URL
+  }
+  return ''
 }

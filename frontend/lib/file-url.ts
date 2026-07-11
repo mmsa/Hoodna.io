@@ -26,3 +26,13 @@ export function normalizeFileUrl(fileUrl: string | null | undefined): string {
   return fileUrl
 }
 
+/** True when the URL must be resolved via /api/uploads/signed-url before viewing. */
+export function needsPrivateFileUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  return (
+    url.includes('amazonaws.com') ||
+    url.includes('s3.') ||
+    url.includes('/api/uploads/download')
+  )
+}
+

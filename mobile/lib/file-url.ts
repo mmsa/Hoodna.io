@@ -22,7 +22,11 @@ export function isPdfUrl(url: string) {
 }
 
 function needsSignedUrl(url: string) {
-  return url.includes("amazonaws.com") || url.includes("s3.");
+  return (
+    url.includes("amazonaws.com") ||
+    url.includes("s3.") ||
+    url.includes("/api/uploads/download")
+  );
 }
 
 export async function resolveViewUrl(
@@ -32,11 +36,11 @@ export async function resolveViewUrl(
   const stored = normalizeFileUrl(fileUrl || "");
   if (!stored) return "";
   if (!needsSignedUrl(stored)) return stored;
-  if (!apiClient) return stored;
+  if (!apiClient) return "";
   try {
     return await apiClient.getSignedFileUrl(stored);
   } catch {
-    return stored;
+    return "";
   }
 }
 
@@ -44,14 +48,8 @@ export async function openFileUrl(
   fileUrl: string | null | undefined,
   apiClient?: ApiClient
 ) {
-  let url = normalizeFileUrl(fileUrl);
-  if (!url) return;
-  if (apiClient && needsSignedUrl(url)) {
-    try {
-      url = await apiClient.getSignedFileUrl(url);
-    } catch {
-      // fall back to stored URL
-    }
+  const url = await resolveViewUrl(fileUrl, apiClient);
+  if (url) {
+    Linking.openURL(url).catch(() => undefined);
   }
-  Linking.openURL(url).catch(() => undefined);
 }
