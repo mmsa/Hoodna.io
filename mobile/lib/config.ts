@@ -11,7 +11,7 @@ function resolveApiBaseUrl(): string {
   if (!__DEV__) {
     return (
       Constants.expoConfig?.extra?.apiUrl ||
-      "https://api.eljiran.com"
+      "https://eljiran-api.onrender.com"
     );
   }
 
