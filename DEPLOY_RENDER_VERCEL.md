@@ -66,6 +66,25 @@ After creating the bucket and IAM user:
 
 4. Redeploy the API. Keep **Block all public access** ON — the API issues short-lived signed download URLs.
 
+5. **S3 CORS** (required for browser uploads from Vercel). In AWS Console → S3 → `eljiran-uploads` → Permissions → CORS:
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedOrigins": [
+      "https://eljiran.vercel.app",
+      "http://localhost:3000"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+Without this, presign returns 200 but the browser PUT to S3 fails silently and the document stays "Not uploaded".
+
 After deploy, confirm:
 
 ```bash

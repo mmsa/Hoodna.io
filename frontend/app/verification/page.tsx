@@ -16,7 +16,7 @@ import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles, 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
-import { uploadToPresignedUrl } from "@/lib/upload";
+import { uploadToPresignedUrl, resolveUploadContentType } from "@/lib/upload";
 
 interface VerificationStatus {
   national_id: {
@@ -153,9 +153,10 @@ export default function VerificationPage() {
     try {
       // Get presigned URL
       const documentType = type === "national_id" ? "NATIONAL_ID" : "CONTRACT";
+      const contentType = resolveUploadContentType(file);
       const presignResponse = await api.post("/api/verification/presign", {
         file_name: file.name,
-        file_type: file.type,
+        file_type: contentType,
         document_type: documentType,
       });
 
@@ -166,7 +167,7 @@ export default function VerificationPage() {
       }
 
       try {
-        await uploadToPresignedUrl(presigned_url, file);
+        await uploadToPresignedUrl(presigned_url, file, contentType);
       } catch (fetchError: any) {
         throw new Error(`Failed to upload file: ${fetchError?.message || 'Network error'}`);
       }

@@ -1,13 +1,34 @@
 import api from '@/lib/api'
 import { normalizeFileUrl } from '@/lib/file-url'
 
+const EXT_TO_MIME: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+}
+
+/** Same MIME type for presign + PUT (must match S3 signature). */
+export function resolveUploadContentType(file: File): string {
+  const fromBrowser = (file.type || '').toLowerCase().trim()
+  if (fromBrowser && fromBrowser !== 'application/octet-stream') {
+    return fromBrowser
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  if (ext && EXT_TO_MIME[ext]) return EXT_TO_MIME[ext]
+  return fromBrowser || 'application/octet-stream'
+}
+
 /**
  * Upload a browser File to a presigned URL (S3 PUT, or local FormData POST).
  */
 export async function uploadToPresignedUrl(
   presignedUrl: string,
-  file: File
+  file: File,
+  contentType?: string
 ): Promise<void> {
+  const mimeType = contentType || resolveUploadContentType(file)
   const isLocalStorage = presignedUrl.includes('/api/uploads/upload')
   let uploadResponse: Response
 
@@ -24,14 +45,19 @@ export async function uploadToPresignedUrl(
       body: formData,
     })
   } else {
-    // S3 (or compatible): PUT object body
-    uploadResponse = await fetch(presignedUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type || 'application/octet-stream',
-      },
-    })
+    try {
+      uploadResponse = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': mimeType,
+        },
+      })
+    } catch {
+      throw new Error(
+        'Could not reach storage (browser blocked the upload). Configure S3 CORS to allow PUT from this site — see DEPLOY_RENDER_VERCEL.md.'
+      )
+    }
   }
 
   if (!uploadResponse.ok) {

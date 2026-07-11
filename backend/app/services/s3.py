@@ -127,6 +127,22 @@ def download_file_bytes(file_url: str) -> bytes:
     return obj["Body"].read()
 
 
+def _normalize_content_type(file_name: str, file_type: str) -> str:
+    """Align MIME type with extension so presign signature matches browser PUT."""
+    ext_to_mime = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+        "pdf": "application/pdf",
+    }
+    normalized = (file_type or "").strip().lower()
+    if normalized and normalized != "application/octet-stream":
+        return normalized
+    ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    return ext_to_mime.get(ext, normalized or "application/octet-stream")
+
+
 def generate_presigned_put_url(
     file_name: str,
     file_type: str,
@@ -152,6 +168,7 @@ def generate_presigned_put_url(
 
     require_s3_configured()
     s3_client = get_s3_client()
+    content_type = _normalize_content_type(file_name, file_type)
 
     file_extension = file_name.split(".")[-1] if "." in file_name else ""
     unique_file_name = (
@@ -173,7 +190,7 @@ def generate_presigned_put_url(
             Params={
                 "Bucket": settings.S3_BUCKET_NAME,
                 "Key": object_key,
-                "ContentType": file_type,
+                "ContentType": content_type,
             },
             ExpiresIn=expiration,
         )
