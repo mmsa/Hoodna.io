@@ -218,6 +218,7 @@ async def get_upload_presigned_url(
         presigned_url, file_url = generate_presigned_put_url(
             file_name=file_name,
             file_type=file_type,
+            folder="uploads",
         )
         return PresignResponse(
             presigned_url=presigned_url,
@@ -227,6 +228,26 @@ async def get_upload_presigned_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate presigned URL: {str(e)}"
+        )
+
+
+@app.get("/api/uploads/signed-url")
+async def get_upload_signed_url(
+    file_url: str = Query(..., description="Stored file URL"),
+    current_user: User = Depends(get_current_user),
+):
+    """Short-lived download URL for private S3 (or local) objects."""
+    from app.services.s3 import generate_presigned_get_url
+
+    if not file_url.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file_url is required")
+    try:
+        signed = generate_presigned_get_url(file_url.strip())
+        return {"url": signed, "expires_in": 3600}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate signed URL: {e}",
         )
 
 

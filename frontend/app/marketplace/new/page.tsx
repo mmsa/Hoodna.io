@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import api from '@/lib/api'
+import { uploadToPresignedUrl } from '@/lib/upload'
+import { SignedFileImage } from '@/components/signed-file'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import {
@@ -186,30 +188,7 @@ export default function NewListingPage() {
 
       const { presigned_url, file_url } = presignResponse.data
 
-      const isLocalStorage = presigned_url.includes('/api/uploads/upload')
-      
-      if (isLocalStorage) {
-        const formData = new FormData()
-        formData.append('file', file)
-        const urlParams = new URL(presigned_url).searchParams
-        const filePath = urlParams.get('file_path')
-        if (filePath) {
-          formData.append('file_path', filePath)
-        }
-        
-        await fetch(presigned_url, {
-          method: 'POST',
-          body: formData,
-        })
-      } else {
-        await fetch(presigned_url, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
-        })
-      }
+      await uploadToPresignedUrl(presigned_url, file)
 
       setImages([...images, file_url])
       toast({
@@ -622,8 +601,8 @@ export default function NewListingPage() {
                     {images.map((url, idx) => (
                       <div key={idx} className="relative group">
                         <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200">
-                          <img
-                            src={url}
+                          <SignedFileImage
+                            fileUrl={url}
                             alt={`Upload ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />

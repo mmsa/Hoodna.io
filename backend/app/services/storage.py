@@ -16,9 +16,35 @@ LOCAL_STORAGE_DIR.mkdir(exist_ok=True, parents=True)
 
 
 def use_local_storage() -> bool:
-    """Determine if we should use local storage instead of S3."""
-    # Use local storage if AWS credentials are not configured
-    return not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY
+    """
+    Use local disk only in non-production when AWS credentials are missing.
+    Production always uses S3 (presign will error clearly if misconfigured).
+    """
+    if (settings.ENVIRONMENT or "").lower() == "production":
+        return False
+    return not (
+        settings.AWS_ACCESS_KEY_ID
+        and settings.AWS_SECRET_ACCESS_KEY
+        and settings.S3_BUCKET_NAME
+    )
+
+
+def require_s3_configured() -> None:
+    """Raise if S3 env is incomplete (used in production / when local is disabled)."""
+    missing = [
+        name
+        for name, value in (
+            ("AWS_ACCESS_KEY_ID", settings.AWS_ACCESS_KEY_ID),
+            ("AWS_SECRET_ACCESS_KEY", settings.AWS_SECRET_ACCESS_KEY),
+            ("AWS_REGION", settings.AWS_REGION),
+            ("S3_BUCKET_NAME", settings.S3_BUCKET_NAME),
+        )
+        if not value
+    ]
+    if missing:
+        raise ValueError(
+            "S3 is required but not configured. Set: " + ", ".join(missing)
+        )
 
 
 def generate_local_file_path(file_name: str) -> Tuple[Path, str]:

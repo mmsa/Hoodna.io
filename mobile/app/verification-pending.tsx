@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
-  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,7 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { VerificationStatusResponse } from "@hoodna/shared";
 import { getResidentRoute, isResidentRole } from "@/lib/resident-routing";
-import { isImageUrl, isPdfUrl, normalizeFileUrl, openFileUrl } from "@/lib/file-url";
+import { isImageUrl, isPdfUrl, openFileUrl } from "@/lib/file-url";
+import { SignedImage } from "@/components/signed-image";
 
 function DocBlock({
   title,
@@ -31,25 +31,25 @@ function DocBlock({
   docColor: (s: string | undefined) => string;
   apiClient: import("@hoodna/shared").ApiClient;
 }) {
-  const url = normalizeFileUrl(fileUrl);
   return (
     <View>
       <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>{title}</Text>
       <Text style={{ fontSize: 15, fontWeight: "600", color: docColor(status), marginBottom: 8 }}>
         {status ? docLabel(status) : "Not uploaded"}
       </Text>
-      {url && isImageUrl(url) ? (
-        <Image
-          source={{ uri: url }}
+      {fileUrl && isImageUrl(fileUrl) ? (
+        <SignedImage
+          fileUrl={fileUrl}
+          apiClient={apiClient}
           style={{ width: "100%", height: 160, borderRadius: 10, backgroundColor: "#F3F4F6" }}
           resizeMode="contain"
         />
       ) : null}
-      {url && isPdfUrl(url) ? (
+      {fileUrl && isPdfUrl(fileUrl) ? (
         <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>PDF document on file</Text>
       ) : null}
-      {url ? (
-        <TouchableOpacity onPress={() => openFileUrl(url, apiClient)}>
+      {fileUrl ? (
+        <TouchableOpacity onPress={() => openFileUrl(fileUrl, apiClient)}>
           <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 6 }}>
             View uploaded file
           </Text>

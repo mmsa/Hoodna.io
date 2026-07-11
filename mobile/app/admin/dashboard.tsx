@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Modal,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
+import { openFileUrl } from "@/lib/file-url";
 
 type AdminTab = "residents" | "providers" | "moderators";
 type ReasonAction =
@@ -545,7 +545,7 @@ export default function AdminDashboardScreen() {
                     ) : null}
 
                     <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                      <AdminActionButton label="Open document" icon="open-outline" color={colors.primary} onPress={() => Linking.openURL(doc.file_url)} />
+                      <AdminActionButton label="Open document" icon="open-outline" color={colors.primary} onPress={() => openFileUrl(doc.file_url, apiClient)} />
                       <AdminActionButton
                         label={processing === doc.id ? "Working..." : "AI verify"}
                         icon="sparkles-outline"
@@ -669,7 +669,7 @@ export default function AdminDashboardScreen() {
                           label={formatLabel(document.document_type)}
                           icon="document-text-outline"
                           color={colors.primary}
-                          onPress={() => Linking.openURL(document.file_url)}
+                          onPress={() => openFileUrl(document.file_url, apiClient)}
                         />
                       ))}
                     </View>
@@ -780,7 +780,7 @@ export default function AdminDashboardScreen() {
                           label={formatLabel(document.document_type)}
                           icon="document-text-outline"
                           color={colors.primary}
-                          onPress={() => Linking.openURL(document.file_url)}
+                          onPress={() => openFileUrl(document.file_url, apiClient)}
                         />
                       ))}
                     </View>

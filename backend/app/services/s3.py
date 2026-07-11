@@ -11,7 +11,12 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.core.config import settings
-from app.services.storage import use_local_storage, generate_local_file_path, LOCAL_STORAGE_DIR
+from app.services.storage import (
+    use_local_storage,
+    generate_local_file_path,
+    LOCAL_STORAGE_DIR,
+    require_s3_configured,
+)
 
 
 def get_s3_client():
@@ -44,7 +49,7 @@ def is_s3_file_url(file_url: str) -> bool:
     bucket = (settings.S3_BUCKET_NAME or "").lower()
     if bucket and bucket in host:
         return True
-    return "amazonaws.com" in host and "/uploads/" in file_url
+    return "amazonaws.com" in host
 
 
 def extract_s3_object_key(file_url: str) -> Optional[str]:
@@ -63,11 +68,11 @@ def extract_s3_object_key(file_url: str) -> Optional[str]:
     if bucket and path.startswith(f"{bucket}/"):
         return path[len(bucket) + 1 :]
 
-    if path.startswith("uploads/"):
-        return path
-
-    match = re.search(r"(uploads/.+)$", path)
-    return match.group(1) if match else None
+    match = re.search(
+        r"((?:uploads|verification|listings|providers|moderators)/.+)$",
+        path,
+    )
+    return match.group(1) if match else path or None
 
 
 def generate_presigned_get_url(file_url: str, expiration: int = 3600) -> str:
@@ -126,27 +131,33 @@ def generate_presigned_put_url(
     file_name: str,
     file_type: str,
     expiration: int = 3600,
+    folder: str = "uploads",
 ) -> tuple[str, str]:
     """
     Generate a pre-signed URL for uploading a file.
-    Uses local storage if AWS credentials are not configured, otherwise uses S3.
+    Uses local storage if AWS credentials are not configured (dev only),
+    otherwise uses S3. folder is the S3 key prefix (e.g. verification, listings).
     Returns: (presigned_url, file_url)
     """
+    safe_folder = (folder or "uploads").strip("/").replace("..", "") or "uploads"
+
     if use_local_storage():
         file_path, file_url_path = generate_local_file_path(file_name)
         base_url = settings.BACKEND_URL.rstrip("/")
         relative_path = file_path.relative_to(LOCAL_STORAGE_DIR)
+        # Keep local path under folder/ for consistency
         presigned_url = f"{base_url}/api/uploads/upload?file_path={relative_path}"
         file_url = f"{base_url}{file_url_path}"
         return presigned_url, file_url
 
+    require_s3_configured()
     s3_client = get_s3_client()
 
     file_extension = file_name.split(".")[-1] if "." in file_name else ""
     unique_file_name = (
         f"{uuid.uuid4()}.{file_extension}" if file_extension else str(uuid.uuid4())
     )
-    object_key = f"uploads/{unique_file_name}"
+    object_key = f"{safe_folder}/{unique_file_name}"
 
     if settings.S3_ENDPOINT_URL:
         file_url = f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET_NAME}/{object_key}"
@@ -169,3 +180,18 @@ def generate_presigned_put_url(
         return presigned_url, file_url
     except ClientError as e:
         raise Exception(f"Error generating presigned URL: {str(e)}") from e
+
+
+def sign_file_urls(urls: list[str] | None, expiration: int = 3600) -> list[str]:
+    """Replace stored S3 URLs with temporary signed GET URLs (passthrough for local)."""
+    if not urls:
+        return []
+    signed: list[str] = []
+    for url in urls:
+        if not url:
+            continue
+        try:
+            signed.append(generate_presigned_get_url(url, expiration=expiration))
+        except Exception:
+            signed.append(url)
+    return signed

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -7,7 +7,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
-import { normalizeFileUrl, isImageUrl, openFileUrl } from "@/lib/file-url";
+import { isImageUrl, openFileUrl } from "@/lib/file-url";
+import { uploadToPresignedUrl } from "@/lib/upload";
+import { SignedImage } from "@/components/signed-image";
 
 export default function VerificationScreen() {
   const { apiClient, user, refreshUser, logout } = useAuth();
@@ -119,37 +121,7 @@ export default function VerificationScreen() {
       const response = await fetch(fileUri);
       const blob = await response.blob();
 
-      // Check if this is a local storage upload
-      const isLocalStorage = presignResponse.presigned_url.includes('/api/uploads/upload');
-      
-      let uploadResponse: Response;
-      if (isLocalStorage) {
-        // Local storage: use FormData
-        const formData = new FormData();
-        formData.append('file', blob as any);
-        const urlParams = new URL(presignResponse.presigned_url).searchParams;
-        const filePath = urlParams.get('file_path');
-        if (filePath) {
-          formData.append('file_path', filePath);
-        }
-        uploadResponse = await fetch(presignResponse.presigned_url, {
-          method: "POST",
-          body: formData,
-        });
-      } else {
-        // S3: use PUT
-        uploadResponse = await fetch(presignResponse.presigned_url, {
-          method: "PUT",
-          body: blob,
-          headers: {
-            "Content-Type": mimeType,
-          },
-        });
-      }
-
-      if (!uploadResponse.ok) {
-        throw new Error("Upload failed");
-      }
+      await uploadToPresignedUrl(presignResponse.presigned_url, blob, mimeType);
 
       const fileUrl = presignResponse.file_url;
       if (type === "NATIONAL_ID") {
@@ -383,9 +355,10 @@ export default function VerificationScreen() {
             </Text>
             {(status?.national_id?.file_url || pendingNationalId) && (
               <View style={{ marginBottom: 12 }}>
-                {isImageUrl(normalizeFileUrl(status?.national_id?.file_url || pendingNationalId)) ? (
-                  <Image
-                    source={{ uri: normalizeFileUrl(status?.national_id?.file_url || pendingNationalId) }}
+                {isImageUrl(status?.national_id?.file_url || pendingNationalId || "") ? (
+                  <SignedImage
+                    fileUrl={status?.national_id?.file_url || pendingNationalId}
+                    apiClient={apiClient}
                     style={{ width: "100%", height: 200, borderRadius: 12, backgroundColor: "#F3F4F6" }}
                     resizeMode="contain"
                   />
@@ -465,9 +438,10 @@ export default function VerificationScreen() {
             </Text>
             {(status?.contract?.file_url || pendingContract) && (
               <View style={{ marginBottom: 12 }}>
-                {isImageUrl(normalizeFileUrl(status?.contract?.file_url || pendingContract)) ? (
-                  <Image
-                    source={{ uri: normalizeFileUrl(status?.contract?.file_url || pendingContract) }}
+                {isImageUrl(status?.contract?.file_url || pendingContract || "") ? (
+                  <SignedImage
+                    fileUrl={status?.contract?.file_url || pendingContract}
+                    apiClient={apiClient}
                     style={{ width: "100%", height: 200, borderRadius: 12, backgroundColor: "#F3F4F6" }}
                     resizeMode="contain"
                   />

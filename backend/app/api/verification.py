@@ -66,6 +66,7 @@ async def get_presigned_url(
         presigned_url, file_url = generate_presigned_put_url(
             file_name=request.file_name,
             file_type=request.file_type,
+            folder="verification",
         )
         return PresignResponse(
             presigned_url=presigned_url,

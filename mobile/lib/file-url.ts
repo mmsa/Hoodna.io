@@ -25,6 +25,21 @@ function needsSignedUrl(url: string) {
   return url.includes("amazonaws.com") || url.includes("s3.");
 }
 
+export async function resolveViewUrl(
+  fileUrl: string | null | undefined,
+  apiClient?: ApiClient
+): Promise<string> {
+  const stored = normalizeFileUrl(fileUrl || "");
+  if (!stored) return "";
+  if (!needsSignedUrl(stored)) return stored;
+  if (!apiClient) return stored;
+  try {
+    return await apiClient.getSignedFileUrl(stored);
+  } catch {
+    return stored;
+  }
+}
+
 export async function openFileUrl(
   fileUrl: string | null | undefined,
   apiClient?: ApiClient

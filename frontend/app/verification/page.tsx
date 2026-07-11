@@ -16,6 +16,7 @@ import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles, 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
+import { uploadToPresignedUrl } from "@/lib/upload";
 
 interface VerificationStatus {
   national_id: {
@@ -164,43 +165,10 @@ export default function VerificationPage() {
         throw new Error("Failed to get upload URL from server");
       }
 
-      // Check if this is a local storage upload (presigned_url contains /api/uploads/upload)
-      const isLocalStorage = presigned_url.includes('/api/uploads/upload');
-      
-      let uploadResponse: Response;
       try {
-        if (isLocalStorage) {
-          // Local storage: use FormData and POST
-          const formData = new FormData();
-          formData.append('file', file);
-          // Extract file_path from URL if present
-          const urlParams = new URL(presigned_url).searchParams;
-          const filePath = urlParams.get('file_path');
-          if (filePath) {
-            formData.append('file_path', filePath);
-          }
-          
-          uploadResponse = await fetch(presigned_url, {
-            method: "POST",
-            body: formData,
-          });
-        } else {
-          // S3: use PUT with file as body
-          uploadResponse = await fetch(presigned_url, {
-            method: "PUT",
-            body: file,
-            headers: {
-              "Content-Type": file.type,
-            },
-          });
-        }
+        await uploadToPresignedUrl(presigned_url, file);
       } catch (fetchError: any) {
         throw new Error(`Failed to upload file: ${fetchError?.message || 'Network error'}`);
-      }
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text().catch(() => 'Unable to read error response');
-        throw new Error(`Upload failed (${uploadResponse.status} ${uploadResponse.statusText}): ${errorText || 'Unknown error'}`);
       }
 
       // Store the file URL then submit immediately (one-step verification)

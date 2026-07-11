@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import api from '@/lib/api'
+import { uploadToPresignedUrl } from '@/lib/upload'
+import { SignedFileImage } from '@/components/signed-file'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import {
@@ -124,30 +126,7 @@ export default function EditListingPage() {
       })
       const { presigned_url, file_url } = response.data
 
-      const isLocalStorage = presigned_url.includes('/api/uploads/upload')
-
-      if (isLocalStorage) {
-        const formData = new FormData()
-        formData.append('file', file)
-        const urlParams = new URL(presigned_url).searchParams
-        const filePath = urlParams.get('file_path')
-        if (filePath) {
-          formData.append('file_path', filePath)
-        }
-
-        await fetch(presigned_url, {
-          method: 'POST',
-          body: formData,
-        })
-      } else {
-        await fetch(presigned_url, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type,
-          },
-        })
-      }
+      await uploadToPresignedUrl(presigned_url, file)
 
       return file_url
     } catch (error: any) {
@@ -350,8 +329,8 @@ export default function EditListingPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {images.map((url, index) => (
                         <div key={index} className="relative group">
-                          <img
-                            src={url}
+                          <SignedFileImage
+                            fileUrl={url}
                             alt={`Image ${index + 1}`}
                             className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
                           />

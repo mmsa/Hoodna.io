@@ -11,6 +11,7 @@ from app.crud.saved_listing import (
 from app.crud.listing import get_listing_by_id
 from app.core.dependencies import get_current_approved_user
 from app.models.user import User
+from app.services.s3 import sign_file_urls
 from typing import List
 
 router = APIRouter()
@@ -94,7 +95,7 @@ async def get_saved_listings_endpoint(
             price=listing.price,
             currency=listing.currency,
             intent=listing.intent,
-            image_urls=listing.image_urls or [],
+            image_urls=sign_file_urls(listing.image_urls or []),
             status=listing.status,
             created_at=listing.created_at,
         ))

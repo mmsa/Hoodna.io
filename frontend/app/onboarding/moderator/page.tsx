@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label'
 import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { ArrowLeft, ArrowRight, Upload, CheckCircle } from 'lucide-react'
 import api from '@/lib/api'
+import { uploadToPresignedUrl } from '@/lib/upload'
+import { SignedFileLink } from '@/components/signed-file'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 
@@ -182,39 +184,7 @@ export default function ModeratorOnboardingPage() {
         throw new Error('Failed to get upload URL from server')
       }
 
-      // Check if this is a local storage upload (presigned_url contains /api/uploads/upload)
-      const isLocalStorage = presigned_url.includes('/api/uploads/upload')
-      
-      let uploadResponse: Response
-      try {
-        if (isLocalStorage) {
-          // Local storage: use FormData and POST
-          // file_path is already in the URL as a query parameter, so we don't need to add it again
-          const formData = new FormData()
-          formData.append('file', file)
-          
-          uploadResponse = await fetch(presigned_url, {
-            method: 'POST',
-            body: formData,
-          })
-        } else {
-          // S3: use PUT with file as body
-          uploadResponse = await fetch(presigned_url, {
-            method: 'PUT',
-            body: file,
-            headers: {
-              'Content-Type': file.type,
-            },
-          })
-        }
-      } catch (fetchError: any) {
-        throw new Error(`Failed to upload file: ${fetchError?.message || 'Network error'}`)
-      }
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text().catch(() => 'Unknown error')
-        throw new Error(`Upload failed: ${errorText}`)
-      }
+      await uploadToPresignedUrl(presigned_url, file)
 
       // Save document reference
       await api.post('/api/moderators/documents', {
@@ -464,14 +434,9 @@ function FileUpload({
             <CheckCircle className="w-5 h-5 text-green-600" />
             <span className="text-sm text-gray-700">Document uploaded</span>
           </div>
-          <a
-            href={fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:underline"
-          >
+          <SignedFileLink fileUrl={fileUrl} className="text-sm text-blue-600 hover:underline">
             View
-          </a>
+          </SignedFileLink>
         </div>
       ) : (
         <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">

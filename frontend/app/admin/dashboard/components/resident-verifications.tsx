@@ -13,7 +13,7 @@ import { CheckCircle, XCircle, AlertCircle, Loader2, ExternalLink, Search, Eye, 
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { formatDocumentType } from '@/lib/format-enums'
-import { normalizeFileUrl } from '@/lib/file-url'
+import { SignedFileLink, SignedDocumentPreview } from '@/components/signed-file'
 
 interface VerificationDocument {
   id: number
@@ -48,7 +48,6 @@ export default function ResidentVerifications() {
   const [rejectionNotes, setRejectionNotes] = useState('')
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ type: string; file_url: string } | null>(null)
-  const [previewLoadError, setPreviewLoadError] = useState(false)
   const [aiResultDialogOpen, setAiResultDialogOpen] = useState(false)
   const [aiResult, setAiResult] = useState<any>(null)
 
@@ -118,7 +117,6 @@ export default function ResidentVerifications() {
 
   const handlePreview = (doc: VerificationDocument) => {
     setPreviewDoc({ type: doc.type, file_url: doc.file_url })
-    setPreviewLoadError(false) // Reset error state when opening preview
     setPreviewDialogOpen(true)
   }
 
@@ -218,15 +216,13 @@ export default function ResidentVerifications() {
                     <Sparkles className="w-3 h-3" />
                     {verifyWithAiMutation.isPending ? 'Verifying...' : 'Verify by AI'}
                   </Button>
-                  <a
-                    href={doc.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <SignedFileLink
+                    fileUrl={doc.file_url}
                     className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200"
                   >
                     View Document
                     <ExternalLink className="w-3 h-3" />
-                  </a>
+                  </SignedFileLink>
                   <span className="text-sm text-gray-500">
                     Submitted: {new Date(doc.created_at).toLocaleString()}
                   </span>
@@ -323,65 +319,12 @@ export default function ResidentVerifications() {
             </DialogTitle>
           </DialogHeader>
           <div className="mt-4">
-            {previewDoc && (() => {
-              const normalizedUrl = normalizeFileUrl(previewDoc.file_url)
-              
-              if (previewLoadError) {
-                return (
-                  <div className="p-8 text-center border border-red-200 rounded-lg bg-red-50">
-                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                    <p className="text-red-800 font-medium mb-2">Failed to load document</p>
-                    <p className="text-red-600 text-sm mb-4">The file could not be found or accessed.</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        window.open(normalizedUrl, '_blank')
-                      }}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Try opening in new tab
-                    </Button>
-                  </div>
-                )
-              }
-              
-              return (
-                <div className="space-y-4">
-                  {previewDoc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                    <img
-                      src={normalizedUrl}
-                      alt={previewDoc.type}
-                      className="w-full h-auto rounded-lg border"
-                      onError={() => {
-                        console.error('Failed to load image:', normalizedUrl)
-                        setPreviewLoadError(true)
-                      }}
-                    />
-                  ) : (
-                    <iframe
-                      src={normalizedUrl}
-                      className="w-full h-[600px] rounded-lg border"
-                      title={previewDoc.type}
-                      onError={() => {
-                        console.error('Failed to load document:', normalizedUrl)
-                        setPreviewLoadError(true)
-                      }}
-                    />
-                  )}
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        window.open(normalizedUrl, '_blank')
-                      }}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open in New Tab
-                    </Button>
-                  </div>
-                </div>
-              )
-            })()}
+            {previewDoc ? (
+              <SignedDocumentPreview
+                fileUrl={previewDoc.file_url}
+                title={formatDocumentType(previewDoc.type)}
+              />
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -474,68 +417,6 @@ export default function ResidentVerifications() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-function DocumentPreviewContent({ doc }: { doc: { type: string; file_url: string } }) {
-  const [loadError, setLoadError] = useState(false)
-  const normalizedUrl = normalizeFileUrl(doc.file_url)
-  
-  if (loadError) {
-    return (
-      <div className="p-8 text-center border border-red-200 rounded-lg bg-red-50">
-        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <p className="text-red-800 font-medium mb-2">Failed to load document</p>
-        <p className="text-red-600 text-sm mb-4">The file could not be found or accessed.</p>
-        <p className="text-red-500 text-xs mb-4 font-mono break-all">{normalizedUrl}</p>
-        <Button
-          variant="outline"
-          onClick={() => {
-            window.open(normalizedUrl, '_blank')
-          }}
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          Try opening in new tab
-        </Button>
-      </div>
-    )
-  }
-  
-  return (
-    <div className="space-y-4">
-      {doc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-        <img
-          src={normalizedUrl}
-          alt={doc.type}
-          className="w-full h-auto rounded-lg border"
-          onError={() => {
-            console.error('Failed to load image:', normalizedUrl)
-            setLoadError(true)
-          }}
-        />
-      ) : (
-        <iframe
-          src={normalizedUrl}
-          className="w-full h-[600px] rounded-lg border"
-          title={doc.type}
-          onError={() => {
-            console.error('Failed to load document:', normalizedUrl)
-            setLoadError(true)
-          }}
-        />
-      )}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            window.open(normalizedUrl, '_blank')
-          }}
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          Open in New Tab
-        </Button>
-      </div>
     </div>
   )
 }

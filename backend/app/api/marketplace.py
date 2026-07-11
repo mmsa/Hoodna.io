@@ -20,7 +20,7 @@ from app.crud.listing import (
 )
 from app.crud.saved_listing import is_listing_saved
 from app.core.dependencies import get_current_approved_user, get_current_user_optional, get_current_user
-from app.services.s3 import generate_presigned_put_url
+from app.services.s3 import generate_presigned_put_url, sign_file_urls
 from app.models.user import User
 from typing import List, Optional
 from pydantic import BaseModel
@@ -185,7 +185,7 @@ async def list_listings(
                 price=listing.price,
                 currency=listing.currency,
                 intent=listing.intent,
-                image_urls=listing.image_urls or [],
+                image_urls=sign_file_urls(listing.image_urls or []),
                 status=listing.status,
                 created_at=listing.created_at,
                 average_rating=stats.get('average_rating'),
@@ -270,7 +270,7 @@ async def get_listing(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        image_urls=listing.image_urls or [],
+        image_urls=sign_file_urls(listing.image_urls or []),
         status=listing.status,
         created_at=listing.created_at,
         average_rating=stats.get('average_rating'),
@@ -414,7 +414,7 @@ async def create_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        image_urls=listing.image_urls or [],
+        image_urls=sign_file_urls(listing.image_urls or []),
         status=listing.status,
         created_at=listing.created_at,
     )
@@ -497,7 +497,7 @@ async def update_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        image_urls=listing.image_urls or [],
+        image_urls=sign_file_urls(listing.image_urls or []),
         status=listing.status,
         created_at=listing.created_at,
     )
@@ -583,6 +583,7 @@ async def get_listing_image_presigned_url(
         presigned_url, file_url = generate_presigned_put_url(
             file_name=request.file_name,
             file_type=request.file_type,
+            folder="listings",
         )
         return PresignResponse(presigned_url=presigned_url, file_url=file_url)
     except Exception as e:

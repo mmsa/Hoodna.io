@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     # AWS S3
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
-    AWS_REGION: str = "us-east-1"
-    S3_BUCKET_NAME: str = "hoodna-uploads"
+    AWS_REGION: str = "eu-central-1"
+    S3_BUCKET_NAME: str = "eljiran-uploads"
     S3_ENDPOINT_URL: str = ""  # For S3-compatible services like MinIO
     
     # Stripe

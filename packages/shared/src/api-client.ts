@@ -196,10 +196,17 @@ export class ApiClient {
 
   async getSignedFileUrl(fileUrl: string): Promise<string> {
     const params = new URLSearchParams({ file_url: fileUrl });
-    const res = await this.request<{ url: string }>(
-      `/api/verification/signed-url?${params.toString()}`
-    );
-    return res.url;
+    try {
+      const res = await this.request<{ url: string }>(
+        `/api/uploads/signed-url?${params.toString()}`
+      );
+      return res.url;
+    } catch {
+      const res = await this.request<{ url: string }>(
+        `/api/verification/signed-url?${params.toString()}`
+      );
+      return res.url;
+    }
   }
 
   // Posts

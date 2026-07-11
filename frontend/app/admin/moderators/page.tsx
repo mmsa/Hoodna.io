@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CheckCircle, XCircle, AlertCircle, Loader2, ExternalLink } from 'lucide-react'
 import api from '@/lib/api'
+import { SignedFileLink } from '@/components/signed-file'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -209,16 +210,14 @@ export default function AdminModeratorsPage() {
                     <strong>Documents:</strong>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {moderator.documents.map((doc) => (
-                        <a
+                        <SignedFileLink
                           key={doc.id}
-                          href={doc.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          fileUrl={doc.file_url}
                           className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200"
                         >
                           {doc.document_type}
                           <ExternalLink className="w-3 h-3" />
-                        </a>
+                        </SignedFileLink>
                       ))}
                     </div>
                   </div>

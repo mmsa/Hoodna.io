@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle, ExternalLink, FileText, Loader2 } from 'lucide-react'
 import { normalizeFileUrl } from '@/lib/file-url'
-import api from '@/lib/api'
+import { resolveViewUrl } from '@/lib/upload'
 
 type DocStatus = string | undefined
 
@@ -69,11 +69,9 @@ export function UploadedDocumentCard({
       }
       setLoadingUrl(true)
       try {
-        const res = await api.get('/api/verification/signed-url', {
-          params: { file_url: storedUrl },
-        })
+        const url = await resolveViewUrl(storedUrl)
         if (!cancelled) {
-          setViewUrl(res.data.url || storedUrl)
+          setViewUrl(url)
         }
       } catch {
         if (!cancelled) setViewUrl(storedUrl)

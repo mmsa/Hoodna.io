@@ -13,7 +13,7 @@ import { CheckCircle, XCircle, AlertCircle, Loader2, ExternalLink, Search, Eye, 
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { formatModeratorStatus, formatDocumentType } from '@/lib/format-enums'
-import { normalizeFileUrl } from '@/lib/file-url'
+import { SignedFileLink, SignedDocumentPreview } from '@/components/signed-file'
 import { formatCompoundName } from '@/lib/format-compound'
 
 interface ModeratorProfile {
@@ -44,7 +44,6 @@ export default function ModeratorReviews() {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ document_type: string; file_url: string } | null>(null)
-  const [previewLoadError, setPreviewLoadError] = useState(false)
   const [selectedModerator, setSelectedModerator] = useState<ModeratorProfile | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [suspensionReason, setSuspensionReason] = useState('')
@@ -133,7 +132,6 @@ export default function ModeratorReviews() {
 
   const handlePreview = (doc: { document_type: string; file_url: string }) => {
     setPreviewDoc(doc)
-    setPreviewLoadError(false) // Reset error state when opening preview
     setPreviewDialogOpen(true)
   }
 
@@ -278,15 +276,12 @@ export default function ModeratorReviews() {
                           <Sparkles className="w-3 h-3" />
                           {verifyingDocId === doc.id ? 'Verifying...' : 'Verify by AI'}
                         </Button>
-                        <a
-                          href={doc.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <SignedFileLink
+                          fileUrl={doc.file_url}
                           className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200"
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink className="w-3 h-3" />
-                        </a>
+                        </SignedFileLink>
                       </div>
                     ))}
                   </div>
@@ -366,7 +361,12 @@ export default function ModeratorReviews() {
             </DialogTitle>
           </DialogHeader>
           <div className="mt-4">
-            {previewDoc && <DocumentPreviewContent doc={previewDoc} />}
+            {previewDoc ? (
+              <SignedDocumentPreview
+                fileUrl={previewDoc.file_url}
+                title={formatDocumentType(previewDoc.document_type)}
+              />
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -495,68 +495,6 @@ export default function ModeratorReviews() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-function DocumentPreviewContent({ doc }: { doc: { document_type: string; file_url: string } }) {
-  const [loadError, setLoadError] = useState(false)
-  const normalizedUrl = normalizeFileUrl(doc.file_url)
-  
-  if (loadError) {
-    return (
-      <div className="p-8 text-center border border-red-200 rounded-lg bg-red-50">
-        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <p className="text-red-800 font-medium mb-2">Failed to load document</p>
-        <p className="text-red-600 text-sm mb-4">The file could not be found or accessed.</p>
-        <p className="text-red-500 text-xs mb-4 font-mono break-all">{normalizedUrl}</p>
-        <Button
-          variant="outline"
-          onClick={() => {
-            window.open(normalizedUrl, '_blank')
-          }}
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          Try opening in new tab
-        </Button>
-      </div>
-    )
-  }
-  
-  return (
-    <div className="space-y-4">
-      {doc.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-        <img
-          src={normalizedUrl}
-          alt={doc.document_type}
-          className="w-full h-auto rounded-lg border"
-          onError={() => {
-            console.error('Failed to load image:', normalizedUrl)
-            setLoadError(true)
-          }}
-        />
-      ) : (
-        <iframe
-          src={normalizedUrl}
-          className="w-full h-[600px] rounded-lg border"
-          title={doc.document_type}
-          onError={() => {
-            console.error('Failed to load document:', normalizedUrl)
-            setLoadError(true)
-          }}
-        />
-      )}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            window.open(normalizedUrl, '_blank')
-          }}
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          Open in New Tab
-        </Button>
-      </div>
     </div>
   )
 }
