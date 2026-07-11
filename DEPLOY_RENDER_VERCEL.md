@@ -70,6 +70,14 @@ ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'COMPOUND_MOD';
 
 (Migration `016` also applies this on deploy.)
 
+### Seed neighbourhoods (compounds)
+
+On first boot, `start.sh` runs `python -m scripts.seed_compounds` and loads
+`backend/data/compounds/egypt_compounds_2025.csv` if the compounds table is empty.
+After deploy, search for “Palm” on neighbourhood select should return results.
+
+To force a re-seed from CSV, set `FORCE_SEED_COMPOUNDS=1` on the Render service and redeploy.
+
 ---
 
 ## 2) Vercel — frontend
@@ -120,6 +128,7 @@ EXPO_PUBLIC_API_URL=https://eljiran-api.onrender.com
 - [x] Render Web Service healthy at `/health`
 - [x] Vercel frontend at https://eljiran.vercel.app
 - [ ] CORS includes the Vercel origin on Render
+- [ ] Compounds seeded (neighbourhood search returns Palm Hills etc.)
 - [ ] Signup works (userrole enum includes RESIDENT)
 - [ ] Mobile EAS build pointed at Render URL
 - [ ] S3 configured if uploads are needed on device

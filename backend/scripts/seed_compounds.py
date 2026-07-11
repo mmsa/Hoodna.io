@@ -15,7 +15,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 # Import all models to ensure relationships are set up
@@ -23,6 +23,7 @@ from app.models import compound, user, post, listing, verification  # noqa
 from app.models.compound import Compound
 from app.models.enums import CompoundStatus2025
 from scripts.utils import get_db_url
+
 
 
 # Required CSV headers
@@ -210,7 +211,11 @@ async def seed_compounds_from_csv(csv_path: Path, db: AsyncSession) -> dict:
 
 
 async def main():
-    """Main entry point."""
+    """Main entry point.
+
+    By default skips when compounds already exist (safe for Render startup).
+    Set FORCE_SEED_COMPOUNDS=1 to upsert from CSV anyway.
+    """
     # Determine CSV path
     csv_path_env = os.getenv("COMPOUNDS_CSV_PATH")
     if csv_path_env:
@@ -229,6 +234,15 @@ async def main():
     
     async with async_session() as session:
         try:
+            force = os.getenv("FORCE_SEED_COMPOUNDS", "").strip() in {"1", "true", "yes"}
+            if not force:
+                existing_count = await session.scalar(select(func.count()).select_from(Compound))
+                if existing_count and existing_count > 0:
+                    print(f"⏭️  Compounds already present ({existing_count}); skipping seed.")
+                    print("   Set FORCE_SEED_COMPOUNDS=1 to re-upsert from CSV.")
+                    await engine.dispose()
+                    return
+
             result = await seed_compounds_from_csv(csv_path, session)
             
             print(f"\n✅ Compounds seeded successfully!")
@@ -249,6 +263,7 @@ async def main():
             raise
     
     await engine.dispose()
+
 
 
 if __name__ == "__main__":
