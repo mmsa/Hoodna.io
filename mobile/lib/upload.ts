@@ -1,15 +1,24 @@
 /**
- * Upload a blob to a presigned URL (S3 PUT, or local FormData POST).
+ * Upload a blob via API proxy (S3) or local FormData POST.
  */
 export async function uploadToPresignedUrl(
   presignedUrl: string,
   blob: Blob,
-  contentType?: string
+  contentType?: string,
+  authToken?: string
 ): Promise<void> {
-  const isLocalStorage = presignedUrl.includes("/api/uploads/upload");
+  const useApiUpload =
+    presignedUrl.includes("/api/uploads/upload") ||
+    presignedUrl.includes("/api/uploads/s3");
+
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
   let uploadResponse: Response;
 
-  if (isLocalStorage) {
+  if (useApiUpload) {
     const formData = new FormData();
     formData.append("file", blob as any);
     const urlParams = new URL(presignedUrl).searchParams;
@@ -20,6 +29,7 @@ export async function uploadToPresignedUrl(
     uploadResponse = await fetch(presignedUrl, {
       method: "POST",
       body: formData,
+      headers,
     });
   } else {
     uploadResponse = await fetch(presignedUrl, {

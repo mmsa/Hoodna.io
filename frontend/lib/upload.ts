@@ -1,3 +1,4 @@
+import Cookies from 'js-cookie'
 import api from '@/lib/api'
 import { normalizeFileUrl } from '@/lib/file-url'
 
@@ -9,7 +10,7 @@ const EXT_TO_MIME: Record<string, string> = {
   pdf: 'application/pdf',
 }
 
-/** Same MIME type for presign + PUT (must match S3 signature). */
+/** Same MIME type for presign + upload (must match backend). */
 export function resolveUploadContentType(file: File): string {
   const fromBrowser = (file.type || '').toLowerCase().trim()
   if (fromBrowser && fromBrowser !== 'application/octet-stream') {
@@ -20,8 +21,14 @@ export function resolveUploadContentType(file: File): string {
   return fromBrowser || 'application/octet-stream'
 }
 
+function authHeaders(): HeadersInit {
+  const token = Cookies.get('access_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 /**
- * Upload a browser File to a presigned URL (S3 PUT, or local FormData POST).
+ * Upload a browser File to a presigned URL.
+ * Production uses API → S3 proxy; dev may use local disk or direct S3 PUT.
  */
 export async function uploadToPresignedUrl(
   presignedUrl: string,
@@ -29,10 +36,13 @@ export async function uploadToPresignedUrl(
   contentType?: string
 ): Promise<void> {
   const mimeType = contentType || resolveUploadContentType(file)
-  const isLocalStorage = presignedUrl.includes('/api/uploads/upload')
+  const useApiUpload =
+    presignedUrl.includes('/api/uploads/upload') ||
+    presignedUrl.includes('/api/uploads/s3')
+
   let uploadResponse: Response
 
-  if (isLocalStorage) {
+  if (useApiUpload) {
     const formData = new FormData()
     formData.append('file', file)
     const urlParams = new URL(presignedUrl).searchParams
@@ -43,6 +53,7 @@ export async function uploadToPresignedUrl(
     uploadResponse = await fetch(presignedUrl, {
       method: 'POST',
       body: formData,
+      headers: authHeaders(),
     })
   } else {
     try {
@@ -55,7 +66,7 @@ export async function uploadToPresignedUrl(
       })
     } catch {
       throw new Error(
-        'Could not reach storage (browser blocked the upload). Configure S3 CORS to allow PUT from this site — see DEPLOY_RENDER_VERCEL.md.'
+        'Could not reach storage. Try again or contact support if this persists.'
       )
     }
   }
@@ -83,7 +94,6 @@ export async function resolveViewUrl(fileUrl: string | null | undefined): Promis
     })
     return res.data.url || stored
   } catch {
-    // Fallback to verification endpoint (older deploys)
     try {
       const res = await api.get('/api/verification/signed-url', {
         params: { file_url: stored },

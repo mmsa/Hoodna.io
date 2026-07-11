@@ -1,6 +1,7 @@
 """
 Storage service that supports both local file storage (development) and S3 (production).
 """
+import logging
 import re
 import uuid
 from typing import Optional
@@ -17,6 +18,8 @@ from app.services.storage import (
     LOCAL_STORAGE_DIR,
     require_s3_configured,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_s3_client():
@@ -143,6 +146,74 @@ def _normalize_content_type(file_name: str, file_type: str) -> str:
     return ext_to_mime.get(ext, normalized or "application/octet-stream")
 
 
+def upload_object_bytes(object_key: str, data: bytes, content_type: str) -> str:
+    """Upload bytes to S3 and return the stored HTTPS URL."""
+    require_s3_configured()
+    safe_key = (object_key or "").lstrip("/")
+    if not re.match(
+        r"^(uploads|verification|listings|providers|moderators)/[A-Za-z0-9._-]+$",
+        safe_key,
+    ):
+        raise ValueError("Invalid object key")
+
+    s3_client = get_s3_client()
+    mime = _normalize_content_type(safe_key.rsplit("/", 1)[-1], content_type)
+    bucket = settings.S3_BUCKET_NAME
+    region = settings.AWS_REGION
+
+    try:
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=safe_key,
+            Body=data,
+            ContentType=mime,
+        )
+    except ClientError as e:
+        err = e.response.get("Error", {}) if getattr(e, "response", None) else {}
+        code = err.get("Code", "Unknown")
+        message = err.get("Message", str(e))
+        logger.error(
+            "S3 put_object failed: bucket=%s key=%s region=%s content_type=%s "
+            "size_bytes=%s error_code=%s error_message=%s",
+            bucket,
+            safe_key,
+            region,
+            mime,
+            len(data),
+            code,
+            message,
+            exc_info=True,
+        )
+        raise Exception(f"S3 upload failed ({code}): {message}") from e
+    except Exception as e:
+        logger.error(
+            "S3 put_object failed: bucket=%s key=%s region=%s content_type=%s "
+            "size_bytes=%s error=%s",
+            bucket,
+            safe_key,
+            region,
+            mime,
+            len(data),
+            e,
+            exc_info=True,
+        )
+        raise
+
+    logger.info(
+        "S3 put_object succeeded: bucket=%s key=%s size_bytes=%s",
+        bucket,
+        safe_key,
+        len(data),
+    )
+
+    if settings.S3_ENDPOINT_URL:
+        return f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET_NAME}/{safe_key}"
+    return (
+        f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}"
+        f".amazonaws.com/{safe_key}"
+    )
+
+
 def generate_presigned_put_url(
     file_name: str,
     file_type: str,
@@ -167,7 +238,6 @@ def generate_presigned_put_url(
         return presigned_url, file_url
 
     require_s3_configured()
-    s3_client = get_s3_client()
     content_type = _normalize_content_type(file_name, file_type)
 
     file_extension = file_name.split(".")[-1] if "." in file_name else ""
@@ -185,14 +255,13 @@ def generate_presigned_put_url(
         )
 
     try:
-        presigned_url = s3_client.generate_presigned_url(
-            "put_object",
-            Params={
-                "Bucket": settings.S3_BUCKET_NAME,
-                "Key": object_key,
-                "ContentType": content_type,
-            },
-            ExpiresIn=expiration,
+        # Route browser uploads through the API to avoid S3 CORS configuration.
+        base_url = settings.BACKEND_URL.rstrip("/")
+        from urllib.parse import quote
+        presigned_url = (
+            f"{base_url}/api/uploads/s3"
+            f"?object_key={quote(object_key)}"
+            f"&content_type={quote(content_type)}"
         )
         return presigned_url, file_url
     except ClientError as e:

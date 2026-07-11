@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
 import { isImageUrl, openFileUrl } from "@/lib/file-url";
+import * as SecureStore from "expo-secure-store";
 import { uploadToPresignedUrl } from "@/lib/upload";
 import { SignedImage } from "@/components/signed-image";
 
@@ -120,8 +121,14 @@ export default function VerificationScreen() {
       // Read file
       const response = await fetch(fileUri);
       const blob = await response.blob();
+      const token = await SecureStore.getItemAsync("accessToken");
 
-      await uploadToPresignedUrl(presignResponse.presigned_url, blob, mimeType);
+      await uploadToPresignedUrl(
+        presignResponse.presigned_url,
+        blob,
+        mimeType,
+        token ?? undefined
+      );
 
       const fileUrl = presignResponse.file_url;
       if (type === "NATIONAL_ID") {
