@@ -295,7 +295,6 @@ export default function MarketScreen() {
     );
   }
 
-  // Block REJECTED users from accessing the marketplace
   if (verificationStatus === "REJECTED") {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
@@ -312,13 +311,13 @@ export default function MarketScreen() {
               marginBottom: 24,
             }}
           >
-            <Text style={{ fontSize: 64 }}>🚫</Text>
+            <Text style={{ fontSize: 64 }}>📋</Text>
           </View>
           <Text style={{ fontSize: 24, fontWeight: "700", color: colors.textMain, marginBottom: 12, textAlign: "center" }}>
-            Verification Not Granted
+            Verification needs attention
           </Text>
           <Text style={{ fontSize: 16, color: colors.textMuted, textAlign: "center", lineHeight: 24, marginBottom: 32 }}>
-            Your verification request has been rejected. You cannot access the marketplace at this time.
+            One or more documents were not approved. Re-upload them to continue.
           </Text>
           <TouchableOpacity
             style={{
@@ -330,10 +329,10 @@ export default function MarketScreen() {
               alignItems: "center",
               gap: 8,
             }}
-            onPress={() => router.push("/verification")}
+            onPress={() => router.replace("/verification-pending")}
           >
             <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
-              Review Verification Status
+              Review & re-upload
             </Text>
           </TouchableOpacity>
         </View>

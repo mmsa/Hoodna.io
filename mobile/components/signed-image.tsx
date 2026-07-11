@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, ImageStyle, StyleProp, View } from "react-native";
+import { ActivityIndicator, Image, ImageStyle, StyleProp, View, Text } from "react-native";
 import type { ApiClient } from "@hoodna/shared";
-import { normalizeFileUrl, resolveViewUrl } from "@/lib/file-url";
+import { normalizeFileUrl, resolveViewUrl, needsPrivateFileUrl } from "@/lib/file-url";
 
 export function SignedImage({
   fileUrl,
@@ -21,10 +21,9 @@ export function SignedImage({
     let cancelled = false;
     setLoading(true);
     resolveViewUrl(fileUrl, apiClient).then((url) => {
-      if (!cancelled) {
-        setSrc(url);
-        setLoading(false);
-      }
+      if (cancelled) return;
+      setSrc(url || (needsPrivateFileUrl(fileUrl) ? "" : normalizeFileUrl(fileUrl || "")));
+      setLoading(false);
     });
     return () => {
       cancelled = true;
@@ -41,7 +40,13 @@ export function SignedImage({
     );
   }
 
-  if (!src) return null;
+  if (!src) {
+    return (
+      <View style={[style, { alignItems: "center", justifyContent: "center", backgroundColor: "#F3F4F6" }]}>
+        <Text style={{ fontSize: 12, color: "#64748B" }}>Preview unavailable</Text>
+      </View>
+    );
+  }
 
   return <Image source={{ uri: src }} style={style} resizeMode={resizeMode} />;
 }
@@ -50,7 +55,7 @@ export function useSignedFileUrl(
   fileUrl: string | null | undefined,
   apiClient?: ApiClient
 ): string {
-  const [url, setUrl] = useState(normalizeFileUrl(fileUrl));
+  const [url, setUrl] = useState("");
 
   useEffect(() => {
     let cancelled = false;

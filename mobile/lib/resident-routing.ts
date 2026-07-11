@@ -41,6 +41,31 @@ export function isResidentRole(role: string | null | undefined): boolean {
   return role === "RESIDENT" || role === "USER";
 }
 
+export function verificationDocumentsNeedReupload(status?: {
+  national_id?: { status?: string } | null;
+  contract?: { status?: string } | null;
+} | null): boolean {
+  const docStatuses = [status?.national_id?.status, status?.contract?.status];
+  return docStatuses.some(
+    (s) => s === "REJECTED" || s === "REQUEST_MORE_DETAILS"
+  );
+}
+
+export function isVerificationRejected(
+  user: User,
+  status?: {
+    national_id?: { status?: string } | null;
+    contract?: { status?: string } | null;
+  } | null
+): boolean {
+  return (
+    user.status === "REJECTED" ||
+    user.status === "BANNED" ||
+    user.verification_status === "REJECTED" ||
+    verificationDocumentsNeedReupload(status)
+  );
+}
+
 /** Post-auth destination for any logged-in user. */
 export function getPostAuthRoute(user: User): string {
   if (!user.role) {

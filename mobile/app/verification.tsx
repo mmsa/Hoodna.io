@@ -7,10 +7,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
-import { isImageUrl, openFileUrl } from "@/lib/file-url";
+import { canAccessVerificationUpload, verificationDocumentsNeedReupload } from "@/lib/resident-routing";
+import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import * as SecureStore from "expo-secure-store";
 import { uploadToPresignedUrl } from "@/lib/upload";
-import { SignedImage } from "@/components/signed-image";
 
 export default function VerificationScreen() {
   const { apiClient, user, refreshUser, logout } = useAuth();
@@ -31,7 +31,7 @@ export default function VerificationScreen() {
       router.replace("/(tabs)/home");
       return;
     }
-    if (user.verification_status === "PENDING") {
+    if (!canAccessVerificationUpload(user) && user.verification_status === "PENDING") {
       router.replace("/verification-pending");
       return;
     }
@@ -50,11 +50,7 @@ export default function VerificationScreen() {
       }
       const pendingReview =
         data.national_id?.status === "PENDING" || data.contract?.status === "PENDING";
-      const needsReupload =
-        data.national_id?.status === "REJECTED" ||
-        data.contract?.status === "REJECTED" ||
-        data.national_id?.status === "REQUEST_MORE_DETAILS" ||
-        data.contract?.status === "REQUEST_MORE_DETAILS";
+      const needsReupload = verificationDocumentsNeedReupload(data);
       if (pendingReview && !needsReupload && data.user_status !== "REJECTED") {
         router.replace("/verification-pending");
         return;
@@ -357,23 +353,14 @@ export default function VerificationScreen() {
             <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
               Upload a clear photo of your national ID
             </Text>
-            {(status?.national_id?.file_url || pendingNationalId) && (
+            {(status?.national_id || pendingNationalId) && (
               <View style={{ marginBottom: 12 }}>
-                {isImageUrl(status?.national_id?.file_url || pendingNationalId || "") ? (
-                  <SignedImage
-                    fileUrl={status?.national_id?.file_url || pendingNationalId}
-                    apiClient={apiClient}
-                    style={{ width: "100%", height: 200, borderRadius: 12, backgroundColor: "#F3F4F6" }}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Document on file</Text>
-                )}
-                <TouchableOpacity onPress={() => openFileUrl(status?.national_id?.file_url || pendingNationalId, apiClient)}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 8 }}>
-                    View uploaded file
-                  </Text>
-                </TouchableOpacity>
+                <UploadedDocumentCard
+                  title="National ID"
+                  status={status?.national_id?.status || (pendingNationalId ? "PENDING" : undefined)}
+                  fileUrl={status?.national_id?.file_url || pendingNationalId}
+                  apiClient={apiClient}
+                />
               </View>
             )}
             <View style={{ flexDirection: "row", gap: 8 }}>
@@ -440,23 +427,14 @@ export default function VerificationScreen() {
             <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
               Upload your residency or ownership contract
             </Text>
-            {(status?.contract?.file_url || pendingContract) && (
+            {(status?.contract || pendingContract) && (
               <View style={{ marginBottom: 12 }}>
-                {isImageUrl(status?.contract?.file_url || pendingContract || "") ? (
-                  <SignedImage
-                    fileUrl={status?.contract?.file_url || pendingContract}
-                    apiClient={apiClient}
-                    style={{ width: "100%", height: 200, borderRadius: 12, backgroundColor: "#F3F4F6" }}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Document on file</Text>
-                )}
-                <TouchableOpacity onPress={() => openFileUrl(status?.contract?.file_url || pendingContract, apiClient)}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 8 }}>
-                    View uploaded file
-                  </Text>
-                </TouchableOpacity>
+                <UploadedDocumentCard
+                  title="Residency / Ownership Contract"
+                  status={status?.contract?.status || (pendingContract ? "PENDING" : undefined)}
+                  fileUrl={status?.contract?.file_url || pendingContract}
+                  apiClient={apiClient}
+                />
               </View>
             )}
             <View style={{ flexDirection: "row", gap: 8 }}>

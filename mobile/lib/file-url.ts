@@ -29,6 +29,12 @@ function needsSignedUrl(url: string) {
   );
 }
 
+/** Alias matching web `needsPrivateFileUrl`. */
+export function needsPrivateFileUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return needsSignedUrl(url);
+}
+
 export async function resolveViewUrl(
   fileUrl: string | null | undefined,
   apiClient?: ApiClient

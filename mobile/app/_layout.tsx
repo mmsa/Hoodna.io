@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompoundProvider } from "@/contexts/CompoundContext";
+import { ResidentVerificationGuard } from "@/components/resident-verification-guard";
 import { I18nManager } from "react-native";
 import "../global.css";
 
@@ -13,6 +14,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <CompoundProvider>
+        <ResidentVerificationGuard />
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerShown: false }} />
       </CompoundProvider>

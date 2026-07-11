@@ -12,52 +12,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { VerificationStatusResponse } from "@hoodna/shared";
-import { getResidentRoute, isResidentRole } from "@/lib/resident-routing";
-import { isImageUrl, isPdfUrl, openFileUrl } from "@/lib/file-url";
-import { SignedImage } from "@/components/signed-image";
-
-function DocBlock({
-  title,
-  status,
-  fileUrl,
-  docLabel,
-  docColor,
-  apiClient,
-}: {
-  title: string;
-  status?: string;
-  fileUrl?: string;
-  docLabel: (s: string | undefined) => string;
-  docColor: (s: string | undefined) => string;
-  apiClient: import("@hoodna/shared").ApiClient;
-}) {
-  return (
-    <View>
-      <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>{title}</Text>
-      <Text style={{ fontSize: 15, fontWeight: "600", color: docColor(status), marginBottom: 8 }}>
-        {status ? docLabel(status) : "Not uploaded"}
-      </Text>
-      {fileUrl && isImageUrl(fileUrl) ? (
-        <SignedImage
-          fileUrl={fileUrl}
-          apiClient={apiClient}
-          style={{ width: "100%", height: 160, borderRadius: 10, backgroundColor: "#F3F4F6" }}
-          resizeMode="contain"
-        />
-      ) : null}
-      {fileUrl && isPdfUrl(fileUrl) ? (
-        <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>PDF document on file</Text>
-      ) : null}
-      {fileUrl ? (
-        <TouchableOpacity onPress={() => openFileUrl(fileUrl, apiClient)}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 6 }}>
-            View uploaded file
-          </Text>
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  );
-}
+import {
+  getResidentRoute,
+  isResidentRole,
+  isVerificationRejected,
+  verificationDocumentsNeedReupload,
+} from "@/lib/resident-routing";
+import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 
 export default function VerificationPendingScreen() {
   const { user, loading: authLoading, apiClient, refreshUser, logout } = useAuth();
@@ -79,6 +40,8 @@ export default function VerificationPendingScreen() {
     }
   }, [apiClient, refreshUser]);
 
+  const hasDocs = !!(status?.national_id || status?.contract);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -97,17 +60,21 @@ export default function VerificationPendingScreen() {
       router.replace("/(tabs)/home");
       return;
     }
-    // No docs yet → must upload first
-    if (user.verification_status === "UNVERIFIED" || user.verification_status == null) {
-      if (user.status !== "REJECTED" && user.status !== "BANNED" && user.verification_status !== "REJECTED") {
-        router.replace("/verification");
-        return;
-      }
-    }
     load();
   }, [user, authLoading, router, load]);
 
-  // Poll while waiting
+  useEffect(() => {
+    if (authLoading || loading || !user) return;
+    if (
+      !hasDocs &&
+      user.verification_status !== "PENDING" &&
+      user.status !== "REJECTED" &&
+      user.status !== "BANNED"
+    ) {
+      router.replace("/verification");
+    }
+  }, [user, authLoading, loading, hasDocs, router]);
+
   useEffect(() => {
     if (!user || user.status === "APPROVED") return;
     const id = setInterval(load, 8000);
@@ -131,33 +98,9 @@ export default function VerificationPendingScreen() {
     );
   }
 
-  const nationalId = status?.national_id;
-  const contract = status?.contract;
-
-  const isRejected =
-    user?.status === "REJECTED" ||
-    user?.status === "BANNED" ||
-    user?.verification_status === "REJECTED" ||
-    nationalId?.status === "REJECTED" ||
-    contract?.status === "REJECTED" ||
-    nationalId?.status === "REQUEST_MORE_DETAILS" ||
-    contract?.status === "REQUEST_MORE_DETAILS";
-
-  function docLabel(docStatus: string | undefined) {
-    if (!docStatus) return "Not submitted";
-    if (docStatus === "APPROVED") return "Approved";
-    if (docStatus === "REJECTED") return "Rejected";
-    if (docStatus === "REQUEST_MORE_DETAILS") return "More details needed";
-    return "Under review";
-  }
-
-  function docColor(docStatus: string | undefined) {
-    if (!docStatus) return "#9CA3AF";
-    if (docStatus === "APPROVED") return "#10B981";
-    if (docStatus === "REJECTED") return "#EF4444";
-    if (docStatus === "REQUEST_MORE_DETAILS") return "#D97706";
-    return "#F59E0B";
-  }
+  const isRejected = isVerificationRejected(user!, status);
+  const canReupload =
+    isRejected || verificationDocumentsNeedReupload(status) || !hasDocs;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
@@ -218,21 +161,17 @@ export default function VerificationPendingScreen() {
             These stay after you refresh or reopen the app
           </Text>
 
-          <DocBlock
+          <UploadedDocumentCard
             title="National ID"
-            status={nationalId?.status}
-            fileUrl={nationalId?.file_url}
-            docLabel={docLabel}
-            docColor={docColor}
+            status={status?.national_id?.status}
+            fileUrl={status?.national_id?.file_url}
             apiClient={apiClient}
           />
-          <View style={{ height: 14 }} />
-          <DocBlock
+          <View style={{ height: 12 }} />
+          <UploadedDocumentCard
             title="Contract"
-            status={contract?.status}
-            fileUrl={contract?.file_url}
-            docLabel={docLabel}
-            docColor={docColor}
+            status={status?.contract?.status}
+            fileUrl={status?.contract?.file_url}
             apiClient={apiClient}
           />
         </View>
@@ -252,11 +191,7 @@ export default function VerificationPendingScreen() {
           </Text>
         </View>
 
-        {(isRejected ||
-          nationalId?.status === "REJECTED" ||
-          contract?.status === "REJECTED" ||
-          nationalId?.status === "REQUEST_MORE_DETAILS" ||
-          contract?.status === "REQUEST_MORE_DETAILS") && (
+        {canReupload && (
           <TouchableOpacity
             style={{
               backgroundColor: "#3B82F6",
@@ -268,7 +203,7 @@ export default function VerificationPendingScreen() {
             onPress={() => router.replace("/verification")}
           >
             <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-              Re-upload documents
+              {hasDocs ? "Re-upload documents" : "Upload documents"}
             </Text>
           </TouchableOpacity>
         )}
