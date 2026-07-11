@@ -202,19 +202,43 @@ export default function VerificationPage() {
         throw new Error(`Upload failed (${uploadResponse.status} ${uploadResponse.statusText}): ${errorText || 'Unknown error'}`);
       }
 
-      // Store the file URL for later submission (don't submit yet)
+      // Store the file URL then submit immediately (one-step verification)
       setUploadProgress(100);
       if (type === "national_id") {
         setPendingNationalId(file_url);
       } else {
         setPendingContract(file_url);
       }
-      
-      toast({
-        title: "Document uploaded! 📄",
-        description: `${type === "national_id" ? "National ID" : "Contract"} has been uploaded. Click "Submit Documents" when ready.`,
-        variant: "success",
-      });
+
+      const documentType = type === "national_id" ? "NATIONAL_ID" : "CONTRACT";
+      setSubmitting(true);
+      try {
+        await api.post("/api/verification/submit", {
+          file_url,
+          document_type: documentType,
+        });
+        setPendingNationalId(null);
+        setPendingContract(null);
+        await refetch();
+        queryClient.invalidateQueries({ queryKey: ["current-user"] });
+        toast({
+          title: "Submitted for review",
+          description: "Your document is under review. You'll get access once approved.",
+          variant: "success",
+        });
+        router.replace("/verification/pending");
+      } catch (submitError: any) {
+        console.error("Auto-submit failed:", submitError);
+        toast({
+          title: "Uploaded — submit required",
+          description:
+            submitError?.response?.data?.detail ||
+            "File uploaded. Tap Submit Document for Review to finish.",
+          variant: "destructive",
+        });
+      } finally {
+        setSubmitting(false);
+      }
     } catch (error: any) {
       console.error("Upload failed:", error);
       const errorMessage = error?.response?.data?.detail || error?.message || "Upload failed. Please try again.";

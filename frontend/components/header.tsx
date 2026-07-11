@@ -52,7 +52,15 @@ export function Header() {
     setMounted(true)
   }, [])
 
-  // Fetch unread messages count
+  const isApproved =
+    !!user &&
+    (user.role === 'ADMIN' ||
+      user.role === 'MODERATOR' ||
+      user.role === 'SERVICE_PROVIDER' ||
+      user.role === 'COMPOUND_MOD' ||
+      user.status === 'APPROVED')
+
+  // Fetch unread messages count — only for approved / non-resident-gated roles
   const { data: conversations } = useQuery<Array<{ unread_count: number }>>({
     queryKey: ['conversations'],
     queryFn: async () => {
@@ -63,8 +71,8 @@ export function Header() {
         return []
       }
     },
-    enabled: mounted && isAuthenticated,
-    refetchInterval: 30000, // Poll every 30 seconds
+    enabled: mounted && isAuthenticated && isApproved,
+    refetchInterval: 30000,
   })
 
   const unreadMessagesCount = conversations?.reduce((sum, conv) => sum + (conv.unread_count || 0), 0) || 0
@@ -80,7 +88,7 @@ export function Header() {
         return []
       }
     },
-    enabled: mounted && isAuthenticated,
+    enabled: mounted && isAuthenticated && isApproved,
   })
 
   const savedCount = savedListings?.length || 0
@@ -96,8 +104,13 @@ export function Header() {
       const foundCompound = compounds.find((c: any) => c.id === user.compound_id)
       return foundCompound || null
     },
-    enabled: mounted && isAuthenticated && !!user?.compound_id && 
-             user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD',
+    enabled:
+      mounted &&
+      isAuthenticated &&
+      isApproved &&
+      !!user?.compound_id &&
+      user.role !== 'SERVICE_PROVIDER' &&
+      user.role !== 'COMPOUND_MOD',
   })
 
   const handleLogout = async () => {

@@ -150,17 +150,37 @@ export default function VerificationScreen() {
         throw new Error("Upload failed");
       }
 
-      // Store the file URL for later submission
+      const fileUrl = presignResponse.file_url;
       if (type === "NATIONAL_ID") {
-        setPendingNationalId(presignResponse.file_url);
+        setPendingNationalId(fileUrl);
       } else {
-        setPendingContract(presignResponse.file_url);
+        setPendingContract(fileUrl);
       }
 
-      Alert.alert(
-        "Upload Successful",
-        `${type === "NATIONAL_ID" ? "National ID" : "Contract"} has been uploaded. Click "Submit Documents" when ready.`
-      );
+      // Submit immediately after upload
+      setSubmitting(true);
+      try {
+        await apiClient.submitDocument({
+          file_url: fileUrl,
+          document_type: type,
+        });
+        setPendingNationalId(null);
+        setPendingContract(null);
+        await refreshUser();
+        Alert.alert(
+          "Submitted",
+          "Document submitted for review. You'll get access once approved.",
+          [{ text: "OK", onPress: () => router.replace("/verification-pending") }]
+        );
+      } catch (submitError: any) {
+        Alert.alert(
+          "Uploaded",
+          submitError.message ||
+            "File uploaded. Tap Submit Documents for Review to finish."
+        );
+      } finally {
+        setSubmitting(false);
+      }
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to upload document");
     } finally {
