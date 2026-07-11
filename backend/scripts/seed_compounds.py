@@ -18,11 +18,27 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
-# Import all models to ensure relationships are set up
-from app.models import compound, user, post, listing, verification  # noqa
+# Import all models so SQLAlchemy can resolve string relationship targets
+from app.models import (  # noqa: F401
+    compound,
+    compound_moderator,
+    listing,
+    message,
+    notification,
+    post,
+    review,
+    saved_listing,
+    saved_post,
+    service_category,
+    service_provider,
+    user,
+    user_compound_membership,
+    verification,
+)
 from app.models.compound import Compound
 from app.models.enums import CompoundStatus2025
 from scripts.utils import get_db_url
+
 
 
 
