@@ -15,6 +15,7 @@ import api from "@/lib/api";
 import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 
 interface VerificationStatus {
   national_id: {
@@ -266,7 +267,7 @@ export default function VerificationPage() {
     if (!docStatus) return "Not uploaded";
     if (docStatus === "APPROVED") return "Approved";
     if (docStatus === "REJECTED") return "Rejected";
-    return "Pending review";
+    return "Uploaded — under review";
   };
 
   const getStatusBadgeClass = (docStatus: string | undefined) => {
@@ -536,13 +537,14 @@ export default function VerificationPage() {
                 className="hidden"
                 id="national-id-upload"
               />
-              {/* Show pending upload indicator */}
-              {pendingNationalId && !nationalIdStatus && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Document uploaded and ready to submit
-                  </p>
+              {/* Show persisted / pending upload */}
+              {(status?.national_id || pendingNationalId) && (
+                <div className="mb-4">
+                  <UploadedDocumentCard
+                    title="National ID"
+                    status={status?.national_id?.status || (pendingNationalId ? "PENDING" : undefined)}
+                    fileUrl={status?.national_id?.file_url || pendingNationalId}
+                  />
                 </div>
               )}
               
@@ -666,13 +668,14 @@ export default function VerificationPage() {
                 className="hidden"
                 id="contract-upload"
               />
-              {/* Show pending upload indicator */}
-              {pendingContract && !contractStatus && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Document uploaded and ready to submit
-                  </p>
+              {/* Show persisted / pending upload */}
+              {(status?.contract || pendingContract) && (
+                <div className="mb-4">
+                  <UploadedDocumentCard
+                    title="Contract"
+                    status={status?.contract?.status || (pendingContract ? "PENDING" : undefined)}
+                    fileUrl={status?.contract?.file_url || pendingContract}
+                  />
                 </div>
               )}
               

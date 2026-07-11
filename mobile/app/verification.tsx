@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
+import { normalizeFileUrl, isImageUrl, openFileUrl } from "@/lib/file-url";
 
 export default function VerificationScreen() {
   const { apiClient, user, refreshUser, logout } = useAuth();
@@ -248,7 +249,7 @@ export default function VerificationScreen() {
     if (!docStatus) return "Not uploaded";
     if (docStatus === "APPROVED") return "Approved";
     if (docStatus === "REJECTED") return "Rejected";
-    return "Pending review";
+    return "Uploaded — under review";
   }
 
   function getStatusColor(docStatus: string | undefined) {
@@ -380,13 +381,22 @@ export default function VerificationScreen() {
             <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
               Upload a clear photo of your national ID
             </Text>
-            {status?.national_id?.file_url && (
+            {(status?.national_id?.file_url || pendingNationalId) && (
               <View style={{ marginBottom: 12 }}>
-                <Image
-                  source={{ uri: status.national_id.file_url }}
-                  style={{ width: "100%", height: 200, borderRadius: 12 }}
-                  resizeMode="contain"
-                />
+                {isImageUrl(normalizeFileUrl(status?.national_id?.file_url || pendingNationalId)) ? (
+                  <Image
+                    source={{ uri: normalizeFileUrl(status?.national_id?.file_url || pendingNationalId) }}
+                    style={{ width: "100%", height: 200, borderRadius: 12, backgroundColor: "#F3F4F6" }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Document on file</Text>
+                )}
+                <TouchableOpacity onPress={() => openFileUrl(status?.national_id?.file_url || pendingNationalId)}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 8 }}>
+                    View uploaded file
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
             <View style={{ flexDirection: "row", gap: 8 }}>
@@ -453,13 +463,22 @@ export default function VerificationScreen() {
             <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
               Upload your residency or ownership contract
             </Text>
-            {status?.contract?.file_url && (
+            {(status?.contract?.file_url || pendingContract) && (
               <View style={{ marginBottom: 12 }}>
-                <Image
-                  source={{ uri: status.contract.file_url }}
-                  style={{ width: "100%", height: 200, borderRadius: 12 }}
-                  resizeMode="contain"
-                />
+                {isImageUrl(normalizeFileUrl(status?.contract?.file_url || pendingContract)) ? (
+                  <Image
+                    source={{ uri: normalizeFileUrl(status?.contract?.file_url || pendingContract) }}
+                    style={{ width: "100%", height: 200, borderRadius: 12, backgroundColor: "#F3F4F6" }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>Document on file</Text>
+                )}
+                <TouchableOpacity onPress={() => openFileUrl(status?.contract?.file_url || pendingContract)}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 8 }}>
+                    View uploaded file
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
             <View style={{ flexDirection: "row", gap: 8 }}>

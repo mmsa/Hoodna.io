@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +14,48 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { VerificationStatusResponse } from "@hoodna/shared";
 import { getResidentRoute, isResidentRole } from "@/lib/resident-routing";
+import { isImageUrl, isPdfUrl, normalizeFileUrl, openFileUrl } from "@/lib/file-url";
+
+function DocBlock({
+  title,
+  status,
+  fileUrl,
+  docLabel,
+  docColor,
+}: {
+  title: string;
+  status?: string;
+  fileUrl?: string;
+  docLabel: (s: string | undefined) => string;
+  docColor: (s: string | undefined) => string;
+}) {
+  const url = normalizeFileUrl(fileUrl);
+  return (
+    <View>
+      <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>{title}</Text>
+      <Text style={{ fontSize: 15, fontWeight: "600", color: docColor(status), marginBottom: 8 }}>
+        {status ? docLabel(status) : "Not uploaded"}
+      </Text>
+      {url && isImageUrl(url) ? (
+        <Image
+          source={{ uri: url }}
+          style={{ width: "100%", height: 160, borderRadius: 10, backgroundColor: "#F3F4F6" }}
+          resizeMode="contain"
+        />
+      ) : null}
+      {url && isPdfUrl(url) ? (
+        <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>PDF document on file</Text>
+      ) : null}
+      {url ? (
+        <TouchableOpacity onPress={() => openFileUrl(url)}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB", marginTop: 6 }}>
+            View uploaded file
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
 
 export default function VerificationPendingScreen() {
   const { user, loading: authLoading, apiClient, refreshUser, logout } = useAuth();
@@ -159,23 +202,28 @@ export default function VerificationPendingScreen() {
             borderColor: "#E5E7EB",
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 16 }}>
-            Document status
+          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
+            Your uploaded documents
+          </Text>
+          <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
+            These stay after you refresh or reopen the app
           </Text>
 
-          <View style={{ marginBottom: 14 }}>
-            <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>National ID</Text>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: docColor(nationalId?.status) }}>
-              {docLabel(nationalId?.status)}
-            </Text>
-          </View>
-
-          <View>
-            <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>Contract</Text>
-            <Text style={{ fontSize: 15, fontWeight: "600", color: docColor(contract?.status) }}>
-              {docLabel(contract?.status)}
-            </Text>
-          </View>
+          <DocBlock
+            title="National ID"
+            status={nationalId?.status}
+            fileUrl={nationalId?.file_url}
+            docLabel={docLabel}
+            docColor={docColor}
+          />
+          <View style={{ height: 14 }} />
+          <DocBlock
+            title="Contract"
+            status={contract?.status}
+            fileUrl={contract?.file_url}
+            docLabel={docLabel}
+            docColor={docColor}
+          />
         </View>
 
         <View

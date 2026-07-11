@@ -10,19 +10,12 @@ import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import Cookies from 'js-cookie'
 import { getResidentWebRoute, isResidentRole } from '@/lib/resident-routing'
+import { UploadedDocumentCard } from '@/components/uploaded-document-card'
 
 interface VerificationStatus {
-  national_id: { status: string } | null
-  contract: { status: string } | null
+  national_id: { status: string; file_url: string } | null
+  contract: { status: string; file_url: string } | null
   user_status: string
-}
-
-function docLabel(status?: string) {
-  if (!status) return 'Not submitted'
-  if (status === 'APPROVED') return 'Approved'
-  if (status === 'REJECTED') return 'Rejected'
-  if (status === 'REQUEST_MORE_DETAILS') return 'More details needed'
-  return 'Under review'
 }
 
 export default function VerificationPendingPage() {
@@ -40,6 +33,8 @@ export default function VerificationPendingPage() {
     refetchInterval: 8000,
   })
 
+  const hasDocs = !!(status?.national_id || status?.contract)
+
   useEffect(() => {
     if (userLoading || !user) return
     if (!isResidentRole(user.role)) {
@@ -54,14 +49,13 @@ export default function VerificationPendingPage() {
       router.replace('/feed')
       return
     }
-    if (user.verification_status === 'UNVERIFIED' || !user.verification_status) {
-      if (user.status !== 'REJECTED' && user.status !== 'BANNED') {
-        router.replace('/verification')
-      }
+    // Wait for status query before bouncing unverified users back to upload
+    if (isLoading) return
+    if (!hasDocs && user.verification_status !== 'PENDING' && user.status !== 'REJECTED' && user.status !== 'BANNED') {
+      router.replace('/verification')
     }
-  }, [user, userLoading, router])
+  }, [user, userLoading, router, isLoading, hasDocs])
 
-  // When polling shows approval, refresh user and go to feed
   useEffect(() => {
     if (status?.user_status === 'APPROVED') {
       queryClient.invalidateQueries({ queryKey: ['current-user'] })
@@ -121,18 +115,20 @@ export default function VerificationPendingPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Document status</CardTitle>
-            <CardDescription>Updates automatically while we review</CardDescription>
+            <CardTitle>Your uploaded documents</CardTitle>
+            <CardDescription>These remain after you refresh this page</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">National ID</span>
-              <span className="font-medium">{docLabel(status?.national_id?.status)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500">Contract</span>
-              <span className="font-medium">{docLabel(status?.contract?.status)}</span>
-            </div>
+          <CardContent className="space-y-3">
+            <UploadedDocumentCard
+              title="National ID"
+              status={status?.national_id?.status}
+              fileUrl={status?.national_id?.file_url}
+            />
+            <UploadedDocumentCard
+              title="Contract"
+              status={status?.contract?.status}
+              fileUrl={status?.contract?.file_url}
+            />
           </CardContent>
         </Card>
 
@@ -140,10 +136,11 @@ export default function VerificationPendingPage() {
           status?.national_id?.status === 'REJECTED' ||
           status?.contract?.status === 'REJECTED' ||
           status?.national_id?.status === 'REQUEST_MORE_DETAILS' ||
-          status?.contract?.status === 'REQUEST_MORE_DETAILS') && (
+          status?.contract?.status === 'REQUEST_MORE_DETAILS' ||
+          !hasDocs) && (
           <Button className="w-full" onClick={() => router.push('/verification')}>
             <Upload className="mr-2 h-4 w-4" />
-            Re-upload documents
+            {hasDocs ? 'Re-upload documents' : 'Upload documents'}
           </Button>
         )}
 
