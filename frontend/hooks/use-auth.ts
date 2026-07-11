@@ -13,6 +13,7 @@ interface User {
   role: string
   status: string
   compound_id?: number
+  verification_status?: string | null
 }
 
 export function useAuth() {

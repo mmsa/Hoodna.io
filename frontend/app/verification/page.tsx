@@ -67,6 +67,16 @@ export default function VerificationPage() {
       router.replace('/moderator/status');
       return;
     }
+
+    if (user.status === 'APPROVED') {
+      router.replace('/feed');
+      return;
+    }
+
+    if (user.verification_status === 'PENDING') {
+      router.replace('/verification/pending');
+      return;
+    }
     
     // First priority: Check if compound is selected (only for residents)
     if (!user.compound_id) {
@@ -125,7 +135,12 @@ export default function VerificationPage() {
     if (status?.contract?.status) {
       setPendingContract(null);
     }
-  }, [status]);
+    const pendingReview =
+      status?.national_id?.status === "PENDING" || status?.contract?.status === "PENDING";
+    if (pendingReview && status?.user_status !== "REJECTED" && status?.user_status !== "APPROVED") {
+      router.replace("/verification/pending");
+    }
+  }, [status, router]);
 
   const uploadDocument = async (
     type: "national_id" | "contract",
@@ -319,14 +334,17 @@ export default function VerificationPage() {
       setPendingNationalId(null);
       setPendingContract(null);
       
-      // Refresh status
+      // Refresh status + user so RoleGuard sees PENDING
       await refetch();
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
       
       toast({
-        title: "Documents submitted! 🎉",
-        description: "Your documents have been submitted for review. You'll be notified once verification is complete.",
+        title: "Documents submitted",
+        description: "Your documents are under review. You'll get access once approved.",
         variant: "success",
       });
+
+      router.replace("/verification/pending");
     } catch (error: any) {
       console.error("Submission failed:", error);
       const errorMessage = error?.response?.data?.detail || error?.message || "Failed to submit documents. Please try again.";

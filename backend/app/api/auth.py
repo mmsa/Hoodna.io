@@ -264,30 +264,34 @@ async def get_current_user_info(
     from app.crud.verification import get_user_documents
     from app.models.enums import DocumentType, UserStatus, UserRole
     
-    # Map UserStatus to verification_status string
-    verification_status_map = {
-        UserStatus.PENDING_VERIFICATION: "PENDING",
-        UserStatus.APPROVED: "APPROVED",
-        UserStatus.REJECTED: "REJECTED",
-        UserStatus.BANNED: "REJECTED",  # Banned users are effectively rejected
-    }
-    
-    # Default for users who haven't submitted any documents
-    verification_status = "UNVERIFIED"
-    if current_user.status in verification_status_map:
-        verification_status = verification_status_map[current_user.status]
-    
-    # Only fetch documents if user is approved (optimization - skip DB query for unverified users)
+    # Fetch documents for residents who still need verification so clients can
+    # distinguish "needs upload" (UNVERIFIED) vs "under review" (PENDING).
     can_post = False
     national_id = None
     contract = None
-    
-    if current_user.status == UserStatus.APPROVED:
-        # Only query documents for approved users who might be able to post
+    docs = None
+
+    if current_user.status in (
+        UserStatus.APPROVED,
+        UserStatus.PENDING_VERIFICATION,
+        UserStatus.REJECTED,
+    ):
         docs = await get_user_documents(db, current_user.id)
         national_id = docs[DocumentType.NATIONAL_ID]
         contract = docs[DocumentType.CONTRACT]
-        
+
+    has_submitted_docs = bool(national_id or contract)
+
+    if current_user.status == UserStatus.APPROVED:
+        verification_status = "APPROVED"
+    elif current_user.status in (UserStatus.REJECTED, UserStatus.BANNED):
+        verification_status = "REJECTED"
+    elif current_user.status == UserStatus.PENDING_VERIFICATION:
+        verification_status = "PENDING" if has_submitted_docs else "UNVERIFIED"
+    else:
+        verification_status = "UNVERIFIED"
+
+    if current_user.status == UserStatus.APPROVED:
         # Check if user can post (same logic as verification status endpoint)
         def _has_compound_name(doc):
             if not doc or not doc.llm_extracted_info:
@@ -297,10 +301,10 @@ async def get_current_user_info(
                 address_match = doc.llm_extracted_info.get("address_match", "")
                 return compound_found or address_match == "MATCH"
             return False
-        
+
         if (
-            national_id 
-            and national_id.status.value == "APPROVED" 
+            national_id
+            and national_id.status.value == "APPROVED"
             and _has_compound_name(national_id)
         ):
             can_post = True

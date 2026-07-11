@@ -4,14 +4,22 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
+import { getResidentWebRoute, isResidentRole } from '@/lib/resident-routing'
 
 interface RoleGuardProps {
   children: React.ReactNode
-  allowedRoles?: string[]
-  requireApproved?: boolean
 }
 
-export function RoleGuard({ children, allowedRoles, requireApproved = false }: RoleGuardProps) {
+const PUBLIC_ROUTES = [
+  '/auth/login',
+  '/auth/signup',
+  '/auth/phone-login',
+  '/auth/otp-verify',
+  '/',
+  '/features',
+]
+
+export function RoleGuard({ children }: RoleGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isLoading } = useAuth()
@@ -20,29 +28,22 @@ export function RoleGuard({ children, allowedRoles, requireApproved = false }: R
     if (isLoading) return
     if (!pathname) return
 
-    // Public routes that don't require authentication
-    const publicRoutes = [
-      '/auth/login',
-      '/auth/signup',
-      '/auth/phone-login',
-      '/auth/otp-verify',
-      '/',
-      '/features',
-    ]
-
-    if (publicRoutes.some(route => pathname.startsWith(route))) {
+    if (PUBLIC_ROUTES.some((route) => pathname === route || (route !== '/' && pathname.startsWith(route)))) {
       return
     }
 
-    // If not authenticated, redirect to login
+    // Marketing / public content that doesn't need auth
+    if (pathname.startsWith('/features')) return
+
     if (!user) {
-      router.push('/auth/login')
+      // Allow landing and auth only
+      if (!pathname.startsWith('/auth')) {
+        router.replace('/auth/login')
+      }
       return
     }
 
-    // Check if user has selected a role
     if (!user.role) {
-      // Allow access to role selection and onboarding pages
       if (
         pathname.startsWith('/onboarding/choose-role') ||
         pathname.startsWith('/onboarding/provider') ||
@@ -51,66 +52,74 @@ export function RoleGuard({ children, allowedRoles, requireApproved = false }: R
       ) {
         return
       }
-      router.push('/onboarding/choose-role')
+      router.replace('/onboarding/choose-role')
       return
     }
 
-    // Check role-based access
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-      router.push('/feed')
-      return
-    }
-
-    // Check approval status for specific roles
     if (user.role === 'SERVICE_PROVIDER') {
-      console.log('[RoleGuard] SERVICE_PROVIDER detected:', {
-        pathname,
-        isOnboarding: pathname.startsWith('/onboarding/provider'),
-        isStatus: pathname.startsWith('/provider/status'),
-        isAuth: pathname.startsWith('/auth'),
-        isServices: pathname.startsWith('/services')
-      })
-      
-      // Allow access to onboarding, status, services, and auth pages
       if (
         pathname.startsWith('/onboarding/provider') ||
         pathname.startsWith('/provider/status') ||
         pathname.startsWith('/auth') ||
-        pathname.startsWith('/services')
+        pathname.startsWith('/services') ||
+        pathname.startsWith('/profile')
       ) {
-        console.log('[RoleGuard] ✅ Allowing access to:', pathname)
         return
       }
-      // Redirect to status page - status page will check approval and redirect if approved
-      console.log('[RoleGuard] 🔄 Redirecting SERVICE_PROVIDER to /provider/status from:', pathname)
-      router.push('/provider/status')
+      router.replace('/provider/status')
       return
     }
 
     if (user.role === 'COMPOUND_MOD') {
-      // Allow access to onboarding and status pages
       if (
         pathname.startsWith('/onboarding/moderator') ||
         pathname.startsWith('/moderator/status') ||
-        pathname.startsWith('/auth')
+        pathname.startsWith('/auth') ||
+        pathname.startsWith('/admin') ||
+        pathname.startsWith('/feed')
       ) {
         return
       }
-      // Redirect to status page - status page will check approval and redirect if approved
-      router.push('/moderator/status')
+      router.replace('/moderator/status')
       return
     }
 
-    if (user.role === 'RESIDENT' || user.role === 'USER') {
-      // Resident-specific checks
-      if (requireApproved && user.status !== 'APPROVED') {
-        if (!pathname.startsWith('/verification') && !pathname.startsWith('/onboarding/compound-select')) {
-          router.push('/verification')
+    if (isResidentRole(user.role)) {
+      if (user.status === 'APPROVED') {
+        return
+      }
+
+      const allowedWhilePending = [
+        '/verification',
+        '/verification/pending',
+        '/onboarding/compound-select',
+        '/onboarding/choose-role',
+        '/auth',
+      ]
+      if (allowedWhilePending.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+        // Still on upload page but already submitted → pending
+        if (pathname === '/verification' || pathname.startsWith('/verification/')) {
+          const dest = getResidentWebRoute(user)
+          if (dest === '/verification/pending' && pathname !== '/verification/pending') {
+            // Allow /verification for rejected re-upload
+            if (user.status !== 'REJECTED' && user.verification_status === 'PENDING') {
+              router.replace('/verification/pending')
+            }
+          }
           return
         }
+        return
       }
+
+      router.replace(getResidentWebRoute(user))
+      return
     }
-  }, [user, isLoading, pathname, router, allowedRoles, requireApproved])
+
+    // Admins etc.
+    if (user.role === 'ADMIN' || user.role === 'MODERATOR') {
+      return
+    }
+  }, [user, isLoading, pathname, router])
 
   if (isLoading) {
     return (

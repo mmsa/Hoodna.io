@@ -11,6 +11,7 @@ import { Building2, Wrench, Shield, ArrowRight } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
+import { getPostAuthWebRoute } from '@/lib/resident-routing'
 
 // Prevent SSR from crashing when global location is unavailable during prerender
 if (typeof globalThis.location === 'undefined') {
@@ -26,22 +27,7 @@ export default function ChooseRolePage() {
   // Redirect if user already has a role
   useEffect(() => {
     if (!userLoading && user && user.role) {
-      // User already has a role, redirect based on role and status
-      if (user.role === 'RESIDENT' || user.role === 'USER') {
-        if (!user.compound_id) {
-          router.push('/onboarding/compound-select')
-        } else if (user.status !== 'APPROVED') {
-          router.push('/verification')
-        } else {
-          router.push('/feed')
-        }
-      } else if (user.role === 'SERVICE_PROVIDER') {
-        router.push('/provider/status')
-      } else if (user.role === 'COMPOUND_MOD') {
-        router.push('/moderator/status')
-      } else {
-        router.push('/feed')
-      }
+      router.replace(getPostAuthWebRoute(user))
     }
   }, [user, userLoading, router])
 

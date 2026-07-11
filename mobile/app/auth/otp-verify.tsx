@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getPostAuthRoute } from "@/lib/resident-routing";
 
 export default function OTPVerifyScreen() {
   const { phone, otpCode } = useLocalSearchParams<{
@@ -23,13 +24,9 @@ export default function OTPVerifyScreen() {
   // Navigate after successful login
   useEffect(() => {
     if (user) {
-      if (user.compound_id) {
-        router.replace("/(tabs)/home");
-      } else {
-        router.replace("/onboarding/compound-select");
-      }
+      router.replace(getPostAuthRoute(user) as any);
     }
-  }, [user]);
+  }, [user, router]);
 
   // Normalize phone number to match backend normalization
   const normalizePhone = (phoneNumber: string): string => {

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
+import { getPostAuthRoute } from "@/lib/resident-routing";
 
 export default function ChooseRoleScreen() {
   const router = useRouter();
@@ -15,22 +16,7 @@ export default function ChooseRoleScreen() {
   // Redirect if user already has a role
   useEffect(() => {
     if (!userLoading && user && user.role) {
-      // User already has a role, redirect based on role and status
-      if (user.role === "RESIDENT" || user.role === "USER") {
-        if (!user.compound_id) {
-          router.replace("/onboarding/compound-select");
-        } else if (user.status !== "APPROVED") {
-          router.replace("/verification");
-        } else {
-          router.replace("/(tabs)/home");
-        }
-      } else if (user.role === "SERVICE_PROVIDER") {
-        router.replace("/provider/status");
-      } else if (user.role === "COMPOUND_MOD") {
-        router.replace("/moderator/status");
-      } else {
-        router.replace("/(tabs)/home");
-      }
+      router.replace(getPostAuthRoute(user) as any);
     }
   }, [user, userLoading, router]);
 

@@ -123,6 +123,37 @@ export function Header() {
     return null
   }
 
+  const isUnapprovedResident =
+    mounted &&
+    isAuthenticated &&
+    user &&
+    (user.role === 'RESIDENT' || user.role === 'USER') &&
+    user.status !== 'APPROVED'
+
+  // Minimal header while verification is incomplete — no app navigation
+  if (isUnapprovedResident) {
+    return (
+      <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+        <div className="container mx-auto px-4 flex h-14 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/icon_light.jpg"
+              alt="eljiran.com"
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-full"
+            />
+            <span className="text-base font-semibold text-green-600">eljiran.com</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Log out
+          </Button>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
       <div className="container mx-auto px-4">

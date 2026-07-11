@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from "reac
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE_URL } from "@/lib/config";
+import { getPostAuthRoute } from "@/lib/resident-routing";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -15,13 +16,9 @@ export default function LoginScreen() {
   // Navigate after successful login
   useEffect(() => {
     if (user) {
-      if (user.compound_id) {
-        router.replace("/(tabs)/home");
-      } else {
-        router.replace("/onboarding/compound-select");
-      }
+      router.replace(getPostAuthRoute(user) as any);
     }
-  }, [user]);
+  }, [user, router]);
 
   async function handleLogin() {
     if (!email.trim()) {

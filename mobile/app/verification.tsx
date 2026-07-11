@@ -9,7 +9,7 @@ import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function VerificationScreen() {
-  const { apiClient, user } = useAuth();
+  const { apiClient, user, refreshUser, logout } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<VerificationStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +23,21 @@ export default function VerificationScreen() {
       router.replace("/onboarding/compound-select");
       return;
     }
+    if (user.status === "APPROVED") {
+      router.replace("/(tabs)/home");
+      return;
+    }
+    // Already submitted (or rejected with prior docs) → status page
+    if (
+      user.verification_status === "PENDING" ||
+      (user.status === "REJECTED" && user.verification_status === "REJECTED")
+    ) {
+      // Allow REJECTED users who need to re-upload to stay if they navigated here intentionally
+      if (user.verification_status === "PENDING") {
+        router.replace("/verification-pending");
+        return;
+      }
+    }
     loadStatus();
   }, [user]);
 
@@ -35,6 +50,13 @@ export default function VerificationScreen() {
       }
       if (data.contract?.status) {
         setPendingContract(null);
+      }
+      // Already under review → status page (rejected users stay to re-upload)
+      const pendingReview =
+        data.national_id?.status === "PENDING" || data.contract?.status === "PENDING";
+      if (pendingReview && data.user_status !== "REJECTED") {
+        router.replace("/verification-pending");
+        return;
       }
     } catch (error) {
       console.error("Failed to load verification status:", error);
@@ -175,9 +197,19 @@ export default function VerificationScreen() {
       
       setPendingNationalId(null);
       setPendingContract(null);
+      await refreshUser();
       await loadStatus();
-      
-      Alert.alert("Success", "Documents submitted! You'll be notified once verification is complete.");
+
+      Alert.alert(
+        "Submitted",
+        "Documents submitted for review. You'll get access once approved.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/verification-pending"),
+          },
+        ]
+      );
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to submit documents");
     } finally {
@@ -222,11 +254,12 @@ export default function VerificationScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
-      {/* Header with Back Button */}
+      {/* Header — no back into the app until verified */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
+          justifyContent: "space-between",
           paddingHorizontal: 16,
           paddingVertical: 12,
           backgroundColor: "#FFFFFF",
@@ -234,14 +267,16 @@ export default function VerificationScreen() {
           borderBottomColor: "#E5E7EB",
         }}
       >
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Verification</Text>
         <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginRight: 16 }}
+          onPress={async () => {
+            await logout();
+            router.replace("/auth");
+          }}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#6B7280" }}>Log out</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Verification</Text>
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 24, paddingVertical: 32 }}>
@@ -258,13 +293,13 @@ export default function VerificationScreen() {
                 marginBottom: 16,
               }}
             >
-              <Text style={{ fontSize: 32 }}>🛡️</Text>
+              <Ionicons name="shield-checkmark" size={32} color="#FFFFFF" />
             </View>
             <Text style={{ fontSize: 28, fontWeight: "bold", color: "#111827", marginBottom: 8 }}>
               Verification Documents
             </Text>
             <Text style={{ fontSize: 16, color: "#6B7280", textAlign: "center", marginTop: 8 }}>
-              Upload <Text style={{ fontWeight: "600", color: "#3B82F6" }}>one document</Text> to get verified
+              Upload <Text style={{ fontWeight: "600", color: "#3B82F6" }}>one document</Text> and submit to continue
             </Text>
           </View>
 

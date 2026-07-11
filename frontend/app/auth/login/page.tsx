@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import api from '@/lib/api'
 import Cookies from 'js-cookie'
 import Link from 'next/link'
+import { getPostAuthWebRoute } from '@/lib/resident-routing'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -93,10 +94,12 @@ export default function LoginPage() {
 
       // Force a hard refresh to clear all React Query caches and state
       // This ensures we don't show stale user data from a previous session
+      const me = await api.get('/api/auth/me')
+      const dest = getPostAuthWebRoute(me.data)
       if (typeof window !== 'undefined') {
-        window.location.href = '/feed'
+        window.location.href = dest
       } else {
-        router.push('/feed')
+        router.push(dest)
       }
     } catch (err: any) {
       console.error('Login error:', err)
