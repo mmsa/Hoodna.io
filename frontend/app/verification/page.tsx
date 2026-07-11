@@ -320,6 +320,11 @@ export default function VerificationPage() {
 
   const nationalIdStatus = status?.national_id?.status;
   const contractStatus = status?.contract?.status;
+  // Badge must reflect local pending upload OR saved API status
+  const nationalIdDisplayStatus =
+    nationalIdStatus || (pendingNationalId ? "PENDING" : undefined);
+  const contractDisplayStatus =
+    contractStatus || (pendingContract ? "PENDING" : undefined);
   const bothUploaded = nationalIdStatus && contractStatus;
   const bothApproved = nationalIdStatus === "APPROVED" && contractStatus === "APPROVED";
   
@@ -471,9 +476,9 @@ export default function VerificationPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      nationalIdStatus === "APPROVED" 
+                      nationalIdDisplayStatus === "APPROVED" 
                         ? "bg-green-500" 
-                        : nationalIdStatus === "PENDING"
+                        : nationalIdDisplayStatus === "PENDING"
                         ? "bg-yellow-500"
                         : "bg-gray-300"
                     } transition-colors duration-300`}>
@@ -490,10 +495,10 @@ export default function VerificationPage() {
                     </div>
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(nationalIdStatus)} transition-all duration-300`}>
-                  {getStatusIcon(nationalIdStatus)}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(nationalIdDisplayStatus)} transition-all duration-300`}>
+                  {getStatusIcon(nationalIdDisplayStatus)}
                   <span className="text-sm font-medium">
-                    {getStatusText(nationalIdStatus)}
+                    {getStatusText(nationalIdDisplayStatus)}
                   </span>
                 </div>
               </div>
@@ -600,9 +605,9 @@ export default function VerificationPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      contractStatus === "APPROVED" 
+                      contractDisplayStatus === "APPROVED" 
                         ? "bg-green-500" 
-                        : contractStatus === "PENDING"
+                        : contractDisplayStatus === "PENDING"
                         ? "bg-yellow-500"
                         : "bg-gray-300"
                     } transition-colors duration-300`}>
@@ -621,10 +626,10 @@ export default function VerificationPage() {
                     </div>
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(contractStatus)} transition-all duration-300`}>
-                  {getStatusIcon(contractStatus)}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(contractDisplayStatus)} transition-all duration-300`}>
+                  {getStatusIcon(contractDisplayStatus)}
                   <span className="text-sm font-medium">
-                    {getStatusText(contractStatus)}
+                    {getStatusText(contractDisplayStatus)}
                   </span>
                 </div>
               </div>
