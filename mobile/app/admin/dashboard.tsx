@@ -16,12 +16,15 @@ import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { openFileUrl } from "@/lib/file-url";
+import { UserManagement } from "./components/user-management";
 
-type AdminTab = "residents" | "providers" | "moderators";
+type AdminTab = "users" | "residents" | "providers" | "moderators";
 type ReasonAction =
   | "resident-reject"
+  | "resident-request-more"
   | "provider-reject"
   | "provider-suspend"
+  | "provider-request-more"
   | "moderator-reject"
   | "moderator-suspend";
 
@@ -196,7 +199,7 @@ function AdminActionButton({
 
 export default function AdminDashboardScreen() {
   const { user, apiClient } = useAuth();
-  const [activeTab, setActiveTab] = useState<AdminTab>("residents");
+  const [activeTab, setActiveTab] = useState<AdminTab>("users");
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -208,16 +211,24 @@ export default function AdminDashboardScreen() {
   const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null);
   const [reasonTargetId, setReasonTargetId] = useState<number | null>(null);
   const [reasonText, setReasonText] = useState("");
+  const [statusOverrideDoc, setStatusOverrideDoc] = useState<VerificationDocument | null>(null);
+  const [overrideStatus, setOverrideStatus] = useState("APPROVED");
 
   const residentFilters = ["PENDING", "APPROVED", "REJECTED", "REQUEST_MORE_DETAILS"];
   const staffFilters = ["SUBMITTED", "IN_REVIEW", "APPROVED", "REJECTED", "SUSPENDED"];
 
   useEffect(() => {
+    if (activeTab === "users") return;
     setStatusFilter(activeTab === "residents" ? "PENDING" : "SUBMITTED");
     setSearchQuery("");
   }, [activeTab]);
 
   const loadData = useCallback(async () => {
+    if (activeTab === "users") {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       setLoading(true);
       if (activeTab === "residents") {
@@ -320,11 +331,23 @@ export default function AdminDashboardScreen() {
             body: JSON.stringify({ notes: reason }),
           });
           return;
+        case "resident-request-more":
+          await apiClient.request(`/api/admin/verifications/${targetId}/request-more-details`, {
+            method: "POST",
+            body: JSON.stringify({ notes: reason }),
+          });
+          return;
         case "provider-reject":
           await apiClient.rejectProvider(targetId, reason);
           return;
         case "provider-suspend":
           await apiClient.request(`/api/admin/providers/${targetId}/suspend`, {
+            method: "POST",
+            body: JSON.stringify({ reason }),
+          });
+          return;
+        case "provider-request-more":
+          await apiClient.request(`/api/admin/providers/${targetId}/request-more-details`, {
             method: "POST",
             body: JSON.stringify({ reason }),
           });
@@ -392,16 +415,29 @@ export default function AdminDashboardScreen() {
               Review queue
             </Text>
             <Text style={{ fontSize: 14, lineHeight: 21, color: colors.textMuted }}>
-              Mobile parity for the web admin dashboard: residents, service providers, and moderators are all reviewable here.
+              Manage users, verifications, service providers, and moderators — same capabilities as the web admin.
             </Text>
           </View>
 
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
-            <TabButton label="Residents" active={activeTab === "residents"} onPress={() => setActiveTab("residents")} />
-            <TabButton label="Providers" active={activeTab === "providers"} onPress={() => setActiveTab("providers")} />
-            <TabButton label="Moderators" active={activeTab === "moderators"} onPress={() => setActiveTab("moderators")} />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            <View style={{ width: "48%" }}>
+              <TabButton label="Users" active={activeTab === "users"} onPress={() => setActiveTab("users")} />
+            </View>
+            <View style={{ width: "48%" }}>
+              <TabButton label="Verifications" active={activeTab === "residents"} onPress={() => setActiveTab("residents")} />
+            </View>
+            <View style={{ width: "48%" }}>
+              <TabButton label="Providers" active={activeTab === "providers"} onPress={() => setActiveTab("providers")} />
+            </View>
+            <View style={{ width: "48%" }}>
+              <TabButton label="Moderators" active={activeTab === "moderators"} onPress={() => setActiveTab("moderators")} />
+            </View>
           </View>
 
+          {activeTab === "users" ? (
+            <UserManagement />
+          ) : (
+            <>
           <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
             <StatCard label="Loaded" value={stats.total} color={colors.textMain} />
             <StatCard label="Pending" value={stats.pending} color={colors.accent} />
@@ -544,47 +580,118 @@ export default function AdminDashboardScreen() {
                       </View>
                     ) : null}
 
-                    <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                      <AdminActionButton label="Open document" icon="open-outline" color={colors.primary} onPress={() => openFileUrl(doc.file_url, apiClient)} />
-                      <AdminActionButton
-                        label={processing === doc.id ? "Working..." : "AI verify"}
-                        icon="sparkles-outline"
-                        color={colors.purple}
-                        onPress={() =>
-                          runAction(async () => {
-                            const result = await apiClient.request<{ llm_result?: { recommendation?: string; reasoning?: string } }>(
-                              `/api/admin/verifications/${doc.id}/verify-with-llm`,
-                              { method: "POST" }
-                            );
-                            const recommendation = result?.llm_result?.recommendation || "AI verification completed.";
-                            const reasoning = result?.llm_result?.reasoning ? `\n\n${result.llm_result.reasoning}` : "";
-                            Alert.alert("AI verification", `${recommendation}${reasoning}`);
-                          }, doc.id)
-                        }
-                      />
-                      {doc.status === "PENDING" ? (
-                        <>
+                    {doc.status !== "PENDING" ? (
+                      <View
+                        style={{
+                          backgroundColor: "#EFF6FF",
+                          borderRadius: 14,
+                          padding: 12,
+                          marginBottom: 10,
+                          borderWidth: 1,
+                          borderColor: "#BFDBFE",
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, color: "#1E40AF", lineHeight: 18 }}>
+                          AI or system set this to <Text style={{ fontWeight: "800" }}>{formatLabel(doc.status)}</Text>.
+                          Use admin actions below to override.
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <View
+                      style={{
+                        backgroundColor: colors.gray50,
+                        borderRadius: 14,
+                        padding: 12,
+                        marginBottom: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: "800", color: colors.textMuted, marginBottom: 8, letterSpacing: 0.5 }}>
+                        ADMIN — CHANGE STATUS
+                      </Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                        <AdminActionButton label="Open document" icon="open-outline" color={colors.primary} onPress={() => openFileUrl(doc.file_url, apiClient)} />
+                        <AdminActionButton
+                          label={processing === doc.id ? "Working..." : "AI verify"}
+                          icon="sparkles-outline"
+                          color={colors.purple}
+                          onPress={() =>
+                            runAction(async () => {
+                              const result = await apiClient.request<{ llm_result?: { recommendation?: string; reasoning?: string } }>(
+                                `/api/admin/verifications/${doc.id}/verify-with-llm`,
+                                { method: "POST" }
+                              );
+                              const recommendation = result?.llm_result?.recommendation || "AI verification completed.";
+                              const reasoning = result?.llm_result?.reasoning ? `\n\n${result.llm_result.reasoning}` : "";
+                              Alert.alert("AI verification", `${recommendation}${reasoning}`);
+                            }, doc.id)
+                          }
+                        />
+                        {doc.status !== "APPROVED" ? (
                           <AdminActionButton
-                            label="Approve"
+                            label={doc.status === "REJECTED" ? "Override & Approve" : "Approve"}
                             icon="checkmark-circle-outline"
                             color={colors.success}
                             onPress={() =>
                               runAction(async () => {
+                                const notes =
+                                  doc.status !== "PENDING"
+                                    ? `[Admin override from ${doc.status}]`
+                                    : undefined;
                                 await apiClient.request(`/api/admin/verifications/${doc.id}/approve`, {
                                   method: "POST",
-                                  body: JSON.stringify({}),
+                                  body: JSON.stringify({ notes }),
                                 });
                               }, doc.id)
                             }
                           />
+                        ) : null}
+                        {doc.status !== "REJECTED" ? (
                           <AdminActionButton
                             label="Reject"
                             icon="close-circle-outline"
                             color={colors.error}
                             onPress={() => openReasonModal("resident-reject", doc.id)}
                           />
-                        </>
-                      ) : null}
+                        ) : null}
+                        {doc.status !== "REQUEST_MORE_DETAILS" ? (
+                          <AdminActionButton
+                            label="Request more"
+                            icon="alert-circle-outline"
+                            color="#B45309"
+                            onPress={() => openReasonModal("resident-request-more", doc.id)}
+                          />
+                        ) : null}
+                        {doc.status !== "PENDING" ? (
+                          <AdminActionButton
+                            label="Set pending"
+                            icon="time-outline"
+                            color={colors.textMuted}
+                            onPress={() =>
+                              runAction(async () => {
+                                await apiClient.request(`/api/admin/verifications/${doc.id}/status`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({
+                                    status: "PENDING",
+                                    notes: `[Admin override: ${doc.status} → PENDING]`,
+                                  }),
+                                });
+                              }, doc.id)
+                            }
+                          />
+                        ) : null}
+                        <AdminActionButton
+                          label="Change status"
+                          icon="swap-horizontal-outline"
+                          color={colors.primary}
+                          onPress={() => {
+                            setStatusOverrideDoc(doc);
+                            setOverrideStatus(doc.status === "APPROVED" ? "PENDING" : "APPROVED");
+                          }}
+                        />
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -688,6 +795,12 @@ export default function AdminDashboardScreen() {
                             icon="close-circle-outline"
                             color={colors.error}
                             onPress={() => openReasonModal("provider-reject", provider.id)}
+                          />
+                          <AdminActionButton
+                            label="Request more"
+                            icon="alert-circle-outline"
+                            color="#B45309"
+                            onPress={() => openReasonModal("provider-request-more", provider.id)}
                           />
                         </>
                       ) : null}
@@ -820,6 +933,8 @@ export default function AdminDashboardScreen() {
               </Text>
             )
           ) : null}
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -892,6 +1007,63 @@ export default function AdminDashboardScreen() {
                 onPress={submitReasonAction}
               >
                 <Text style={{ fontWeight: "700", color: "#FFFFFF" }}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={statusOverrideDoc != null} transparent animationType="fade" onRequestClose={() => setStatusOverrideDoc(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "center", padding: 20 }}>
+          <View style={{ backgroundColor: "#FFF", borderRadius: 22, padding: 20 }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", marginBottom: 8 }}>Override status</Text>
+            <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 14 }}>
+              {statusOverrideDoc ? `Current: ${formatLabel(statusOverrideDoc.status)}` : ""}
+            </Text>
+            {["PENDING", "APPROVED", "REJECTED", "REQUEST_MORE_DETAILS"].map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => setOverrideStatus(s)}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 12,
+                  marginBottom: 8,
+                  backgroundColor: overrideStatus === s ? colors.primary : colors.gray50,
+                  borderWidth: 1,
+                  borderColor: overrideStatus === s ? colors.primary : colors.border,
+                }}
+              >
+                <Text style={{ fontWeight: "700", color: overrideStatus === s ? "#FFF" : colors.textMain }}>
+                  {formatLabel(s)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 14, borderWidth: 1, borderColor: colors.border }}
+                onPress={() => setStatusOverrideDoc(null)}
+              >
+                <Text style={{ fontWeight: "700" }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 14, backgroundColor: colors.primary }}
+                onPress={() => {
+                  if (!statusOverrideDoc || statusOverrideDoc.status === overrideStatus) return;
+                  const doc = statusOverrideDoc;
+                  setStatusOverrideDoc(null);
+                  runAction(async () => {
+                    await apiClient.request(`/api/admin/verifications/${doc.id}/status`, {
+                      method: "PATCH",
+                      body: JSON.stringify({
+                        status: overrideStatus,
+                        notes: `[Admin override: ${doc.status} → ${overrideStatus}]`,
+                      }),
+                    });
+                  }, doc.id);
+                }}
+              >
+                <Text style={{ fontWeight: "700", color: "#FFF" }}>Update</Text>
               </TouchableOpacity>
             </View>
           </View>

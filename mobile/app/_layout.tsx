@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompoundProvider } from "@/contexts/CompoundContext";
 import { ResidentVerificationGuard } from "@/components/resident-verification-guard";
+import { DeepLinkHandler } from "@/components/deep-link-handler";
 import { I18nManager } from "react-native";
 import "../global.css";
 
@@ -15,6 +16,7 @@ export default function RootLayout() {
     <AuthProvider>
       <CompoundProvider>
         <ResidentVerificationGuard />
+        <DeepLinkHandler />
         <StatusBar style="auto" />
         <Stack screenOptions={{ headerShown: false }} />
       </CompoundProvider>

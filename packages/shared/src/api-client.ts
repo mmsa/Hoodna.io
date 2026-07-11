@@ -647,15 +647,15 @@ export class ApiClient {
     });
   }
 
-  async approveUser(userId: number): Promise<any> {
+  async adminApproveUser(userId: number): Promise<any> {
     return this.request(`/api/admin/users/${userId}/approve`, { method: "POST" });
   }
 
-  async rejectUser(userId: number): Promise<any> {
+  async adminRejectUser(userId: number): Promise<any> {
     return this.request(`/api/admin/users/${userId}/reject`, { method: "POST" });
   }
 
-  async banUser(userId: number): Promise<any> {
+  async adminBanUser(userId: number): Promise<any> {
     return this.request(`/api/admin/users/${userId}/ban`, { method: "POST" });
   }
 }
