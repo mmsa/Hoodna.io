@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from app.schemas.admin import DocumentReviewRequest, UserStatusUpdate
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
@@ -40,6 +40,11 @@ class VerificationListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class AdminResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
 
 
 @router.get("/verifications", response_model=VerificationListResponse)
@@ -718,6 +723,32 @@ async def bulk_verify_documents_with_llm(
         failed=failed,
         results=results,
     )
+
+
+@router.post("/users/reset-password")
+async def admin_reset_user_password(
+    body: AdminResetPasswordRequest,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: set a user's password (support / recovery)."""
+    from app.crud.user import get_user_by_email
+    from app.core.security import get_password_hash
+
+    user = await get_user_by_email(db, body.email.strip().lower())
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if len(body.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters",
+        )
+
+    user.password_hash = get_password_hash(body.new_password)
+    await db.commit()
+    logger.info("Admin %s reset password for user %s", current_user.email, user.email)
+    return {"message": f"Password updated for {user.email}"}
 
 
 @router.post("/users/{user_id}/approve", response_model=UserResponse)
