@@ -97,8 +97,6 @@ export default function VerificationPage() {
       router.replace('/verification/pending');
       return;
     }
-    
-    // First priority: Check if compound is selected (only for residents)
     if (!user.compound_id) {
       router.push("/onboarding/compound-select");
       return;
@@ -157,7 +155,17 @@ export default function VerificationPage() {
     }
     const pendingReview =
       status?.national_id?.status === "PENDING" || status?.contract?.status === "PENDING";
-    if (pendingReview && status?.user_status !== "REJECTED" && status?.user_status !== "APPROVED") {
+    const needsReupload =
+      status?.national_id?.status === "REJECTED" ||
+      status?.contract?.status === "REJECTED" ||
+      status?.national_id?.status === "REQUEST_MORE_DETAILS" ||
+      status?.contract?.status === "REQUEST_MORE_DETAILS";
+    if (
+      pendingReview &&
+      !needsReupload &&
+      status?.user_status !== "REJECTED" &&
+      status?.user_status !== "APPROVED"
+    ) {
       router.replace("/verification/pending");
     }
   }, [status, router]);

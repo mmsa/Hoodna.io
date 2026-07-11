@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
-import { getResidentWebRoute, isResidentRole } from '@/lib/resident-routing'
+import { getResidentWebRoute, isResidentRole, canAccessVerificationUpload } from '@/lib/resident-routing'
 
 interface RoleGuardProps {
   children: React.ReactNode
@@ -97,14 +97,9 @@ export function RoleGuard({ children }: RoleGuardProps) {
         '/auth',
       ]
       if (allowedWhilePending.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
-        // Still on upload page but already submitted → pending
-        if (pathname === '/verification' || pathname.startsWith('/verification/')) {
-          const dest = getResidentWebRoute(user)
-          if (dest === '/verification/pending' && pathname !== '/verification/pending') {
-            // Allow /verification for rejected re-upload
-            if (user.status !== 'REJECTED' && user.verification_status === 'PENDING') {
-              router.replace('/verification/pending')
-            }
+        if (pathname === '/verification') {
+          if (!canAccessVerificationUpload(user)) {
+            router.replace('/verification/pending')
           }
           return
         }

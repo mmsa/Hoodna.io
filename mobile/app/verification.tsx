@@ -31,16 +31,9 @@ export default function VerificationScreen() {
       router.replace("/(tabs)/home");
       return;
     }
-    // Already submitted (or rejected with prior docs) → status page
-    if (
-      user.verification_status === "PENDING" ||
-      (user.status === "REJECTED" && user.verification_status === "REJECTED")
-    ) {
-      // Allow REJECTED users who need to re-upload to stay if they navigated here intentionally
-      if (user.verification_status === "PENDING") {
-        router.replace("/verification-pending");
-        return;
-      }
+    if (user.verification_status === "PENDING") {
+      router.replace("/verification-pending");
+      return;
     }
     loadStatus();
   }, [user]);
@@ -55,10 +48,14 @@ export default function VerificationScreen() {
       if (data.contract?.status) {
         setPendingContract(null);
       }
-      // Already under review → status page (rejected users stay to re-upload)
       const pendingReview =
         data.national_id?.status === "PENDING" || data.contract?.status === "PENDING";
-      if (pendingReview && data.user_status !== "REJECTED") {
+      const needsReupload =
+        data.national_id?.status === "REJECTED" ||
+        data.contract?.status === "REJECTED" ||
+        data.national_id?.status === "REQUEST_MORE_DETAILS" ||
+        data.contract?.status === "REQUEST_MORE_DETAILS";
+      if (pendingReview && !needsReupload && data.user_status !== "REJECTED") {
         router.replace("/verification-pending");
         return;
       }

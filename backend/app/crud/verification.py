@@ -1,9 +1,32 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.verification import VerificationDocument
-from app.models.enums import DocumentType, DocumentStatus
-from app.models.user import User
-from app.models.enums import UserStatus
+from app.models.enums import DocumentType, DocumentStatus, UserStatus
+
+
+def compute_verification_status(
+    user: User,
+    national_id: VerificationDocument | None,
+    contract: VerificationDocument | None,
+) -> str:
+    """Client-facing verification status: UNVERIFIED | PENDING | APPROVED | REJECTED."""
+    has_submitted_docs = bool(national_id or contract)
+
+    if user.status == UserStatus.APPROVED:
+        return "APPROVED"
+    if user.status in (UserStatus.REJECTED, UserStatus.BANNED):
+        return "REJECTED"
+
+    for doc in (national_id, contract):
+        if doc and doc.status in (
+            DocumentStatus.REJECTED,
+            DocumentStatus.REQUEST_MORE_DETAILS,
+        ):
+            return "REJECTED"
+
+    if user.status == UserStatus.PENDING_VERIFICATION:
+        return "PENDING" if has_submitted_docs else "UNVERIFIED"
+    return "UNVERIFIED"
 
 
 async def get_user_documents(

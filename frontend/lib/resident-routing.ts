@@ -20,11 +20,27 @@ export function getResidentWebRoute(user: {
     return '/verification/pending'
   }
 
+  if (user.verification_status === 'REJECTED') {
+    return '/verification/pending'
+  }
+
   if (user.verification_status === 'PENDING') {
     return '/verification/pending'
   }
 
   return '/verification'
+}
+
+/** True when the user should be allowed on /verification to upload or re-upload. */
+export function canAccessVerificationUpload(user: {
+  status?: string | null
+  verification_status?: string | null
+}): boolean {
+  if (user.status === 'APPROVED') return false
+  if (user.verification_status === 'REJECTED') return true
+  if (user.status === 'REJECTED' || user.status === 'BANNED') return true
+  if (user.verification_status === 'UNVERIFIED' || !user.verification_status) return true
+  return false
 }
 
 export function isResidentRole(role: string | null | undefined): boolean {

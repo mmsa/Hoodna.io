@@ -17,12 +17,24 @@ export function getResidentRoute(user: User): string {
     return "/verification-pending";
   }
 
+  if (user.verification_status === "REJECTED") {
+    return "/verification-pending";
+  }
+
   // PENDING_VERIFICATION: docs submitted → status page; otherwise upload
   if (user.verification_status === "PENDING") {
     return "/verification-pending";
   }
 
   return "/verification";
+}
+
+export function canAccessVerificationUpload(user: User): boolean {
+  if (user.status === "APPROVED") return false;
+  if (user.verification_status === "REJECTED") return true;
+  if (user.status === "REJECTED" || user.status === "BANNED") return true;
+  if (user.verification_status === "UNVERIFIED" || user.verification_status == null) return true;
+  return false;
 }
 
 export function isResidentRole(role: string | null | undefined): boolean {

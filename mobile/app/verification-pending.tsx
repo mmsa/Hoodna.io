@@ -99,8 +99,7 @@ export default function VerificationPendingScreen() {
     }
     // No docs yet → must upload first
     if (user.verification_status === "UNVERIFIED" || user.verification_status == null) {
-      // Still allow REJECTED through to this page
-      if (user.status !== "REJECTED" && user.status !== "BANNED") {
+      if (user.status !== "REJECTED" && user.status !== "BANNED" && user.verification_status !== "REJECTED") {
         router.replace("/verification");
         return;
       }
@@ -132,9 +131,17 @@ export default function VerificationPendingScreen() {
     );
   }
 
-  const isRejected = user?.status === "REJECTED" || user?.status === "BANNED";
   const nationalId = status?.national_id;
   const contract = status?.contract;
+
+  const isRejected =
+    user?.status === "REJECTED" ||
+    user?.status === "BANNED" ||
+    user?.verification_status === "REJECTED" ||
+    nationalId?.status === "REJECTED" ||
+    contract?.status === "REJECTED" ||
+    nationalId?.status === "REQUEST_MORE_DETAILS" ||
+    contract?.status === "REQUEST_MORE_DETAILS";
 
   function docLabel(docStatus: string | undefined) {
     if (!docStatus) return "Not submitted";

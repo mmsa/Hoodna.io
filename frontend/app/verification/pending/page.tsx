@@ -86,7 +86,14 @@ export default function VerificationPendingPage() {
     )
   }
 
-  const isRejected = user.status === 'REJECTED' || user.status === 'BANNED'
+  const isRejected =
+    user.status === 'REJECTED' ||
+    user.status === 'BANNED' ||
+    user.verification_status === 'REJECTED' ||
+    status?.national_id?.status === 'REJECTED' ||
+    status?.contract?.status === 'REJECTED' ||
+    status?.national_id?.status === 'REQUEST_MORE_DETAILS' ||
+    status?.contract?.status === 'REQUEST_MORE_DETAILS'
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-16">
