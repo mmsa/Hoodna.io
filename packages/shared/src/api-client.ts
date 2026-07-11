@@ -621,6 +621,8 @@ export class ApiClient {
     search?: string;
     role_filter?: string;
     status_filter?: string;
+    compound_id?: number;
+    sort_by?: string;
   }): Promise<{ items: any[]; total: number; skip: number; limit: number }> {
     const searchParams = new URLSearchParams();
     if (params?.skip != null) searchParams.set("skip", String(params.skip));
@@ -628,8 +630,14 @@ export class ApiClient {
     if (params?.search) searchParams.set("search", params.search);
     if (params?.role_filter) searchParams.set("role_filter", params.role_filter);
     if (params?.status_filter) searchParams.set("status_filter", params.status_filter);
+    if (params?.compound_id != null) searchParams.set("compound_id", String(params.compound_id));
+    if (params?.sort_by) searchParams.set("sort_by", params.sort_by);
     const qs = searchParams.toString();
     return this.request(`/api/admin/users${qs ? `?${qs}` : ""}`);
+  }
+
+  async getAdminUserDetail(userId: number): Promise<any> {
+    return this.request(`/api/admin/users/${userId}`);
   }
 
   async adminResetUserPassword(data: { email: string; new_password: string }): Promise<{ message: string }> {

@@ -5,7 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from typing import Optional
 from pydantic import BaseModel
-from app.schemas.admin import DocumentReviewRequest, UserStatusUpdate, AdminResetPasswordRequest, AdminUserListResponse, AdminUserListItem
+from app.schemas.admin import (
+    DocumentReviewRequest,
+    UserStatusUpdate,
+    AdminResetPasswordRequest,
+    AdminUserListResponse,
+    AdminUserListItem,
+    AdminUserDetailResponse,
+    AdminUserActivityStats,
+    AdminCompoundMembershipItem,
+)
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
 from app.schemas.compound import CompoundResponse, CompoundUpdate
@@ -46,16 +55,35 @@ class VerificationListResponse(BaseModel):
 @router.get("/users", response_model=AdminUserListResponse)
 async def list_users(
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    search: Optional[str] = Query(None, description="Search by name, email, or phone"),
+    limit: int = Query(25, ge=1, le=200),
+    search: Optional[str] = Query(None, description="Search by id, name, email, or phone"),
     role_filter: Optional[str] = Query(None, description="Filter by role"),
     status_filter: Optional[str] = Query(None, description="Filter by status"),
+    compound_id: Optional[int] = Query(None, description="Filter by compound ID"),
+    sort_by: Optional[str] = Query(
+        "created_at_desc",
+        description="Sort: created_at_desc, created_at_asc, name_asc, name_desc, email_asc, email_desc",
+    ),
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all users with search and filters."""
+    """List all users with search, filters, sort, and pagination."""
     from app.crud.user import list_users as crud_list_users
     from app.models.compound import Compound
+
+    valid_sorts = [
+        "created_at_desc",
+        "created_at_asc",
+        "name_asc",
+        "name_desc",
+        "email_asc",
+        "email_desc",
+    ]
+    if sort_by not in valid_sorts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sort_by. Valid values: {', '.join(valid_sorts)}",
+        )
 
     role = None
     if role_filter and role_filter.upper() != "ALL":
@@ -84,6 +112,8 @@ async def list_users(
         search=search,
         role=role,
         status=user_status,
+        compound_id=compound_id,
+        sort_by=sort_by,
     )
 
     items: list[AdminUserListItem] = []
@@ -108,6 +138,170 @@ async def list_users(
         )
 
     return AdminUserListResponse(items=items, total=total, skip=skip, limit=limit)
+
+
+@router.get("/users/{user_id}", response_model=AdminUserDetailResponse)
+async def get_user_detail(
+    user_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Full user profile for admin: verification, profiles, memberships, activity."""
+    from app.crud.user import get_user_by_id, get_user_activity_counts
+    from app.crud.verification import get_user_documents, compute_verification_status
+    from app.crud.provider import get_provider_profile
+    from app.crud.moderator import get_moderator_profile
+    from app.models.compound import Compound
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.models.enums import DocumentType, ProviderStatus, ModeratorStatus
+    from app.schemas.verification import VerificationDocumentResponse
+    from app.schemas.provider import ServiceProviderProfileResponse
+    from app.schemas.moderator import CompoundModeratorProfileResponse
+    from sqlalchemy.orm import selectinload
+    from app.models.service_provider import ServiceProviderProfile
+    from app.models.compound_moderator import CompoundModeratorProfile
+
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    compound_name = None
+    compound_area = None
+    if user.compound_id:
+        compound = await db.get(Compound, user.compound_id)
+        if compound:
+            compound_name = compound.name
+            compound_area = compound.area
+
+    national_id = None
+    contract = None
+    verification_docs: list[dict] = []
+    if user.status in (
+        UserStatus.APPROVED,
+        UserStatus.PENDING_VERIFICATION,
+        UserStatus.REJECTED,
+    ):
+        docs = await get_user_documents(db, user.id)
+        national_id = docs.get(DocumentType.NATIONAL_ID)
+        contract = docs.get(DocumentType.CONTRACT)
+        result = await db.execute(
+            select(VerificationDocument).where(VerificationDocument.user_id == user.id)
+        )
+        for doc in result.scalars().all():
+            verification_docs.append(
+                VerificationDocumentResponse.model_validate(doc).model_dump(mode="json")
+            )
+
+    verification_status = compute_verification_status(user, national_id, contract)
+
+    can_post = False
+    if user.status == UserStatus.APPROVED:
+        def _has_compound_name(doc):
+            if not doc or not doc.llm_extracted_info or not isinstance(doc.llm_extracted_info, dict):
+                return False
+            compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
+            address_match = doc.llm_extracted_info.get("address_match", "")
+            return compound_found or address_match == "MATCH"
+
+        if national_id and national_id.status.value == "APPROVED" and _has_compound_name(national_id):
+            can_post = True
+        elif (
+            contract
+            and contract.status.value == "APPROVED"
+            and contract.llm_extracted_info
+            and isinstance(contract.llm_extracted_info, dict)
+        ):
+            name_match = contract.llm_extracted_info.get("name_match", "")
+            if name_match == "MATCH" and _has_compound_name(contract):
+                can_post = True
+        elif (
+            national_id
+            and national_id.status.value == "APPROVED"
+            and contract
+            and contract.status.value == "APPROVED"
+        ):
+            can_post = True
+
+    can_comment = user.status == UserStatus.APPROVED
+    can_create_listing = user.status == UserStatus.APPROVED
+    if user.role == UserRole.SERVICE_PROVIDER:
+        provider_check = await get_provider_profile(db, user.id)
+        if provider_check:
+            can_create_listing = provider_check.provider_status == ProviderStatus.APPROVED
+    elif user.role == UserRole.COMPOUND_MOD:
+        mod_check = await get_moderator_profile(db, user.id)
+        if mod_check:
+            can_create_listing = mod_check.moderator_status == ModeratorStatus.APPROVED
+
+    membership_result = await db.execute(
+        select(UserCompoundMembership).where(UserCompoundMembership.user_id == user.id)
+    )
+    compound_memberships: list[AdminCompoundMembershipItem] = []
+    for membership in membership_result.scalars().all():
+        m_compound = await db.get(Compound, membership.compound_id)
+        compound_memberships.append(
+            AdminCompoundMembershipItem(
+                compound_id=membership.compound_id,
+                compound_name=m_compound.name if m_compound else None,
+                compound_area=m_compound.area if m_compound else None,
+                created_at=membership.created_at,
+            )
+        )
+
+    provider_profile_data = None
+    provider_result = await db.execute(
+        select(ServiceProviderProfile)
+        .where(ServiceProviderProfile.user_id == user.id)
+        .options(
+            selectinload(ServiceProviderProfile.documents),
+            selectinload(ServiceProviderProfile.category),
+        )
+    )
+    provider_profile = provider_result.scalar_one_or_none()
+    if provider_profile:
+        provider_profile.user_name = user.name
+        provider_profile_data = ServiceProviderProfileResponse.model_validate(
+            provider_profile
+        ).model_dump(mode="json")
+
+    moderator_profile_data = None
+    moderator_result = await db.execute(
+        select(CompoundModeratorProfile)
+        .where(CompoundModeratorProfile.user_id == user.id)
+        .options(selectinload(CompoundModeratorProfile.documents))
+    )
+    moderator_profile = moderator_result.scalar_one_or_none()
+    if moderator_profile:
+        mod_compound = await db.get(Compound, moderator_profile.compound_id)
+        moderator_profile.user_name = user.name
+        moderator_profile.compound_name = mod_compound.name if mod_compound else None
+        moderator_profile_data = CompoundModeratorProfileResponse.model_validate(
+            moderator_profile
+        ).model_dump(mode="json")
+
+    activity_counts = await get_user_activity_counts(db, user.id)
+
+    return AdminUserDetailResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        phone=user.phone,
+        role=user.role,
+        status=user.status,
+        compound_id=user.compound_id,
+        compound_name=compound_name,
+        compound_area=compound_area,
+        created_at=user.created_at,
+        verification_status=verification_status,
+        can_post=can_post,
+        can_comment=can_comment,
+        can_create_listing=can_create_listing,
+        verification_documents=verification_docs,
+        compound_memberships=compound_memberships,
+        provider_profile=provider_profile_data,
+        moderator_profile=moderator_profile_data,
+        activity=AdminUserActivityStats(**activity_counts),
+    )
 
 
 @router.get("/verifications", response_model=VerificationListResponse)

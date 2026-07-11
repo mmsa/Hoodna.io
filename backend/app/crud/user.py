@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, and_
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.core.security import get_password_hash
@@ -101,34 +101,83 @@ async def list_users(
     search: str | None = None,
     role: UserRole | None = None,
     status: UserStatus | None = None,
+    compound_id: int | None = None,
+    sort_by: str = "created_at_desc",
 ) -> tuple[list[User], int]:
-    """List users with optional filters and pagination."""
+    """List users with optional filters, search, sort, and pagination."""
     filters = []
     if search:
-        term = f"%{search.strip()}%"
-        filters.append(
-            or_(
-                User.name.ilike(term),
-                User.email.ilike(term),
-                User.phone.ilike(term),
+        term = search.strip()
+        if term.isdigit():
+            filters.append(User.id == int(term))
+        else:
+            like = f"%{term}%"
+            filters.append(
+                or_(
+                    User.name.ilike(like),
+                    User.email.ilike(like),
+                    User.phone.ilike(like),
+                )
             )
-        )
     if role:
         filters.append(User.role == role)
     if status:
         filters.append(User.status == status)
+    if compound_id:
+        filters.append(User.compound_id == compound_id)
 
     base = select(User)
     count_stmt = select(func.count()).select_from(User)
     if filters:
-        from sqlalchemy import and_
         condition = and_(*filters)
         base = base.where(condition)
         count_stmt = count_stmt.where(condition)
 
+    sort_map = {
+        "created_at_desc": User.created_at.desc(),
+        "created_at_asc": User.created_at.asc(),
+        "name_asc": User.name.asc(),
+        "name_desc": User.name.desc(),
+        "email_asc": User.email.asc(),
+        "email_desc": User.email.desc(),
+    }
+    order = sort_map.get(sort_by, User.created_at.desc())
+
     total = (await db.execute(count_stmt)).scalar_one()
-    result = await db.execute(
-        base.order_by(User.created_at.desc()).offset(skip).limit(limit)
-    )
+    result = await db.execute(base.order_by(order).offset(skip).limit(limit))
     return list(result.scalars().all()), total
+
+
+async def get_user_activity_counts(db: AsyncSession, user_id: int) -> dict[str, int]:
+    """Count user-related records across the platform."""
+    from app.models.post import Post, Comment
+    from app.models.listing import Listing
+    from app.models.saved_listing import SavedListing
+    from app.models.saved_post import SavedPost
+    from app.models.message import Message, Conversation
+    from app.models.notification import Notification
+    from app.models.review import Review
+    from app.models.report import Report
+
+    async def count(model, column):
+        stmt = select(func.count()).select_from(model).where(column == user_id)
+        return (await db.execute(stmt)).scalar_one()
+
+    conv_stmt = select(func.count()).select_from(Conversation).where(
+        or_(Conversation.user1_id == user_id, Conversation.user2_id == user_id)
+    )
+    conversations = (await db.execute(conv_stmt)).scalar_one()
+
+    return {
+        "posts": await count(Post, Post.author_id),
+        "comments": await count(Comment, Comment.author_id),
+        "listings": await count(Listing, Listing.owner_id),
+        "saved_listings": await count(SavedListing, SavedListing.user_id),
+        "saved_posts": await count(SavedPost, SavedPost.user_id),
+        "messages_sent": await count(Message, Message.sender_id),
+        "notifications": await count(Notification, Notification.user_id),
+        "reviews": await count(Review, Review.reviewer_id),
+        "reports_filed": await count(Report, Report.reporter_id),
+        "conversations": conversations,
+    }
 
