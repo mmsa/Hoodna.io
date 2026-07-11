@@ -1,5 +1,13 @@
 # Deploy eljiran: Render (API) + Vercel (web) + TestFlight (mobile)
 
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| API (Render) | https://eljiran-api.onrender.com |
+| Web (Vercel) | https://eljiran.vercel.app |
+| API health | https://eljiran-api.onrender.com/health |
+
 ## 1) Render — backend API + Postgres
 
 On the Render "Create a new Service" screen:
@@ -17,11 +25,12 @@ On the Render "Create a new Service" screen:
 
 | Field | Value |
 |--------|--------|
-| Runtime | Python 3 |
+| Runtime | Python 3 / Docker |
 | Root Directory | `backend` |
-| Build Command | `pip install -r requirements.txt` |
+| Build Command | `pip install -r requirements.txt` (Python) or Docker build |
 | Start Command | `chmod +x start.sh && ./start.sh` |
 | Health Check Path | `/health` |
+| Region | Same as Postgres (e.g. Frankfurt) |
 
 Link the Postgres database so Render injects `DATABASE_URL`.
 
@@ -32,9 +41,9 @@ Link the Postgres database so Render injects `DATABASE_URL`.
 | `ENVIRONMENT` | `production` |
 | `SECRET_KEY` | long random string |
 | `DATABASE_URL` | (from Render Postgres — auto if linked) |
-| `BACKEND_URL` | `https://eljiran-api.onrender.com` (your real Render URL) |
-| `FRONTEND_URL` | `https://your-app.vercel.app` |
-| `CORS_ORIGINS` | `https://your-app.vercel.app,http://localhost:3000` |
+| `BACKEND_URL` | `https://eljiran-api.onrender.com` |
+| `FRONTEND_URL` | `https://eljiran.vercel.app` |
+| `CORS_ORIGINS` | `["https://eljiran.vercel.app","http://localhost:3000"]` |
 
 Optional but recommended for uploads/email:
 
@@ -47,9 +56,19 @@ Optional but recommended for uploads/email:
 After deploy, confirm:
 
 ```bash
-curl https://YOUR-RENDER-URL/health
-# → {"status":"healthy"} or similar
+curl https://eljiran-api.onrender.com/health
+# → {"status":"healthy"}
 ```
+
+If signup fails with `invalid input value for enum userrole: "RESIDENT"`, run in the Render Postgres shell:
+
+```sql
+ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'RESIDENT';
+ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'SERVICE_PROVIDER';
+ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'COMPOUND_MOD';
+```
+
+(Migration `016` also applies this on deploy.)
 
 ---
 
@@ -62,9 +81,11 @@ curl https://YOUR-RENDER-URL/health
 
 | Key | Value |
 |-----|--------|
-| `NEXT_PUBLIC_API_URL` | `https://YOUR-RENDER-URL` |
+| `NEXT_PUBLIC_API_URL` | `https://eljiran-api.onrender.com` |
 
 5. Deploy
+
+**Note:** Vercel requires commit author emails to match a GitHub account email. Use your GitHub email when committing.
 
 Update Render `FRONTEND_URL` + `CORS_ORIGINS` to the Vercel URL, then redeploy the API.
 
@@ -72,34 +93,33 @@ Update Render `FRONTEND_URL` + `CORS_ORIGINS` to the Vercel URL, then redeploy t
 
 ## 3) Mobile / TestFlight — point at Render
 
-In `mobile/eas.json`, set production/preview:
+Production/preview builds use:
 
 ```json
-"EXPO_PUBLIC_API_URL": "https://YOUR-RENDER-URL"
+"EXPO_PUBLIC_API_URL": "https://eljiran-api.onrender.com"
 ```
 
-Also update `mobile/app.json` → `extra.apiUrl` to the same URL.
-
-Then rebuild:
+Rebuild:
 
 ```bash
 cd mobile
 eas build --platform ios --profile production --auto-submit
 ```
 
-Local Expo Go can keep using `mobile/.env`:
+Local Expo Go can use `mobile/.env`:
 
 ```env
-EXPO_PUBLIC_API_URL=https://YOUR-RENDER-URL
+EXPO_PUBLIC_API_URL=https://eljiran-api.onrender.com
 ```
 
 ---
 
 ## Quick checklist
 
-- [ ] Render Postgres created
-- [ ] Render Web Service healthy at `/health`
-- [ ] Vercel frontend loads and can hit the API
-- [ ] CORS includes the Vercel origin
-- [ ] Mobile EAS `EXPO_PUBLIC_API_URL` = Render URL
+- [x] Render Postgres created
+- [x] Render Web Service healthy at `/health`
+- [x] Vercel frontend at https://eljiran.vercel.app
+- [ ] CORS includes the Vercel origin on Render
+- [ ] Signup works (userrole enum includes RESIDENT)
+- [ ] Mobile EAS build pointed at Render URL
 - [ ] S3 configured if uploads are needed on device
