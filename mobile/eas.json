@@ -14,17 +14,23 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.eljiran.com"
+        "EXPO_PUBLIC_API_URL": "https://api.eljiran.com",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.eljiran.com"
+        "EXPO_PUBLIC_API_URL": "https://api.eljiran.com",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6789875474"
+      }
+    }
   }
 }
