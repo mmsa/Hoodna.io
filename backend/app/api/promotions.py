@@ -63,8 +63,8 @@ async def create_promotion_checkout(
     )
     
     # Create Stripe checkout session
-    success_url = f"{settings.CORS_ORIGINS[0]}/promote/success?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{settings.CORS_ORIGINS[0]}/promote/{checkout_data.listing_id}"
+    success_url = f"{settings.cors_origin_list[0]}/promote/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{settings.cors_origin_list[0]}/promote/{checkout_data.listing_id}"
     
     session = create_checkout_session(
         listing_id=checkout_data.listing_id,

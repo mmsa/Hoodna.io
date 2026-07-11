@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import List, Any
+import json
 
 
 def normalize_database_url(url: str) -> str:
@@ -10,6 +11,23 @@ def normalize_database_url(url: str) -> str:
     if url.startswith("postgresql://") and "+asyncpg" not in url:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url
+
+
+def parse_cors_origins(value: Any) -> List[str]:
+    """Accept JSON list, comma-separated string, or already-parsed list."""
+    if value is None:
+        return ["http://localhost:3000"]
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return ["http://localhost:3000"]
+        if raw.startswith("["):
+            parsed = json.loads(raw)
+            return [str(item).strip() for item in parsed if str(item).strip()]
+        return [part.strip() for part in raw.split(",") if part.strip()]
+    return ["http://localhost:3000"]
 
 
 class Settings(BaseSettings):
@@ -24,8 +42,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+    # CORS — store as string so Render env values don't need JSON encoding.
+    # Use get_cors_origins() / cors_origin_list for the parsed list.
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
     
     # AWS S3
     AWS_ACCESS_KEY_ID: str = ""
@@ -59,16 +78,9 @@ class Settings(BaseSettings):
             return normalize_database_url(v)
         return v
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def split_cors_origins(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            # Accept comma-separated origins or JSON-like strings
-            if v.strip().startswith("["):
-                # Let pydantic parse JSON array strings
-                return v
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v
+    @property
+    def cors_origin_list(self) -> List[str]:
+        return parse_cors_origins(self.CORS_ORIGINS)
     
     class Config:
         env_file = [".env", "../.env"]  # Look in current dir and parent dir

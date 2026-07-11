@@ -55,7 +55,7 @@ app = FastAPI(
 # CORS middleware - must be added before other middleware
 # Handle all origins in development, or specific origins in production
 # Ensure localhost:3001 is included for Next.js dev server fallback
-cors_origins = settings.CORS_ORIGINS if settings.CORS_ORIGINS else ["*"]
+cors_origins = settings.cors_origin_list if settings.cors_origin_list else ["*"]
 # Add localhost:3001 if not already present (for Next.js port fallback)
 if cors_origins != ["*"] and "http://localhost:3001" not in cors_origins:
     cors_origins.append("http://localhost:3001")
