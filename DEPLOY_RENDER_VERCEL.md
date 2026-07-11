@@ -51,7 +51,12 @@ Optional but recommended for uploads/email:
 - `OPENAI_API_KEY`
 - Stripe keys if you use promotions
 
-> Render disks are ephemeral. Use S3 for verification/listing images in production.
+> Render disks are ephemeral. Without S3, uploaded verification files are lost on
+> every redeploy/restart. Configure AWS S3 env vars for production uploads.
+
+**Known local-storage bug (fixed):** month folders must be zero-padded (`2026/07`),
+matching both disk path and `/api/uploads/...` URL. Re-upload docs after deploying
+this fix if older file links 404.
 
 After deploy, confirm:
 
