@@ -21,6 +21,23 @@ export function resolveUploadContentType(file: File): string {
   return fromBrowser || 'application/octet-stream'
 }
 
+function isApiUploadUrl(presignedUrl: string): boolean {
+  return (
+    presignedUrl.includes('/api/uploads/upload') ||
+    presignedUrl.includes('/api/uploads/s3')
+  )
+}
+
+/** Path + query for axios (uses auth interceptors + token refresh). */
+function apiUploadPath(presignedUrl: string): string {
+  try {
+    const url = new URL(presignedUrl)
+    return `${url.pathname}${url.search}`
+  } catch {
+    return presignedUrl
+  }
+}
+
 function authHeaders(): HeadersInit {
   const token = Cookies.get('access_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -36,13 +53,8 @@ export async function uploadToPresignedUrl(
   contentType?: string
 ): Promise<void> {
   const mimeType = contentType || resolveUploadContentType(file)
-  const useApiUpload =
-    presignedUrl.includes('/api/uploads/upload') ||
-    presignedUrl.includes('/api/uploads/s3')
 
-  let uploadResponse: Response
-
-  if (useApiUpload) {
+  if (isApiUploadUrl(presignedUrl)) {
     const formData = new FormData()
     formData.append('file', file)
     const urlParams = new URL(presignedUrl).searchParams
@@ -50,25 +62,27 @@ export async function uploadToPresignedUrl(
     if (filePath) {
       formData.append('file_path', filePath)
     }
-    uploadResponse = await fetch(presignedUrl, {
-      method: 'POST',
-      body: formData,
-      headers: authHeaders(),
+    // axios adds Bearer token + retries on 401
+    await api.post(apiUploadPath(presignedUrl), formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
-  } else {
-    try {
-      uploadResponse = await fetch(presignedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': mimeType,
-        },
-      })
-    } catch {
-      throw new Error(
-        'Could not reach storage. Try again or contact support if this persists.'
-      )
-    }
+    return
+  }
+
+  let uploadResponse: Response
+  try {
+    uploadResponse = await fetch(presignedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': mimeType,
+        ...authHeaders(),
+      },
+    })
+  } catch {
+    throw new Error(
+      'Could not reach storage. Try again or contact support if this persists.'
+    )
   }
 
   if (!uploadResponse.ok) {

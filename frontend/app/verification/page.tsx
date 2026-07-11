@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,24 @@ export default function VerificationPage() {
   const [pendingNationalId, setPendingNationalId] = useState<string | null>(null);
   const [pendingContract, setPendingContract] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearProgressInterval = () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+  };
+
+  const startProgressInterval = () => {
+    clearProgressInterval();
+    setUploadProgress(0);
+    progressIntervalRef.current = setInterval(() => {
+      setUploadProgress((prev) => (prev >= 90 ? prev : prev + 10));
+    }, 200);
+  };
+
+  useEffect(() => () => clearProgressInterval(), []);
 
   // Check if compound is selected first - redirect if not
   // BUT: Service providers and moderators don't need compound_id and shouldn't be on this page
@@ -149,6 +167,7 @@ export default function VerificationPage() {
     file: File
   ) => {
     setUploading(type);
+    startProgressInterval();
 
     try {
       // Get presigned URL
@@ -173,6 +192,7 @@ export default function VerificationPage() {
       }
 
       // Store the file URL then submit immediately (one-step verification)
+      clearProgressInterval();
       setUploadProgress(100);
       if (type === "national_id") {
         setPendingNationalId(file_url);
@@ -217,6 +237,7 @@ export default function VerificationPage() {
         variant: "destructive",
       });
     } finally {
+      clearProgressInterval();
       setUploading(null);
       setUploadProgress(0);
     }
@@ -492,18 +513,7 @@ export default function VerificationPage() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setUploadProgress(0);
                     uploadDocument("national_id", file);
-                    // Simulate progress
-                    const interval = setInterval(() => {
-                      setUploadProgress((prev) => {
-                        if (prev >= 70) {
-                          clearInterval(interval);
-                          return prev;
-                        }
-                        return prev + 10;
-                      });
-                    }, 200);
                   }
                 }}
                 disabled={uploading === "national_id"}
@@ -623,18 +633,7 @@ export default function VerificationPage() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setUploadProgress(0);
                     uploadDocument("contract", file);
-                    // Simulate progress
-                    const interval = setInterval(() => {
-                      setUploadProgress((prev) => {
-                        if (prev >= 70) {
-                          clearInterval(interval);
-                          return prev;
-                        }
-                        return prev + 10;
-                      });
-                    }, 200);
                   }
                 }}
                 disabled={uploading === "contract"}

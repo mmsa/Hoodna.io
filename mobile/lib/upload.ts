@@ -37,6 +37,7 @@ export async function uploadToPresignedUrl(
       body: blob,
       headers: {
         "Content-Type": contentType || "application/octet-stream",
+        ...headers,
       },
     });
   }

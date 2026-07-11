@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, Depends, Query, Request
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -189,14 +189,14 @@ if use_local_storage():
         return {"file_url": file_url, "message": "File uploaded successfully"}
 
 
-@app.post("/api/uploads/s3")
-async def upload_file_to_s3(
-    file: UploadFile = File(...),
-    object_key: str = Query(..., description="S3 object key from presign"),
-    content_type: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
-):
-    """Upload via API → S3 (avoids browser CORS to S3)."""
+async def _handle_s3_upload(
+    *,
+    content: bytes,
+    object_key: str,
+    content_type: Optional[str],
+    user_id: int,
+) -> dict:
+    """Shared S3 upload logic for POST (multipart) and PUT (raw body)."""
     from app.services.s3 import upload_object_bytes
     from app.services.storage import require_s3_configured
 
@@ -209,14 +209,13 @@ async def upload_file_to_s3(
         "image/webp",
         "application/pdf",
     }
-    mime = (content_type or file.content_type or "").lower()
+    mime = (content_type or "").lower()
     if mime and mime not in [t.lower() for t in ALLOWED_TYPES]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_TYPES)}",
         )
 
-    content = await file.read()
     MAX_SIZE = 15 * 1024 * 1024
     if len(content) > MAX_SIZE:
         raise HTTPException(
@@ -225,11 +224,13 @@ async def upload_file_to_s3(
         )
 
     try:
-        file_url = upload_object_bytes(object_key, content, mime or "application/octet-stream")
+        file_url = upload_object_bytes(
+            object_key, content, mime or "application/octet-stream"
+        )
     except ValueError as e:
         logger.warning(
             "S3 upload rejected (validation): user_id=%s object_key=%s detail=%s",
-            current_user.id,
+            user_id,
             object_key,
             e,
         )
@@ -237,7 +238,7 @@ async def upload_file_to_s3(
     except Exception as e:
         logger.error(
             "S3 upload failed: user_id=%s object_key=%s content_type=%s size_bytes=%s error=%s",
-            current_user.id,
+            user_id,
             object_key,
             mime,
             len(content),
@@ -251,12 +252,47 @@ async def upload_file_to_s3(
 
     logger.info(
         "S3 upload succeeded: user_id=%s object_key=%s file_url=%s",
-        current_user.id,
+        user_id,
         object_key,
         file_url,
     )
-
     return {"file_url": file_url, "message": "File uploaded successfully"}
+
+
+@app.post("/api/uploads/s3")
+async def upload_file_to_s3_post(
+    file: UploadFile = File(...),
+    object_key: str = Query(..., description="S3 object key from presign"),
+    content_type: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload via API → S3 (multipart POST)."""
+    content = await file.read()
+    mime = content_type or file.content_type
+    return await _handle_s3_upload(
+        content=content,
+        object_key=object_key,
+        content_type=mime,
+        user_id=current_user.id,
+    )
+
+
+@app.put("/api/uploads/s3")
+async def upload_file_to_s3_put(
+    request: Request,
+    object_key: str = Query(..., description="S3 object key from presign"),
+    content_type: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload via API → S3 (raw PUT body — legacy clients)."""
+    content = await request.body()
+    mime = content_type or request.headers.get("content-type")
+    return await _handle_s3_upload(
+        content=content,
+        object_key=object_key,
+        content_type=mime,
+        user_id=current_user.id,
+    )
 
 
 # General presign endpoint for uploads (used by mobile)
