@@ -11,8 +11,9 @@
     "ios": "expo start --ios --lan",
     "web": "expo start --web",
     "prebuild": "expo prebuild",
-    "build:android": "expo build:android",
-    "build:ios": "expo build:ios"
+    "build:ios": "eas build --platform ios --profile production",
+    "build:ios:preview": "eas build --platform ios --profile preview",
+    "submit:ios": "eas submit --platform ios --profile production --latest"
   },
   "dependencies": {
     "@hoodna/shared": "file:../packages/shared",

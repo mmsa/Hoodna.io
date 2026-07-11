@@ -5,9 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "icon": "./assets/icon_light.jpg",
+    "icon": "./assets/icon.png",
     "splash": {
-      "image": "./assets/logo_light.jpg",
+      "image": "./assets/splash.png",
       "backgroundColor": "#EFF6FF",
       "resizeMode": "contain"
     },
@@ -16,20 +16,33 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.eljiran.mobile"
+      "bundleIdentifier": "com.eljiran.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "eljiran needs photo access so you can upload verification documents and listing images.",
+        "NSCameraUsageDescription": "eljiran needs camera access so you can take photos for verification and listings.",
+        "NSDocumentPickerUsageDescription": "eljiran needs document access so you can upload verification files."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#2D6A4F"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#EFF6FF"
       },
       "package": "com.eljiran.mobile"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-secure-store"
     ],
     "scheme": "eljiran",
     "extra": {
-      "apiUrl": "http://192.168.68.61:8000"
-    }
+      "apiUrl": "https://api.eljiran.com",
+      "eas": {
+        "projectId": "63b7e09f-03e0-46e9-a783-9a659a5d5c83"
+      },
+      "router": {}
+    },
+    "owner": "mmsa"
   }
 }
