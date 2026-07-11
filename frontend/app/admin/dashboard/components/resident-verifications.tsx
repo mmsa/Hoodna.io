@@ -46,6 +46,11 @@ export default function ResidentVerifications() {
   const [selectedDoc, setSelectedDoc] = useState<VerificationDocument | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [rejectionNotes, setRejectionNotes] = useState('')
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
+  const [overrideStatus, setOverrideStatus] = useState<string>('APPROVED')
+  const [overrideNotes, setOverrideNotes] = useState('')
+  const [requestMoreDialogOpen, setRequestMoreDialogOpen] = useState(false)
+  const [requestMoreNotes, setRequestMoreNotes] = useState('')
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ type: string; file_url: string } | null>(null)
   const [aiResultDialogOpen, setAiResultDialogOpen] = useState(false)
@@ -67,14 +72,17 @@ export default function ResidentVerifications() {
   })
 
   const approveMutation = useMutation({
-    mutationFn: async (docId: number) => {
-      const response = await api.post(`/api/admin/verifications/${docId}/approve`, {})
+    mutationFn: async ({ docId, notes }: { docId: number; notes?: string }) => {
+      const response = await api.post(`/api/admin/verifications/${docId}/approve`, { notes })
       return response.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-resident-verifications'] })
       toast.success('Document approved')
       refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to approve document')
     },
   })
 
@@ -90,6 +98,45 @@ export default function ResidentVerifications() {
       setSelectedDoc(null)
       toast.success('Document rejected')
       refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to reject document')
+    },
+  })
+
+  const requestMoreMutation = useMutation({
+    mutationFn: async ({ docId, notes }: { docId: number; notes?: string }) => {
+      const response = await api.post(`/api/admin/verifications/${docId}/request-more-details`, { notes })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-resident-verifications'] })
+      setRequestMoreDialogOpen(false)
+      setRequestMoreNotes('')
+      setSelectedDoc(null)
+      toast.success('Requested more details from user')
+      refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to update document')
+    },
+  })
+
+  const statusOverrideMutation = useMutation({
+    mutationFn: async ({ docId, status, notes }: { docId: number; status: string; notes?: string }) => {
+      const response = await api.patch(`/api/admin/verifications/${docId}/status`, { status, notes })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-resident-verifications'] })
+      setOverrideDialogOpen(false)
+      setOverrideNotes('')
+      setSelectedDoc(null)
+      toast.success('Document status updated')
+      refetch()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to update status')
     },
   })
 
@@ -112,7 +159,43 @@ export default function ResidentVerifications() {
 
   const handleReject = (doc: VerificationDocument) => {
     setSelectedDoc(doc)
+    setRejectionNotes('')
     setRejectDialogOpen(true)
+  }
+
+  const handleRequestMore = (doc: VerificationDocument) => {
+    setSelectedDoc(doc)
+    setRequestMoreNotes('')
+    setRequestMoreDialogOpen(true)
+  }
+
+  const handleApprove = (doc: VerificationDocument) => {
+    const notes =
+      doc.status !== 'PENDING' && doc.status !== 'APPROVED'
+        ? `[Admin override from ${doc.status}]`
+        : undefined
+    approveMutation.mutate({ docId: doc.id, notes })
+  }
+
+  const openOverrideDialog = (doc: VerificationDocument) => {
+    setSelectedDoc(doc)
+    setOverrideStatus(doc.status === 'APPROVED' ? 'PENDING' : 'APPROVED')
+    setOverrideNotes('')
+    setOverrideDialogOpen(true)
+  }
+
+  const confirmOverride = () => {
+    if (!selectedDoc) return
+    const notes =
+      overrideNotes.trim() ||
+      (selectedDoc.status !== overrideStatus
+        ? `[Admin override: ${selectedDoc.status} → ${overrideStatus}]`
+        : undefined)
+    statusOverrideMutation.mutate({
+      docId: selectedDoc.id,
+      status: overrideStatus,
+      notes,
+    })
   }
 
   const handlePreview = (doc: VerificationDocument) => {
@@ -126,7 +209,20 @@ export default function ResidentVerifications() {
 
   const confirmReject = () => {
     if (!selectedDoc) return
-    rejectMutation.mutate({ docId: selectedDoc.id, notes: rejectionNotes })
+    const notes =
+      rejectionNotes.trim() ||
+      (selectedDoc.status !== 'REJECTED'
+        ? `[Admin override from ${selectedDoc.status}]`
+        : undefined)
+    rejectMutation.mutate({ docId: selectedDoc.id, notes })
+  }
+
+  const confirmRequestMore = () => {
+    if (!selectedDoc) return
+    requestMoreMutation.mutate({
+      docId: selectedDoc.id,
+      notes: requestMoreNotes.trim() || undefined,
+    })
   }
 
   return (
@@ -271,16 +367,30 @@ export default function ResidentVerifications() {
                   </div>
                 )}
 
-                {doc.status === 'PENDING' && (
-                  <div className="flex gap-2 pt-4 border-t">
+                {doc.status !== 'PENDING' && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-900">
+                    AI or system set this to <strong>{doc.status.replace(/_/g, ' ')}</strong>.
+                    Use the actions below to override.
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-4 border-t">
+                  <span className="w-full text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    Admin actions
+                  </span>
+                  {doc.status !== 'APPROVED' && (
                     <Button
                       size="sm"
-                      onClick={() => approveMutation.mutate(doc.id)}
+                      onClick={() => handleApprove(doc)}
                       disabled={approveMutation.isPending}
+                      className="text-green-700 border-green-200 hover:bg-green-50"
+                      variant="outline"
                     >
                       <CheckCircle className="w-4 h-4 mr-1" />
-                      Approve
+                      {doc.status === 'REJECTED' ? 'Override & Approve' : 'Approve'}
                     </Button>
+                  )}
+                  {doc.status !== 'REJECTED' && (
                     <Button
                       size="sm"
                       variant="destructive"
@@ -289,8 +399,25 @@ export default function ResidentVerifications() {
                       <XCircle className="w-4 h-4 mr-1" />
                       Reject
                     </Button>
-                  </div>
-                )}
+                  )}
+                  {doc.status !== 'REQUEST_MORE_DETAILS' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRequestMore(doc)}
+                    >
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      Request more details
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openOverrideDialog(doc)}
+                  >
+                    Change status…
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -386,9 +513,13 @@ export default function ResidentVerifications() {
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Document</DialogTitle>
+            <DialogTitle>
+              {selectedDoc && selectedDoc.status !== 'PENDING' ? 'Override & Reject' : 'Reject Document'}
+            </DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejection. This will be shown to the user.
+              {selectedDoc && selectedDoc.status !== 'PENDING'
+                ? `Override current status (${selectedDoc.status}) and reject this document.`
+                : 'Please provide a reason for rejection. This will be shown to the user.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -413,6 +544,89 @@ export default function ResidentVerifications() {
               disabled={rejectMutation.isPending}
             >
               {rejectMutation.isPending ? 'Rejecting...' : 'Reject Document'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request More Details Dialog */}
+      <Dialog open={requestMoreDialogOpen} onOpenChange={setRequestMoreDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request more details</DialogTitle>
+            <DialogDescription>
+              Ask the user to upload a clearer or different document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="requestMoreNotes">Message to user (optional)</Label>
+              <Textarea
+                id="requestMoreNotes"
+                value={requestMoreNotes}
+                onChange={(e) => setRequestMoreNotes(e.target.value)}
+                placeholder="e.g., Please upload a clearer photo of your contract…"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestMoreDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmRequestMore} disabled={requestMoreMutation.isPending}>
+              {requestMoreMutation.isPending ? 'Saving…' : 'Send request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status Override Dialog */}
+      <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Override document status</DialogTitle>
+            <DialogDescription>
+              {selectedDoc
+                ? `Change status for ${formatDocumentType(selectedDoc.type)} (currently ${selectedDoc.status}).`
+                : 'Set a new status for this document.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="overrideStatus">New status</Label>
+              <Select value={overrideStatus} onValueChange={setOverrideStatus}>
+                <SelectTrigger id="overrideStatus">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="REQUEST_MORE_DETAILS">Request more details</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="overrideNotes">Admin note (optional)</Label>
+              <Textarea
+                id="overrideNotes"
+                value={overrideNotes}
+                onChange={(e) => setOverrideNotes(e.target.value)}
+                placeholder="Reason for override…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmOverride}
+              disabled={statusOverrideMutation.isPending || selectedDoc?.status === overrideStatus}
+            >
+              {statusOverrideMutation.isPending ? 'Saving…' : 'Update status'}
             </Button>
           </DialogFooter>
         </DialogContent>

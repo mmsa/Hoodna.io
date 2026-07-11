@@ -111,17 +111,46 @@ def has_compound_name_in_document(doc: VerificationDocument) -> bool:
     return address_match == "MATCH"
 
 
+async def _promote_user_if_any_doc_approved(db: AsyncSession, user_id: int) -> None:
+    """When admin approves a document, approve the user if any doc is approved."""
+    docs = await get_user_documents(db, user_id)
+    national_id = docs[DocumentType.NATIONAL_ID]
+    contract = docs[DocumentType.CONTRACT]
+
+    user = await db.get(User, user_id)
+    if not user or user.status == UserStatus.APPROVED:
+        return
+
+    has_approved = (
+        national_id and national_id.status == DocumentStatus.APPROVED
+    ) or (contract and contract.status == DocumentStatus.APPROVED)
+    if not has_approved:
+        return
+
+    user.status = UserStatus.APPROVED
+    await db.flush()
+    try:
+        from app.services.notifications import notify_verification_approved
+        await notify_verification_approved(db, user.id)
+    except Exception:
+        pass
+
+
 async def approve_document(
     db: AsyncSession, doc_id: int, reviewer_id: int, notes: str | None = None
 ) -> VerificationDocument:
-    """Approve a verification document."""
+    """Approve a verification document (works from any prior status — admin override)."""
     doc = await db.get(VerificationDocument, doc_id)
     if not doc:
         raise ValueError("Document not found")
 
+    previous_status = doc.status
     doc.status = DocumentStatus.APPROVED
     doc.reviewer_id = reviewer_id
-    doc.notes = notes
+    if notes is not None:
+        doc.notes = notes
+    elif previous_status not in (DocumentStatus.APPROVED, DocumentStatus.PENDING):
+        doc.notes = f"[Admin override: {previous_status.value} → APPROVED]"
 
     await db.flush()
 
@@ -130,61 +159,7 @@ async def approve_document(
         from app.crud.user_compound_membership import ensure_user_compound_membership
         await ensure_user_compound_membership(db, user.id, user.compound_id)
 
-    # Check if user can be approved based on new rules:
-    # 1. National ID approved + has compound name → approve user
-    # 2. Contract approved (name match + compound match) → approve user  
-    # 3. Both documents approved → approve user
-    docs = await get_user_documents(db, doc.user_id)
-    national_id = docs[DocumentType.NATIONAL_ID]
-    contract = docs[DocumentType.CONTRACT]
-    
-    if not user or user.status != UserStatus.PENDING_VERIFICATION:
-        await db.refresh(doc)
-        return doc
-    
-    # Rule 1: National ID approved + has compound name → sufficient alone
-    if (
-        national_id
-        and national_id.status == DocumentStatus.APPROVED
-        and has_compound_name_in_document(national_id)
-    ):
-        user.status = UserStatus.APPROVED
-        await db.flush()
-        # Send notification
-        from app.services.notifications import notify_verification_approved
-        await notify_verification_approved(db, user.id)
-        await db.refresh(doc)
-        return doc
-    
-    # Rule 2: Contract approved + name match + compound match → sufficient alone
-    if (
-        contract
-        and contract.status == DocumentStatus.APPROVED
-        and contract.llm_extracted_info
-        and isinstance(contract.llm_extracted_info, dict)
-    ):
-        name_match = contract.llm_extracted_info.get("name_match", "")
-        if name_match == "MATCH" and has_compound_name_in_document(contract):
-            user.status = UserStatus.APPROVED
-            await db.flush()
-            # Send notification
-            from app.services.notifications import notify_verification_approved
-            await notify_verification_approved(db, user.id)
-            await db.refresh(doc)
-            return doc
-    
-    # Rule 3: Both documents approved → approve user
-    if (
-        national_id
-        and national_id.status == DocumentStatus.APPROVED
-        and contract
-        and contract.status == DocumentStatus.APPROVED
-    ):
-        user.status = UserStatus.APPROVED
-        await db.flush()
-        # Send notification
-        from app.services.notifications import notify_verification_approved
-        await notify_verification_approved(db, user.id)
+    await _promote_user_if_any_doc_approved(db, doc.user_id)
 
     await db.refresh(doc)
     return doc
@@ -253,38 +228,12 @@ async def update_document_status(
 
     await db.flush()
 
-    # Check if user can be approved based on new rules:
-    # 1. National ID approved + has compound name → approve user
-    # 2. Contract approved (name match + compound match) → approve user  
-    # 3. Both documents approved → approve user
     if new_status == DocumentStatus.APPROVED:
-        docs = await get_user_documents(db, doc.user_id)
-        national_id = docs[DocumentType.NATIONAL_ID]
-        contract = docs[DocumentType.CONTRACT]
-        
         user = await db.get(User, doc.user_id)
-        # Only update user status if they're not already approved
-        if user and user.status != UserStatus.APPROVED:
-            user_was_approved = False
-            
-            # If ANY document is approved, approve the user
-            if (
-                national_id and national_id.status == DocumentStatus.APPROVED
-            ) or (
-                contract and contract.status == DocumentStatus.APPROVED
-            ):
-                user.status = UserStatus.APPROVED
-                user_was_approved = True
-            
-            if user_was_approved:
-                await db.flush()
-                # Send notification
-                try:
-                    from app.services.notifications import notify_verification_approved
-                    await notify_verification_approved(db, user.id)
-                except Exception:
-                    # Don't fail if notification fails
-                    pass
+        if user and user.compound_id:
+            from app.crud.user_compound_membership import ensure_user_compound_membership
+            await ensure_user_compound_membership(db, user.id, user.compound_id)
+        await _promote_user_if_any_doc_approved(db, doc.user_id)
 
     await db.refresh(doc)
     return doc
