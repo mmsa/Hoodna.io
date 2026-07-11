@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 import asyncio
 from app.db.base import Base
-from app.core.config import settings
+from app.core.config import settings, normalize_database_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -40,11 +40,11 @@ def get_url():
         env_url = os.getenv("DATABASE_URL")
 
     if env_url:
-        return env_url
+        return normalize_database_url(env_url)
 
     ini_url = config.get_main_option("sqlalchemy.url")
     if ini_url:
-        return ini_url
+        return normalize_database_url(ini_url)
 
     return settings.DATABASE_URL
 
