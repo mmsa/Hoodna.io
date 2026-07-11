@@ -211,7 +211,6 @@ export default function VerificationPage() {
         setPendingContract(file_url);
       }
 
-      const documentType = type === "national_id" ? "NATIONAL_ID" : "CONTRACT";
       setSubmitting(true);
       try {
         await api.post("/api/verification/submit", {
