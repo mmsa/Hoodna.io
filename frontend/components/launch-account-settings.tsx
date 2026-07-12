@@ -98,6 +98,12 @@ function InviteNeighbours() {
   )
 }
 
+type NotificationPreferenceKey =
+  | "push_notifications"
+  | "weekly_digest"
+  | "community_announcements"
+  | "business_recommendations"
+
 function NotificationPreferences({ digestEnabled }: { digestEnabled: boolean }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -112,7 +118,7 @@ function NotificationPreferences({ digestEnabled }: { digestEnabled: boolean }) 
       toast({ title: "Preferences saved" })
     },
   })
-  const options: Array<[Exclude<keyof UserPreferences, "updated_at">, string, string, boolean]> = [
+  const options: Array<[NotificationPreferenceKey, string, string, boolean]> = [
     ["push_notifications", "Push notifications", "Receive timely activity updates.", true],
     ["weekly_digest", "Weekly digest", "Get a weekly summary of neighbourhood activity.", digestEnabled],
     ["community_announcements", "Community announcements", "Hear about important local updates.", true],
