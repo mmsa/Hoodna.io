@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { BusinessDirectoryResponse } from "@hoodna/shared"
+import type { BusinessDirectoryResponse, BusinessSummary } from "@hoodna/shared"
 import { useQuery } from "@tanstack/react-query"
 import { Building2, Loader2, Search } from "lucide-react"
 import Link from "next/link"
@@ -37,6 +37,8 @@ export default function BusinessesPage() {
     },
   })
 
+  const businessItems: BusinessSummary[] = businesses.data?.items ?? []
+
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -67,9 +69,9 @@ export default function BusinessesPage() {
               <Button className="mt-4" variant="outline" onClick={() => businesses.refetch()}>Try again</Button>
             </CardContent>
           </Card>
-        ) : businesses.data?.items.length ? (
+        ) : businessItems.length ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {businesses.data.items.map((business, position) => (
+            {businessItems.map((business, position) => (
               <Link
                 href={`/businesses/${encodeURIComponent(business.slug)}`}
                 key={business.id}
