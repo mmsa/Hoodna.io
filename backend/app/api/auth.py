@@ -381,8 +381,9 @@ async def update_current_user(
     """Update current user information."""
     if user_update.compound_id is not None:
         from app.crud.compound import get_compound_by_id
-        from app.crud.user_compound_membership import ensure_user_compound_membership
-        from app.models.enums import UserStatus
+        from app.crud.user_compound_membership import (
+            ensure_pending_compound_membership,
+        )
 
         compound = await get_compound_by_id(db, user_update.compound_id)
         if not compound:
@@ -393,15 +394,11 @@ async def update_current_user(
 
         new_compound_id = user_update.compound_id
 
-        if (
-            current_user.compound_id
-            and current_user.compound_id != new_compound_id
-            and current_user.status == UserStatus.APPROVED
-        ):
-            await ensure_user_compound_membership(
-                db, current_user.id, current_user.compound_id
-            )
-
+        # Selecting a compound records a request only. It must never grant
+        # verified access until a document is approved or an admin grants it.
+        await ensure_pending_compound_membership(
+            db, current_user.id, new_compound_id
+        )
         current_user.compound_id = new_compound_id
     
     if user_update.role is not None:
@@ -491,6 +488,9 @@ async def request_compound_access(
     from app.models.notification import Notification
     from app.models.enums import NotificationType
     from app.crud.user import get_compound_moderators_and_admins
+    from app.crud.user_compound_membership import (
+        ensure_pending_compound_membership,
+    )
     
     compound_id = request.get("compound_id")
     if compound_id is None:
@@ -506,6 +506,10 @@ async def request_compound_access(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Compound not found"
         )
+
+    await ensure_pending_compound_membership(
+        db, current_user.id, compound_id
+    )
     
     # Get moderators and admins for this compound
     moderators_and_admins = await get_compound_moderators_and_admins(db, compound_id)

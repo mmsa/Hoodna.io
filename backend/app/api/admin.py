@@ -245,6 +245,8 @@ async def get_user_detail(
                 compound_id=membership.compound_id,
                 compound_name=m_compound.name if m_compound else None,
                 compound_area=m_compound.area if m_compound else None,
+                is_verified=membership.verification_status == "VERIFIED",
+                verification_status=membership.verification_status,
                 created_at=membership.created_at,
             )
         )

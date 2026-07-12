@@ -223,6 +223,22 @@ async def get_current_approved_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User must be approved to perform this action",
         )
+
+    if current_user.role in (UserRole.RESIDENT, UserRole.USER, None):
+        if current_user.compound_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User must select a compound first",
+            )
+        from app.crud.user_compound_membership import user_has_compound_membership
+
+        if not await user_has_compound_membership(
+            db, current_user, current_user.compound_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Complete verification for this neighbourhood before performing this action.",
+            )
     return current_user
 
 

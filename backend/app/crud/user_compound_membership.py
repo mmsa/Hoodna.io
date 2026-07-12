@@ -9,9 +9,42 @@ from app.models.verification import VerificationDocument
 
 
 async def ensure_user_compound_membership(
+    db: AsyncSession,
+    user_id: int,
+    compound_id: int,
+    *,
+    source: str = "DOCUMENT",
+) -> None:
+    """Create or promote a compound membership to VERIFIED."""
+    if not compound_id:
+        return
+    existing = await db.execute(
+        select(UserCompoundMembership).where(
+            UserCompoundMembership.user_id == user_id,
+            UserCompoundMembership.compound_id == compound_id,
+        )
+    )
+    membership = existing.scalar_one_or_none()
+    if membership:
+        membership.verification_status = "VERIFIED"
+        membership.verification_source = source
+        await db.flush()
+        return
+    db.add(
+        UserCompoundMembership(
+            user_id=user_id,
+            compound_id=compound_id,
+            verification_status="VERIFIED",
+            verification_source=source,
+        )
+    )
+    await db.flush()
+
+
+async def ensure_pending_compound_membership(
     db: AsyncSession, user_id: int, compound_id: int
 ) -> None:
-    """Add a verified compound membership if it does not exist."""
+    """Track requested access without granting community permissions."""
     if not compound_id:
         return
     existing = await db.execute(
@@ -22,14 +55,22 @@ async def ensure_user_compound_membership(
     )
     if existing.scalar_one_or_none():
         return
-    db.add(UserCompoundMembership(user_id=user_id, compound_id=compound_id))
+    db.add(
+        UserCompoundMembership(
+            user_id=user_id,
+            compound_id=compound_id,
+            verification_status="PENDING",
+            verification_source="REQUEST",
+        )
+    )
     await db.flush()
 
 
 async def get_membership_compound_ids(db: AsyncSession, user_id: int) -> set[int]:
     result = await db.execute(
         select(UserCompoundMembership.compound_id).where(
-            UserCompoundMembership.user_id == user_id
+            UserCompoundMembership.user_id == user_id,
+            UserCompoundMembership.verification_status == "VERIFIED",
         )
     )
     return set(result.scalars().all())
@@ -114,14 +155,13 @@ async def get_verified_compound_ids(
     Approved users: document inference + all stored memberships (includes admin grants).
     """
     compound_ids = set(await extract_compound_ids_from_documents(db, user))
-    stored = await get_membership_compound_ids(db, user.id)
-
-    if user.status == UserStatus.APPROVED:
-        compound_ids |= stored
+    compound_ids |= await get_membership_compound_ids(db, user.id)
 
     if persist_inferred:
         for compound_id in compound_ids:
-            await ensure_user_compound_membership(db, user.id, compound_id)
+            await ensure_user_compound_membership(
+                db, user.id, compound_id, source="DOCUMENT"
+            )
 
     return compound_ids
 
@@ -149,19 +189,25 @@ async def get_user_switchable_compounds(db: AsyncSession, user: User) -> list[di
     seen_ids: set[int] = set()
     result: list[dict] = []
 
-    if verified_compound_ids:
-        compounds_result = await db.execute(
-            select(Compound).where(Compound.id.in_(verified_compound_ids))
+    membership_result = await db.execute(
+        select(UserCompoundMembership).where(
+            UserCompoundMembership.user_id == user.id
         )
-        for compound in compounds_result.scalars().all():
-            seen_ids.add(compound.id)
-            result.append({
-                "id": compound.id,
-                "name": compound.name,
-                "area": compound.area,
-                "is_current": compound.id == user.compound_id,
-                "is_verified": True,
-            })
+    )
+    for membership in membership_result.scalars().all():
+        compound = await get_compound_by_id(db, membership.compound_id)
+        if not compound:
+            continue
+        is_verified = membership.compound_id in verified_compound_ids
+        seen_ids.add(compound.id)
+        result.append({
+            "id": compound.id,
+            "name": compound.name,
+            "area": compound.area,
+            "is_current": compound.id == user.compound_id,
+            "is_verified": is_verified,
+            "verification_status": "VERIFIED" if is_verified else "PENDING",
+        })
 
     if user.compound_id and user.compound_id not in seen_ids:
         compound = await get_compound_by_id(db, user.compound_id)
@@ -172,6 +218,7 @@ async def get_user_switchable_compounds(db: AsyncSession, user: User) -> list[di
                 "area": compound.area,
                 "is_current": True,
                 "is_verified": False,
+                "verification_status": "PENDING",
             })
 
     # Compounds with any verification activity (in-progress, not yet verified)
@@ -197,6 +244,7 @@ async def get_user_switchable_compounds(db: AsyncSession, user: User) -> list[di
                 "area": compound.area,
                 "is_current": compound.id == user.compound_id,
                 "is_verified": False,
+                "verification_status": "PENDING",
             })
 
     result.sort(key=lambda x: (not x["is_current"], not x["is_verified"], x["name"]))
@@ -257,7 +305,9 @@ async def admin_sync_user_compounds(
         await remove_user_compound_membership(db, user.id, compound_id)
 
     for compound_id in unique_ids:
-        await ensure_user_compound_membership(db, user.id, compound_id)
+        await ensure_user_compound_membership(
+            db, user.id, compound_id, source="ADMIN"
+        )
 
     if primary_compound_id is not None:
         user.compound_id = primary_compound_id

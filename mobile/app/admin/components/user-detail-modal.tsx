@@ -281,7 +281,13 @@ function CompoundAccessSection({
   userId: number;
   userStatus: string;
   primaryCompoundId?: number | null;
-  memberships: Array<{ compound_id: number; compound_name?: string; compound_area?: string }>;
+  memberships: Array<{
+    compound_id: number;
+    compound_name?: string;
+    compound_area?: string;
+    is_verified?: boolean;
+    verification_status?: string;
+  }>;
   apiClient: any;
   onSaved: () => void;
 }) {
@@ -295,8 +301,15 @@ function CompoundAccessSection({
   const [approveUser, setApproveUser] = useState(false);
 
   useEffect(() => {
-    setSelectedIds(memberships.map((m) => m.compound_id));
-    setPrimaryId(primaryCompoundId ?? memberships[0]?.compound_id ?? null);
+    const verifiedIds = memberships
+      .filter((m) => m.is_verified ?? m.verification_status === "VERIFIED")
+      .map((m) => m.compound_id);
+    setSelectedIds(verifiedIds);
+    setPrimaryId(
+      primaryCompoundId && verifiedIds.includes(primaryCompoundId)
+        ? primaryCompoundId
+        : verifiedIds[0] ?? null
+    );
   }, [memberships, primaryCompoundId, userId]);
 
   async function openPicker() {
@@ -357,6 +370,7 @@ function CompoundAccessSection({
           <Text key={m.compound_id} style={{ fontSize: 13, color: colors.textMain, marginBottom: 4 }}>
             {m.compound_name || `Compound ${m.compound_id}`}
             {m.compound_area ? ` (${m.compound_area})` : ""}
+            {` · ${m.is_verified ? "verified" : "pending"}`}
             {primaryCompoundId === m.compound_id ? " · primary" : ""}
           </Text>
         ))

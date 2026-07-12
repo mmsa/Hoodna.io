@@ -19,6 +19,8 @@ interface AdminUserCompoundManagerProps {
     compound_id: number
     compound_name?: string | null
     compound_area?: string | null
+    is_verified?: boolean
+    verification_status?: string
   }>
   onUpdated?: () => void
 }
@@ -38,8 +40,15 @@ export function AdminUserCompoundManager({
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    setSelectedIds(memberships.map((m) => m.compound_id))
-    setPrimaryId(primaryCompoundId ?? memberships[0]?.compound_id ?? null)
+    const verifiedIds = memberships
+      .filter((m) => m.is_verified ?? m.verification_status === 'VERIFIED')
+      .map((m) => m.compound_id)
+    setSelectedIds(verifiedIds)
+    setPrimaryId(
+      primaryCompoundId && verifiedIds.includes(primaryCompoundId)
+        ? primaryCompoundId
+        : verifiedIds[0] ?? null
+    )
     setApproveUser(false)
   }, [memberships, primaryCompoundId, userId])
 
@@ -51,7 +60,7 @@ export function AdminUserCompoundManager({
     },
   })
 
-  const compounds = compoundsData || []
+  const compounds = useMemo(() => compoundsData || [], [compoundsData])
 
   const filteredCompounds = useMemo(() => {
     const q = search.trim().toLowerCase()

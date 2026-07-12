@@ -65,17 +65,16 @@ export default function CompoundSelectPage() {
     enabled: !userLoading && !!user && user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD',
   })
 
-  const compounds = compoundsData?.items || []
-
   // Transform compounds to combobox options
   const compoundOptions: ComboboxOption[] = useMemo(() => {
-    if (!compounds || compounds.length === 0) return []
+    const compounds = compoundsData?.items || []
+    if (compounds.length === 0) return []
     return compounds.map((compound) => ({
       value: compound.id,
       label: formatCompoundName(compound.name),
       description: `${compound.area || compound.city || ''}, ${compound.country}`,
     }))
-  }, [compounds])
+  }, [compoundsData])
 
   const updateUserMutation = useMutation({
     mutationFn: async (compoundId: number) => {

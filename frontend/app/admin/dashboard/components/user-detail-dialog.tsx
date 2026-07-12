@@ -48,6 +48,8 @@ export interface AdminUserDetail {
     compound_id: number
     compound_name?: string
     compound_area?: string
+    is_verified?: boolean
+    verification_status?: string
     created_at: string
   }>
   provider_profile?: Record<string, unknown> | null

@@ -117,10 +117,24 @@ export class ApiClient {
   }
 
   async getUserCompounds(): Promise<
-    Array<{ id: number; name: string; area: string | null; is_current: boolean; is_verified: boolean }>
+    Array<{
+      id: number;
+      name: string;
+      area: string | null;
+      is_current: boolean;
+      is_verified: boolean;
+      verification_status: "PENDING" | "VERIFIED";
+    }>
   > {
     return this.request<
-      Array<{ id: number; name: string; area: string | null; is_current: boolean; is_verified: boolean }>
+      Array<{
+        id: number;
+        name: string;
+        area: string | null;
+        is_current: boolean;
+        is_verified: boolean;
+        verification_status: "PENDING" | "VERIFIED";
+      }>
     >("/api/auth/me/compounds");
   }
 

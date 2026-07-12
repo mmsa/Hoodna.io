@@ -14,6 +14,11 @@ interface User {
   status: string
   compound_id?: number
   verification_status?: string | null
+  verified_compound_ids?: number[] | null
+  is_verified_for_current_compound?: boolean | null
+  can_post?: boolean
+  can_comment?: boolean
+  can_create_listing?: boolean
 }
 
 export function useAuth() {

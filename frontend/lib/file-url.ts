@@ -2,7 +2,8 @@
  * Normalize file URLs to ensure they're absolute.
  * Handles both local storage URLs (/api/uploads/...) and S3 URLs.
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'https://eljiran-api.onrender.com'
 
 export function normalizeFileUrl(fileUrl: string | null | undefined): string {
   if (!fileUrl) return ''

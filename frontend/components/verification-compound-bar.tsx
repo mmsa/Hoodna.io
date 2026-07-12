@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, ChevronDown, Plus, CheckCircle2, Clock } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
@@ -39,7 +39,7 @@ export function VerificationCompoundBar({
   const [loading, setLoading] = useState(true)
   const [switching, setSwitching] = useState(false)
 
-  async function loadCompounds() {
+  const loadCompounds = useCallback(async () => {
     try {
       const response = await api.get('/api/auth/me/compounds')
       let list: CompoundOption[] = (response.data || []).map((c: CompoundOption) => ({
@@ -73,11 +73,11 @@ export function VerificationCompoundBar({
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.compound_id])
 
   useEffect(() => {
     loadCompounds()
-  }, [user?.compound_id, user?.verified_compound_ids])
+  }, [loadCompounds])
 
   const currentCompound = compounds.find((c) => c.is_current)
   const displayName =

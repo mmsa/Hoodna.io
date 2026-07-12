@@ -56,6 +56,8 @@ class AdminCompoundMembershipItem(BaseModel):
     compound_id: int
     compound_name: Optional[str] = None
     compound_area: Optional[str] = None
+    is_verified: bool = False
+    verification_status: str = "PENDING"
     created_at: datetime
 
 
