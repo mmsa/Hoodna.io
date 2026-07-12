@@ -1,5 +1,15 @@
 import type { User } from "@hoodna/shared";
 
+function isVerifiedForCurrentCompound(user: User): boolean {
+  if (user.is_verified_for_current_compound != null) {
+    return user.is_verified_for_current_compound;
+  }
+  if (!user.compound_id || !user.verified_compound_ids?.length) {
+    return false;
+  }
+  return user.verified_compound_ids.includes(user.compound_id);
+}
+
 /**
  * Where a resident/USER should land based on compound + verification.
  * verification_status from /me: UNVERIFIED | PENDING | APPROVED | REJECTED
@@ -9,7 +19,7 @@ export function getResidentRoute(user: User): string {
     return "/onboarding/compound-select";
   }
 
-  if (user.status === "APPROVED") {
+  if (user.status === "APPROVED" && isVerifiedForCurrentCompound(user)) {
     return "/(tabs)/home";
   }
 
@@ -30,6 +40,7 @@ export function getResidentRoute(user: User): string {
 }
 
 export function canAccessVerificationUpload(user: User): boolean {
+  if (user.status === "APPROVED" && !isVerifiedForCurrentCompound(user)) return true;
   if (user.status === "APPROVED") return false;
   if (user.verification_status === "REJECTED") return true;
   if (user.status === "REJECTED" || user.status === "BANNED") return true;

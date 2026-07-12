@@ -21,7 +21,7 @@ interface Compound {
 
 export default function CompoundSelectPage() {
   const router = useRouter()
-  const { user, isLoading: userLoading } = useAuth()
+  const { user, isLoading: userLoading, refreshUser } = useAuth()
   const [selectedCompoundId, setSelectedCompoundId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
@@ -83,9 +83,8 @@ export default function CompoundSelectPage() {
       const response = await api.patch('/api/auth/me', { compound_id: compoundId })
       return { compoundId, userData: response.data }
     },
-    onSuccess: (data) => {
-      // Only redirect to verification after successful compound selection
-      // Verify the compound was actually set
+    onSuccess: async (data) => {
+      await refreshUser()
       if (data.userData?.compound_id || data.compoundId) {
         router.push('/verification')
       } else {

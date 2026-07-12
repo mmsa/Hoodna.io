@@ -36,6 +36,8 @@ export const UserSchema = z.object({
   can_post: z.boolean().nullable(),
   can_comment: z.boolean().nullable(),
   can_create_listing: z.boolean().nullable(),
+  verified_compound_ids: z.array(z.number()).nullable().optional(),
+  is_verified_for_current_compound: z.boolean().nullable().optional(),
 });
 
 export type User = z.infer<typeof UserSchema>;

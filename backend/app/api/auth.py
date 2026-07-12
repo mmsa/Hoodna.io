@@ -334,7 +334,25 @@ async def get_current_user_info(
         moderator_profile = await get_moderator_profile(db, current_user.id)
         if moderator_profile:
             can_create_listing = moderator_profile.moderator_status == ModeratorStatus.APPROVED
-    
+
+    from app.crud.user_compound_membership import get_verified_compound_ids
+
+    verified_compound_ids = sorted(
+        await get_verified_compound_ids(db, current_user, persist_inferred=True)
+    )
+    is_verified_for_current_compound = (
+        current_user.compound_id is not None
+        and current_user.compound_id in verified_compound_ids
+    )
+
+    if current_user.role in (UserRole.RESIDENT, UserRole.USER, None):
+        if not is_verified_for_current_compound:
+            can_post = False
+            can_comment = False
+            can_create_listing = False
+            if verification_status == "APPROVED":
+                verification_status = "UNVERIFIED"
+
     return UserResponse(
         id=current_user.id,
         name=current_user.name,
@@ -348,6 +366,8 @@ async def get_current_user_info(
         can_post=can_post,
         can_comment=can_comment,
         can_create_listing=can_create_listing,
+        verified_compound_ids=verified_compound_ids,
+        is_verified_for_current_compound=is_verified_for_current_compound,
     )
 
 
@@ -360,7 +380,11 @@ async def update_current_user(
     """Update current user information."""
     if user_update.compound_id is not None:
         from app.crud.compound import get_compound_by_id
-        from app.crud.user_compound_membership import ensure_user_compound_membership
+        from app.crud.user_compound_membership import (
+            ensure_user_compound_membership,
+            get_membership_compound_ids,
+            reset_verification_for_new_compound,
+        )
         from app.models.enums import UserStatus
 
         compound = await get_compound_by_id(db, user_update.compound_id)
@@ -369,15 +393,23 @@ async def update_current_user(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Compound not found"
             )
+
+        new_compound_id = user_update.compound_id
+        existing_memberships = await get_membership_compound_ids(db, current_user.id)
+
         if (
-            current_user.status == UserStatus.APPROVED
-            and current_user.compound_id
-            and current_user.compound_id != user_update.compound_id
+            current_user.compound_id
+            and current_user.compound_id != new_compound_id
+            and current_user.status == UserStatus.APPROVED
         ):
             await ensure_user_compound_membership(
                 db, current_user.id, current_user.compound_id
             )
-        current_user.compound_id = user_update.compound_id
+
+        if new_compound_id not in existing_memberships:
+            await reset_verification_for_new_compound(db, current_user.id)
+
+        current_user.compound_id = new_compound_id
     
     if user_update.role is not None:
         # Only allow role update if user doesn't have a role yet
@@ -389,6 +421,7 @@ async def update_current_user(
         current_user.role = user_update.role
     
     await db.flush()
+    await db.commit()
     await db.refresh(current_user)
     return current_user
 

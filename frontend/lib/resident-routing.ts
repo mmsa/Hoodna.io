@@ -2,17 +2,33 @@
  * Where a resident/USER should land based on compound + verification.
  * verification_status from /me: UNVERIFIED | PENDING | APPROVED | REJECTED
  */
+export function isVerifiedForCurrentCompound(user: {
+  compound_id?: number | null
+  verified_compound_ids?: number[] | null
+  is_verified_for_current_compound?: boolean | null
+}): boolean {
+  if (user.is_verified_for_current_compound != null) {
+    return user.is_verified_for_current_compound
+  }
+  if (!user.compound_id || !user.verified_compound_ids?.length) {
+    return false
+  }
+  return user.verified_compound_ids.includes(user.compound_id)
+}
+
 export function getResidentWebRoute(user: {
   role?: string | null
   status?: string | null
   compound_id?: number | null
   verification_status?: string | null
+  verified_compound_ids?: number[] | null
+  is_verified_for_current_compound?: boolean | null
 }): string {
   if (!user.compound_id) {
     return '/onboarding/compound-select'
   }
 
-  if (user.status === 'APPROVED') {
+  if (user.status === 'APPROVED' && isVerifiedForCurrentCompound(user)) {
     return '/feed'
   }
 
@@ -35,7 +51,11 @@ export function getResidentWebRoute(user: {
 export function canAccessVerificationUpload(user: {
   status?: string | null
   verification_status?: string | null
+  compound_id?: number | null
+  verified_compound_ids?: number[] | null
+  is_verified_for_current_compound?: boolean | null
 }): boolean {
+  if (user.status === 'APPROVED' && !isVerifiedForCurrentCompound(user)) return true
   if (user.status === 'APPROVED') return false
   if (user.verification_status === 'REJECTED') return true
   if (user.status === 'REJECTED' || user.status === 'BANNED') return true
@@ -52,6 +72,8 @@ export function getPostAuthWebRoute(user: {
   status?: string | null
   compound_id?: number | null
   verification_status?: string | null
+  verified_compound_ids?: number[] | null
+  is_verified_for_current_compound?: boolean | null
 }): string {
   if (!user.role) {
     return '/onboarding/choose-role'

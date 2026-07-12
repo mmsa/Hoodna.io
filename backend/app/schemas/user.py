@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from app.models.enums import UserRole, UserStatus
 
@@ -30,6 +30,8 @@ class UserResponse(UserBase):
     can_post: Optional[bool] = None
     can_comment: Optional[bool] = None
     can_create_listing: Optional[bool] = None
+    verified_compound_ids: Optional[List[int]] = None
+    is_verified_for_current_compound: Optional[bool] = None
 
     class Config:
         from_attributes = True

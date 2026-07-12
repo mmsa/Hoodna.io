@@ -79,25 +79,42 @@ async def extract_compound_ids_from_documents(db: AsyncSession, user: User) -> s
     return compound_ids
 
 
-async def sync_user_compound_memberships(db: AsyncSession, user: User) -> set[int]:
+async def get_verified_compound_ids(
+    db: AsyncSession,
+    user: User,
+    *,
+    persist_inferred: bool = False,
+) -> set[int]:
     """
-    Return all compound IDs the user can switch to.
-    Ensures membership rows exist for current compound and document matches.
+    Compound IDs the user may access.
+    Primary source: approved verification documents. Stored memberships without
+    document proof are not trusted (prevents skipping verification for new compounds).
     """
-    compound_ids = await get_membership_compound_ids(db, user.id)
+    compound_ids = set(await extract_compound_ids_from_documents(db, user))
+    stored = await get_membership_compound_ids(db, user.id)
 
     if user.status != UserStatus.APPROVED:
-        return compound_ids
+        return stored
 
-    if user.compound_id:
-        compound_ids.add(user.compound_id)
-        await ensure_user_compound_membership(db, user.id, user.compound_id)
+    if not compound_ids and stored:
+        docs = await get_user_documents(db, user.id)
+        has_approved = any(
+            d and d.status == DocumentStatus.APPROVED
+            for d in (docs.get(DocumentType.NATIONAL_ID), docs.get(DocumentType.CONTRACT))
+        )
+        if has_approved and len(stored) == 1:
+            compound_ids = set(stored)
 
-    for compound_id in await extract_compound_ids_from_documents(db, user):
-        compound_ids.add(compound_id)
-        await ensure_user_compound_membership(db, user.id, compound_id)
+    if persist_inferred:
+        for compound_id in compound_ids:
+            await ensure_user_compound_membership(db, user.id, compound_id)
 
     return compound_ids
+
+
+async def sync_user_compound_memberships(db: AsyncSession, user: User) -> set[int]:
+    """Return verified compound IDs and persist document-inferred memberships."""
+    return await get_verified_compound_ids(db, user, persist_inferred=True)
 
 
 async def user_has_compound_membership(
@@ -105,3 +122,24 @@ async def user_has_compound_membership(
 ) -> bool:
     compound_ids = await sync_user_compound_memberships(db, user)
     return compound_id in compound_ids
+
+
+async def reset_verification_for_new_compound(db: AsyncSession, user_id: int) -> None:
+    """Clear prior verification so the user must submit documents for a new neighbourhood."""
+    from app.models.verification import VerificationDocument
+
+    result = await db.execute(
+        select(VerificationDocument).where(VerificationDocument.user_id == user_id)
+    )
+    for doc in result.scalars().all():
+        doc.status = DocumentStatus.PENDING
+        doc.notes = "Re-verification required for new neighbourhood"
+        doc.reviewer_id = None
+        doc.llm_verified = None
+        doc.llm_confidence = None
+        doc.llm_recommendation = None
+        doc.llm_reasoning = None
+        doc.llm_issues = None
+        doc.llm_extracted_info = None
+        doc.llm_verified_at = None
+    await db.flush()

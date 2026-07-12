@@ -276,6 +276,16 @@ async def get_current_verified_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must select a compound first",
         )
+
+    from app.crud.user_compound_membership import user_has_compound_membership
+
+    if current_user.role in (UserRole.RESIDENT, UserRole.USER, None):
+        if not await user_has_compound_membership(db, current_user, current_user.compound_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must complete verification for this neighbourhood before accessing the community.",
+            )
+
     return current_user
 
 
