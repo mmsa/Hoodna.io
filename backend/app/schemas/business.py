@@ -1,7 +1,15 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.models.enums import (
     BusinessClaimStatus,
@@ -118,7 +126,11 @@ class BusinessClaimCreate(BaseModel):
     relationship_role: str = Field(..., min_length=2, max_length=120)
     phone: str = Field(..., min_length=7, max_length=32)
     email: EmailStr
-    supporting_info: str | None = Field(None, max_length=5000)
+    supporting_info: str | None = Field(
+        None,
+        max_length=5000,
+        validation_alias=AliasChoices("supporting_info", "supporting_information"),
+    )
     supporting_documents: list[str] = Field(default_factory=list, max_length=20)
 
     @field_validator("full_name", "relationship_role", "phone", mode="before")

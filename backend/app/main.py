@@ -28,8 +28,13 @@ from app.models import telemetry  # noqa: F401
 from app.models import digest  # noqa: F401
 
 from app.api import (
+    admin_businesses,
     auth,
+    beta_metrics,
+    businesses,
     compounds,
+    feature_flags,
+    internal,
     verification,
     community,
     marketplace,
@@ -42,9 +47,19 @@ from app.api import (
     search,
     reviews,
     providers,
+    referrals,
     moderators,
+    telemetry,
 )
-from app.api import service_categories, reports, admin_reviews, moderator, saved_posts
+from app.api import (
+    service_categories,
+    reports,
+    admin_reviews,
+    moderator,
+    saved_posts,
+    digests,
+)
+from app.core.observability import install_observability
 from app.services.storage import (
     use_local_storage,
     save_file_locally,
@@ -57,6 +72,7 @@ app = FastAPI(
     description="Verified neighborhood community + marketplace",
     version="1.0.0",
 )
+install_observability(app)
 
 # CORS middleware - must be added before other middleware
 # Handle all origins in development, or specific origins in production
@@ -103,6 +119,25 @@ app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(moderator.router, prefix="/api/moderator", tags=["moderator"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
+app.include_router(referrals.router, prefix="/api/referrals", tags=["referrals"])
+app.include_router(businesses.router, prefix="/api")
+app.include_router(businesses.claims_router, prefix="/api")
+app.include_router(admin_businesses.router, prefix="/api")
+app.include_router(feature_flags.router, prefix="/api", tags=["feature-config"])
+app.include_router(
+    feature_flags.admin_router,
+    prefix="/api/admin/feature-flags",
+    tags=["admin-feature-flags"],
+)
+app.include_router(telemetry.router, prefix="/api/telemetry", tags=["telemetry"])
+app.include_router(
+    telemetry.admin_router,
+    prefix="/api/admin/telemetry",
+    tags=["admin-telemetry"],
+)
+app.include_router(internal.router, prefix="/api/internal", tags=["internal"])
+app.include_router(beta_metrics.router, prefix="/api/admin", tags=["admin-beta-metrics"])
+app.include_router(digests.router, prefix="/api/digests", tags=["digests"])
 
 # Mount static files for local storage (development only)
 if use_local_storage():

@@ -54,7 +54,7 @@ async def _config(
     )
 
 
-@router.get("/config", response_model=FeatureConfigResponse)
+@router.get("/config/public", response_model=FeatureConfigResponse)
 async def get_public_feature_config(
     city: str | None = Query(default=None, max_length=120),
     neighbourhood: str | None = Query(default=None, max_length=160),

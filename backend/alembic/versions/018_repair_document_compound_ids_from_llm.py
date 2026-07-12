@@ -8,7 +8,7 @@ Re-assigns compound_id on approved documents using LLM-extracted compound names.
 Fixes documents that were backfilled with the user's current compound instead of
 the compound they were actually verified for (e.g. Palm Hills).
 """
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 
 
@@ -39,6 +39,11 @@ def _compound_name_from_llm(info) -> str | None:
 
 
 def upgrade() -> None:
+    # This repair inspects JSON values row by row and therefore cannot be
+    # rendered as deterministic offline SQL.
+    if context.is_offline_mode():
+        return
+
     conn = op.get_bind()
 
     docs = conn.execute(

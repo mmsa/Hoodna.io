@@ -3,11 +3,11 @@ import type { FeatureConfig, FeatureFlagKey } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 
 const FALLBACK_FLAGS: FeatureConfig["flags"] = {
-  invitations: true,
-  business_claiming: true,
-  weekly_digest: true,
-  community_posting: true,
-  business_reviews: true,
+  invitations: false,
+  business_claiming: false,
+  weekly_digest: false,
+  community_posting: false,
+  business_reviews: false,
   user_registration: true,
 };
 
@@ -32,8 +32,7 @@ export function FeatureConfigProvider({ children }: { children: React.ReactNode 
         : await apiClient.getPublicFeatureConfig();
       setConfig(next);
     } catch {
-      // Keep the last-known/default config so a temporary config outage does not
-      // strand existing launch flows.
+      // Keep the last-known fail-closed config during a temporary outage.
     } finally {
       setLoading(false);
     }

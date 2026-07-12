@@ -73,18 +73,25 @@ export const BusinessClaimCreateSchema = z.object({
   phone: z.string().trim().min(5).max(50),
   email: z.string().email(),
   supporting_information: z.string().trim().max(4000).optional(),
+  supporting_info: z.string().trim().max(5000).optional(),
+  supporting_documents: z.array(z.string()).max(20).optional(),
   requested_role: BusinessMembershipRoleSchema.default("OWNER"),
 });
 
 export const BusinessClaimSchema = BusinessClaimCreateSchema.extend({
   id: z.number().int().positive(),
   business_id: z.number().int().positive(),
+  business_slug: z.string().optional(),
   business_name: z.string().optional(),
-  claimant_user_id: z.number().int().positive(),
+  business_verification_status: BusinessVerificationStatusSchema.optional(),
+  public_status: z.string().optional(),
+  claimant_user_id: z.number().int().positive().optional(),
+  claimant_id: z.number().int().positive().nullable().optional(),
   status: BusinessClaimStatusSchema,
   submitted_at: z.string().datetime(),
   reviewed_at: z.string().datetime().nullable().optional(),
   reviewed_by_id: z.number().int().positive().nullable().optional(),
+  reviewer_id: z.number().int().positive().nullable().optional(),
   review_notes: z.string().nullable().optional(),
 });
 

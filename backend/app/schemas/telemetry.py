@@ -1,3 +1,4 @@
+import math
 import re
 from datetime import datetime
 from typing import Any, Literal
@@ -49,6 +50,7 @@ SENSITIVE_KEY = re.compile(
 )
 SAFE_METADATA_STRING = re.compile(r"^[A-Za-z0-9_.:/-]{1,100}$")
 PHONE_LIKE_VALUE = re.compile(r"^\+?[\d\s()-]{7,}$")
+SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
 
 class AnalyticsEventInput(BaseModel):
@@ -60,6 +62,15 @@ class AnalyticsEventInput(BaseModel):
     anonymous_id: str | None = Field(default=None, max_length=128)
     session_id: str | None = Field(default=None, max_length=128)
 
+    @field_validator("anonymous_id", "session_id")
+    @classmethod
+    def validate_identifier(cls, value: str | None) -> str | None:
+        if value is not None and (
+            not SAFE_IDENTIFIER.fullmatch(value) or PHONE_LIKE_VALUE.fullmatch(value)
+        ):
+            raise ValueError("Telemetry identifiers must be opaque machine values")
+        return value
+
     @model_validator(mode="after")
     def validate_safe_properties(self):
         allowed = ANALYTICS_PROPERTY_ALLOWLIST[self.event]
@@ -70,6 +81,8 @@ class AnalyticsEventInput(BaseModel):
                 not SAFE_METADATA_STRING.fullmatch(value)
                 or PHONE_LIKE_VALUE.fullmatch(value)
             ):
+                raise ValueError(f'Unsafe analytics property "{key}"')
+            if isinstance(value, float) and not math.isfinite(value):
                 raise ValueError(f'Unsafe analytics property "{key}"')
         return self
 

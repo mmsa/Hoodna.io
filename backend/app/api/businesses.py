@@ -23,14 +23,17 @@ from app.services.businesses import (
 from app.services.business_feature_flags import require_business_claiming
 
 router = APIRouter(prefix="/businesses", tags=["businesses"])
+claims_router = APIRouter(prefix="/business-claims", tags=["business-claims"])
 
 
 @router.get("", response_model=BusinessListResponse)
 async def browse_businesses(
     q: str | None = Query(None, min_length=1, max_length=200),
+    search: str | None = Query(None, min_length=1, max_length=200),
     city: str | None = Query(None, max_length=120),
     area: str | None = Query(None, max_length=120),
     category: str | None = Query(None, max_length=120),
+    compound_id: int | None = Query(None, ge=1),
     verification_status: BusinessVerificationStatus | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
@@ -41,10 +44,11 @@ async def browse_businesses(
         db,
         skip=skip,
         limit=limit,
-        query=q,
+        query=q or search,
         city=city,
         area=area,
         category=category,
+        compound_id=compound_id,
         verification_status=verification_status,
     )
     return BusinessListResponse(
@@ -102,17 +106,17 @@ async def current_business_claim(
 
 
 @router.post(
-    "/{slug}/claims",
+    "/{identifier}/claims",
     response_model=BusinessClaimResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def submit_business_claim(
-    slug: str,
+    identifier: str,
     data: BusinessClaimCreate,
     current_user: User = Depends(require_business_claiming),
     db: AsyncSession = Depends(get_db),
 ) -> BusinessClaimResponse:
-    business = await business_crud.get_public_business_by_slug(db, slug)
+    business = await business_crud.get_public_business_by_identifier(db, identifier)
     if business is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Business not found"
@@ -126,6 +130,15 @@ async def submit_business_claim(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
     return await claim_response(db, claim)
+
+
+@claims_router.get("/me", response_model=list[BusinessClaimResponse])
+async def my_business_claims(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[BusinessClaimResponse]:
+    claims = await business_crud.list_user_claims(db, current_user.id)
+    return [await claim_response(db, claim) for claim in claims]
 
 
 @router.get("/{slug}", response_model=BusinessResponse)

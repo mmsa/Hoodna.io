@@ -70,7 +70,7 @@ export function ReportDialog({
     setSubmitting(true)
     setError("")
     try {
-      await api.post(`/api/reports/${entityType}/${entityId}`, parsed.data)
+      await api.post("/api/reports", parsed.data)
       track("report_submitted", { entity_type: entityType, reason: parsed.data.reason })
       toast({ title: "Report submitted", description: "Thank you. Our moderation team will review it." })
       setOpen(false)

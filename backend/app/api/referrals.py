@@ -10,6 +10,7 @@ from app.crud.referral import (
     ReferralUnavailableError,
     SelfReferralError,
     create_referral_invite,
+    get_referral_invites,
     get_or_create_referral_invite,
     get_referral_stats,
     redeem_referral,
@@ -79,6 +80,16 @@ async def create_invite(
         },
     )
     return referral_invite_response(invite)
+
+
+@router.get("/invites", response_model=list[ReferralInviteResponse])
+async def list_invites(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await require_referral_invitations(db, current_user)
+    invites = await get_referral_invites(db, current_user.id)
+    return [referral_invite_response(invite) for invite in invites]
 
 
 @router.post("/redeem", response_model=ReferralRedeemResponse)

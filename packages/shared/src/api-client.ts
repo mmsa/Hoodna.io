@@ -41,6 +41,7 @@ import {
 import {
   FeatureConfig,
   FeatureFlag,
+  FeatureFlagKey,
   FeatureFlagOverride,
   FeatureFlagUpdate,
 } from "./schemas/feature-flags";
@@ -910,14 +911,32 @@ export class ApiClient {
     });
   }
 
-  async getAdminBusinessClaims(status?: string): Promise<BusinessClaim[]> {
+  async getAdminBusinessClaims(status?: string): Promise<{
+    items: BusinessClaim[];
+    total: number;
+    skip: number;
+    limit: number;
+  }> {
     const query = status ? `?status=${encodeURIComponent(status)}` : "";
-    return this.request<BusinessClaim[]>(`/api/admin/business-claims${query}`);
+    return this.request(`/api/admin/businesses/claims${query}`);
   }
 
   async reviewBusinessClaim(id: number, data: BusinessClaimReview): Promise<BusinessClaim> {
-    return this.request<BusinessClaim>(`/api/admin/business-claims/${id}`, {
-      method: "PATCH",
+    return this.request<BusinessClaim>(
+      `/api/admin/businesses/claims/${id}/${data.status === "APPROVED" ? "approve" : "reject"}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          review_notes: data.review_notes,
+          membership_role: data.membership_role,
+        }),
+      },
+    );
+  }
+
+  async createAdminFeatureFlag(data: FeatureFlag): Promise<FeatureFlag> {
+    return this.request<FeatureFlag>("/api/admin/feature-flags", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -928,7 +947,7 @@ export class ApiClient {
     entityId: number,
     data: Omit<ReportCreate, "reported_type" | "reported_id">,
   ): Promise<ReportResponse> {
-    return this.request<ReportResponse>(`/api/reports/${entityType}/${entityId}`, {
+    return this.request<ReportResponse>("/api/reports", {
       method: "POST",
       body: JSON.stringify({ ...data, reported_type: entityType, reported_id: entityId }),
     });
@@ -942,7 +961,7 @@ export class ApiClient {
   }
 
   async getReports(params?: {
-    status?: ReportResponse["status"];
+    status_filter?: ReportResponse["status"];
     reported_type?: ReportEntityType;
     skip?: number;
     limit?: number;
@@ -998,26 +1017,33 @@ export class ApiClient {
     data: FeatureFlagUpdate,
   ): Promise<FeatureFlag> {
     return this.request<FeatureFlag>(`/api/admin/feature-flags/${encodeURIComponent(key)}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
   async createFeatureFlagOverride(
-    data: FeatureFlagOverride,
+    data: FeatureFlagOverride & { key: FeatureFlagKey },
   ): Promise<FeatureFlagOverride> {
-    return this.request<FeatureFlagOverride>("/api/admin/feature-flag-overrides", {
+    return this.request<FeatureFlagOverride>(`/api/admin/feature-flags/${encodeURIComponent(data.key)}/overrides`, {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        scope: data.scope,
+        enabled: data.enabled,
+        user_id: data.user_id,
+        compound_id: data.compound_id,
+        city: data.city,
+        config: data.config,
+      }),
     });
   }
 
-  async getFeatureFlagOverrides(): Promise<FeatureFlagOverride[]> {
-    return this.request<FeatureFlagOverride[]>("/api/admin/feature-flag-overrides");
+  async getFeatureFlagOverrides(key: string): Promise<FeatureFlagOverride[]> {
+    return this.request<FeatureFlagOverride[]>(`/api/admin/feature-flags/${encodeURIComponent(key)}/overrides`);
   }
 
-  async deleteFeatureFlagOverride(id: number): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/api/admin/feature-flag-overrides/${id}`, {
+  async deleteFeatureFlagOverride(key: string, id: number): Promise<void> {
+    return this.request<void>(`/api/admin/feature-flags/${encodeURIComponent(key)}/overrides/${id}`, {
       method: "DELETE",
     });
   }
@@ -1056,7 +1082,9 @@ export class ApiClient {
   }
 
   async getAdminAuditLog(params?: {
-    action?: string;
+    event_type?: string;
+    entity_type?: string;
+    entity_id?: string;
     actor_id?: number;
     skip?: number;
     limit?: number;
@@ -1066,7 +1094,7 @@ export class ApiClient {
       if (value !== undefined && value !== "") query.set(key, String(value));
     });
     const suffix = query.toString();
-    return this.request<AdminAuditList>(`/api/admin/audit-log${suffix ? `?${suffix}` : ""}`);
+    return this.request<AdminAuditList>(`/api/admin/audit-logs${suffix ? `?${suffix}` : ""}`);
   }
 }
 

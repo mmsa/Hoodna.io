@@ -75,6 +75,17 @@ async def get_or_create_referral_invite(
     return await create_referral_invite(db, inviter_id)
 
 
+async def get_referral_invites(
+    db: AsyncSession, inviter_id: int
+) -> list[ReferralInvite]:
+    result = await db.execute(
+        select(ReferralInvite)
+        .where(ReferralInvite.inviter_id == inviter_id)
+        .order_by(ReferralInvite.created_at.desc(), ReferralInvite.id.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def redeem_referral(
     db: AsyncSession,
     code: str,

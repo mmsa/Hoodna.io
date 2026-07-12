@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
 
 import pytest
-from fastapi import FastAPI
-from httpx import AsyncClient
+from fastapi import FastAPI, HTTPException
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from app.api import auth as auth_api
 from app.api import feature_flags as feature_api
 from app.api import telemetry as telemetry_api
 from app.core.config import settings
@@ -20,6 +21,9 @@ from app.services.feature_flags import (
     FlagContext,
     clear_feature_flag_cache,
     evaluate_feature_flag,
+    referral_invitations_enabled,
+    require_business_reviews,
+    require_community_posting,
 )
 
 
@@ -116,20 +120,47 @@ async def test_flag_precedence_scoping_rollout_and_geography(db_session, monkeyp
 
 
 @pytest.mark.asyncio
-async def test_registration_flag_is_enforced(async_client, monkeypatch):
+async def test_registration_flag_is_enforced(db_session, monkeypatch):
     monkeypatch.setattr(settings, "FEATURE_USER_REGISTRATION_ENABLED", False)
     clear_feature_flag_cache()
-    response = await async_client.post(
-        "/api/auth/signup",
-        json={
-            "name": "Closed Registration",
-            "email": "closed@example.com",
-            "password": "password123",
-            "role": "USER",
-        },
-    )
+    app = FastAPI()
+    app.include_router(auth_api.router, prefix="/api/auth")
+
+    async def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/api/auth/signup",
+            json={
+                "name": "Closed Registration",
+                "email": "closed@example.com",
+                "password": "password123",
+                "role": "USER",
+            },
+        )
     assert response.status_code == 403
     assert "unavailable" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_disabled_launch_features_are_enforced_server_side(db_session, monkeypatch):
+    user = make_user("feature-enforcement@example.com")
+    db_session.add(user)
+    await db_session.commit()
+    monkeypatch.setattr(settings, "FEATURE_INVITATIONS_ENABLED", False)
+    monkeypatch.setattr(settings, "FEATURE_COMMUNITY_POSTING_ENABLED", False)
+    monkeypatch.setattr(settings, "FEATURE_BUSINESS_REVIEWS_ENABLED", False)
+    clear_feature_flag_cache()
+
+    assert await referral_invitations_enabled(db_session, user) is False
+    for dependency in (require_community_posting, require_business_reviews):
+        with pytest.raises(HTTPException) as forbidden:
+            await dependency(current_user=user, db=db_session)
+        assert forbidden.value.status_code == 403
 
 
 def test_event_taxonomy_and_safe_metadata_validation():
@@ -179,6 +210,38 @@ def test_event_taxonomy_and_safe_metadata_validation():
 
 
 @pytest.mark.asyncio
+async def test_feature_flag_admin_is_strictly_admin_only(db_session):
+    user = make_user("flag-ordinary@example.com")
+    admin = make_user("flag-admin@example.com", UserRole.ADMIN)
+    db_session.add_all([user, admin])
+    await db_session.commit()
+    app = FastAPI()
+    app.include_router(feature_api.admin_router, prefix="/admin/feature-flags")
+
+    async def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: user
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        denied = await client.post(
+            "/admin/feature-flags",
+            json={"key": "invitations", "enabled": True, "config": {}},
+        )
+        assert denied.status_code == 403
+
+        app.dependency_overrides[get_current_user] = lambda: admin
+        created = await client.post(
+            "/admin/feature-flags",
+            json={"key": "invitations", "enabled": True, "config": {}},
+        )
+        assert created.status_code == 201
+        assert created.json()["key"] == "invitations"
+
+
+@pytest.mark.asyncio
 async def test_error_auth_scrubbing_and_admin_authorization(db_session):
     user = make_user("error-user@example.com")
     admin = make_user("error-admin@example.com", UserRole.ADMIN)
@@ -206,7 +269,9 @@ async def test_error_auth_scrubbing_and_admin_authorization(db_session):
         "route": "/profile/person@example.com?token=secret",
         "anonymous_user_id": "spoofed-client-value",
     }
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.post("/telemetry/errors", json=payload)
         assert response.status_code == 202
         report = await db_session.scalar(select(ClientErrorReport))
@@ -237,7 +302,9 @@ async def test_analytics_endpoint_enriches_authenticated_user(db_session):
 
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_current_user_optional] = lambda: user
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         response = await client.post(
             "/telemetry/events",
             json={

@@ -137,14 +137,16 @@ async def test_business_claiming_requires_auth_and_enabled_feature(db_session):
     assert unauthenticated.value.status_code == 401
 
     user = make_user("claimant@example.com")
-    db_session.add(user)
+    flag = FeatureFlag(key="business_claiming", enabled=False)
+    db_session.add_all([user, flag])
     await db_session.flush()
+    clear_feature_flag_cache()
 
     with pytest.raises(HTTPException) as disabled:
         await require_business_claiming(current_user=user, db=db_session)
     assert disabled.value.status_code == 403
 
-    db_session.add(FeatureFlag(key="business_claiming", enabled=True))
+    flag.enabled = True
     await db_session.flush()
     clear_feature_flag_cache()
     assert await require_business_claiming(current_user=user, db=db_session) is user

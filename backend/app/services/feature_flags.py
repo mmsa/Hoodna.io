@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_approved_user, get_current_user
 from app.db.session import get_db
 from app.models.enums import FeatureFlagScope
 from app.models.feature_flag import FeatureFlag
@@ -175,3 +175,37 @@ async def referral_invitations_enabled(
         user_id=user.id if user else None,
         compound_id=user.compound_id if user else None,
     )
+
+
+async def require_community_posting(
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if not await is_feature_enabled(
+        db,
+        "community_posting",
+        user_id=current_user.id,
+        compound_id=current_user.compound_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Community posting is not currently available",
+        )
+    return current_user
+
+
+async def require_business_reviews(
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if not await is_feature_enabled(
+        db,
+        "business_reviews",
+        user_id=current_user.id,
+        compound_id=current_user.compound_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Business reviews are not currently available",
+        )
+    return current_user

@@ -46,6 +46,7 @@ async def list_public_businesses(
     city: str | None = None,
     area: str | None = None,
     category: str | None = None,
+    compound_id: int | None = None,
     verification_status: BusinessVerificationStatus | None = None,
 ) -> tuple[list[IndependentBusiness], int]:
     filters = list(_public_visibility())
@@ -66,6 +67,8 @@ async def list_public_businesses(
         filters.append(func.lower(IndependentBusiness.area) == area.strip().lower())
     if category:
         filters.append(func.lower(IndependentBusiness.category) == category.strip().lower())
+    if compound_id is not None:
+        filters.append(IndependentBusiness.compound_id == compound_id)
     if verification_status:
         filters.append(IndependentBusiness.verification_status == verification_status)
 
@@ -108,6 +111,42 @@ async def search_public_businesses(
     return list(result.scalars().all())
 
 
+async def list_businesses(
+    db: AsyncSession,
+    *,
+    skip: int = 0,
+    limit: int = 50,
+    search: str | None = None,
+    verification_status: BusinessVerificationStatus | None = None,
+) -> tuple[list[IndependentBusiness], int]:
+    filters = []
+    if search:
+        term = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                IndependentBusiness.name.ilike(term),
+                IndependentBusiness.slug.ilike(term),
+                IndependentBusiness.category.ilike(term),
+                IndependentBusiness.city.ilike(term),
+            )
+        )
+    if verification_status is not None:
+        filters.append(
+            IndependentBusiness.verification_status == verification_status
+        )
+    total = await db.scalar(
+        select(func.count(IndependentBusiness.id)).where(*filters)
+    )
+    result = await db.execute(
+        select(IndependentBusiness)
+        .where(*filters)
+        .order_by(IndependentBusiness.created_at.desc(), IndependentBusiness.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(result.scalars().all()), int(total or 0)
+
+
 async def get_public_business_by_slug(
     db: AsyncSession, slug: str
 ) -> IndependentBusiness | None:
@@ -117,6 +156,19 @@ async def get_public_business_by_slug(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def get_public_business_by_identifier(
+    db: AsyncSession, identifier: str
+) -> IndependentBusiness | None:
+    lookup = (
+        IndependentBusiness.id == int(identifier)
+        if identifier.isdigit()
+        else IndependentBusiness.slug == identifier
+    )
+    return await db.scalar(
+        select(IndependentBusiness).where(lookup, *_public_visibility())
+    )
 
 
 async def get_business_by_id(
@@ -165,6 +217,17 @@ async def get_current_claim(
         BusinessClaim.id.desc(),
     )
     return (await db.execute(query.limit(1))).scalar_one_or_none()
+
+
+async def list_user_claims(
+    db: AsyncSession, user_id: int
+) -> list[BusinessClaim]:
+    result = await db.execute(
+        select(BusinessClaim)
+        .where(BusinessClaim.claimant_id == user_id)
+        .order_by(BusinessClaim.submitted_at.desc(), BusinessClaim.id.desc())
+    )
+    return list(result.scalars().all())
 
 
 async def get_active_claim(

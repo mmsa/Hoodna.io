@@ -20,17 +20,18 @@ def enum(*values, name):
 
 def upgrade() -> None:
     # ``notifications.type`` is a native PostgreSQL enum created in migration 007.
-    for value in (
-        "WEEKLY_DIGEST",
-        "BUSINESS_CLAIM_SUBMITTED",
-        "BUSINESS_CLAIM_APPROVED",
-        "BUSINESS_CLAIM_REJECTED",
-        "REFERRAL_ACCEPTED",
-        "REPORT_STATUS_UPDATED",
-    ):
-        op.execute(
-            f"ALTER TYPE notificationtype ADD VALUE IF NOT EXISTS '{value}'"
-        )
+    if op.get_bind().dialect.name == "postgresql":
+        for value in (
+            "WEEKLY_DIGEST",
+            "BUSINESS_CLAIM_SUBMITTED",
+            "BUSINESS_CLAIM_APPROVED",
+            "BUSINESS_CLAIM_REJECTED",
+            "REFERRAL_ACCEPTED",
+            "REPORT_STATUS_UPDATED",
+        ):
+            op.execute(
+                f"ALTER TYPE notificationtype ADD VALUE IF NOT EXISTS '{value}'"
+            )
 
     op.create_table(
         "digest_runs",

@@ -6,13 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_platform_admin
 from app.crud import business as business_crud
 from app.db.session import get_db
-from app.models.enums import BusinessClaimStatus
+from app.models.enums import BusinessClaimStatus, BusinessVerificationStatus
 from app.models.user import User
 from app.schemas.business import (
     BusinessClaimListResponse,
     BusinessClaimResponse,
     BusinessClaimReview,
     BusinessCreate,
+    BusinessListResponse,
     BusinessResponse,
     BusinessUpdate,
 )
@@ -26,6 +27,32 @@ from app.services.businesses import (
 
 router = APIRouter(prefix="/admin/businesses", tags=["admin-businesses"])
 logger = logging.getLogger(__name__)
+
+
+@router.get("", response_model=BusinessListResponse)
+async def admin_list_businesses(
+    search: str | None = Query(None, max_length=200),
+    verification_status: BusinessVerificationStatus | None = Query(
+        None, alias="status"
+    ),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    _: User = Depends(get_current_platform_admin),
+    db: AsyncSession = Depends(get_db),
+) -> BusinessListResponse:
+    businesses, total = await business_crud.list_businesses(
+        db,
+        search=search,
+        verification_status=verification_status,
+        skip=skip,
+        limit=limit,
+    )
+    return BusinessListResponse(
+        items=[await business_response(db, business) for business in businesses],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post("", response_model=BusinessResponse, status_code=status.HTTP_201_CREATED)

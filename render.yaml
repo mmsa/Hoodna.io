@@ -1,6 +1,12 @@
 # Render Blueprint: eljiran backend + Postgres
 # Docs: https://render.com/docs/blueprint-spec
 
+envVarGroups:
+  - name: eljiran-ops-secrets
+    envVars:
+      - key: CRON_SECRET
+        generateValue: true
+
 databases:
   - name: eljiran-db
     plan: free
@@ -17,6 +23,7 @@ services:
     startCommand: chmod +x start.sh && ./start.sh
     healthCheckPath: /health
     envVars:
+      - fromGroup: eljiran-ops-secrets
       - key: PYTHON_VERSION
         value: "3.11.9"
       - key: ENVIRONMENT
@@ -53,3 +60,33 @@ services:
         sync: false
       - key: STRIPE_PUBLISHABLE_KEY
         sync: false
+      # Pilot-ready defaults: enable globally or with scoped database overrides.
+      - key: FEATURE_INVITATIONS_ENABLED
+        value: "false"
+      - key: FEATURE_BUSINESS_CLAIMING_ENABLED
+        value: "false"
+      - key: FEATURE_WEEKLY_DIGEST_ENABLED
+        value: "false"
+      - key: FEATURE_COMMUNITY_POSTING_ENABLED
+        value: "false"
+      - key: FEATURE_BUSINESS_REVIEWS_ENABLED
+        value: "false"
+      - key: FEATURE_USER_REGISTRATION_ENABLED
+        value: "false"
+
+  - type: cron
+    name: eljiran-weekly-digest
+    runtime: python
+    plan: starter
+    rootDir: backend
+    schedule: "0 7 * * 1"
+    buildCommand: echo "No build required"
+    startCommand: >-
+      python -c "import os, urllib.request;
+      request=urllib.request.Request(
+      'https://eljiran-api.onrender.com/api/internal/jobs/weekly-digest',
+      method='POST',
+      headers={'X-Cron-Secret': os.environ['CRON_SECRET']});
+      print(urllib.request.urlopen(request, timeout=300).read().decode())"
+    envVars:
+      - fromGroup: eljiran-ops-secrets

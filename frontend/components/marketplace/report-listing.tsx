@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { Flag, Loader2, X } from "lucide-react"
-import type { ReportCreate } from "@hoodna/shared"
+import type { ReportReason } from "@hoodna/shared"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -13,7 +13,7 @@ import api from "@/lib/api"
 
 export function ReportListing({ listingId }: { listingId: number }) {
   const [open, setOpen] = useState(false)
-  const [reason, setReason] = useState<ReportCreate["reason"]>("spam")
+  const [reason, setReason] = useState<ReportReason | "inappropriate" | "scam" | "fake">("spam")
   const [description, setDescription] = useState("")
   const { toast } = useToast()
   const mutation = useMutation({
@@ -23,7 +23,7 @@ export function ReportListing({ listingId }: { listingId: number }) {
         reported_id: listingId,
         reason,
         description: description.trim() || null,
-      } satisfies ReportCreate),
+      }),
     onSuccess: () => {
       setOpen(false)
       setDescription("")
@@ -64,7 +64,7 @@ export function ReportListing({ listingId }: { listingId: number }) {
           <select
             id="report-reason"
             value={reason}
-            onChange={(event) => setReason(event.target.value as ReportCreate["reason"])}
+            onChange={(event) => setReason(event.target.value as typeof reason)}
             className="mt-2 h-11 w-full rounded-lg border border-input bg-card px-3 text-sm"
           >
             <option value="spam">Spam</option>

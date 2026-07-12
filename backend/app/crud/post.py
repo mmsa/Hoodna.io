@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 from app.models.post import Post, Comment, PostReaction
 from app.models.user import User
 from app.models.enums import UserRole
@@ -20,6 +20,7 @@ async def get_feed_posts(
         selectinload(Post.compound),  # Load compound for compound_name
         selectinload(Post.comments).selectinload(Comment.author),
         selectinload(Post.reactions),
+        with_loader_criteria(Comment, Comment.deleted_at.is_(None)),
     ).where(Post.deleted_at.is_(None))
     
     if compound_id:
@@ -58,6 +59,7 @@ async def get_compound_announcements(
             selectinload(Post.compound),  # Load compound for compound_name
             selectinload(Post.comments).selectinload(Comment.author),
             selectinload(Post.reactions),
+            with_loader_criteria(Comment, Comment.deleted_at.is_(None)),
         )
         .where(*where_conditions)
     )

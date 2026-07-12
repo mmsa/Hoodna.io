@@ -25,12 +25,19 @@ export const AdminBetaMetricsSchema = z.object({
 export const AuditActorTypeSchema = z.enum(["USER", "ADMIN", "MODERATOR", "SYSTEM"]);
 export const AdminAuditEntrySchema = z.object({
   id: z.number().int().positive(),
-  actor_type: AuditActorTypeSchema,
+  actor_type: AuditActorTypeSchema.optional(),
   actor_id: z.number().int().positive().nullable().optional(),
-  action: z.string(),
+  action: z.string().optional(),
+  event_type: z.string().optional(),
   target_type: z.string().nullable().optional(),
   target_id: z.number().int().positive().nullable().optional(),
+  entity_type: z.string().nullable().optional(),
+  entity_id: z.string().nullable().optional(),
+  request_id: z.string().nullable().optional(),
+  ip_address: z.string().nullable().optional(),
+  user_agent: z.string().nullable().optional(),
   metadata: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  data: z.record(z.unknown()).optional(),
   created_at: z.string().datetime(),
 });
 

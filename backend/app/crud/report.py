@@ -36,7 +36,7 @@ async def resolve_report_target(
         return ReportTarget(post, post.author_id, post.compound_id)
     if target_type == ReportType.COMMENT.value:
         comment = await db.get(Comment, reported_id)
-        if comment is None:
+        if comment is None or (not include_hidden and comment.deleted_at is not None):
             return None
         post = await db.get(Post, comment.post_id)
         if post is None or (not include_hidden and post.deleted_at is not None):

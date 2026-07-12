@@ -26,6 +26,7 @@ from app.models.launch_accounts import UserPreference
 from app.models.notification import Notification
 from app.models.post import Comment, Post, PostReaction
 from app.models.user import User
+from app.services.feature_flags import is_feature_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -389,11 +390,19 @@ async def run_weekly_digest(
 
     for user, preference in rows:
         enabled = (
-            preference is None
-            or (
-                preference.digest_enabled
-                and _preference_enabled(preference, "weekly_digest_enabled")
-                and _preference_enabled(preference, "weekly_digest")
+            await is_feature_enabled(
+                db,
+                "weekly_digest",
+                user_id=user.id,
+                compound_id=user.compound_id,
+            )
+            and (
+                preference is None
+                or (
+                    preference.digest_enabled
+                    and _preference_enabled(preference, "weekly_digest_enabled")
+                    and _preference_enabled(preference, "weekly_digest")
+                )
             )
         )
         if not enabled:

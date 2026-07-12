@@ -13,6 +13,7 @@ from app.crud.listing import get_listings
 from app.crud.compound import get_compound_by_id
 from app.core.dependencies import get_current_approved_user, get_current_verified_user, get_current_user_optional, get_current_user
 from app.models.user import User
+from app.services.feature_flags import require_community_posting
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -207,7 +208,7 @@ async def get_feed(
 @router.post("/posts", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post_endpoint(
     post_data: PostCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_community_posting),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new post."""
@@ -326,7 +327,7 @@ async def react_to_post(
 async def create_comment_endpoint(
     post_id: int,
     comment_data: CommentCreate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(require_community_posting),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a comment on a post."""

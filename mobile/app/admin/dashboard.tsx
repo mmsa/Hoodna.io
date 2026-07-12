@@ -17,8 +17,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { openFileUrl } from "@/lib/file-url";
 import { UserManagement } from "./components/user-management";
+import { EljiranOperations } from "./components/eljiran-operations";
 
-type AdminTab = "users" | "residents" | "providers" | "moderators";
+type AdminTab = "users" | "residents" | "providers" | "moderators" | "operations";
 type ReasonAction =
   | "resident-reject"
   | "resident-request-more"
@@ -218,13 +219,13 @@ export default function AdminDashboardScreen() {
   const staffFilters = ["SUBMITTED", "IN_REVIEW", "APPROVED", "REJECTED", "SUSPENDED"];
 
   useEffect(() => {
-    if (activeTab === "users") return;
+    if (activeTab === "users" || activeTab === "operations") return;
     setStatusFilter(activeTab === "residents" ? "PENDING" : "SUBMITTED");
     setSearchQuery("");
   }, [activeTab]);
 
   const loadData = useCallback(async () => {
-    if (activeTab === "users") {
+    if (activeTab === "users" || activeTab === "operations") {
       setLoading(false);
       setRefreshing(false);
       return;
@@ -432,10 +433,15 @@ export default function AdminDashboardScreen() {
             <View style={{ width: "48%" }}>
               <TabButton label="Moderators" active={activeTab === "moderators"} onPress={() => setActiveTab("moderators")} />
             </View>
+            <View style={{ width: "48%" }}>
+              <TabButton label="Eljiran Ops" active={activeTab === "operations"} onPress={() => setActiveTab("operations")} />
+            </View>
           </View>
 
           {activeTab === "users" ? (
             <UserManagement />
+          ) : activeTab === "operations" ? (
+            <EljiranOperations />
           ) : (
             <>
           <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>

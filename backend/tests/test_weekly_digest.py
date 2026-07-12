@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import func, select
 
+from app.core.config import settings
 from app.models.compound import Compound
 from app.models.digest import DigestDelivery
 from app.models.enums import (
@@ -15,11 +16,20 @@ from app.models.enums import (
 from app.models.notification import Notification
 from app.models.post import Post
 from app.models.user import User
+from app.services.feature_flags import clear_feature_flag_cache
 from app.services.weekly_digest import run_weekly_digest
 
 
 START = datetime(2026, 7, 6, tzinfo=timezone.utc)
 END = datetime(2026, 7, 13, tzinfo=timezone.utc)
+
+
+@pytest.fixture(autouse=True)
+def enable_weekly_digest(monkeypatch):
+    monkeypatch.setattr(settings, "FEATURE_WEEKLY_DIGEST_ENABLED", True)
+    clear_feature_flag_cache()
+    yield
+    clear_feature_flag_cache()
 
 
 async def _resident(db_session) -> User:

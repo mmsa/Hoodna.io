@@ -66,7 +66,7 @@ export function FeatureConfigProvider({ children }: { children: ReactNode }) {
       value={{
         config,
         isLoading: query.isLoading,
-        isEnabled: (key) => config.flags[key] ?? SAFE_DEFAULTS[key],
+        isEnabled: (key) => Boolean(config.flags[key] ?? SAFE_DEFAULTS[key]),
       }}
     >
       {children}

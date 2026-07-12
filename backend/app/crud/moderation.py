@@ -5,8 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.report import resolve_report_target, update_report_status
 from app.models.business import IndependentBusiness
 from app.models.enums import ModerationActionType, UserStatus
+from app.models.listing import Listing
 from app.models.moderation import AuditLog, ModerationAction
-from app.models.post import Post
+from app.models.post import Comment, Post
 from app.models.report import Report, ReportStatus, ReportType
 from app.models.user import User
 from app.schemas.moderation import ReportModerationAction
@@ -45,11 +46,15 @@ async def apply_report_action(
     action_type: ModerationActionType
 
     if action == ReportModerationAction.HIDE:
-        if report.reported_type == ReportType.COMMENT.value:
-            raise UnsupportedModerationAction(
-                "Comment hiding is not supported: comments have no deleted_at or visibility field"
-            )
         if isinstance(entity, Post):
+            before = {"deleted_at": _timestamp(entity.deleted_at)}
+            entity.deleted_at = entity.deleted_at or datetime.now(timezone.utc)
+            after = {"deleted_at": _timestamp(entity.deleted_at)}
+        elif isinstance(entity, Comment):
+            before = {"deleted_at": _timestamp(entity.deleted_at)}
+            entity.deleted_at = entity.deleted_at or datetime.now(timezone.utc)
+            after = {"deleted_at": _timestamp(entity.deleted_at)}
+        elif isinstance(entity, Listing):
             before = {"deleted_at": _timestamp(entity.deleted_at)}
             entity.deleted_at = entity.deleted_at or datetime.now(timezone.utc)
             after = {"deleted_at": _timestamp(entity.deleted_at)}
@@ -63,11 +68,15 @@ async def apply_report_action(
             )
         action_type = ModerationActionType.HIDE
     elif action == ReportModerationAction.RESTORE:
-        if report.reported_type == ReportType.COMMENT.value:
-            raise UnsupportedModerationAction(
-                "Comment restore is not supported: comments have no deleted_at or visibility field"
-            )
         if isinstance(entity, Post):
+            before = {"deleted_at": _timestamp(entity.deleted_at)}
+            entity.deleted_at = None
+            after = {"deleted_at": None}
+        elif isinstance(entity, Comment):
+            before = {"deleted_at": _timestamp(entity.deleted_at)}
+            entity.deleted_at = None
+            after = {"deleted_at": None}
+        elif isinstance(entity, Listing):
             before = {"deleted_at": _timestamp(entity.deleted_at)}
             entity.deleted_at = None
             after = {"deleted_at": None}

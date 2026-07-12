@@ -1,11 +1,15 @@
 from datetime import date, datetime, timezone
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from httpx import ASGITransport, AsyncClient
 
+from app.api import beta_metrics as beta_metrics_api
 from app.api.beta_metrics import require_admin_only
 from app.api.internal import require_cron_secret
 from app.core.config import settings
+from app.core.dependencies import get_current_user
+from app.db.session import get_db
 from app.models.business import BusinessClaim, IndependentBusiness
 from app.models.compound import Compound
 from app.models.enums import (
@@ -31,6 +35,29 @@ async def test_beta_metrics_requires_admin_role():
 
     admin = User(role=UserRole.ADMIN)
     assert await require_admin_only(admin) is admin
+
+
+@pytest.mark.asyncio
+async def test_beta_metrics_endpoint_rejects_non_admin(db_session):
+    app = FastAPI()
+    app.include_router(beta_metrics_api.router, prefix="/api/admin")
+    moderator = User(role=UserRole.MODERATOR)
+    admin = User(role=UserRole.ADMIN)
+
+    async def override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = lambda: moderator
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        denied = await client.get("/api/admin/beta-metrics")
+        assert denied.status_code == 403
+
+        app.dependency_overrides[get_current_user] = lambda: admin
+        allowed = await client.get("/api/admin/beta-metrics")
+        assert allowed.status_code == 200
 
 
 def test_weekly_digest_job_requires_constant_secret(monkeypatch):

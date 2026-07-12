@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.core.dependencies import get_current_approved_user
 from app.models.user import User
+from app.services.feature_flags import require_business_reviews
 from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse
 from app.crud.review import (
     create_review,
@@ -22,7 +23,7 @@ router = APIRouter()
 async def create_review_endpoint(
     listing_id: int,
     review_data: ReviewCreate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(require_business_reviews),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a review for a listing."""
@@ -114,7 +115,7 @@ async def get_my_review(
 async def update_review_endpoint(
     review_id: int,
     review_data: ReviewUpdate,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(require_business_reviews),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a review."""
@@ -146,7 +147,7 @@ async def update_review_endpoint(
 @router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_review_endpoint(
     review_id: int,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(require_business_reviews),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a review."""

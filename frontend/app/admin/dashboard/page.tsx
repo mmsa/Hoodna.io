@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Wrench, Shield, Contact } from 'lucide-react'
+import { Users, Wrench, Shield, Contact, SlidersHorizontal } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 
 import ResidentVerifications from './components/resident-verifications'
 import ProviderReviews from './components/provider-reviews'
 import ModeratorReviews from './components/moderator-reviews'
 import UserManagement from './components/user-management'
+import EljiranOperations from './components/eljiran-operations'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -32,11 +33,11 @@ export default function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Review verifications, manage users, and handle applications</p>
+          <p className="text-gray-600">Review verifications, manage users, and operate the Eljiran rollout</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="flex h-auto w-full flex-wrap justify-start mb-6">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Contact className="w-4 h-4" />
               Users
@@ -52,6 +53,10 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="moderators" className="flex items-center gap-2">
               <Shield className="w-4 h-4" />
               Moderators
+            </TabsTrigger>
+            <TabsTrigger value="operations" className="flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4" />
+              Operations
             </TabsTrigger>
           </TabsList>
 
@@ -69,6 +74,10 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="moderators" className="mt-0">
             <ModeratorReviews />
+          </TabsContent>
+
+          <TabsContent value="operations" className="mt-0">
+            <EljiranOperations />
           </TabsContent>
         </Tabs>
       </div>
