@@ -31,7 +31,7 @@ export default function SplashScreen() {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' }}>
       <Image
-        source={require('@/assets/logo_light.jpg')}
+        source={require("@/assets/icon.png")}
         style={{
           width: 200,
           height: 80,

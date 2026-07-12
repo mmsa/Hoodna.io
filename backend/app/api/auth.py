@@ -151,7 +151,6 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     
     # Create user with normalized email
     user_data.email = email_lower
-    # Role is now required in UserSignup schema
     user = await create_user(db, user_data, role=user_data.role)
     
     # Automatically log the user in by creating tokens

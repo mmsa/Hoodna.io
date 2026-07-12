@@ -228,6 +228,9 @@ export default function FeedPage() {
   // Prevent hydration mismatch by only rendering conditional content after mount
   useEffect(() => {
     setIsMounted(true);
+    if (/^#post-\d+$/.test(window.location.hash)) {
+      setPostsLimit(1000);
+    }
   }, []);
 
   // Fetch moderator profile if user is COMPOUND_MOD
@@ -430,6 +433,20 @@ export default function FeedPage() {
     }
   }, [postsData, postsLimit]);
 
+  useEffect(() => {
+    if (!isMounted || isLoading || !/^#post-\d+$/.test(window.location.hash)) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(window.location.hash.slice(1));
+      if (!target) return;
+
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [allPosts, announcements, isLoading, isMounted]);
+
   // Redirect based on error type (fallback for API errors)
   // Note: Compound check happens first in the useEffect above
   useEffect(() => {
@@ -566,8 +583,12 @@ export default function FeedPage() {
       setAllPosts(response.data);
       setPostsLimit(newLimit);
       setHasMorePosts(response.data.length >= newLimit);
-    } catch (error) {
-      console.error("Failed to load more posts:", error);
+    } catch {
+      toast({
+        title: "Could not load more posts",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingMore(false);
     }
@@ -1271,7 +1292,7 @@ function ProfileSidebar({
 
           {/* Quick Actions */}
           <div className="space-y-2 pt-4 border-t border-gray-200">
-            <Link href="/marketplace/create">
+            <Link href="/marketplace/new">
               <Button
                 variant="outline"
                 className="w-full justify-start"
@@ -1505,7 +1526,8 @@ function PostCard({
   return (
     <Card
       id={`post-${post.id}`}
-      className={`border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 bg-white ${
+      tabIndex={-1}
+      className={`scroll-mt-24 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 bg-white ${
         colorClasses[postType.type] || colorClasses.general
       }`}
     >

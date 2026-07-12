@@ -1,32 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import type { Listing } from "@hoodna/shared";
+import { spacing, typography } from "@hoodna/tokens";
+import { useCallback, useEffect, useState } from "react";
+import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+
 import { Header } from "@/components/Header";
-import { useAuth } from "@/contexts/AuthContext";
+import { ListingCard } from "@/components/marketplace/listing-card";
+import { EmptyState, LoadingState } from "@/components/ui";
 import { colors } from "@/constants/colors";
-import { Listing } from "@hoodna/shared";
-
-function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMap {
-  const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-    PROPERTY: "home",
-    CAR: "car-sport",
-    ITEM: "cube",
-    SERVICE: "construct",
-  };
-  return icons[category] || "storefront";
-}
-
-function getCategoryColor(category: string): string {
-  const palette: Record<string, string> = {
-    PROPERTY: colors.primary,
-    CAR: colors.success,
-    ITEM: colors.purple,
-    SERVICE: colors.accent,
-  };
-  return palette[category] || colors.textMuted;
-}
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SavedListingsScreen() {
   const router = useRouter();
@@ -38,8 +22,7 @@ export default function SavedListingsScreen() {
 
   const loadSavedListings = useCallback(async () => {
     try {
-      const data = await apiClient.getSavedListings();
-      setListings(data || []);
+      setListings((await apiClient.getSavedListings()) || []);
     } catch (error) {
       console.error("Failed to load saved listings:", error);
     } finally {
@@ -52,9 +35,9 @@ export default function SavedListingsScreen() {
     loadSavedListings();
   }, [loadSavedListings]);
 
-  async function handleRemove(listingId: number) {
+  async function remove(listingId: number) {
+    setRemovingId(listingId);
     try {
-      setRemovingId(listingId);
       await apiClient.unsaveListing(listingId);
       setListings((current) => current.filter((listing) => listing.id !== listingId));
     } catch (error) {
@@ -66,232 +49,92 @@ export default function SavedListingsScreen() {
 
   if (!user) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <Header showLogo={true} showBackButton={true} title="Saved Listings" />
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 8 }}>
-            Sign in required
-          </Text>
-          <Text style={{ fontSize: 14, textAlign: "center", color: colors.textMuted }}>
-            Saved listings are tied to your account.
-          </Text>
-        </View>
+      <SafeAreaView edges={["top"]} style={styles.safe}>
+        <Header showBackButton title="Saved listings" />
+        <EmptyState description="Saved listings are tied to your account." title="Sign in required" />
       </SafeAreaView>
     );
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <Header showLogo={true} showBackButton={true} title="Saved Listings" />
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: colors.textMuted }}>Loading saved listings...</Text>
-        </View>
+      <SafeAreaView edges={["top"]} style={styles.safe}>
+        <Header showBackButton title="Saved listings" />
+        <LoadingState label="Loading saved listings" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      <Header showLogo={true} showBackButton={true} title="Saved Listings" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView edges={["top"]} style={styles.safe}>
+      <FlatList
+        contentContainerStyle={styles.content}
+        data={listings}
+        keyExtractor={(item) => String(item.id)}
+        ListHeaderComponent={
+          <View>
+            <Header showBackButton title="Saved listings" />
+            <View style={styles.intro}>
+              <Text accessibilityRole="header" style={styles.heading}>Saved for later</Text>
+              <Text style={styles.subheading}>
+                {listings.length
+                  ? `${listings.length} ${listings.length === 1 ? "listing" : "listings"} from marketplace and services.`
+                  : "Listings you bookmark will stay easy to find here."}
+              </Text>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <EmptyState
+            actionLabel="Browse marketplace"
+            description="Use the bookmark button on a listing to keep it here."
+            icon={<Ionicons color={colors.textMuted} name="bookmark-outline" size={38} />}
+            onAction={() => router.push("/(tabs)/market")}
+            title="Nothing saved yet"
+          />
+        }
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
               loadSavedListings();
             }}
+            refreshing={refreshing}
             tintColor={colors.primary}
           />
         }
-      >
-        <View style={{ padding: 16, paddingBottom: 40 }}>
-          <View
-            style={{
-              backgroundColor: "#FFF7ED",
-              borderRadius: 20,
-              padding: 18,
-              marginBottom: 18,
-              borderWidth: 1,
-              borderColor: "#FED7AA",
-            }}
-          >
-            <Text style={{ fontSize: 26, fontWeight: "800", color: "#C2410C", marginBottom: 6 }}>
-              Your saved items
-            </Text>
-            <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 16 }}>
-              Quick access to the listings you bookmarked on mobile or web.
-            </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <View
-                style={{
-                  backgroundColor: "#FDBA74",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 12,
-                }}
-              >
-                <Text style={{ fontSize: 20, fontWeight: "800", color: "#7C2D12" }}>
-                  {listings.length}
-                </Text>
-              </View>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#9A3412" }}>
-                Saved listings
-              </Text>
-            </View>
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <ListingCard
+              apiClient={apiClient}
+              layout="row"
+              listing={item}
+              onPress={() => router.push(`/listing/${item.id}`)}
+              onRemove={() => remove(item.id)}
+              removing={removingId === item.id}
+            />
           </View>
-
-          {listings.length === 0 ? (
-            <View
-              style={{
-                backgroundColor: colors.backgroundCard,
-                borderRadius: 20,
-                padding: 28,
-                borderWidth: 1,
-                borderColor: colors.border,
-                alignItems: "center",
-              }}
-            >
-              <Ionicons name="bookmark-outline" size={44} color={colors.textMuted} />
-              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginTop: 14, marginBottom: 8 }}>
-                Nothing saved yet
-              </Text>
-              <Text style={{ fontSize: 14, textAlign: "center", lineHeight: 21, color: colors.textMuted, marginBottom: 18 }}>
-                Bookmark listings from the marketplace and they will appear here.
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: colors.primary,
-                  borderRadius: 14,
-                  paddingHorizontal: 18,
-                  paddingVertical: 12,
-                }}
-                onPress={() => router.push("/(tabs)/market")}
-              >
-                <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>Browse marketplace</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ gap: 14 }}>
-              {listings.map((listing) => {
-                const categoryColor = getCategoryColor(listing.category || "ITEM");
-                const previewImage = listing.image_urls?.[0];
-
-                return (
-                  <TouchableOpacity
-                    key={listing.id}
-                    style={{
-                      backgroundColor: colors.backgroundCard,
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                    }}
-                    activeOpacity={0.88}
-                    onPress={() => router.push(`/listing/${listing.id}`)}
-                  >
-                    {previewImage ? (
-                      <Image source={{ uri: previewImage }} style={{ width: "100%", height: 180 }} resizeMode="cover" />
-                    ) : (
-                      <View
-                        style={{
-                          height: 180,
-                          backgroundColor: `${categoryColor}18`,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Ionicons name={getCategoryIcon(listing.category || "ITEM")} size={40} color={categoryColor} />
-                      </View>
-                    )}
-
-                    <View style={{ padding: 16 }}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                        <View style={{ flex: 1, paddingRight: 12 }}>
-                          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 6 }} numberOfLines={2}>
-                            {listing.title}
-                          </Text>
-                          {!!listing.description && (
-                            <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textMuted }} numberOfLines={2}>
-                              {listing.description}
-                            </Text>
-                          )}
-                        </View>
-                        <TouchableOpacity
-                          style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 21,
-                            backgroundColor: "#FEE2E2",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          onPress={() => handleRemove(listing.id)}
-                          disabled={removingId === listing.id}
-                        >
-                          {removingId === listing.id ? (
-                            <ActivityIndicator size="small" color={colors.error} />
-                          ) : (
-                            <Ionicons name="heart" size={20} color={colors.error} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <View
-                          style={{
-                            backgroundColor: `${categoryColor}18`,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            borderRadius: 999,
-                          }}
-                        >
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: categoryColor }}>
-                            {listing.category}
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            backgroundColor: listing.intent === "SELL" ? "#FEE2E2" : "#DBEAFE",
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            borderRadius: 999,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              fontWeight: "700",
-                              color: listing.intent === "SELL" ? colors.error : colors.primary,
-                            }}
-                          >
-                            {listing.intent === "SELL" ? "For Sale" : "For Rent"}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                        <View style={{ flex: 1, paddingRight: 12 }}>
-                          <Text style={{ fontSize: 22, fontWeight: "800", color: colors.success }}>
-                            {listing.price?.toLocaleString()} {listing.currency || "EGP"}
-                          </Text>
-                          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 4 }} numberOfLines={1}>
-                            {listing.compound_name}
-                          </Text>
-                        </View>
-                        <Ionicons name="arrow-forward-circle" size={28} color={colors.primary} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+        )}
+      />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1, paddingBottom: spacing[8] },
+  intro: { paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[5] },
+  heading: {
+    color: colors.text,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    fontWeight: typography.weight.bold,
+  },
+  subheading: {
+    marginTop: spacing[1],
+    color: colors.textSecondary,
+    fontSize: typography.size.bodySmall,
+    lineHeight: typography.lineHeight.bodySmall,
+  },
+  card: { paddingHorizontal: spacing[4], marginBottom: spacing[3] },
+});

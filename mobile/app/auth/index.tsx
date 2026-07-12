@@ -1,115 +1,40 @@
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { palette, spacing, typography } from "@hoodna/tokens";
+import { Button, KeyboardScreen } from "@/components/ui";
 
 export default function AuthSelectionScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }}>
-      <ScrollView 
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center' }}>
-          {/* Logo/Brand Section */}
-          <View style={{ alignItems: 'center', marginBottom: 48 }}>
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 16,
-                backgroundColor: '#3B82F6',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 24,
-                shadowColor: '#9333EA',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-            >
-              <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' }}>🏠</Text>
-            </View>
-            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#2563EB', marginBottom: 8 }}>
-              eljiran.com
-            </Text>
-            <Text style={{ fontSize: 18, fontWeight: '600', color: '#1B1B1B', marginBottom: 4 }}>
-              Welcome to your community
-            </Text>
-            <Text style={{ fontSize: 16, color: '#6C757D', textAlign: 'center', lineHeight: 24 }}>
-              Your community, your neighborhood
-            </Text>
-          </View>
-
-          {/* Auth Options */}
-          <View style={{ marginBottom: 24 }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#3B82F6',
-                borderRadius: 12,
-                paddingVertical: 18,
-                alignItems: 'center',
-                marginBottom: 16,
-                shadowColor: '#3B82F6',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-              onPress={() => router.push("/auth/login")}
-              activeOpacity={0.8}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-                Sign in with Email
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 12,
-                paddingVertical: 18,
-                alignItems: 'center',
-                borderWidth: 1.5,
-                borderColor: '#3B82F6',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 4,
-                elevation: 2,
-              }}
-              onPress={() => router.push("/auth/phone-login")}
-              activeOpacity={0.8}
-            >
-              <Text style={{ color: '#3B82F6', fontSize: 16, fontWeight: '600' }}>
-                Continue with Phone
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Sign Up Link */}
-          <View style={{ alignItems: 'center', marginTop: 24 }}>
-            <Text style={{ fontSize: 14, color: '#6C757D', marginBottom: 8 }}>
-              Don't have an account?
-            </Text>
-            <TouchableOpacity onPress={() => router.push("/auth/signup")}>
-              <Text style={{ fontSize: 14, color: '#3B82F6', fontWeight: '600' }}>
-                Sign up
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Footer */}
-          <View style={{ alignItems: 'center', marginTop: 24 }}>
-            <Text style={{ fontSize: 12, color: '#6C757D', textAlign: 'center' }}>
-              By continuing, you agree to our Terms of Service
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <KeyboardScreen contentContainerStyle={styles.screen}>
+      <View style={styles.brand}>
+        <Text style={styles.wordmark}>eljiran</Text>
+        <Text accessibilityRole="header" style={styles.title}>Your neighbourhood, connected.</Text>
+        <Text style={styles.subtitle}>Sign in to reach the people and services around you.</Text>
+      </View>
+      <View style={styles.actions}>
+        <Button accessibilityLabel="Sign in with email" onPress={() => router.push("/auth/login")} size="large">
+          Sign in with email
+        </Button>
+        <Button accessibilityLabel="Continue with phone" onPress={() => router.push("/auth/phone-login")} size="large" variant="outline">
+          Continue with phone
+        </Button>
+        <Button accessibilityLabel="Create an account" onPress={() => router.push("/auth/signup")} variant="ghost">
+          New here? Create an account
+        </Button>
+      </View>
+      <Text style={styles.terms}>By continuing, you agree to our Terms of Service.</Text>
+    </KeyboardScreen>
   );
 }
 
+const styles = StyleSheet.create({
+  screen: { justifyContent: "center", paddingVertical: spacing[8] },
+  brand: { marginBottom: spacing[10] },
+  wordmark: { color: palette.primary, fontSize: typography.size.titleSmall, fontWeight: typography.weight.bold, marginBottom: spacing[6] },
+  title: { color: palette.ink, fontSize: typography.size.display, lineHeight: typography.lineHeight.display, fontWeight: typography.weight.bold, letterSpacing: -0.5 },
+  subtitle: { color: palette.inkMuted, fontSize: typography.size.body, lineHeight: typography.lineHeight.body, marginTop: spacing[3] },
+  actions: { gap: spacing[3] },
+  terms: { color: palette.inkSubtle, fontSize: typography.size.caption, lineHeight: typography.lineHeight.caption, textAlign: "center", marginTop: spacing[6] },
+});

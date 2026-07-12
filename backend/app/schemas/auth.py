@@ -9,7 +9,7 @@ class UserSignup(BaseModel):
     email: EmailStr
     password: str
     phone: Optional[str] = None
-    role: UserRole
+    role: Optional[UserRole] = None
 
 
 class UserLogin(BaseModel):

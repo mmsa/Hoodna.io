@@ -20,8 +20,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [apiClient] = useState(() => new ApiClient(API_BASE_URL));
 
   useEffect(() => {
+    apiClient.setTokenRefresher(async () => {
+      const refreshToken = await SecureStore.getItemAsync("refreshToken");
+      if (!refreshToken) return null;
+      try {
+        const session = await apiClient.refreshSession(refreshToken);
+        await SecureStore.setItemAsync("accessToken", session.access_token);
+        await SecureStore.setItemAsync("refreshToken", session.refresh_token);
+        return session.access_token;
+      } catch {
+        await SecureStore.deleteItemAsync("accessToken");
+        await SecureStore.deleteItemAsync("refreshToken");
+        return null;
+      }
+    });
     loadAuth();
-  }, []);
+    return () => apiClient.setTokenRefresher(null);
+  }, [apiClient]);
 
   async function loadAuth() {
     try {

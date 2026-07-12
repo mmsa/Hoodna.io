@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
-import { getPostAuthRoute } from "@/lib/resident-routing";
+import { getPostAuthRoute, getRoleOnboardingRoute } from "@/lib/resident-routing";
 
 export default function ChooseRoleScreen() {
   const router = useRouter();
@@ -35,18 +35,15 @@ export default function ChooseRoleScreen() {
       // Refresh user data to get updated role
       await refreshUser();
 
-      // Redirect to appropriate onboarding flow
-      if (role === "RESIDENT") {
-        router.replace("/onboarding/compound-select");
-      } else if (role === "SERVICE_PROVIDER") {
-        router.replace("/onboarding/provider");
-      } else if (role === "COMPOUND_MOD") {
-        router.replace("/onboarding/moderator");
-      }
+      router.replace(
+        getRoleOnboardingRoute(
+          role as "RESIDENT" | "SERVICE_PROVIDER" | "COMPOUND_MOD",
+        ) as any,
+      );
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error.response?.data?.detail || "Failed to select role. Please try again."
+        error.message || "Failed to select role. Please try again."
       );
       setSelectedRole(null);
     } finally {
@@ -276,7 +273,7 @@ export default function ChooseRoleScreen() {
         </TouchableOpacity>
 
         <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: "center", marginTop: 16 }}>
-          You can change your account type later in settings
+          Choose carefully so we can guide you through the right setup.
         </Text>
       </ScrollView>
     </SafeAreaView>

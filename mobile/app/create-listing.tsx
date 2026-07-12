@@ -1,53 +1,77 @@
-import { useState } from "react";
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from "react-native";
-import { useRouter } from "expo-router";
-import { useAuth } from "@/contexts/AuthContext";
-import { ListingCreate } from "@hoodna/shared";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import type { ListingCategory, ListingCreate, ListingIntent } from "@hoodna/shared";
+import { palette, radii, spacing, typography } from "@hoodna/tokens";
+import { useEffect, useState } from "react";
+import { Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+
+import { Header } from "@/components/Header";
+import { SignedImage } from "@/components/signed-image";
+import { AppPressable, Button, Chip, KeyboardScreen, LoadingState, TextArea, TextField } from "@/components/ui";
+import { colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/AuthContext";
 import { uploadToPresignedUrl } from "@/lib/upload";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
-const CATEGORIES = [
-  { value: "ITEM", label: "📦 Item", color: "#3B82F6" },
-  { value: "CAR", label: "🚗 Car", color: "#10B981" },
-  { value: "PROPERTY", label: "🏠 Property", color: "#8B5CF6" },
-  { value: "SERVICE", label: "🔧 Service", color: "#F59E0B" },
-];
-
-const INTENTS = [
-  { value: "SELL", label: "Sell" },
-  { value: "RENT", label: "Rent" },
+const CATEGORIES: { value: ListingCategory; label: string }[] = [
+  { value: "ITEM", label: "Item" },
+  { value: "CAR", label: "Car" },
+  { value: "PROPERTY", label: "Property" },
+  { value: "SERVICE", label: "Service" },
 ];
 
 export default function CreateListingScreen() {
-  const [category, setCategory] = useState<"PROPERTY" | "CAR" | "ITEM" | "SERVICE">("ITEM");
+  const { category: categoryParam, id } = useLocalSearchParams<{ category?: string; id?: string }>();
+  const editId = id ? Number(id) : null;
+  const { apiClient, user } = useAuth();
+  const router = useRouter();
+  const [category, setCategory] = useState<ListingCategory>(
+    categoryParam === "SERVICE" ? "SERVICE" : "ITEM",
+  );
+  const [intent, setIntent] = useState<ListingIntent>("SELL");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [intent, setIntent] = useState<"SELL" | "RENT">("SELL");
   const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const { apiClient } = useAuth();
-  const router = useRouter();
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [loadingListing, setLoadingListing] = useState(!!editId);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!editId) return;
+    apiClient.getListing(editId).then((listing) => {
+      if (listing.owner_id !== user?.id) {
+        Alert.alert("Not available", "Only the listing owner can edit this listing.", [
+          { text: "OK", onPress: () => router.back() },
+        ]);
+        return;
+      }
+      setCategory(listing.category);
+      setIntent(listing.intent);
+      setTitle(listing.title);
+      setDescription(listing.description || "");
+      setPrice(listing.price == null ? "" : String(listing.price));
+      setExistingImages(listing.image_urls || []);
+    }).catch((error: any) => {
+      Alert.alert("Unable to load listing", error.message || "Please try again.");
+      router.back();
+    }).finally(() => setLoadingListing(false));
+  }, [apiClient, editId, router, user?.id]);
 
   async function pickImages() {
-    const remaining = MAX_IMAGES - images.length;
+    const remaining = MAX_IMAGES - existingImages.length - images.length;
     if (remaining <= 0) {
-      Alert.alert("Image limit", `You can upload up to ${MAX_IMAGES} images.`);
+      Alert.alert("Photo limit", `You can include up to ${MAX_IMAGES} photos.`);
       return;
     }
-
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission required", "Allow photo access to add listing images.");
+      Alert.alert("Photo access needed", "Allow photo access to add listing photos.");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
@@ -55,316 +79,219 @@ export default function CreateListingScreen() {
       quality: 0.8,
     });
     if (result.canceled) return;
-
     const valid = result.assets.filter((asset) => {
-      const supported = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(
-        asset.mimeType || "image/jpeg",
-      );
-      const withinLimit = !asset.fileSize || asset.fileSize <= MAX_IMAGE_BYTES;
-      return supported && withinLimit;
+      const supported = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(asset.mimeType || "image/jpeg");
+      return supported && (!asset.fileSize || asset.fileSize <= MAX_IMAGE_BYTES);
     });
     if (valid.length !== result.assets.length) {
-      Alert.alert(
-        "Some images were skipped",
-        "Images must be JPG, PNG, or WebP and no larger than 5 MB.",
-      );
+      Alert.alert("Some photos were skipped", "Use JPG, PNG or WebP photos up to 5 MB each.");
     }
-    setImages((current) => [...current, ...valid].slice(0, MAX_IMAGES));
+    setImages((current) => [...current, ...valid].slice(0, remaining + current.length));
   }
 
-  async function uploadImages(): Promise<string[]> {
+  async function uploadImages() {
     const token = await SecureStore.getItemAsync("accessToken");
-    return Promise.all(
-      images.map(async (image, index) => {
-        const mimeType = image.mimeType || "image/jpeg";
-        const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
-        const fileName = image.fileName || `listing-${Date.now()}-${index}.${extension}`;
-        const presign = await apiClient.getListingImagePresignedUrl({
-          file_name: fileName,
-          file_type: mimeType,
-        });
-        const response = await fetch(image.uri);
-        const blob = await response.blob();
-        await uploadToPresignedUrl(
-          presign.presigned_url,
-          blob,
-          mimeType,
-          token ?? undefined,
-        );
-        return presign.file_url;
-      }),
-    );
+    return Promise.all(images.map(async (image, index) => {
+      const mimeType = image.mimeType || "image/jpeg";
+      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+      const presign = await apiClient.getListingImagePresignedUrl({
+        file_name: image.fileName || `listing-${Date.now()}-${index}.${extension}`,
+        file_type: mimeType,
+      });
+      const response = await fetch(image.uri);
+      await uploadToPresignedUrl(presign.presigned_url, await response.blob(), mimeType, token ?? undefined);
+      return presign.file_url;
+    }));
   }
 
   async function handleSubmit() {
     if (!title.trim()) {
-      Alert.alert("Error", "Please enter a title");
+      Alert.alert("Title required", "Add a clear title for your listing.");
       return;
     }
-
-    setLoading(true);
+    const parsedPrice = price.trim() ? Number(price) : null;
+    if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+      Alert.alert("Check the price", "Enter a valid non-negative price.");
+      return;
+    }
+    setSubmitting(true);
     try {
-      const imageUrls = await uploadImages();
+      const imageUrls = [...existingImages, ...(await uploadImages())];
       const data: ListingCreate = {
         category,
+        intent,
         title: title.trim(),
         description: description.trim() || undefined,
-        price: price ? parseFloat(price) : undefined,
+        price: parsedPrice,
         currency: "EGP",
-        intent,
         image_urls: imageUrls,
       };
-
-      await apiClient.createListing(data);
-      Alert.alert("Success", "Listing created successfully!", [
-        { text: "OK", onPress: () => router.back() },
+      if (editId) {
+        await apiClient.updateListing(editId, {
+          title: data.title,
+          description: data.description,
+          price: data.price,
+          image_urls: data.image_urls,
+        });
+      } else {
+        await apiClient.createListing(data);
+      }
+      Alert.alert(editId ? "Listing updated" : "Listing published", "Your changes are live.", [
+        { text: "Done", onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to create listing");
+      Alert.alert("Could not save listing", error.message || "Please try again.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
+  if (loadingListing) {
+    return (
+      <KeyboardScreen padded={false}>
+        <Header showBackButton title="Edit listing" />
+        <LoadingState label="Loading listing" />
+      </KeyboardScreen>
+    );
+  }
+
+  const service = category === "SERVICE";
+  const photoCount = existingImages.length + images.length;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
-      {/* Header with Back Button */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: "#FFFFFF",
-          borderBottomWidth: 1,
-          borderBottomColor: "#E5E7EB",
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginRight: 16 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Create Listing</Text>
-      </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ padding: 16 }}>
+    <KeyboardScreen contentContainerStyle={styles.screen} padded={false}>
+      <Header showBackButton title={editId ? "Edit listing" : service ? "New service" : "New listing"} />
+      <View style={styles.content}>
+        <Text accessibilityRole="header" style={styles.heading}>
+          {editId ? "Update the details" : "Share something useful"}
+        </Text>
+        <Text style={styles.subheading}>
+          Clear photos and a specific title help neighbors decide quickly.
+        </Text>
 
-          {/* Category */}
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
-            Category
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={{
-                  backgroundColor: category === cat.value ? cat.color : "#FFFFFF",
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: category === cat.value ? cat.color : "#E5E7EB",
-                }}
-                onPress={() => setCategory(cat.value as any)}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "600",
-                    color: category === cat.value ? "#FFFFFF" : "#111827",
-                  }}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Intent */}
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
-            Intent
-          </Text>
-          <View style={{ flexDirection: "row", gap: 8, marginBottom: 24 }}>
-            {INTENTS.map((int) => (
-              <TouchableOpacity
-                key={int.value}
-                style={{
-                  flex: 1,
-                  backgroundColor: intent === int.value ? "#3B82F6" : "#FFFFFF",
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: intent === int.value ? "#3B82F6" : "#E5E7EB",
-                  alignItems: "center",
-                }}
-                onPress={() => setIntent(int.value as any)}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "600",
-                    color: intent === int.value ? "#FFFFFF" : "#111827",
-                  }}
-                >
-                  {int.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Title */}
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
-            Title *
-          </Text>
-          <TextInput
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              fontSize: 16,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              marginBottom: 24,
-              color: "#1B1B1B",
-            }}
-            placeholder="Enter listing title"
-            placeholderTextColor="#9CA3AF"
-            value={title}
-            onChangeText={setTitle}
-          />
-
-          {/* Description */}
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
-            Description
-          </Text>
-          <TextInput
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              fontSize: 16,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              marginBottom: 24,
-              color: "#1B1B1B",
-              minHeight: 100,
-              textAlignVertical: "top",
-            }}
-            placeholder="Describe your listing..."
-            placeholderTextColor="#9CA3AF"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-          />
-
-          {/* Price */}
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
-            Price (EGP)
-          </Text>
-          <TextInput
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              fontSize: 16,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              marginBottom: 24,
-              color: "#1B1B1B",
-            }}
-            placeholder="Enter price"
-            placeholderTextColor="#9CA3AF"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="numeric"
-          />
-
-          {/* Images */}
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
-            Photos ({images.length}/{MAX_IMAGES})
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 10, marginBottom: 24 }}
-          >
-            {images.map((image, index) => (
-              <View key={`${image.uri}-${index}`} style={{ position: "relative" }}>
-                <Image
-                  source={{ uri: image.uri }}
-                  style={{ width: 92, height: 92, borderRadius: 12, backgroundColor: "#E5E7EB" }}
-                />
-                <TouchableOpacity
-                  onPress={() => setImages((current) => current.filter((_, i) => i !== index))}
-                  accessibilityLabel="Remove image"
-                  style={{
-                    position: "absolute",
-                    top: -6,
-                    right: -6,
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    backgroundColor: "#EF4444",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ionicons name="close" size={16} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            {images.length < MAX_IMAGES && (
-              <TouchableOpacity
-                onPress={pickImages}
-                accessibilityRole="button"
-                accessibilityLabel="Add listing photos"
-                style={{
-                  width: 92,
-                  height: 92,
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderStyle: "dashed",
-                  borderColor: "#3B82F6",
-                  backgroundColor: "#FFFFFF",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                }}
-              >
-                <Ionicons name="camera-outline" size={26} color="#3B82F6" />
-                <Text style={{ color: "#3B82F6", fontSize: 12, fontWeight: "600" }}>Add photos</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#3B82F6",
-              borderRadius: 12,
-              paddingVertical: 16,
-              alignItems: "center",
-              marginTop: 8,
-            }}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>Create Listing</Text>
-            )}
-          </TouchableOpacity>
+        <Text style={styles.sectionLabel}>Category</Text>
+        <View style={styles.chips}>
+          {CATEGORIES.map((item) => (
+            <Chip
+              disabled={!!editId}
+              key={item.value}
+              label={item.label}
+              onPress={() => setCategory(item.value)}
+              selected={category === item.value}
+            />
+          ))}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+
+        <Text style={styles.sectionLabel}>{service ? "Pricing" : "Listing type"}</Text>
+        <View style={styles.chips}>
+          {(["SELL", "RENT"] as ListingIntent[]).map((value) => (
+            <Chip
+              disabled={!!editId}
+              key={value}
+              label={service ? (value === "SELL" ? "One-time" : "Hourly") : value === "SELL" ? "For sale" : "For rent"}
+              onPress={() => setIntent(value)}
+              selected={intent === value}
+            />
+          ))}
+        </View>
+
+        <TextField
+          autoCapitalize="sentences"
+          label="Title"
+          maxLength={120}
+          onChangeText={setTitle}
+          placeholder={service ? "e.g. Air conditioner servicing" : "e.g. Solid oak dining table"}
+          returnKeyType="next"
+          value={title}
+        />
+        <TextArea
+          containerStyle={styles.field}
+          label="Description"
+          maxLength={2000}
+          onChangeText={setDescription}
+          placeholder="Condition, dimensions, availability and anything else a neighbor should know"
+          value={description}
+        />
+        <TextField
+          containerStyle={styles.field}
+          helperText={service && intent === "RENT" ? "Hourly price in EGP" : "Price in EGP; leave blank for price on request"}
+          keyboardType="decimal-pad"
+          label="Price"
+          onChangeText={setPrice}
+          placeholder="0"
+          value={price}
+        />
+
+        <View style={styles.photoHeading}>
+          <View>
+            <Text style={styles.sectionLabel}>Photos</Text>
+            <Text style={styles.helper}>{photoCount} of {MAX_IMAGES}</Text>
+          </View>
+          {photoCount < MAX_IMAGES ? (
+            <Button leading={<Ionicons color={colors.primary} name="add" size={18} />} onPress={pickImages} size="small" variant="secondary">
+              Add photos
+            </Button>
+          ) : null}
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
+          {existingImages.map((uri, index) => (
+            <Photo key={uri} onRemove={() => setExistingImages((current) => current.filter((_, i) => i !== index))}>
+              <SignedImage apiClient={apiClient} fileUrl={uri} resizeMode="cover" style={styles.photo} />
+            </Photo>
+          ))}
+          {images.map((image, index) => (
+            <Photo key={`${image.uri}-${index}`} onRemove={() => setImages((current) => current.filter((_, i) => i !== index))}>
+              <Image source={{ uri: image.uri }} style={styles.photo} />
+            </Photo>
+          ))}
+          {!photoCount ? (
+            <AppPressable accessibilityLabel="Add listing photos" accessibilityRole="button" onPress={pickImages} style={styles.photoEmpty}>
+              <Ionicons color={colors.textMuted} name="images-outline" size={28} />
+              <Text style={styles.photoEmptyText}>Add up to five photos</Text>
+            </AppPressable>
+          ) : null}
+        </ScrollView>
+
+        <Button loading={submitting} loadingLabel="Saving" onPress={handleSubmit} size="large" style={styles.submit}>
+          {editId ? "Save changes" : service ? "Publish service" : "Publish listing"}
+        </Button>
+      </View>
+    </KeyboardScreen>
   );
 }
 
+function Photo({ children, onRemove }: { children: React.ReactNode; onRemove: () => void }) {
+  return (
+    <View style={styles.photoWrap}>
+      {children}
+      <AppPressable accessibilityLabel="Remove photo" accessibilityRole="button" hitSlop={8} onPress={onRemove} style={styles.removePhoto}>
+        <Ionicons color={palette.onPrimary} name="close" size={18} />
+      </AppPressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { paddingVertical: 0 },
+  content: { paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[10] },
+  heading: { color: colors.text, fontSize: typography.size.title, lineHeight: typography.lineHeight.title, fontWeight: typography.weight.bold },
+  subheading: { marginTop: spacing[1], marginBottom: spacing[6], color: colors.textSecondary, fontSize: typography.size.bodySmall, lineHeight: 20 },
+  sectionLabel: { marginBottom: spacing[2], color: colors.text, fontSize: typography.size.bodySmall, fontWeight: typography.weight.semibold },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing[2], marginBottom: spacing[5] },
+  field: { marginTop: spacing[4] },
+  photoHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing[6] },
+  helper: { color: colors.textSecondary, fontSize: typography.size.caption },
+  photos: { gap: spacing[3], paddingTop: spacing[3], paddingBottom: spacing[2] },
+  photoWrap: { position: "relative" },
+  photo: { width: 112, height: 112, borderRadius: radii.large, backgroundColor: palette.surfaceMuted },
+  removePhoto: {
+    position: "absolute", top: 4, right: 4, width: 44, height: 44, alignItems: "center", justifyContent: "center",
+    borderRadius: radii.full, backgroundColor: "rgba(28,28,26,0.78)",
+  },
+  photoEmpty: {
+    width: 220, height: 112, alignItems: "center", justifyContent: "center", gap: spacing[2],
+    borderWidth: 1, borderColor: colors.border, borderRadius: radii.large, backgroundColor: palette.surface,
+  },
+  photoEmptyText: { color: colors.textSecondary, fontSize: typography.size.bodySmall },
+  submit: { marginTop: spacing[6] },
+});

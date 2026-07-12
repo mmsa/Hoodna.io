@@ -200,7 +200,6 @@ export default function ModeratorOnboardingPage() {
       toast.success('Document uploaded successfully')
       queryClient.invalidateQueries({ queryKey: ['moderator-profile'] })
     } catch (error: any) {
-      console.error('Upload error:', error)
       toast.error(error.message || error.response?.data?.detail || 'Failed to upload document')
     }
   }

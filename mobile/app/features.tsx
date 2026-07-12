@@ -92,7 +92,7 @@ export default function FeaturesScreen() {
     {
       title: "Messages",
       description: "Keep conversations with sellers, service providers, and neighbors in one place.",
-      route: "/messages",
+      route: "/(tabs)/messages",
       icon: "chatbubbles",
       color: colors.purple,
       requiresAuth: true,

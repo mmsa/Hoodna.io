@@ -59,6 +59,13 @@ export default function ChooseRolePage() {
     updateRoleMutation.mutate(role)
   }
 
+  // Redirect unauthenticated users on the client to avoid SSR router errors
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/auth/login')
+    }
+  }, [user, userLoading, router])
+
   if (userLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -69,13 +76,6 @@ export default function ChooseRolePage() {
       </div>
     )
   }
-
-  // Redirect unauthenticated users on the client to avoid SSR router errors
-  useEffect(() => {
-    if (!userLoading && !user) {
-      router.push('/auth/login')
-    }
-  }, [user, userLoading, router])
 
   if (!user) {
     return null

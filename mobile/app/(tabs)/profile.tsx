@@ -238,7 +238,7 @@ export default function ProfileScreen() {
         title: "Messages",
         description: "Open your conversations with neighbors, buyers, and providers.",
         color: colors.primary,
-        route: "/messages",
+        route: "/(tabs)/messages",
       },
       {
         icon: "notifications" as const,

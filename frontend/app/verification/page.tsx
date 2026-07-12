@@ -81,13 +81,11 @@ export default function VerificationPage() {
     
     // Redirect service providers and moderators to their status pages (they don't use resident verification)
     if (user.role === 'SERVICE_PROVIDER') {
-      console.log('[Verification] Redirecting SERVICE_PROVIDER to /provider/status');
       router.replace('/provider/status');
       return;
     }
     
     if (user.role === 'COMPOUND_MOD') {
-      console.log('[Verification] Redirecting COMPOUND_MOD to /moderator/status');
       router.replace('/moderator/status');
       return;
     }
@@ -226,7 +224,6 @@ export default function VerificationPage() {
         });
         router.replace("/verification/pending");
       } catch (submitError: any) {
-        console.error("Auto-submit failed:", submitError);
         toast({
           title: "Uploaded — submit required",
           description:
@@ -238,7 +235,6 @@ export default function VerificationPage() {
         setSubmitting(false);
       }
     } catch (error: any) {
-      console.error("Upload failed:", error);
       const errorMessage = error?.response?.data?.detail || error?.message || "Upload failed. Please try again.";
       toast({
         title: "Upload failed",
@@ -374,7 +370,6 @@ export default function VerificationPage() {
 
       router.replace("/verification/pending");
     } catch (error: any) {
-      console.error("Submission failed:", error);
       const errorMessage = error?.response?.data?.detail || error?.message || "Failed to submit documents. Please try again.";
       toast({
         title: "Submission failed",

@@ -40,31 +40,15 @@ export default function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('date_desc')
 
-  // Log user info for debugging
-  useEffect(() => {
-    console.log('[ServicesPage] User info:', {
-      id: user?.id,
-      role: user?.role,
-      compoundId: user?.compound_id,
-      isServiceProvider: user?.role === 'SERVICE_PROVIDER'
-    })
-  }, [user])
-
   // Check if user is a service provider and fetch their profile
   const { data: providerProfile, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['provider-profile'],
     queryFn: async () => {
       if (user?.role !== 'SERVICE_PROVIDER') return null
-      console.log('[ServicesPage] Fetching provider profile for service provider...')
       try {
         const response = await api.get('/api/providers/me')
-        console.log('[ServicesPage] Provider profile:', {
-          status: response.data?.provider_status,
-          id: response.data?.id
-        })
         return response.data
-      } catch (error: any) {
-        console.error('[ServicesPage] Failed to fetch provider profile:', error)
+      } catch {
         return null
       }
     },
@@ -80,28 +64,16 @@ export default function ServicesPage() {
         return
       }
       
-      console.log('[ServicesPage] User is SERVICE_PROVIDER, checking status...', {
-        hasProfile: !!providerProfile,
-        status: providerProfile?.provider_status,
-        isLoadingProfile
-      })
-      
       if (!providerProfile) {
         // Profile doesn't exist, redirect to status page
-        console.log('[ServicesPage] No profile found, redirecting to status page')
         router.push('/provider/status')
         return
       }
       
       const status = providerProfile.provider_status?.toString().trim().toUpperCase()
-      console.log('[ServicesPage] Provider status check:', {
-        status,
-        isApproved: status === 'APPROVED'
-      })
       
       // Only redirect if NOT approved
       if (status !== 'APPROVED') {
-        console.log('[ServicesPage] Provider not approved, redirecting to status page')
         router.push('/provider/status')
         return
       }
@@ -128,7 +100,6 @@ export default function ServicesPage() {
   const scope = useMemo(() => {
     // For service providers, always use 'my' scope (don't wait for profile status)
     if (user?.role === 'SERVICE_PROVIDER') {
-      console.log('[ServicesPage] Using scope=my for service provider')
       return 'my'
     }
     return 'compound'
@@ -147,7 +118,6 @@ export default function ServicesPage() {
       params.search = searchQuery.trim()
     }
     
-    console.log('[ServicesPage] Query params:', params, 'User role:', user?.role, 'Original scope:', scope)
     return params
   }, [scope, searchQuery, sortBy, user?.role])
 
@@ -155,13 +125,7 @@ export default function ServicesPage() {
     queryKey: ['services', user?.role, scope, queryParams],
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
-      console.log('[ServicesPage] Fetching listings:', `/api/listings?${queryString}`)
-      console.log('[ServicesPage] User role:', user?.role, 'Scope in params:', queryParams.scope)
       const response = await api.get(`/api/listings?${queryString}`)
-      console.log('[ServicesPage] Listings fetched:', {
-        count: response.data?.length || 0,
-        data: response.data
-      })
       return response.data || []
     },
     refetchOnMount: true,
@@ -169,7 +133,6 @@ export default function ServicesPage() {
     enabled: (() => {
       // Always wait for user to be loaded to determine correct scope
       if (!user) {
-        console.log('[ServicesPage] Query disabled: user not loaded yet')
         return false
       }
       
@@ -177,28 +140,15 @@ export default function ServicesPage() {
       if (user.role === 'SERVICE_PROVIDER') {
         // Wait for profile to finish loading
         if (isLoadingProfile) {
-          console.log('[ServicesPage] Query disabled: profile still loading')
           return false
         }
         
         // If no profile or not approved, don't enable query (will redirect)
         if (!providerProfile || providerProfile.provider_status !== 'APPROVED') {
-          console.log('[ServicesPage] Query disabled: provider not approved or no profile', {
-            hasProfile: !!providerProfile,
-            status: providerProfile?.provider_status
-          })
           return false
         }
         
-        const enabled = true
-        console.log('[ServicesPage] Query enabled check for SERVICE_PROVIDER:', {
-          enabled,
-          hasUser: !!user,
-          hasProfile: !!providerProfile,
-          profileStatus: providerProfile?.provider_status,
-          scope: scope
-        })
-        return enabled
+        return true
       }
       // For other users, enable immediately
       return true
@@ -209,15 +159,6 @@ export default function ServicesPage() {
     if (!error) return
 
     const status = (error as any).response?.status
-    const message = (error as any).message
-    const data = (error as any).response?.data
-
-    console.error('[ServicesPage] Error fetching listings:', {
-      status,
-      message,
-      data,
-      userRole: user?.role
-    })
 
     if (status === 403) {
       router.push('/verification')
@@ -225,8 +166,6 @@ export default function ServicesPage() {
     }
 
     if (status === 400) {
-      const errorDetail = data?.detail || ''
-      console.log('[ServicesPage] 400 error detail:', errorDetail)
       if (user?.role === 'SERVICE_PROVIDER') {
         router.push('/provider/status')
       }

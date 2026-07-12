@@ -31,13 +31,11 @@ export default function CompoundSelectPage() {
     if (!user) return
     
     if (user.role === 'SERVICE_PROVIDER') {
-      console.log('[CompoundSelect] Redirecting SERVICE_PROVIDER to /provider/status')
       router.replace('/provider/status')
       return
     }
     
     if (user.role === 'COMPOUND_MOD') {
-      console.log('[CompoundSelect] Redirecting COMPOUND_MOD to /moderator/status')
       router.replace('/moderator/status')
       return
     }
@@ -94,7 +92,6 @@ export default function CompoundSelectPage() {
       // Don't redirect on error - show error message instead
       const errorMessage = err.response?.data?.detail || 'Failed to update neighbourhood. Please try again.'
       setError(errorMessage)
-      console.error('Compound selection error:', err)
     },
   })
 

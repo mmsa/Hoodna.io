@@ -144,11 +144,7 @@ export default function MessagesTab() {
       setConversations(data);
     } catch (error: any) {
       // Stop polling on 403 errors (user not approved)
-      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
-        console.log("User not approved, stopping conversation polling");
-        return;
-      }
-      console.error("Failed to load conversations:", error);
+      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) return;
     } finally {
       setLoading(false);
       setRefreshing(false);

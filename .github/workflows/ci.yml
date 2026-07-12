@@ -102,9 +102,39 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
+  shared-mobile-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check shared contracts
+        run: |
+          cd packages/shared
+          npm install
+          npm run build
+
+      - name: Check design tokens
+        run: |
+          cd packages/tokens
+          npm install
+          npm run build
+
+      - name: Check mobile application
+        run: |
+          cd mobile
+          npm install
+          npx tsc --noEmit
+
   ci-success:
     runs-on: ubuntu-latest
-    needs: [backend-ci, frontend-ci]
+    needs: [backend-ci, frontend-ci, shared-mobile-ci]
     if: always()
     steps:
       - name: CI Status
@@ -112,4 +142,5 @@ jobs:
           echo "CI pipeline completed"
           echo "Backend CI: ${{ needs.backend-ci.result }}"
           echo "Frontend CI: ${{ needs.frontend-ci.result }}"
+          echo "Shared/mobile CI: ${{ needs.shared-mobile-ci.result }}"
 

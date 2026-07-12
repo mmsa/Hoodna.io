@@ -365,7 +365,6 @@ export default function ProviderOnboardingPage() {
       toast.success('Document uploaded successfully')
       queryClient.invalidateQueries({ queryKey: ['provider-profile'] })
     } catch (error: any) {
-      console.error('Upload error:', error)
       toast.error(error.message || error.response?.data?.detail || 'Failed to upload document')
     }
   }

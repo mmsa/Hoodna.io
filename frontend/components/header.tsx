@@ -237,7 +237,7 @@ export function Header() {
                 </Button>
               </Link>
               {isAdmin && (
-                <Link href="/admin/verifications">
+                <Link href="/admin/dashboard">
                   <Button
                     variant={isActive('/admin') ? 'default' : 'ghost'}
                     className={isActive('/admin') ? 'bg-blue-50 text-blue-700' : ''}
@@ -337,7 +337,7 @@ export function Header() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/saved" className="flex items-center">
+                      <Link href="/saved-listings" className="flex items-center">
                         <Bookmark className="mr-2 h-4 w-4" />
                         <span>Saved Listings</span>
                       </Link>

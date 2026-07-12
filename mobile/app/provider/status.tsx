@@ -56,22 +56,9 @@ export default function ProviderStatusScreen() {
   // Redirect approved providers to services page
   useEffect(() => {
     const status = profile?.provider_status?.toString().trim().toUpperCase();
-    console.log("[ProviderStatus] Redirect check:", {
-      hasProfile: !!profile,
-      provider_status: profile?.provider_status,
-      normalizedStatus: status,
-      statusType: typeof profile?.provider_status,
-      isApproved: status === "APPROVED",
-      exactMatch: status === "APPROVED" ? "YES" : "NO"
-    });
     
     if (profile && status === "APPROVED") {
-      console.log("[ProviderStatus] ✅ Profile is APPROVED - redirecting to services page");
       router.replace("/(tabs)/services");
-    } else if (profile) {
-      console.log("[ProviderStatus] ⚠️ Profile exists but status is:", status, "- staying on status page");
-    } else {
-      console.log("[ProviderStatus] ⏳ No profile yet - waiting...");
     }
   }, [profile, router]);
 
@@ -86,17 +73,9 @@ export default function ProviderStatusScreen() {
   async function fetchProfile() {
     try {
       setLoading(true);
-      console.log("[ProviderStatus] Fetching provider profile...");
       const response = await apiClient.getProviderProfile();
-      console.log("[ProviderStatus] Profile fetched:", {
-        id: response?.id,
-        provider_status: response?.provider_status,
-        business_name: response?.business_name,
-        fullResponse: JSON.stringify(response, null, 2)
-      });
       setProfile(response);
     } catch (error: any) {
-      console.error("[ProviderStatus] Failed to fetch provider profile:", error);
       // If profile doesn't exist, that's okay - user needs to complete onboarding
       if (error?.status !== 404) {
         Alert.alert("Error", "Failed to load profile. Please try again.");

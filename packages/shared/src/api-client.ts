@@ -14,9 +14,16 @@ import { Post, PostCreate, CommentCreate } from "./schemas/post";
 import { Listing, ListingCreate } from "./schemas/listing";
 import { Compound } from "./schemas/compound";
 
+type RequestOptions = RequestInit & {
+  timeout?: number;
+  skipAuthRefresh?: boolean;
+  hasRetriedAuth?: boolean;
+};
+
 export class ApiClient {
   private baseUrl: string;
   private accessToken: string | null = null;
+  private refreshAccessToken: (() => Promise<string | null>) | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
@@ -26,9 +33,13 @@ export class ApiClient {
     this.accessToken = token;
   }
 
+  setTokenRefresher(refresher: (() => Promise<string | null>) | null) {
+    this.refreshAccessToken = refresher;
+  }
+
   async request<T>(
     endpoint: string,
-    options: RequestInit & { timeout?: number } = {}
+    options: RequestOptions = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
@@ -44,11 +55,29 @@ export class ApiClient {
     // Timeouts were causing issues on slower networks
     // If timeout is needed, it can be added via options.timeout in the future
     try {
-      const { timeout, ...fetchOptions } = options;
+      const {
+        timeout,
+        skipAuthRefresh,
+        hasRetriedAuth,
+        ...fetchOptions
+      } = options;
       const response = await fetch(url, {
         ...fetchOptions,
         headers,
       });
+
+      if (
+        response.status === 401 &&
+        !skipAuthRefresh &&
+        !hasRetriedAuth &&
+        this.refreshAccessToken
+      ) {
+        const nextToken = await this.refreshAccessToken();
+        if (nextToken) {
+          this.setAccessToken(nextToken);
+          return this.request<T>(endpoint, { ...options, hasRetriedAuth: true });
+        }
+      }
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: response.statusText }));
@@ -81,6 +110,14 @@ export class ApiClient {
     return this.request<TokenResponse>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  async refreshSession(refreshToken: string): Promise<TokenResponse> {
+    return this.request<TokenResponse>("/api/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      skipAuthRefresh: true,
     });
   }
 

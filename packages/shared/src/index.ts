@@ -18,4 +18,5 @@ export * from "./schemas/message";
 export * from "./schemas/notification";
 export * from "./schemas/report";
 export * from "./api-client";
+export * from "./product";
 

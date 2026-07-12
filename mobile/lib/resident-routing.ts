@@ -52,6 +52,14 @@ export function isResidentRole(role: string | null | undefined): boolean {
   return role === "RESIDENT" || role === "USER";
 }
 
+export function getRoleOnboardingRoute(
+  role: "RESIDENT" | "SERVICE_PROVIDER" | "COMPOUND_MOD",
+): string {
+  if (role === "RESIDENT") return "/onboarding/compound-select";
+  if (role === "SERVICE_PROVIDER") return "/onboarding/provider";
+  return "/onboarding/moderator";
+}
+
 export function verificationDocumentsNeedReupload(status?: {
   national_id?: { status?: string } | null;
   contract?: { status?: string } | null;

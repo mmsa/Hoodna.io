@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
 import { Compound } from "@hoodna/shared";
 import { formatCompoundName, formatCompoundWithArea } from "@/utils/formatCompound";
+import { palette, radii, spacing, touchTarget, typography } from "@hoodna/tokens";
 
 type SwitchableCompound = {
   id: number;
@@ -162,7 +163,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
               activeOpacity={0.7}
             >
               <Image
-                source={require("@/assets/icon_light.jpg")}
+                source={require("@/assets/icon.png")}
                 style={[styles.logoIcon, compactHeader && styles.logoIconCompact]}
                 resizeMode="cover"
               />
@@ -222,6 +223,8 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
             style={styles.searchButton}
             onPress={() => router.push("/search")}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Search"
           >
             <Ionicons name="search" size={22} color={colors.textMain} />
           </TouchableOpacity>
@@ -236,6 +239,8 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
               onPress={rightAction.onPress}
               disabled={rightAction.disabled}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={rightAction.label}
             >
               {rightAction.icon && (
                 <Ionicons
@@ -267,6 +272,8 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
               <TouchableOpacity
                 onPress={() => setShowCompoundSwitcher(false)}
                 style={styles.closeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close neighbourhood switcher"
               >
                 <Ionicons name="close" size={24} color={colors.textMain} />
               </TouchableOpacity>
@@ -357,11 +364,11 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: palette.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
   },
   content: {
     flexDirection: "row",
@@ -370,7 +377,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   backButton: {
-    marginRight: 16,
+    width: touchTarget,
+    height: touchTarget,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing[2],
   },
   logoSection: {
     flexDirection: "row",
@@ -389,7 +400,7 @@ const styles = StyleSheet.create({
   logoIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: radii.medium,
   },
   logoIconCompact: {
     width: 32,
@@ -401,9 +412,9 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
   },
   logoText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1B4332",
+    fontSize: typography.size.titleSmall,
+    fontWeight: typography.weight.bold,
+    color: colors.text,
     letterSpacing: -0.3,
   },
   logoTextCompact: {
@@ -445,9 +456,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#111827",
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    fontWeight: typography.weight.semibold,
+    color: colors.text,
   },
   compoundBadge: {
     flexDirection: "row",
@@ -473,15 +485,18 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   searchButton: {
-    padding: 8,
-    marginRight: 8,
+    width: touchTarget,
+    height: touchTarget,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing[1],
     flexShrink: 0,
   },
   rightButton: {
-    backgroundColor: colors.primary, // Blue-500 (matching web app)
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    minHeight: touchTarget,
+    borderRadius: radii.medium,
     flexDirection: "row",
     alignItems: "center",
     flexShrink: 0,
@@ -522,7 +537,10 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   closeButton: {
-    padding: 4,
+    width: touchTarget,
+    height: touchTarget,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingContainer: {
     padding: 40,

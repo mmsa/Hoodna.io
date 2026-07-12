@@ -30,7 +30,3 @@ function resolveApiBaseUrl(): string {
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
-
-if (__DEV__) {
-  console.log("🔗 Mobile App API URL:", API_BASE_URL);
-}

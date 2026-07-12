@@ -59,89 +59,28 @@ export default function ProviderStatusPage() {
   const router = useRouter()
   const { user } = useAuth()
 
-  const { data: profile, isLoading, error: profileError } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ['provider-profile'],
     queryFn: async () => {
-      console.log('[ProviderStatus] Fetching provider profile from API...', {
-        userRole: user?.role,
-        userId: user?.id,
-        hasUser: !!user
-      })
-      try {
-        const response = await api.get('/api/providers/me')
-        console.log('[ProviderStatus] API response received:', {
-          status: response.status,
-          data: response.data,
-          provider_status: response.data?.provider_status,
-          statusType: typeof response.data?.provider_status,
-          fullData: JSON.stringify(response.data, null, 2)
-        })
-        return response.data
-      } catch (err: any) {
-        console.error('[ProviderStatus] API call failed:', {
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data,
-          message: err.message,
-          fullError: err
-        })
-        throw err
-      }
+      const response = await api.get('/api/providers/me')
+      return response.data
     },
     enabled: !!user && user.role === 'SERVICE_PROVIDER',
     retry: false,
   })
 
   useEffect(() => {
-    if (!profile && !profileError) return
-
-    if (profile) {
-      console.log('[ProviderStatus] Query success:', {
-        provider_status: profile?.provider_status,
-        normalizedStatus: profile?.provider_status?.toString().trim().toUpperCase(),
-        hasData: !!profile
-      })
-    }
-
-    if (profileError) {
-      console.error('[ProviderStatus] Query error:', {
-        message: profileError.message,
-        status: (profileError as any).response?.status,
-        data: (profileError as any).response?.data,
-        is404: (profileError as any).response?.status === 404,
-        is403: (profileError as any).response?.status === 403
-      })
-    }
-  }, [profile, profileError])
-
-  useEffect(() => {
-    console.log('[ProviderStatus] useEffect triggered:', {
-      hasUser: !!user,
-      userRole: user?.role,
-      hasProfile: !!profile,
-      profileStatus: profile?.provider_status,
-      isLoading,
-      profileError: profileError ? {
-        message: profileError.message,
-        status: (profileError as any).response?.status
-      } : null,
-      currentPath: typeof window !== 'undefined' ? window.location.pathname : 'SSR'
-    })
-
     if (!user) {
-      console.log('[ProviderStatus] No user - redirecting to login')
       router.push('/auth/login')
       return
     }
 
     if (user.role !== 'SERVICE_PROVIDER') {
-      console.log('[ProviderStatus] User role is not SERVICE_PROVIDER:', user.role, '- redirecting to choose-role')
       router.push('/onboarding/choose-role')
       return
     }
 
     if (!profile && !isLoading) {
-      console.log('[ProviderStatus] No profile and not loading - redirecting to onboarding')
       // No profile exists, redirect to onboarding
       router.push('/onboarding/provider')
       return
@@ -150,31 +89,19 @@ export default function ProviderStatusPage() {
     // Redirect approved providers to services page
     if (profile) {
       const status = profile.provider_status?.toString().trim().toUpperCase();
-      console.log('[ProviderStatus] Profile check:', {
-        provider_status: profile.provider_status,
-        normalizedStatus: status,
-        statusType: typeof profile.provider_status,
-        isApproved: status === 'APPROVED',
-        exactMatch: status === 'APPROVED' ? 'YES' : 'NO',
-        fullProfile: JSON.stringify(profile, null, 2)
-      })
       
       if (status === 'APPROVED') {
-        console.log('[ProviderStatus] ✅ Profile is APPROVED - redirecting to /services')
         router.push('/services')
         return
-      } else {
-        console.log('[ProviderStatus] ⚠️ Profile status is:', status, '- staying on status page')
       }
     }
 
     // Prevent bypassing status page if not approved
     if (profile && profile.provider_status !== 'APPROVED' && profile.provider_status !== 'DRAFT') {
-      console.log('[ProviderStatus] 🔒 User must stay on status page - status:', profile.provider_status)
       // User must stay on status page until approved
       // This prevents accessing other pages
     }
-  }, [user, profile, isLoading, profileError, router])
+  }, [user, profile, isLoading, router])
 
   if (isLoading) {
     return (

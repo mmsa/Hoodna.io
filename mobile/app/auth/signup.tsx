@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import { getRoleOnboardingRoute } from "@/lib/resident-routing";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -50,14 +51,7 @@ export default function SignupScreen() {
 
       await login(response.access_token, response.refresh_token);
 
-      // Redirect based on role
-      if (selectedRole === "RESIDENT") {
-        router.replace("/onboarding/compound-select");
-      } else if (selectedRole === "SERVICE_PROVIDER") {
-        router.replace("/onboarding/provider");
-      } else if (selectedRole === "COMPOUND_MOD") {
-        router.replace("/onboarding/moderator");
-      }
+      router.replace(getRoleOnboardingRoute(selectedRole!) as any);
     } catch (error: any) {
       Alert.alert("Signup Failed", error.message || "Failed to create account. Please try again.");
     } finally {

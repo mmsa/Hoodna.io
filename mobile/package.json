@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@hoodna/shared": "file:../packages/shared",
+    "@hoodna/tokens": "file:../packages/tokens",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/stack": "^7.6.13",

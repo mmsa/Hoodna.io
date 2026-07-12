@@ -143,7 +143,7 @@ export default function ConversationScreen() {
               paddingVertical: 14,
               borderRadius: 16,
             }}
-            onPress={() => router.push("/messages")}
+            onPress={() => router.replace("/(tabs)/messages")}
           >
             <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
               Back to Messages

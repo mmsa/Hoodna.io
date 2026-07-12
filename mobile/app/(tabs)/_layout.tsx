@@ -1,10 +1,12 @@
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { palette, spacing, typography } from "@hoodna/tokens";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { getPostAuthRoute, isResidentRole } from "@/lib/resident-routing";
+import { LoadingState } from "@/components/ui";
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
@@ -24,8 +26,8 @@ export default function TabsLayout() {
 
   if (loading || !user || (isResidentRole(user.role) && user.status !== "APPROVED")) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#EFF6FF" }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.loading}>
+        <LoadingState label="Loading your community" />
       </View>
     );
   }
@@ -37,10 +39,16 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
+          backgroundColor: palette.surface,
           borderTopWidth: 1,
           borderTopColor: colors.border,
+          height: 64,
+          paddingTop: spacing[2],
+          paddingBottom: spacing[2],
         },
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarItemStyle: styles.tabItem,
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
@@ -91,3 +99,17 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    backgroundColor: palette.canvas,
+  },
+  tabItem: {
+    minHeight: 44,
+  },
+  tabLabel: {
+    fontSize: typography.size.caption,
+    fontWeight: typography.weight.medium,
+  },
+});

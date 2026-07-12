@@ -102,7 +102,6 @@ export default function LoginPage() {
         router.push(dest)
       }
     } catch (err: any) {
-      console.error('Login error:', err)
       // Provide more detailed error messages
       if (err.response) {
         // Backend returned an error response
