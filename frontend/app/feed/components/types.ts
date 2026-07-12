@@ -91,8 +91,40 @@ export function formatTimeAgo(dateString: string) {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
 
   if (seconds < 60) return "just now"
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+const CATEGORY_ACCENTS: Record<string, string> = {
+  GENERAL: "border-l-border",
+  HELP: "border-l-amber-400",
+  LOST_FOUND: "border-l-pink-400",
+  EVENT: "border-l-primary",
+  MARKETPLACE: "border-l-emerald-500",
+  ANNOUNCEMENT: "border-l-amber-400",
+  ALERT: "border-l-destructive",
+  DISCUSSION: "border-l-violet-400",
+}
+
+const CATEGORY_BADGES: Record<string, string> = {
+  GENERAL: "bg-muted text-muted-foreground",
+  HELP: "bg-amber-50 text-amber-800",
+  LOST_FOUND: "bg-pink-50 text-pink-800",
+  EVENT: "bg-primary/10 text-primary",
+  MARKETPLACE: "bg-emerald-50 text-emerald-800",
+  ANNOUNCEMENT: "bg-amber-50 text-amber-900",
+  ALERT: "bg-destructive/10 text-destructive",
+  DISCUSSION: "bg-violet-50 text-violet-800",
+}
+
+export function categoryAccentClass(category?: string) {
+  const key = category?.toUpperCase() ?? "GENERAL"
+  return CATEGORY_ACCENTS[key] ?? CATEGORY_ACCENTS.GENERAL
+}
+
+export function categoryBadgeClass(category?: string) {
+  const key = category?.toUpperCase() ?? "GENERAL"
+  return CATEGORY_BADGES[key] ?? CATEGORY_BADGES.GENERAL
 }

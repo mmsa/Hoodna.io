@@ -39,6 +39,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatCompoundName, formatCompoundWithArea } from '@/lib/format-compound'
 import { useFeatureConfig } from '@/components/feature-config-provider'
+import { Avatar } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
+
+const navLinkClass = (active: boolean) =>
+  cn(
+    'rounded-md font-medium',
+    active
+      ? 'bg-muted text-foreground'
+      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+  )
 
 export function Header() {
   const router = useRouter()
@@ -148,7 +158,7 @@ export function Header() {
   // Minimal header while verification is incomplete — no app navigation
   if (isUnapprovedResident) {
     return (
-      <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
         <div className="container mx-auto px-4 flex h-14 items-center justify-between">
           <div className="flex items-center gap-2">
             <Image
@@ -158,7 +168,7 @@ export function Header() {
               height={32}
               className="h-8 w-8 rounded-full"
             />
-            <span className="text-base font-semibold text-green-600">eljiran.com</span>
+            <span className="text-base font-semibold text-foreground">eljiran.com</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="w-4 h-4 mr-2" />
@@ -170,7 +180,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -184,7 +194,7 @@ export function Header() {
                 className="h-10 w-10 rounded-full"
                 priority
               />
-              <span className="text-lg font-semibold text-green-600">eljiran.com</span>
+              <span className="text-lg font-semibold tracking-tight text-foreground">eljiran.com</span>
             </Link>
             {compound && mounted && isAuthenticated && (
               <CompoundSwitcher currentCompound={compound} />
@@ -196,17 +206,17 @@ export function Header() {
             <nav className="hidden md:flex items-center gap-1">
               <Link href="/search">
                 <Button
-                  variant={isActive('/search') ? 'default' : 'ghost'}
-                  className={isActive('/search') ? 'bg-blue-50 text-blue-700' : ''}
+                  variant="ghost"
                   size="icon"
+                  className={navLinkClass(isActive('/search'))}
                 >
                   <Search className="w-4 h-4" />
                 </Button>
               </Link>
               <Link href="/feed">
                 <Button
-                  variant={isActive('/feed') ? 'default' : 'ghost'}
-                  className={isActive('/feed') ? 'bg-blue-100 text-gray-900 hover:bg-blue-100 rounded-lg font-medium' : 'hover:bg-gray-100 rounded-lg text-gray-700'}
+                  variant="ghost"
+                  className={navLinkClass(isActive('/feed'))}
                 >
                   <Home className="w-4 h-4 mr-2" />
                   Feed
@@ -215,7 +225,7 @@ export function Header() {
               <Link href="/marketplace">
                 <Button
                   variant="ghost"
-                  className="hover:bg-gray-100 rounded-lg text-gray-700"
+                  className={navLinkClass(isActive('/marketplace'))}
                 >
                   <ShoppingBag className="w-4 h-4 mr-2" />
                   Marketplace
@@ -224,7 +234,7 @@ export function Header() {
               <Link href="/services">
                 <Button
                   variant="ghost"
-                  className="hover:bg-gray-100 rounded-lg text-gray-700"
+                  className={navLinkClass(isActive('/services'))}
                 >
                   <Wrench className="w-4 h-4 mr-2" />
                   Services
@@ -232,17 +242,15 @@ export function Header() {
               </Link>
               <Link href="/businesses">
                 <Button
-                  variant={isActive('/businesses') ? 'default' : 'ghost'}
-                  className="hover:bg-gray-100 rounded-lg text-gray-700"
+                  variant="ghost"
+                  className={navLinkClass(isActive('/businesses'))}
                 >
                   <Building2 className="w-4 h-4 mr-2" />
                   Businesses
                 </Button>
               </Link>
               <Link href="/marketplace/new">
-                <Button
-                  className="bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
-                >
+                <Button>
                   <PlusCircle className="w-4 h-4 mr-2" />
                   Create Listing
                 </Button>
@@ -250,8 +258,8 @@ export function Header() {
               {isAdmin && (
                 <Link href="/admin/dashboard">
                   <Button
-                    variant={isActive('/admin') ? 'default' : 'ghost'}
-                    className={isActive('/admin') ? 'bg-blue-50 text-blue-700' : ''}
+                    variant="ghost"
+                    className={navLinkClass(isActive('/admin'))}
                   >
                     <Shield className="w-4 h-4 mr-2" />
                     Admin
@@ -264,7 +272,7 @@ export function Header() {
           {/* Right Side */}
           <div className="flex items-center gap-2">
             {!mounted || isLoading ? (
-              <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
+              <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
             ) : isAuthenticated && user ? (
               <>
                 {/* Messages Button */}
@@ -272,9 +280,9 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 hover:bg-gray-100 rounded-lg"
+                    className="relative h-10 w-10 rounded-md hover:bg-muted"
                   >
-                    <MessageCircle className="h-5 w-5 text-gray-700" />
+                    <MessageCircle className="h-5 w-5 text-muted-foreground" />
                     {unreadMessagesCount > 0 && (
                       <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
                         {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
@@ -291,9 +299,9 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 hover:bg-gray-100 rounded-lg"
+                    className="relative h-10 w-10 rounded-md hover:bg-muted"
                   >
-                    <Bookmark className="h-5 w-5 text-gray-700" />
+                    <Bookmark className="h-5 w-5 text-muted-foreground" />
                     {savedCount > 0 && (
                       <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-yellow-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
                         {savedCount > 99 ? '99+' : savedCount}
@@ -306,9 +314,7 @@ export function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
+                      <Avatar name={user.name} size="md" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -430,7 +436,7 @@ export function Header() {
                   <Button variant="ghost">Sign In</Button>
                 </Link>
                 {isEnabled('user_registration') ? <Link href="/auth/signup">
-                  <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                  <Button>
                     Sign Up
                   </Button>
                 </Link> : null}
@@ -608,9 +614,9 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   if (isLoading) {
     // Show simple display while loading
     return (
-      <div className="flex items-center gap-1.5 ml-2">
-        <Building2 className="w-4 h-4 text-blue-600" />
-        <span className="text-sm text-blue-600 font-medium">
+      <div className="ml-2 flex items-center gap-1.5">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium text-muted-foreground">
           {formatCompoundWithArea(currentCompound.name, currentCompound.area)}
         </span>
       </div>
@@ -620,9 +626,9 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer">
-          <Building2 className="w-4 h-4 text-blue-600" />
-          <span className="text-sm text-blue-600 font-medium">
+        <button className="flex cursor-pointer items-center gap-1.5 transition-opacity hover:opacity-80">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">
             {formatCompoundWithArea(currentCompound.name, currentCompound.area)}
           </span>
         </button>
@@ -635,23 +641,23 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
             <DropdownMenuItem
               key={compound.id}
               onClick={() => handleSwitch(compound.id, compound.is_verified)}
-              className={compound.is_current ? 'bg-blue-50' : ''}
+              className={compound.is_current ? 'bg-muted' : ''}
             >
               <div className="flex items-center justify-between w-full gap-2">
                 <div className="flex flex-col min-w-0">
-                  <span className={compound.is_current ? 'font-semibold text-blue-700' : ''}>
+                  <span className={compound.is_current ? 'font-semibold text-foreground' : ''}>
                     {formatCompoundWithArea(compound.name, compound.area)}
                   </span>
                   <span
-                    className={`text-xs mt-0.5 ${
-                      compound.is_verified ? 'text-green-700' : 'text-amber-700'
+                    className={`mt-0.5 text-xs ${
+                      compound.is_verified ? 'text-muted-foreground' : 'text-amber-700'
                     }`}
                   >
                     {compound.is_verified ? 'Verified' : 'Verification in progress'}
                   </span>
                 </div>
                 {compound.is_current && (
-                  <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+                  <Building2 className="h-4 w-4 shrink-0 text-primary" />
                 )}
               </div>
             </DropdownMenuItem>
@@ -674,7 +680,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
               onClick={() => {
                 router.push('/onboarding/compound-select')
               }}
-              className="text-blue-600 font-medium"
+              className="font-medium text-primary"
             >
               <Building2 className="w-4 h-4 mr-2" />
               Request Access to New Neighbourhood
