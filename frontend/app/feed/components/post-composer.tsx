@@ -48,7 +48,7 @@ export function PostComposer({
   return (
     <section
       aria-labelledby={`${textareaId}-heading`}
-      className="border-b border-border bg-card px-4 py-4 sm:rounded-lg sm:border"
+      className="social-card px-4 py-4"
     >
       <div className="flex gap-3">
         <Avatar name={userName} />
@@ -70,7 +70,7 @@ export function PostComposer({
                 submit()
               }
             }}
-            placeholder="Share an update or ask your neighbours…"
+            placeholder="What's happening in the neighbourhood?"
             rows={3}
             className="mt-2 min-h-24 resize-y bg-card text-[15px] leading-6"
           />

@@ -22,12 +22,12 @@ function StateFrame({
   return (
     <div
       className={cn(
-        "flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-8 text-center",
+        "flex min-h-56 flex-col items-center justify-center rounded-2xl border border-border/60 bg-card px-6 py-10 text-center shadow-[0_2px_20px_rgba(24,20,12,0.05)]",
         className
       )}
       {...props}
     >
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
         {icon}
       </div>
       <p className="text-base font-semibold text-foreground">{title}</p>

@@ -1,4 +1,7 @@
-import { Search, X } from "lucide-react"
+"use client"
+
+import { useState } from "react"
+import { Search, SlidersHorizontal, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import {
   LISTING_CATEGORIES,
   LISTING_INTENTS,
@@ -35,97 +39,130 @@ export function ListingFilters({
   onClear: () => void
   includeServices?: boolean
 }) {
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const set = (key: keyof ListingFilterValues, next: string) =>
     onChange({ ...value, [key]: next })
+
   const categories = includeServices
     ? LISTING_CATEGORIES
     : LISTING_CATEGORIES.filter((category) => category.value !== "SERVICE")
 
+  const quickCategories = categories.filter((c) => c.value)
+
   return (
-    <section aria-label="Marketplace filters" className="rounded-lg border border-border bg-card p-4">
-      <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_150px_180px]">
-        <label className="relative">
-          <span className="sr-only">Search listings</span>
-          <Search
-            aria-hidden="true"
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={value.search}
-            onChange={(event) => set("search", event.target.value)}
-            placeholder="Search listings"
-            className="pl-9"
-          />
-        </label>
-        <Select value={value.category || "all"} onValueChange={(next) => set("category", next === "all" ? "" : next)}>
-          <SelectTrigger aria-label="Category">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category.value || "all"} value={category.value || "all"}>
-                {category.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={value.intent || "all"} onValueChange={(next) => set("intent", next === "all" ? "" : next)}>
-          <SelectTrigger aria-label="Listing type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LISTING_INTENTS.map((intent) => (
-              <SelectItem key={intent.value || "all"} value={intent.value || "all"}>
-                {intent.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={value.sort} onValueChange={(next) => set("sort", next)}>
-          <SelectTrigger aria-label="Sort listings">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LISTING_SORT_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <section aria-label="Marketplace filters" className="space-y-3">
+      {/* WhatsApp-style search bar */}
+      <div className="relative">
+        <Search
+          aria-hidden="true"
+          className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          value={value.search}
+          onChange={(event) => set("search", event.target.value)}
+          placeholder="Search what neighbours are selling…"
+          className="social-search"
+        />
       </div>
-      <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end">
-        <div className="grid flex-1 grid-cols-2 gap-3">
-          <label className="text-xs font-medium text-muted-foreground">
-            Minimum price
+
+      {/* Category chips — horizontal scroll like social filters */}
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          type="button"
+          onClick={() => set("category", "")}
+          className={cn(
+            "social-pill shrink-0 border",
+            !value.category
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card text-muted-foreground hover:bg-muted"
+          )}
+        >
+          All
+        </button>
+        {quickCategories.map((category) => (
+          <button
+            key={category.value}
+            type="button"
+            onClick={() =>
+              set("category", value.category === category.value ? "" : category.value)
+            }
+            className={cn(
+              "social-pill shrink-0 border",
+              value.category === category.value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:bg-muted"
+            )}
+          >
+            {category.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((open) => !open)}
+          className="social-pill shrink-0 border border-border bg-card text-muted-foreground hover:bg-muted"
+        >
+          <SlidersHorizontal className="mr-1 inline h-3.5 w-3.5" />
+          More
+        </button>
+      </div>
+
+      {showAdvanced ? (
+        <div className="social-card p-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Select
+              value={value.intent || "all"}
+              onValueChange={(next) => set("intent", next === "all" ? "" : next)}
+            >
+              <SelectTrigger aria-label="Listing type" className="rounded-xl">
+                <SelectValue placeholder="Buy or rent" />
+              </SelectTrigger>
+              <SelectContent>
+                {LISTING_INTENTS.map((intent) => (
+                  <SelectItem key={intent.value || "all"} value={intent.value || "all"}>
+                    {intent.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={value.sort} onValueChange={(next) => set("sort", next)}>
+              <SelectTrigger aria-label="Sort listings" className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LISTING_SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="ghost" onClick={onClear} className="rounded-xl">
+              <X className="h-4 w-4" />
+              Clear all
+            </Button>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3">
             <Input
               type="number"
               min="0"
               inputMode="decimal"
               value={value.minPrice}
               onChange={(event) => set("minPrice", event.target.value)}
-              placeholder="Any"
-              className="mt-1"
+              placeholder="Min price (EGP)"
+              className="rounded-xl"
             />
-          </label>
-          <label className="text-xs font-medium text-muted-foreground">
-            Maximum price
             <Input
               type="number"
               min="0"
               inputMode="decimal"
               value={value.maxPrice}
               onChange={(event) => set("maxPrice", event.target.value)}
-              placeholder="Any"
-              className="mt-1"
+              placeholder="Max price (EGP)"
+              className="rounded-xl"
             />
-          </label>
+          </div>
         </div>
-        <Button type="button" variant="ghost" onClick={onClear}>
-          <X aria-hidden="true" className="h-4 w-4" />
-          Clear
-        </Button>
-      </div>
+      ) : null}
     </section>
   )
 }

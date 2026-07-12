@@ -39,7 +39,7 @@ export function ProfileSidebar({
 
   return (
     <div className="sticky top-6 space-y-4">
-      <Card className="border-border shadow-none">
+      <Card className="social-card border-0">
         <CardContent className="p-6">
           <div className="mb-4 flex flex-col items-center">
             <Avatar name={user.name} size="lg" className="mb-3" />
@@ -106,7 +106,7 @@ export function ProfileSidebar({
       </Card>
 
       {feedSummary?.compound_name && (
-        <Card className="border-border shadow-none">
+        <Card className="social-card border-0">
           <CardContent className="p-4">
             <div className="mb-3 flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -134,7 +134,7 @@ export function ProfileSidebar({
       )}
 
       {feedSummary && (
-        <Card className="border-border shadow-none">
+        <Card className="social-card border-0">
           <CardContent className="p-4">
             <div className="mb-3 flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" />

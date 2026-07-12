@@ -151,7 +151,7 @@ export function PostCard({
       id={`post-${post.id}`}
       tabIndex={-1}
       className={cn(
-        "scroll-mt-24 border border-border border-l-[3px] bg-card shadow-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "social-card scroll-mt-24 border-l-[4px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         categoryAccentClass(post.category)
       )}
     >

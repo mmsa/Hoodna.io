@@ -4,26 +4,29 @@
 
 @layer base {
   :root {
-    --background: 40 20% 96%;
-    --foreground: 60 4% 11%;
+    /* Warm social palette — familiar to WhatsApp / Instagram users in MENA */
+    --background: 38 55% 97%;
+    --foreground: 24 12% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 60 4% 11%;
+    --card-foreground: 24 12% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 60 4% 11%;
-    --primary: 243 75% 59%;
+    --popover-foreground: 24 12% 12%;
+    --primary: 152 56% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 14% 94%;
-    --secondary-foreground: 60 4% 11%;
-    --muted: 40 14% 94%;
-    --muted-foreground: 45 3% 39%;
-    --accent: 243 100% 96%;
-    --accent-foreground: 243 75% 44%;
-    --destructive: 0 54% 50%;
+    --secondary: 38 35% 93%;
+    --secondary-foreground: 24 12% 12%;
+    --muted: 38 28% 94%;
+    --muted-foreground: 25 8% 42%;
+    --accent: 152 40% 92%;
+    --accent-foreground: 152 56% 28%;
+    --destructive: 0 65% 52%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 11% 88%;
-    --input: 40 11% 82%;
-    --ring: 243 75% 59%;
-    --radius: 0.5rem;
+    --border: 35 18% 88%;
+    --input: 35 18% 84%;
+    --ring: 152 56% 38%;
+    --radius: 1rem;
+    --social-warm: 28 90% 62%;
+    --social-violet: 262 55% 58%;
   }
 
   .dark {
@@ -33,8 +36,8 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 152 50% 45%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -45,7 +48,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 152 50% 45%;
   }
 }
 
@@ -54,13 +57,31 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
   }
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .social-card {
+    @apply overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_2px_16px_rgba(24,20,12,0.06)];
+  }
+
+  .social-pill {
+    @apply rounded-full px-4 py-2 text-sm font-medium transition-colors;
+  }
+
+  .social-search {
+    @apply h-12 rounded-full border-border bg-card pl-11 text-base shadow-sm;
+  }
+
+  .social-hero {
+    @apply rounded-2xl bg-gradient-to-br from-primary/10 via-card to-[hsl(var(--social-warm)/0.12)] p-5 sm:p-6;
   }
 }
 
@@ -75,101 +96,9 @@
       transform: translateY(0);
     }
   }
-  
-  @keyframes slide-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  @keyframes pulse-glow {
-    0%, 100% {
-      box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
-    }
-  }
-  
-  @keyframes bounce-in {
-    0% {
-      opacity: 0;
-      transform: scale(0.8) translateY(10px);
-    }
-    50% {
-      transform: scale(1.05);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-  
-  @keyframes shimmer {
-    0% {
-      background-position: -1000px 0;
-    }
-    100% {
-      background-position: 1000px 0;
-    }
-  }
-  
-  .animate-fade-in {
-    animation: fade-in 0.18s ease-out;
-  }
-  
-  .animate-slide-up {
-    animation: slide-up 0.18s ease-out;
-  }
-  
-  .animate-bounce-in {
-    animation: fade-in 0.18s ease-out;
-  }
-  
-  .animate-pulse-glow {
-    animation: none;
-  }
-  
-  .animate-shimmer {
-    animation: shimmer 2s linear infinite;
-    background: linear-gradient(
-      to right,
-      #f6f7f8 0%,
-      #edeef1 20%,
-      #f6f7f8 40%,
-      #f6f7f8 100%
-    );
-    background-size: 1000px 100%;
-  }
 
-  .bg-grid-pattern {
-    background-image: none;
-  }
-  
-  .bg-gradient-vibrant {
-    background: #4F46E5;
-  }
-  
-  .bg-gradient-soft {
-    background: #F7F6F3;
-  }
-  
-  .hover-lift {
-    transition: border-color 0.12s ease, background-color 0.12s ease;
-  }
-  
-  .hover-lift:hover {
-    border-color: #D3D0C9;
-  }
-  
-  .glass-effect {
-    background: #FFFFFF;
-    border: 1px solid #E3E1DC;
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -183,4 +112,3 @@
     }
   }
 }
-

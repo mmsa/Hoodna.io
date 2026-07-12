@@ -44,9 +44,9 @@ import { cn } from '@/lib/utils'
 
 const navLinkClass = (active: boolean) =>
   cn(
-    'rounded-md font-medium',
+    'rounded-full px-3 py-2 text-sm font-semibold transition-colors',
     active
-      ? 'bg-muted text-foreground'
+      ? 'bg-primary text-primary-foreground shadow-sm'
       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
   )
 
@@ -194,7 +194,7 @@ export function Header() {
                 className="h-10 w-10 rounded-full"
                 priority
               />
-              <span className="text-lg font-semibold tracking-tight text-foreground">eljiran.com</span>
+              <span className="text-lg font-bold tracking-tight text-primary">eljiran</span>
             </Link>
             {compound && mounted && isAuthenticated && (
               <CompoundSwitcher currentCompound={compound} />
