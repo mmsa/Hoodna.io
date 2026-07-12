@@ -112,7 +112,7 @@ function NotificationPreferences({ digestEnabled }: { digestEnabled: boolean }) 
       toast({ title: "Preferences saved" })
     },
   })
-  const options: Array<[keyof UserPreferences, string, string, boolean]> = [
+  const options: Array<[Exclude<keyof UserPreferences, "updated_at">, string, string, boolean]> = [
     ["push_notifications", "Push notifications", "Receive timely activity updates.", true],
     ["weekly_digest", "Weekly digest", "Get a weekly summary of neighbourhood activity.", digestEnabled],
     ["community_announcements", "Community announcements", "Hear about important local updates.", true],
