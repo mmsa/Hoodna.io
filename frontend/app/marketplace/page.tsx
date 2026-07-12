@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Bookmark, Camera, Plus, ShieldAlert, ShoppingBag, Sparkles, Wrench } from "lucide-react"
+import { Bookmark, Camera, Plus, ShieldAlert, ShoppingBag } from "lucide-react"
 
 import { ListingCard } from "@/components/marketplace/listing-card"
 import {
@@ -140,34 +140,24 @@ export default function MarketplacePage() {
   return (
     <AppShell>
       <PageLayout width="xl" className="space-y-5 pb-10">
-        {/* Social-style hero */}
-        <section className="social-hero animate-fade-in">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-                <Sparkles className="h-3.5 w-3.5" />
-                {compoundName}
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                Neighbours&apos; marketplace
-              </h1>
-              <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">
-                Buy, sell, and rent with people you actually live near — like sharing on WhatsApp, but organised for your compound.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/saved"><Bookmark className="h-4 w-4" />Saved</Link>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/services"><Wrench className="h-4 w-4" />Services</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/marketplace/new"><Camera className="h-4 w-4" />Post a listing</Link>
-              </Button>
-            </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-[22px] font-bold tracking-tight text-foreground sm:text-2xl">
+              Marketplace
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {compoundName} · buy and sell with verified neighbours
+            </p>
           </div>
-        </section>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/saved"><Bookmark className="h-4 w-4" />Saved</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/marketplace/new"><Camera className="h-4 w-4" />Post listing</Link>
+            </Button>
+          </div>
+        </div>
 
         <ListingFilters
           value={filters}

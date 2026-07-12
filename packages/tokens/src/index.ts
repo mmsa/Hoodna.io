@@ -1,31 +1,32 @@
 /**
- * Social-first design tokens for Eljiran (web + mobile).
- * Warm, familiar palette for Egypt/Gulf users used to WhatsApp & social feeds.
+ * Eljiran design system — nano banana mockup (web + mobile).
+ * Keep existing logo; blend these tokens across platforms.
  */
 export const palette = {
-  canvas: "#FBF8F2",
+  canvas: "#F9F7F1",
   surface: "#FFFFFF",
-  surfaceMuted: "#F3EEE6",
-  surfacePressed: "#EBE4DA",
-  ink: "#1F1A17",
-  inkMuted: "#6B635A",
-  inkSubtle: "#948C82",
-  border: "#E5DDD2",
-  borderStrong: "#D4CABD",
-  primary: "#2A9D63",
-  primaryHover: "#238552",
-  primarySoft: "#E4F5EC",
+  surfaceMuted: "#F0EDE6",
+  surfacePressed: "#E7E2D8",
+  ink: "#1C1917",
+  inkMuted: "#78716C",
+  inkSubtle: "#A8A29E",
+  border: "#E7E2D8",
+  borderStrong: "#D6D0C4",
+  primary: "#006652",
+  primaryHover: "#004D3E",
+  primarySoft: "#E6F2EF",
   onPrimary: "#FFFFFF",
-  success: "#2A9D63",
-  successSoft: "#E4F5EC",
+  accent: "#FF7B60",
+  accentHover: "#E86A50",
+  whatsapp: "#25D366",
+  success: "#006652",
+  successSoft: "#E6F2EF",
   warning: "#C47F17",
   warningSoft: "#FFF4D6",
-  danger: "#D64545",
-  dangerSoft: "#FCEAEA",
+  danger: "#DC2626",
+  dangerSoft: "#FEE2E2",
   info: "#3B7DD8",
   infoSoft: "#E8F1FC",
-  socialWarm: "#F4A261",
-  socialViolet: "#7C5CBF",
 } as const;
 
 export const spacing = {
@@ -52,13 +53,16 @@ export const radii = {
 } as const;
 
 export const typography = {
+  family: "Plus Jakarta Sans",
   size: {
     caption: 12,
-    bodySmall: 14,
-    body: 16,
+    bodySmall: 13,
+    body: 15,
     titleSmall: 18,
     title: 22,
-    display: 28,
+    display: 32,
+    price: 15,
+    priceLg: 28,
   },
   lineHeight: {
     caption: 16,
@@ -66,13 +70,16 @@ export const typography = {
     body: 24,
     titleSmall: 24,
     title: 28,
-    display: 34,
+    display: 38,
+    price: 20,
+    priceLg: 34,
   },
   weight: {
     regular: "400",
     medium: "500",
     semibold: "600",
     bold: "700",
+    extrabold: "800",
   },
 } as const;
 

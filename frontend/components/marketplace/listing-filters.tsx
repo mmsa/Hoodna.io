@@ -61,7 +61,7 @@ export function ListingFilters({
           value={value.search}
           onChange={(event) => set("search", event.target.value)}
           placeholder="Search what neighbours are selling…"
-          className="social-search"
+          className="eljiran-search w-full"
         />
       </div>
 
@@ -71,7 +71,7 @@ export function ListingFilters({
           type="button"
           onClick={() => set("category", "")}
           className={cn(
-            "social-pill shrink-0 border",
+            "eljiran-pill shrink-0 border",
             !value.category
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-card text-muted-foreground hover:bg-muted"
@@ -87,7 +87,7 @@ export function ListingFilters({
               set("category", value.category === category.value ? "" : category.value)
             }
             className={cn(
-              "social-pill shrink-0 border",
+              "eljiran-pill shrink-0 border",
               value.category === category.value
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-muted-foreground hover:bg-muted"
@@ -99,7 +99,7 @@ export function ListingFilters({
         <button
           type="button"
           onClick={() => setShowAdvanced((open) => !open)}
-          className="social-pill shrink-0 border border-border bg-card text-muted-foreground hover:bg-muted"
+          className="eljiran-pill shrink-0 border border-border bg-card text-muted-foreground hover:bg-muted"
         >
           <SlidersHorizontal className="mr-1 inline h-3.5 w-3.5" />
           More
@@ -107,7 +107,7 @@ export function ListingFilters({
       </div>
 
       {showAdvanced ? (
-        <div className="social-card p-4">
+        <div className="eljiran-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <Select
               value={value.intent || "all"}

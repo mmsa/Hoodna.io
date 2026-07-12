@@ -4,51 +4,28 @@
 
 @layer base {
   :root {
-    /* Warm social palette — familiar to WhatsApp / Instagram users in MENA */
-    --background: 38 55% 97%;
-    --foreground: 24 12% 12%;
+    /* Eljiran — nano banana mockup */
+    --background: 48 33% 96%;
+    --foreground: 20 9% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 24 12% 12%;
+    --card-foreground: 20 9% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 24 12% 12%;
-    --primary: 152 56% 38%;
+    --popover-foreground: 20 9% 10%;
+    --primary: 168 100% 20%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 35% 93%;
-    --secondary-foreground: 24 12% 12%;
-    --muted: 38 28% 94%;
-    --muted-foreground: 25 8% 42%;
-    --accent: 152 40% 92%;
-    --accent-foreground: 152 56% 28%;
-    --destructive: 0 65% 52%;
+    --secondary: 168 33% 93%;
+    --secondary-foreground: 20 9% 10%;
+    --muted: 40 20% 94%;
+    --muted-foreground: 25 6% 45%;
+    --accent: 12 100% 69%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 35 18% 88%;
-    --input: 35 18% 84%;
-    --ring: 152 56% 38%;
+    --border: 40 18% 88%;
+    --input: 40 18% 88%;
+    --ring: 168 100% 20%;
     --radius: 1rem;
-    --social-warm: 28 90% 62%;
-    --social-violet: 262 55% 58%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 152 50% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 152 50% 45%;
+    --whatsapp: 142 70% 45%;
   }
 }
 
@@ -68,47 +45,19 @@
 }
 
 @layer components {
-  .social-card {
-    @apply overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_2px_16px_rgba(24,20,12,0.06)];
+  .eljiran-card {
+    @apply overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm;
   }
 
-  .social-pill {
-    @apply rounded-full px-4 py-2 text-sm font-medium transition-colors;
+  .eljiran-pill {
+    @apply rounded-full px-4 py-2 text-sm font-semibold transition-colors;
   }
 
-  .social-search {
-    @apply h-12 rounded-full border-border bg-card pl-11 text-base shadow-sm;
+  .eljiran-search {
+    @apply h-11 rounded-full border-0 bg-muted px-4 pl-10 text-[15px] shadow-none;
   }
 
-  .social-hero {
-    @apply rounded-2xl bg-gradient-to-br from-primary/10 via-card to-[hsl(var(--social-warm)/0.12)] p-5 sm:p-6;
-  }
-}
-
-@layer utilities {
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-fade-in {
-    animation: fade-in 0.2s ease-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      scroll-behavior: auto !important;
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
+  .eljiran-price {
+    @apply text-base font-extrabold text-primary;
   }
 }

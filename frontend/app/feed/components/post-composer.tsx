@@ -48,7 +48,7 @@ export function PostComposer({
   return (
     <section
       aria-labelledby={`${textareaId}-heading`}
-      className="social-card px-4 py-4"
+      className="eljiran-card px-4 py-4"
     >
       <div className="flex gap-3">
         <Avatar name={userName} />

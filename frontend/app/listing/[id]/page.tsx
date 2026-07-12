@@ -10,7 +10,6 @@ import {
   Edit,
   MapPin,
   MessageCircle,
-  Share2,
   Trash2,
   TrendingUp,
   User,
@@ -33,6 +32,7 @@ import { ErrorState, LoadingState } from "@/components/ui/states"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import api from "@/lib/api"
+import { shareViaWhatsApp } from "@/lib/share"
 
 export default function ListingPage({ params }: { params: { id: string } }) {
   const listingId = Number(params.id)
@@ -101,16 +101,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
   const backUrl = isService && user?.role === "SERVICE_PROVIDER" ? "/services" : "/marketplace"
 
   async function shareListing() {
-    const share = { title: listing!.title, text: listing!.description ?? "", url: window.location.href }
-    try {
-      if (navigator.share) await navigator.share(share)
-      else {
-        await navigator.clipboard.writeText(share.url)
-        toast({ title: "Link copied" })
-      }
-    } catch {
-      // Native share cancellation does not require an error message.
-    }
+    shareViaWhatsApp({ title: listing!.title, url: window.location.href })
   }
 
   return (
@@ -137,14 +128,14 @@ export default function ListingPage({ params }: { params: { id: string } }) {
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-lg border border-border bg-card p-5 sm:p-6">
+            <div className="eljiran-card p-5 sm:p-6">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <CategoryIcon className="h-4 w-4" />
                 <span>{category.label}</span><span>·</span>
                 <span>{intentLabel(listing.intent, isService)}</span>
               </div>
               <h1 className="mt-3 text-2xl font-semibold leading-8 tracking-tight">{listing.title}</h1>
-              <p className="mt-3 text-2xl font-semibold text-primary">
+              <p className="mt-3 text-[28px] font-extrabold leading-none text-primary">
                 {formatListingPrice(listing.price, listing.currency, isService)}
               </p>
               {isService && listing.average_rating ? (
@@ -164,11 +155,16 @@ export default function ListingPage({ params }: { params: { id: string } }) {
 
               <div className="mt-6 space-y-2">
                 {!isOwner ? (
-                  <Button className="w-full" asChild>
-                    <Link href={`/messages/new?recipient_id=${listing.owner_id}&listing_id=${listing.id}`}>
-                      <MessageCircle className="h-4 w-4" />Message {isService ? "provider" : "seller"}
-                    </Link>
-                  </Button>
+                  <>
+                    <Button className="w-full" variant="accent" asChild>
+                      <Link href={`/messages/new?recipient_id=${listing.owner_id}&listing_id=${listing.id}`}>
+                        <MessageCircle className="h-4 w-4" />Message {isService ? "provider" : "seller"}
+                      </Link>
+                    </Button>
+                    <Button className="w-full" variant="whatsapp" onClick={shareListing}>
+                      WhatsApp Share
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Button className="w-full" asChild><Link href={`/marketplace/edit/${listing.id}`}><Edit className="h-4 w-4" />Edit listing</Link></Button>
@@ -189,7 +185,6 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                     disabled={saveMutation.isPending}
                   ><Bookmark className={listing.is_saved ? "h-4 w-4 fill-current" : "h-4 w-4"} />{listing.is_saved ? "Saved" : "Save listing"}</Button>
                 ) : null}
-                <Button className="w-full" variant="ghost" onClick={shareListing}><Share2 className="h-4 w-4" />Share</Button>
               </div>
             </div>
             {!isOwner ? <ReportListing listingId={listing.id} /> : null}

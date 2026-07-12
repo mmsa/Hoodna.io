@@ -1,12 +1,15 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from '@/components/ui/toaster'
 import { SonnerToaster } from '@/components/sonner-toaster'
 import { Header } from '@/components/header'
 
-const inter = Inter({ subsets: ['latin'] })
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+})
 
 export const metadata: Metadata = {
   title: 'eljiran.com - Verified Neighborhood Community',
@@ -24,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={plusJakarta.className}>
         <Providers>
           <Header />
           {children}
