@@ -239,6 +239,16 @@ export default function MarketScreen() {
         sortBy={sortBy}
         visible={filtersOpen}
       />
+      {user?.can_create_listing ? (
+        <AppPressable
+          accessibilityLabel="Post listing"
+          accessibilityRole="button"
+          onPress={() => router.push("/create-listing")}
+          style={styles.fab}
+        >
+          <Ionicons color={palette.onPrimary} name="add" size={28} />
+        </AppPressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -308,4 +318,20 @@ const styles = StyleSheet.create({
   resultText: { color: colors.textSecondary, fontSize: typography.size.bodySmall },
   columns: { paddingHorizontal: spacing[4], gap: spacing[3] },
   cardCell: { flex: 1, maxWidth: "50%", marginBottom: spacing[3] },
+  fab: {
+    position: "absolute",
+    right: spacing[4],
+    bottom: spacing[4],
+    width: 56,
+    height: 56,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    shadowColor: palette.ink,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
 });

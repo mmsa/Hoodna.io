@@ -8,27 +8,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#2D6A4F",
-        background: "#F9F7F2",
-        accent: "#FFB400",
-        success: "#4BB543",
-        error: "#E63946",
-        "text-main": "#1B1B1B",
-        "text-muted": "#6C757D",
+        primary: "#158074",
+        background: "#F9F8F1",
+        accent: "#FF6F61",
+        success: "#158074",
+        error: "#DC2626",
+        "text-main": "#2D2D2A",
+        "text-muted": "#707070",
+        whatsapp: "#25D366",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui"],
-        arabic: ["Cairo", "system-ui"],
-      },
-      spacing: {
-        base: "4px",
+        sans: ["Inter", "Noto Sans Arabic", "system-ui"],
       },
       borderRadius: {
-        card: "24px",
-        button: "12px",
+        card: "16px",
+        button: "24px",
+        chip: "32px",
       },
     },
   },
   plugins: [],
 };
-

@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    /* Eljiran — nano banana mockup */
+    /* Eljiran canvas spec */
     --background: 48 33% 96%;
-    --foreground: 20 9% 10%;
+    --foreground: 60 3% 17%;
     --card: 0 0% 100%;
-    --card-foreground: 20 9% 10%;
+    --card-foreground: 60 3% 17%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 9% 10%;
-    --primary: 168 100% 20%;
+    --popover-foreground: 60 3% 17%;
+    --primary: 174 72% 29%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 168 33% 93%;
-    --secondary-foreground: 20 9% 10%;
-    --muted: 40 20% 94%;
-    --muted-foreground: 25 6% 45%;
-    --accent: 12 100% 69%;
+    --secondary: 174 33% 93%;
+    --secondary-foreground: 60 3% 17%;
+    --muted: 40 12% 94%;
+    --muted-foreground: 0 0% 44%;
+    --accent: 6 100% 69%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 18% 88%;
-    --input: 40 18% 88%;
-    --ring: 168 100% 20%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 174 72% 29%;
     --radius: 1rem;
     --whatsapp: 142 70% 45%;
   }
@@ -46,18 +46,23 @@
 
 @layer components {
   .eljiran-card {
-    @apply overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm;
+    @apply overflow-hidden rounded-[16px] border border-border/70 bg-card;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   }
 
   .eljiran-pill {
-    @apply rounded-full px-4 py-2 text-sm font-semibold transition-colors;
+    @apply rounded-[32px] px-4 py-2 text-sm font-semibold transition-colors;
   }
 
   .eljiran-search {
-    @apply h-11 rounded-full border-0 bg-muted px-4 pl-10 text-[15px] shadow-none;
+    @apply h-11 rounded-full border-0 bg-muted px-4 pl-10 text-base shadow-none;
   }
 
   .eljiran-price {
-    @apply text-base font-extrabold text-primary;
+    @apply text-xl font-bold text-primary;
+  }
+
+  .eljiran-price-overlay {
+    @apply rounded-full bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground;
   }
 }

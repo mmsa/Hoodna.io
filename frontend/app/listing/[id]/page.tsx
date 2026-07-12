@@ -156,13 +156,13 @@ export default function ListingPage({ params }: { params: { id: string } }) {
               <div className="mt-6 space-y-2">
                 {!isOwner ? (
                   <>
-                    <Button className="w-full" variant="accent" asChild>
+                    <Button className="w-full" variant="outline" asChild>
                       <Link href={`/messages/new?recipient_id=${listing.owner_id}&listing_id=${listing.id}`}>
-                        <MessageCircle className="h-4 w-4" />Message {isService ? "provider" : "seller"}
+                        <MessageCircle className="h-4 w-4" />Message seller
                       </Link>
                     </Button>
                     <Button className="w-full" variant="whatsapp" onClick={shareListing}>
-                      WhatsApp Share
+                      Share on WhatsApp
                     </Button>
                   </>
                 ) : (

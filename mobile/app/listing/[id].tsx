@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { Listing } from "@hoodna/shared";
+import { buildEljiranUrl } from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { useEffect, useState } from "react";
 import {
@@ -22,6 +23,7 @@ import { SignedImage } from "@/components/signed-image";
 import { AppPressable, Button, LoadingState, Screen } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
+import { shareViaWhatsApp } from "@/lib/share";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -112,6 +114,16 @@ export default function ListingDetailScreen() {
     ]);
   }
 
+  async function handleWhatsAppShare() {
+    if (!listing) return;
+    const url = buildEljiranUrl({ type: "listing", id: listing.id });
+    try {
+      await shareViaWhatsApp({ title: listing.title, url });
+    } catch {
+      Alert.alert("Could not open WhatsApp", "Install WhatsApp or try again.");
+    }
+  }
+
   if (loading || !listing) {
     return (
       <Screen padded={false}>
@@ -189,13 +201,24 @@ export default function ListingDetailScreen() {
 
           <View style={styles.actions}>
             {!isOwner ? (
-              <Button
-                leading={<Ionicons color={palette.onPrimary} name="chatbubble-outline" size={19} />}
-                onPress={handleMessage}
-                style={styles.primaryAction}
-              >
-                Message {service ? "provider" : "seller"}
-              </Button>
+              <>
+                <Button
+                  leading={<Ionicons color={colors.text} name="chatbubble-outline" size={19} />}
+                  onPress={handleMessage}
+                  style={styles.primaryAction}
+                  variant="outline"
+                >
+                  Message seller
+                </Button>
+                <Button
+                  leading={<Ionicons color={palette.onPrimary} name="logo-whatsapp" size={19} />}
+                  onPress={handleWhatsAppShare}
+                  style={styles.primaryAction}
+                  variant="whatsapp"
+                >
+                  Share on WhatsApp
+                </Button>
+              </>
             ) : (
               <Button
                 leading={<Ionicons color={palette.onPrimary} name="create-outline" size={19} />}

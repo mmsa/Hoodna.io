@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Search, SlidersHorizontal, X } from "lucide-react"
 
+import { Chip } from "@/components/ui/chip"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -12,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import {
   LISTING_CATEGORIES,
   LISTING_INTENTS,
@@ -51,7 +51,6 @@ export function ListingFilters({
 
   return (
     <section aria-label="Marketplace filters" className="space-y-3">
-      {/* WhatsApp-style search bar */}
       <div className="relative">
         <Search
           aria-hidden="true"
@@ -65,36 +64,21 @@ export function ListingFilters({
         />
       </div>
 
-      {/* Category chips — horizontal scroll like social filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <button
-          type="button"
+        <Chip
+          label="All"
+          selected={!value.category}
           onClick={() => set("category", "")}
-          className={cn(
-            "eljiran-pill shrink-0 border",
-            !value.category
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-card text-muted-foreground hover:bg-muted"
-          )}
-        >
-          All
-        </button>
+        />
         {quickCategories.map((category) => (
-          <button
+          <Chip
             key={category.value}
-            type="button"
+            label={category.label}
+            selected={value.category === category.value}
             onClick={() =>
               set("category", value.category === category.value ? "" : category.value)
             }
-            className={cn(
-              "eljiran-pill shrink-0 border",
-              value.category === category.value
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:bg-muted"
-            )}
-          >
-            {category.label}
-          </button>
+          />
         ))}
         <button
           type="button"
@@ -113,7 +97,7 @@ export function ListingFilters({
               value={value.intent || "all"}
               onValueChange={(next) => set("intent", next === "all" ? "" : next)}
             >
-              <SelectTrigger aria-label="Listing type" className="rounded-xl">
+              <SelectTrigger aria-label="Listing type" className="rounded-[16px]">
                 <SelectValue placeholder="Buy or rent" />
               </SelectTrigger>
               <SelectContent>
@@ -125,7 +109,7 @@ export function ListingFilters({
               </SelectContent>
             </Select>
             <Select value={value.sort} onValueChange={(next) => set("sort", next)}>
-              <SelectTrigger aria-label="Sort listings" className="rounded-xl">
+              <SelectTrigger aria-label="Sort listings" className="rounded-[16px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -136,7 +120,7 @@ export function ListingFilters({
                 ))}
               </SelectContent>
             </Select>
-            <Button type="button" variant="ghost" onClick={onClear} className="rounded-xl">
+            <Button type="button" variant="ghost" onClick={onClear} className="rounded-[16px]">
               <X className="h-4 w-4" />
               Clear all
             </Button>
@@ -149,7 +133,7 @@ export function ListingFilters({
               value={value.minPrice}
               onChange={(event) => set("minPrice", event.target.value)}
               placeholder="Min price (EGP)"
-              className="rounded-xl"
+              className="rounded-[16px]"
             />
             <Input
               type="number"
@@ -158,7 +142,7 @@ export function ListingFilters({
               value={value.maxPrice}
               onChange={(event) => set("maxPrice", event.target.value)}
               placeholder="Max price (EGP)"
-              className="rounded-xl"
+              className="rounded-[16px]"
             />
           </div>
         </div>

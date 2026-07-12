@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { ReportDialog } from "@/components/report-dialog"
+import { VerifiedNeighbourBadge } from "@/components/verified-neighbour-badge"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -181,10 +182,7 @@ export function PostCard({
                   {post.author_name}
                 </span>
                 {isMounted && post.author_status === "APPROVED" && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    <CheckCircle className="h-3 w-3" />
-                    Verified
-                  </span>
+                  <VerifiedNeighbourBadge compact />
                 )}
                 <span
                   className={cn(

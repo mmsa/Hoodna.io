@@ -8,6 +8,12 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "var(--font-noto-arabic)", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        card: "0 4px 12px rgba(0, 0, 0, 0.06)",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

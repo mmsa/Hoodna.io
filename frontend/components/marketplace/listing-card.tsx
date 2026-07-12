@@ -34,7 +34,12 @@ export function ListingCard({ listing, action, className }: ListingCardProps) {
   const location = listing.compound_name || "Your compound"
 
   return (
-    <article className={cn("eljiran-card group", className)}>
+    <article
+      className={cn(
+        "eljiran-card group transition-transform duration-200 hover:-translate-y-0.5",
+        className
+      )}
+    >
       <Link
         href={`/listing/${listing.id}`}
         className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -53,9 +58,15 @@ export function ListingCard({ listing, action, className }: ListingCardProps) {
             </div>
           )}
 
+          <div className="absolute bottom-3 left-3">
+            <span className="eljiran-price-overlay">
+              {formatListingPrice(listing.price, listing.currency, isService)}
+            </span>
+          </div>
+
           <span
             className={cn(
-              "absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow-sm",
+              "absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 shadow-card",
               listing.is_saved ? "text-accent" : "text-muted-foreground"
             )}
           >
@@ -67,13 +78,10 @@ export function ListingCard({ listing, action, className }: ListingCardProps) {
         </div>
 
         <div className="space-y-1 p-3.5">
-          <p className="eljiran-price">
-            {formatListingPrice(listing.price, listing.currency, isService)}
-          </p>
-          <h2 className="line-clamp-2 text-[15px] font-semibold leading-5 text-foreground">
+          <h2 className="line-clamp-2 text-base font-semibold leading-5 text-foreground">
             {listing.title}
           </h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {sellerName} · {location}
             {listing.created_at ? ` · ${formatListedAgo(listing.created_at)}` : ""}
           </p>

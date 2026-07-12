@@ -13,7 +13,7 @@ import { palette, radii, spacing, touchTarget, typography } from "@hoodna/tokens
 import { colors } from "@/constants/colors";
 import { AppPressable, type AppPressableProps } from "./app-pressable";
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "whatsapp" | "accent";
 export type ButtonSize = "small" | "medium" | "large";
 
 export interface ButtonProps extends Omit<AppPressableProps, "children"> {
@@ -37,6 +37,8 @@ const variantStyles: Record<ButtonVariant, ViewStyle> = {
   },
   ghost: { backgroundColor: "transparent" },
   danger: { backgroundColor: colors.error },
+  whatsapp: { backgroundColor: palette.whatsapp },
+  accent: { backgroundColor: colors.accent },
 };
 
 const variantTextStyles: Record<ButtonVariant, TextStyle> = {
@@ -45,6 +47,8 @@ const variantTextStyles: Record<ButtonVariant, TextStyle> = {
   outline: { color: colors.text },
   ghost: { color: colors.primary },
   danger: { color: palette.onPrimary },
+  whatsapp: { color: palette.onPrimary },
+  accent: { color: palette.onPrimary },
 };
 
 const sizeStyles: Record<ButtonSize, ViewStyle> = {

@@ -40,15 +40,6 @@ import api from '@/lib/api'
 import { formatCompoundName, formatCompoundWithArea } from '@/lib/format-compound'
 import { useFeatureConfig } from '@/components/feature-config-provider'
 import { Avatar } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
-
-const navLinkClass = (active: boolean) =>
-  cn(
-    'rounded-full px-3 py-2 text-sm font-semibold transition-colors',
-    active
-      ? 'bg-primary text-primary-foreground shadow-sm'
-      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-  )
 
 export function Header() {
   const router = useRouter()
@@ -180,11 +171,11 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 shadow-card backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
               <Image
                 src="/icon_light.jpg"
@@ -194,83 +185,38 @@ export function Header() {
                 className="h-10 w-10 rounded-full"
                 priority
               />
-              <span className="text-lg font-bold tracking-tight text-primary">eljiran</span>
+              <span className="hidden text-lg font-bold tracking-tight text-primary sm:inline">eljiran</span>
             </Link>
             {compound && mounted && isAuthenticated && (
               <CompoundSwitcher currentCompound={compound} />
             )}
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Centre search — canvas spec */}
           {mounted && isAuthenticated && (
-            <nav className="hidden md:flex items-center gap-1">
-              <Link href="/search">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={navLinkClass(isActive('/search'))}
-                >
-                  <Search className="w-4 h-4" />
-                </Button>
-              </Link>
-              <Link href="/feed">
-                <Button
-                  variant="ghost"
-                  className={navLinkClass(isActive('/feed'))}
-                >
-                  <Home className="w-4 h-4 mr-2" />
-                  Feed
-                </Button>
-              </Link>
-              <Link href="/marketplace">
-                <Button
-                  variant="ghost"
-                  className={navLinkClass(isActive('/marketplace'))}
-                >
-                  <ShoppingBag className="w-4 h-4 mr-2" />
-                  Marketplace
-                </Button>
-              </Link>
-              <Link href="/services">
-                <Button
-                  variant="ghost"
-                  className={navLinkClass(isActive('/services'))}
-                >
-                  <Wrench className="w-4 h-4 mr-2" />
-                  Services
-                </Button>
-              </Link>
-              <Link href="/businesses">
-                <Button
-                  variant="ghost"
-                  className={navLinkClass(isActive('/businesses'))}
-                >
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Businesses
-                </Button>
-              </Link>
-              <Link href="/marketplace/new">
-                <Button>
-                  <PlusCircle className="w-4 h-4 mr-2" />
-                  Create Listing
-                </Button>
-              </Link>
-              {isAdmin && (
-                <Link href="/admin/dashboard">
-                  <Button
-                    variant="ghost"
-                    className={navLinkClass(isActive('/admin'))}
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Admin
-                  </Button>
-                </Link>
-              )}
-            </nav>
+            <form
+              className="hidden min-w-0 flex-1 md:block"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const form = event.currentTarget
+                const input = form.elements.namedItem("header-search") as HTMLInputElement | null
+                const query = input?.value?.trim()
+                router.push(query ? `/search?q=${encodeURIComponent(query)}` : "/search")
+              }}
+            >
+              <div className="relative mx-auto max-w-xl">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  name="header-search"
+                  type="search"
+                  placeholder="Search listings, posts, neighbours…"
+                  className="eljiran-search w-full"
+                />
+              </div>
+            </form>
           )}
 
-          {/* Right Side */}
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             {!mounted || isLoading ? (
               <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
             ) : isAuthenticated && user ? (

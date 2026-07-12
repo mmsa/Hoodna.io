@@ -35,8 +35,10 @@ import { track } from "@/lib/telemetry";
 
 import { PostCard } from "./components/post-card";
 import { PostComposer } from "./components/post-composer";
-import { ProfileSidebar } from "./components/profile-sidebar";
 import type { Listing, Post, FeedSummary } from "./components/types";
+import { CommunitySidebar } from "@/components/community-sidebar";
+import { DesktopNavSidebar } from "@/components/desktop-nav-sidebar";
+import { CompoundHero } from "@/components/feed/compound-hero";
 
 const getCategoryIcon = (category: string) => {
   switch (category.toUpperCase()) {
@@ -484,21 +486,24 @@ export default function FeedPage() {
     <AppShell>
       <PageLayout width="xl" className="py-6">
         <div className="flex gap-6">
-          <aside className="hidden w-80 shrink-0 lg:block">
-            <ProfileSidebar
-              user={user}
-              feedSummary={feedSummary}
-              userStats={userStats}
-            />
+          <aside className="hidden w-52 shrink-0 xl:block">
+            <DesktopNavSidebar />
           </aside>
 
           <div className="min-w-0 flex-1 lg:max-w-3xl">
+            {user && feedSummary?.compound_name && (
+              <CompoundHero
+                compoundName={feedSummary.compound_name}
+                compoundArea={feedSummary.compound_area}
+              />
+            )}
+
             {user && feedSummary && (
-              <div className="mb-6 lg:hidden">
-                <h1 className="mb-1 text-2xl font-semibold tracking-tight text-foreground">
+              <div className="mb-6 xl:hidden">
+                <h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">
                   {user.name}
                 </h1>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   {formatCompoundWithArea(
                     feedSummary.compound_name,
                     feedSummary.compound_area
@@ -889,6 +894,13 @@ export default function FeedPage() {
               />
             )}
           </div>
+
+          <aside className="hidden w-72 shrink-0 xl:block">
+            <CommunitySidebar
+              totalNeighbors={feedSummary?.total_neighbors}
+              posts={posts}
+            />
+          </aside>
         </div>
       </PageLayout>
     </AppShell>
