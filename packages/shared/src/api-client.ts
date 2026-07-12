@@ -301,6 +301,16 @@ export class ApiClient {
     });
   }
 
+  async getListingImagePresignedUrl(data: {
+    file_name: string;
+    file_type: string;
+  }): Promise<PresignResponse> {
+    return this.request<PresignResponse>("/api/listings/images/presign", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   async saveListing(listingId: number): Promise<{ message: string; saved: boolean }> {
     return this.request<{ message: string; saved: boolean }>(`/api/listings/${listingId}/save`, {
       method: "POST",

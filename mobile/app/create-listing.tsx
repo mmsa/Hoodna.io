@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { ListingCreate } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
+import { uploadToPresignedUrl } from "@/lib/upload";
+
+const MAX_IMAGES = 5;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const CATEGORIES = [
   { value: "ITEM", label: "📦 Item", color: "#3B82F6" },
@@ -24,9 +30,71 @@ export default function CreateListingScreen() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [intent, setIntent] = useState<"SELL" | "RENT">("SELL");
+  const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const { apiClient } = useAuth();
   const router = useRouter();
+
+  async function pickImages() {
+    const remaining = MAX_IMAGES - images.length;
+    if (remaining <= 0) {
+      Alert.alert("Image limit", `You can upload up to ${MAX_IMAGES} images.`);
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow photo access to add listing images.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+
+    const valid = result.assets.filter((asset) => {
+      const supported = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(
+        asset.mimeType || "image/jpeg",
+      );
+      const withinLimit = !asset.fileSize || asset.fileSize <= MAX_IMAGE_BYTES;
+      return supported && withinLimit;
+    });
+    if (valid.length !== result.assets.length) {
+      Alert.alert(
+        "Some images were skipped",
+        "Images must be JPG, PNG, or WebP and no larger than 5 MB.",
+      );
+    }
+    setImages((current) => [...current, ...valid].slice(0, MAX_IMAGES));
+  }
+
+  async function uploadImages(): Promise<string[]> {
+    const token = await SecureStore.getItemAsync("accessToken");
+    return Promise.all(
+      images.map(async (image, index) => {
+        const mimeType = image.mimeType || "image/jpeg";
+        const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+        const fileName = image.fileName || `listing-${Date.now()}-${index}.${extension}`;
+        const presign = await apiClient.getListingImagePresignedUrl({
+          file_name: fileName,
+          file_type: mimeType,
+        });
+        const response = await fetch(image.uri);
+        const blob = await response.blob();
+        await uploadToPresignedUrl(
+          presign.presigned_url,
+          blob,
+          mimeType,
+          token ?? undefined,
+        );
+        return presign.file_url;
+      }),
+    );
+  }
 
   async function handleSubmit() {
     if (!title.trim()) {
@@ -36,6 +104,7 @@ export default function CreateListingScreen() {
 
     setLoading(true);
     try {
+      const imageUrls = await uploadImages();
       const data: ListingCreate = {
         category,
         title: title.trim(),
@@ -43,7 +112,7 @@ export default function CreateListingScreen() {
         price: price ? parseFloat(price) : undefined,
         currency: "EGP",
         intent,
-        image_urls: [], // TODO: Add image upload
+        image_urls: imageUrls,
       };
 
       await apiClient.createListing(data);
@@ -216,6 +285,64 @@ export default function CreateListingScreen() {
             onChangeText={setPrice}
             keyboardType="numeric"
           />
+
+          {/* Images */}
+          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
+            Photos ({images.length}/{MAX_IMAGES})
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, marginBottom: 24 }}
+          >
+            {images.map((image, index) => (
+              <View key={`${image.uri}-${index}`} style={{ position: "relative" }}>
+                <Image
+                  source={{ uri: image.uri }}
+                  style={{ width: 92, height: 92, borderRadius: 12, backgroundColor: "#E5E7EB" }}
+                />
+                <TouchableOpacity
+                  onPress={() => setImages((current) => current.filter((_, i) => i !== index))}
+                  accessibilityLabel="Remove image"
+                  style={{
+                    position: "absolute",
+                    top: -6,
+                    right: -6,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: "#EF4444",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="close" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {images.length < MAX_IMAGES && (
+              <TouchableOpacity
+                onPress={pickImages}
+                accessibilityRole="button"
+                accessibilityLabel="Add listing photos"
+                style={{
+                  width: 92,
+                  height: 92,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderStyle: "dashed",
+                  borderColor: "#3B82F6",
+                  backgroundColor: "#FFFFFF",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                }}
+              >
+                <Ionicons name="camera-outline" size={26} color="#3B82F6" />
+                <Text style={{ color: "#3B82F6", fontSize: 12, fontWeight: "600" }}>Add photos</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
 
           {/* Submit Button */}
           <TouchableOpacity
