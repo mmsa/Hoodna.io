@@ -257,6 +257,16 @@ export class ApiClient {
     });
   }
 
+  async reactToPost(
+    postId: number,
+    reaction: "LOVE" | "LIKE" | "WOW" | "PRAY",
+  ): Promise<{ reaction_counts: Record<string, number>; user_reaction: string | null }> {
+    return this.request(`/api/posts/${postId}/reaction`, {
+      method: "PUT",
+      body: JSON.stringify({ reaction }),
+    });
+  }
+
   // Listings
   async getListings(params?: {
     scope?: string;

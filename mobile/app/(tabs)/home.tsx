@@ -163,6 +163,12 @@ function PostCard({
   const avatarColor = getAvatarColor(post.author_name);
   const initials = getInitials(post.author_name);
   const postType = getPostType(post);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
+    post.reaction_counts ?? {},
+  );
+  const [userReaction, setUserReaction] = useState<string | null>(
+    post.user_reaction ?? null,
+  );
 
   async function handleShare() {
     try {
@@ -173,6 +179,18 @@ function PostCard({
       });
     } catch {
       Alert.alert("Could not share", "Please try again.");
+    }
+  }
+
+  async function handleReaction(reaction: "LOVE" | "LIKE" | "WOW" | "PRAY") {
+    try {
+      const result = await apiClient?.reactToPost(post.id, reaction);
+      if (result) {
+        setReactionCounts(result.reaction_counts);
+        setUserReaction(result.user_reaction);
+      }
+    } catch (error: any) {
+      Alert.alert("Could not react", error?.message || "Please try again.");
     }
   }
 
@@ -452,50 +470,44 @@ function PostCard({
       >
         {/* Reaction buttons */}
         <View style={{ flexDirection: "row", gap: 4 }}>
-          <TouchableOpacity
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>❤️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>👍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>😮</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ fontSize: 18 }}>🙏</Text>
-          </TouchableOpacity>
+          {([
+            ["LOVE", "❤️"],
+            ["LIKE", "👍"],
+            ["WOW", "😮"],
+            ["PRAY", "🙏"],
+          ] as const).map(([reaction, emoji]) => {
+            const selected = userReaction === reaction;
+            const count = reactionCounts[reaction] ?? 0;
+            return (
+              <TouchableOpacity
+                key={reaction}
+                onPress={() => handleReaction(reaction)}
+                accessibilityRole="button"
+                accessibilityLabel={`React with ${reaction.toLowerCase()}`}
+                accessibilityState={{ selected }}
+                style={{
+                  minWidth: 32,
+                  height: 32,
+                  paddingHorizontal: 5,
+                  borderRadius: 16,
+                  flexDirection: "row",
+                  gap: 2,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: selected ? "#F3E8FF" : "transparent",
+                  borderWidth: selected ? 1 : 0,
+                  borderColor: "#C084FC",
+                }}
+              >
+                <Text style={{ fontSize: 18 }}>{emoji}</Text>
+                {count > 0 && (
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#6B7280" }}>
+                    {count}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Comment button */}

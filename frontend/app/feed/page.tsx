@@ -60,6 +60,8 @@ interface Post {
   category?: string;
   is_urgent?: boolean;
   comments: Comment[];
+  reaction_counts?: Record<string, number>;
+  user_reaction?: string | null;
 }
 
 interface Comment {
@@ -1486,7 +1488,7 @@ function PostCard({
 
   const handleReaction = async (reaction: string) => {
     try {
-      const response = await api.put(`/api/community/posts/${post.id}/reaction`, {
+      const response = await api.put(`/api/posts/${post.id}/reaction`, {
         reaction,
       });
       setReactionCounts(response.data.reaction_counts);
