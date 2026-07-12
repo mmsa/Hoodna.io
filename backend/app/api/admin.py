@@ -18,7 +18,7 @@ from app.schemas.admin import (
 )
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
-from app.schemas.compound import CompoundResponse, CompoundUpdate
+from app.schemas.compound import CompoundResponse, CompoundUpdate, CompoundListResponse
 from app.crud.verification import (
     get_pending_documents,
     approve_document,
@@ -1126,6 +1126,56 @@ async def remove_post(
             status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
         )
     return {"message": "Post removed successfully"}
+
+
+@router.get("/compounds", response_model=CompoundListResponse)
+async def admin_list_compounds(
+    q: Optional[str] = Query(None, description="Search name, slug, area, or developer"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all compounds for admin management (including incomplete)."""
+    compounds, total = await get_all_compounds(db, skip=skip, limit=limit, q=q)
+    return CompoundListResponse(items=compounds, total=total, limit=limit, offset=skip)
+
+
+class CompoundHeroPresignRequest(BaseModel):
+    file_name: str
+    file_type: str
+
+
+@router.post("/compounds/{compound_id}/hero/presign")
+async def admin_compound_hero_presign(
+    compound_id: int,
+    request: CompoundHeroPresignRequest,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Presign URL for uploading a compound hero image (feed banner)."""
+    from app.api.marketplace import validate_image_upload
+    from app.schemas.verification import PresignResponse
+    from app.services.s3 import generate_presigned_put_url
+
+    compound = await get_compound_by_id(db, compound_id)
+    if not compound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compound not found")
+
+    validate_image_upload(request.file_name, request.file_type)
+    try:
+        presigned_url, file_url = generate_presigned_put_url(
+            file_name=request.file_name,
+            file_type=request.file_type,
+            folder="compounds",
+            user_id=current_user.id,
+        )
+        return PresignResponse(presigned_url=presigned_url, file_url=file_url)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate presigned URL: {str(e)}",
+        )
 
 
 @router.get("/compounds/pending", response_model=List[CompoundResponse])

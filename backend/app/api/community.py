@@ -36,6 +36,7 @@ class FeedSummaryResponse(BaseModel):
     compound_area: Optional[str] = None
     compound_developer: Optional[str] = None
     compound_status: Optional[str] = None
+    compound_hero_image_url: Optional[str] = None
     recent_listings_count: int = 0
     recent_posts_count: int = 0
     total_neighbors: int = 0
@@ -87,6 +88,7 @@ async def get_feed_summary(
         compound_area=compound.area,
         compound_developer=compound.developer,
         compound_status=compound.status_2025,
+        compound_hero_image_url=compound.hero_image_url,
         recent_listings_count=len(recent_listings),
         recent_posts_count=len(recent_posts),
         total_neighbors=total_neighbors,

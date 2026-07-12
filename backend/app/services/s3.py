@@ -72,7 +72,7 @@ def extract_s3_object_key(file_url: str) -> Optional[str]:
         return path[len(bucket) + 1 :]
 
     match = re.search(
-        r"((?:uploads|verification|listings|providers|moderators)/.+)$",
+        r"((?:uploads|verification|listings|providers|moderators|compounds)/.+)$",
         path,
     )
     return match.group(1) if match else path or None
@@ -175,7 +175,7 @@ def upload_object_bytes(object_key: str, data: bytes, content_type: str) -> str:
     require_s3_configured()
     safe_key = (object_key or "").lstrip("/")
     if not re.match(
-        r"^(uploads|verification|listings|providers|moderators)/[A-Za-z0-9._-]+$",
+        r"^(uploads|verification|listings|providers|moderators|compounds)/[A-Za-z0-9._-]+$",
         safe_key,
     ):
         raise ValueError("Invalid object key")

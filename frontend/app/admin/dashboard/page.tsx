@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Wrench, Shield, Contact, SlidersHorizontal } from 'lucide-react'
+import { Users, Wrench, Shield, Contact, SlidersHorizontal, Building2 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 
 import ResidentVerifications from './components/resident-verifications'
@@ -11,6 +11,7 @@ import ProviderReviews from './components/provider-reviews'
 import ModeratorReviews from './components/moderator-reviews'
 import UserManagement from './components/user-management'
 import EljiranOperations from './components/eljiran-operations'
+import CompoundManagement from './components/compound-management'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -29,11 +30,11 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
+    <div className="min-h-screen bg-background px-4 py-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Review verifications, manage users, and operate the Eljiran rollout</p>
+          <h1 className="text-3xl font-bold mb-2 text-foreground">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Review verifications, manage users, compounds, and operate the Eljiran rollout</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -41,6 +42,10 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Contact className="w-4 h-4" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="compounds" className="flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              Compounds
             </TabsTrigger>
             <TabsTrigger value="residents" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -62,6 +67,10 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="users" className="mt-0">
             <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="compounds" className="mt-0">
+            <CompoundManagement />
           </TabsContent>
 
           <TabsContent value="residents" className="mt-0">

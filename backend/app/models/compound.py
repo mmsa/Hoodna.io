@@ -29,7 +29,7 @@ class Compound(Base):
     
     # Compound management
     moderator_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Compound-specific moderator
-    
+    hero_image_url = Column(String(512), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

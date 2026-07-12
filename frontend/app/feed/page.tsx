@@ -495,6 +495,7 @@ export default function FeedPage() {
               <CompoundHero
                 compoundName={feedSummary.compound_name}
                 compoundArea={feedSummary.compound_area}
+                heroImageUrl={feedSummary.compound_hero_image_url}
               />
             )}
 

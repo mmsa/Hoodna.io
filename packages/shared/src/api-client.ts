@@ -565,6 +565,7 @@ export class ApiClient {
     compound_area: string | null;
     compound_developer: string | null;
     compound_status: string | null;
+    compound_hero_image_url?: string | null;
     recent_listings_count: number;
     recent_posts_count: number;
     total_neighbors: number;

@@ -92,10 +92,21 @@ async def get_all_compounds(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
+    q: Optional[str] = None,
 ) -> tuple[list[Compound], int]:
     """Get all compounds including incomplete ones (admin use)."""
     query = select(Compound)
     count_query = select(func.count(Compound.id))
+
+    if q:
+        search = or_(
+            Compound.name.ilike(f"%{q}%"),
+            Compound.compound_id.ilike(f"%{q}%"),
+            Compound.area.ilike(f"%{q}%"),
+            Compound.developer.ilike(f"%{q}%"),
+        )
+        query = query.where(search)
+        count_query = count_query.where(search)
     
     # Get total count
     total_result = await db.execute(count_query)

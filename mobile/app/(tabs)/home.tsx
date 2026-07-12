@@ -6,6 +6,7 @@ import { useCompound } from "@/contexts/CompoundContext";
 import { Post } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
+import { CompoundHero } from "@/components/feed/compound-hero";
 import { FeedComposer } from "@/components/community/feed-composer";
 import { Avatar, Button, Chip } from "@/components/ui";
 import { colors } from "@/constants/colors";
@@ -586,6 +587,8 @@ export default function HomeScreen() {
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [announcements, setAnnouncements] = useState<Post[]>([]);
   const [compoundName, setCompoundName] = useState<string | null>(null);
+  const [compoundArea, setCompoundArea] = useState<string | null>(null);
+  const [compoundHeroUrl, setCompoundHeroUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -598,27 +601,24 @@ export default function HomeScreen() {
   const { activeCompoundId } = useCompound();
   const router = useRouter();
 
-  // Load compound name
+  // Load compound feed context (name + hero banner)
   useEffect(() => {
     if (user?.role === "SERVICE_PROVIDER") return;
 
-    async function loadCompoundName() {
-      const compoundId = activeCompoundId || user?.compound_id;
-      if (!compoundId || !apiClient) return;
-      
+    async function loadFeedSummary() {
+      if (!apiClient) return;
       try {
-        const userCompounds = await apiClient.getUserCompounds();
-        const foundCompound = userCompounds.find((c) => c.id === compoundId);
-        if (foundCompound) {
-          setCompoundName(foundCompound.name);
-        }
+        const summary = await apiClient.getFeedSummary();
+        setCompoundName(summary.compound_name);
+        setCompoundArea(summary.compound_area);
+        setCompoundHeroUrl(summary.compound_hero_image_url ?? null);
       } catch (error) {
-        console.error("Failed to load compound name:", error);
+        console.error("Failed to load feed summary:", error);
       }
     }
-    
+
     if (activeCompoundId || user?.compound_id) {
-      loadCompoundName();
+      loadFeedSummary();
     }
   }, [activeCompoundId, user?.compound_id, user?.role, apiClient]);
 
@@ -963,6 +963,15 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <View>
             <Header showLogo={true} />
+
+            {compoundName ? (
+              <CompoundHero
+                apiClient={apiClient}
+                compoundArea={compoundArea}
+                compoundName={compoundName}
+                heroImageUrl={compoundHeroUrl}
+              />
+            ) : null}
 
             <FeedComposer
               name={user?.name || "Neighbor"}
