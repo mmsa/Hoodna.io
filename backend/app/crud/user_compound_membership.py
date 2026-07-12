@@ -138,6 +138,78 @@ async def user_has_compound_membership(
     return compound_id in compound_ids
 
 
+async def get_user_switchable_compounds(db: AsyncSession, user: User) -> list[dict]:
+    """
+    Compounds the user may switch to: verified memberships plus the current
+    compound when still completing verification there.
+    """
+    from app.crud.compound import get_compound_by_id
+
+    verified_compound_ids = await sync_user_compound_memberships(db, user)
+    seen_ids: set[int] = set()
+    result: list[dict] = []
+
+    if verified_compound_ids:
+        compounds_result = await db.execute(
+            select(Compound).where(Compound.id.in_(verified_compound_ids))
+        )
+        for compound in compounds_result.scalars().all():
+            seen_ids.add(compound.id)
+            result.append({
+                "id": compound.id,
+                "name": compound.name,
+                "area": compound.area,
+                "is_current": compound.id == user.compound_id,
+                "is_verified": True,
+            })
+
+    if user.compound_id and user.compound_id not in seen_ids:
+        compound = await get_compound_by_id(db, user.compound_id)
+        if compound:
+            result.append({
+                "id": compound.id,
+                "name": compound.name,
+                "area": compound.area,
+                "is_current": True,
+                "is_verified": False,
+            })
+
+    # Compounds with any verification activity (in-progress, not yet verified)
+    doc_result = await db.execute(
+        select(VerificationDocument.compound_id)
+        .where(
+            VerificationDocument.user_id == user.id,
+            VerificationDocument.compound_id.isnot(None),
+        )
+        .distinct()
+    )
+    for compound_id in doc_result.scalars().all():
+        if compound_id is None or compound_id in seen_ids:
+            continue
+        if compound_id in verified_compound_ids:
+            continue
+        compound = await get_compound_by_id(db, compound_id)
+        if compound:
+            seen_ids.add(compound.id)
+            result.append({
+                "id": compound.id,
+                "name": compound.name,
+                "area": compound.area,
+                "is_current": compound.id == user.compound_id,
+                "is_verified": False,
+            })
+
+    result.sort(key=lambda x: (not x["is_current"], not x["is_verified"], x["name"]))
+    return result
+
+
+async def user_can_switch_to_compound(
+    db: AsyncSession, user: User, compound_id: int
+) -> bool:
+    switchable = await get_user_switchable_compounds(db, user)
+    return any(c["id"] == compound_id for c in switchable)
+
+
 async def remove_user_compound_membership(
     db: AsyncSession, user_id: int, compound_id: int
 ) -> bool:

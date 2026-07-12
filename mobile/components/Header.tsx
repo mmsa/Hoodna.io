@@ -8,6 +8,14 @@ import { useCompound } from "@/contexts/CompoundContext";
 import { Compound } from "@hoodna/shared";
 import { formatCompoundName, formatCompoundWithArea } from "@/utils/formatCompound";
 
+type SwitchableCompound = {
+  id: number;
+  name: string;
+  area: string | null;
+  is_current: boolean;
+  is_verified: boolean;
+};
+
 interface HeaderProps {
   title?: string;
   showLogo?: boolean;
@@ -31,7 +39,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
   const { activeCompoundId, isSwitching, switchCompound } = useCompound();
   const [compound, setCompound] = useState<Compound | null>(null);
   const [showCompoundSwitcher, setShowCompoundSwitcher] = useState(false);
-  const [availableCompounds, setAvailableCompounds] = useState<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>([]);
+  const [availableCompounds, setAvailableCompounds] = useState<SwitchableCompound[]>([]);
   const [loadingCompounds, setLoadingCompounds] = useState(false);
   
   // Use activeCompoundId from context (single source of truth)
@@ -95,7 +103,12 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
     setLoadingCompounds(true);
     try {
       const compounds = await apiClient.getUserCompounds();
-      setAvailableCompounds(compounds);
+      setAvailableCompounds(
+        (compounds || []).map((c) => ({
+          ...c,
+          is_verified: c.is_verified ?? true,
+        }))
+      );
     } catch (error) {
       console.error("Failed to load available compounds:", error);
     } finally {
@@ -103,18 +116,20 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
     }
   }
 
-  async function handleSwitchCompound(compoundId: number) {
-    if (isSwitching) return; // Prevent multiple switches
-    
+  async function handleSwitchCompound(compoundId: number, isVerified: boolean) {
+    if (isSwitching) return;
+
     try {
       setShowCompoundSwitcher(false);
-      // Use compound context's switchCompound which handles persistence and invalidation
       await switchCompound(compoundId);
-      // Reload compound to show new one
+      await refreshUser();
       loadCompound();
+      if (isVerified) {
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/verification");
+      }
     } catch (error: any) {
-      // Error handling is done in CompoundContext
-      // Just log here for debugging
       console.error("Failed to switch compound:", error);
     }
   }
@@ -272,14 +287,20 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                         styles.compoundItem,
                         item.is_current && styles.compoundItemCurrent,
                       ]}
-                      onPress={() => handleSwitchCompound(item.id)}
-                      disabled={item.is_current}
+                      onPress={() => handleSwitchCompound(item.id, item.is_verified)}
+                      disabled={item.is_current || isSwitching}
                     >
                       <View style={styles.compoundItemContent}>
                         <Ionicons
-                          name="home"
+                          name={item.is_verified ? "checkmark-circle" : "hourglass-outline"}
                           size={20}
-                          color={item.is_current ? colors.primary : colors.textMain}
+                          color={
+                            item.is_verified
+                              ? colors.success
+                              : item.is_current
+                                ? colors.primary
+                                : colors.textMuted
+                          }
                         />
                         <View style={styles.compoundItemText}>
                           <Text
@@ -290,6 +311,15 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                           >
                             {formatCompoundWithArea(item.name, item.area)}
                           </Text>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: item.is_verified ? colors.success : "#D97706",
+                              marginTop: 2,
+                            }}
+                          >
+                            {item.is_verified ? "Verified" : "Verification in progress"}
+                          </Text>
                         </View>
                       </View>
                       {item.is_current && (
@@ -299,8 +329,10 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                   )}
                   ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No verified neighbourhoods available</Text>
-                      <Text style={styles.emptySubtext}>Submit verification documents to access neighbourhoods</Text>
+                      <Text style={styles.emptyText}>No neighbourhoods yet</Text>
+                      <Text style={styles.emptySubtext}>
+                        Request access and submit verification documents
+                      </Text>
                     </View>
                   }
                 />

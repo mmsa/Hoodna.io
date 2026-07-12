@@ -424,43 +424,10 @@ async def get_user_compounds(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Compounds the user can switch between (verified + current if still verifying)."""
-    from sqlalchemy import select
-    from app.models.compound import Compound
-    from app.crud.compound import get_compound_by_id
-    from app.crud.user_compound_membership import sync_user_compound_memberships
+    """Compounds the user can switch between (verified + in-progress verification)."""
+    from app.crud.user_compound_membership import get_user_switchable_compounds
 
-    verified_compound_ids = await sync_user_compound_memberships(db, current_user)
-    seen_ids: set[int] = set()
-    result: list[dict] = []
-
-    if verified_compound_ids:
-        result_query = await db.execute(
-            select(Compound).where(Compound.id.in_(verified_compound_ids))
-        )
-        for compound in result_query.scalars().all():
-            seen_ids.add(compound.id)
-            result.append({
-                "id": compound.id,
-                "name": compound.name,
-                "area": compound.area,
-                "is_current": compound.id == current_user.compound_id,
-                "is_verified": True,
-            })
-
-    if current_user.compound_id and current_user.compound_id not in seen_ids:
-        compound = await get_compound_by_id(db, current_user.compound_id)
-        if compound:
-            result.append({
-                "id": compound.id,
-                "name": compound.name,
-                "area": compound.area,
-                "is_current": True,
-                "is_verified": False,
-            })
-
-    result.sort(key=lambda x: (not x["is_current"], not x["is_verified"], x["name"]))
-    return result
+    return await get_user_switchable_compounds(db, current_user)
 
 
 @router.post("/me/switch-compound", response_model=UserResponse)
@@ -469,10 +436,10 @@ async def switch_compound(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Switch the user's current compound (only to verified compounds)."""
+    """Switch active compound — verified neighbourhoods or in-progress verification."""
     from app.crud.compound import get_compound_by_id
-    from app.crud.user_compound_membership import user_has_compound_membership
-    from app.models.enums import UserStatus
+    from app.crud.user_compound_membership import user_can_switch_to_compound
+    from app.models.enums import UserStatus, UserRole
 
     compound_id = request.get("compound_id")
     if compound_id is None:
@@ -488,24 +455,29 @@ async def switch_compound(
             detail="Compound not found"
         )
 
+    if current_user.role not in (UserRole.RESIDENT, UserRole.USER, None):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only residents can switch neighbourhoods",
+        )
+
     if current_user.status != UserStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not verified for this compound. Please request access and submit verification documents.",
+            detail="Complete account verification before switching neighbourhoods.",
         )
 
-    if not await user_has_compound_membership(db, current_user, compound_id):
+    if not await user_can_switch_to_compound(db, current_user, compound_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not verified for this compound. Please request access and submit verification documents.",
+            detail="Request access to this neighbourhood before switching to it.",
         )
-    
-    # Update user's current compound
+
     current_user.compound_id = compound_id
-    await db.flush()
+    await db.commit()
     await db.refresh(current_user)
-    
-    return current_user
+
+    return await get_current_user_info(current_user, db)
 
 
 @router.post("/me/request-compound-access")

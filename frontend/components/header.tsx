@@ -544,16 +544,19 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   const { toast } = useToast()
   const queryClient = useQueryClient()
   
-  const { data: availableCompounds, isLoading } = useQuery<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>({
+  const { data: availableCompounds, isLoading } = useQuery<Array<{ id: number; name: string; area: string | null; is_current: boolean; is_verified: boolean }>>({
     queryKey: ['user-compounds'],
     queryFn: async () => {
       const response = await api.get('/api/auth/me/compounds')
-      return response.data
+      return (response.data || []).map((c: { is_verified?: boolean }) => ({
+        ...c,
+        is_verified: c.is_verified ?? true,
+      }))
     },
     enabled: !!user,
   })
 
-  const handleSwitch = async (compoundId: number) => {
+  const handleSwitch = async (compoundId: number, isVerified: boolean) => {
     if (compoundId === user?.compound_id) return
     
     try {
@@ -561,30 +564,27 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       await refreshUser()
       queryClient.invalidateQueries({ queryKey: ['user-compounds'] })
       queryClient.invalidateQueries({ queryKey: ['compound'] })
-          toast({
-            title: "Neighbourhood switched",
-            description: "Your active neighbourhood has been updated.",
-          })
-      // Refresh the page to update all compound-specific data
-      router.refresh()
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Failed to switch compound"
-      
-          // If user is not verified for this neighbourhood, redirect to verification
-          if (errorMessage.includes("not verified") || error.response?.status === 403) {
-            toast({
-              title: "Verification Required",
-              description: "You need to submit verification documents for this neighbourhood.",
-              variant: "destructive",
-            })
-        router.push('/verification')
+      if (isVerified) {
+        toast({
+          title: 'Neighbourhood switched',
+          description: 'Your active neighbourhood has been updated.',
+        })
+        router.replace('/feed')
+        router.refresh()
       } else {
         toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
+          title: 'Continue verification',
+          description: 'Complete verification documents for this neighbourhood.',
         })
+        router.push('/verification')
       }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail || 'Failed to switch compound'
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      })
     }
   }
 
@@ -617,17 +617,24 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
           availableCompounds.map((compound) => (
             <DropdownMenuItem
               key={compound.id}
-              onClick={() => handleSwitch(compound.id)}
-              className={compound.is_current ? "bg-blue-50" : ""}
+              onClick={() => handleSwitch(compound.id, compound.is_verified)}
+              className={compound.is_current ? 'bg-blue-50' : ''}
             >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex flex-col">
-                  <span className={compound.is_current ? "font-semibold text-blue-700" : ""}>
+              <div className="flex items-center justify-between w-full gap-2">
+                <div className="flex flex-col min-w-0">
+                  <span className={compound.is_current ? 'font-semibold text-blue-700' : ''}>
                     {formatCompoundWithArea(compound.name, compound.area)}
+                  </span>
+                  <span
+                    className={`text-xs mt-0.5 ${
+                      compound.is_verified ? 'text-green-700' : 'text-amber-700'
+                    }`}
+                  >
+                    {compound.is_verified ? 'Verified' : 'Verification in progress'}
                   </span>
                 </div>
                 {compound.is_current && (
-                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
                 )}
               </div>
             </DropdownMenuItem>
@@ -635,8 +642,10 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
         ) : (
           <DropdownMenuItem disabled>
             <div className="flex flex-col w-full">
-              <span className="text-sm text-gray-600">No verified neighbourhoods</span>
-              <span className="text-xs text-gray-500 mt-1">Submit verification documents to access neighbourhoods</span>
+              <span className="text-sm text-gray-600">No neighbourhoods yet</span>
+              <span className="text-xs text-gray-500 mt-1">
+                Request access and submit verification documents
+              </span>
             </div>
           </DropdownMenuItem>
         )}
