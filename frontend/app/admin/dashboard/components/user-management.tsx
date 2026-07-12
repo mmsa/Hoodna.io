@@ -446,6 +446,7 @@ export default function UserManagement() {
         onResetPassword={openResetDialog}
         onStatusAction={(userId, action) => statusMutation.mutate({ userId, action })}
         statusActionPending={statusMutation.isPending}
+        onUserUpdated={() => queryClient.invalidateQueries({ queryKey: ['admin-users'] })}
       />
 
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>

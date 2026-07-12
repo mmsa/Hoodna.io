@@ -662,5 +662,19 @@ export class ApiClient {
   async adminBanUser(userId: number): Promise<any> {
     return this.request(`/api/admin/users/${userId}/ban`, { method: "POST" });
   }
+
+  async adminSetUserCompounds(
+    userId: number,
+    data: {
+      compound_ids: number[];
+      primary_compound_id?: number | null;
+      approve_user?: boolean;
+    }
+  ): Promise<any> {
+    return this.request(`/api/admin/users/${userId}/compounds`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
 }
 

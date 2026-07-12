@@ -59,6 +59,12 @@ class AdminCompoundMembershipItem(BaseModel):
     created_at: datetime
 
 
+class AdminUserCompoundsUpdate(BaseModel):
+    compound_ids: List[int]
+    primary_compound_id: Optional[int] = None
+    approve_user: bool = False
+
+
 class AdminUserDetailResponse(BaseModel):
     id: int
     name: str

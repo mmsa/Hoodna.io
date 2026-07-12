@@ -88,20 +88,6 @@ async def _get_approved_documents(db: AsyncSession, user_id: int) -> list[Verifi
     return list(result.scalars().all())
 
 
-async def _membership_proven_by_documents(
-    db: AsyncSession,
-    compound_id: int,
-    approved_docs: list[VerificationDocument],
-) -> bool:
-    for doc in approved_docs:
-        if doc.compound_id == compound_id:
-            return True
-        llm_name = _compound_name_from_doc_llm(doc)
-        if compound_id in await _compound_ids_matching_name(db, llm_name):
-            return True
-    return False
-
-
 async def extract_compound_ids_from_documents(db: AsyncSession, user: User) -> set[int]:
     """
     Compound IDs inferred from all approved verification documents.
@@ -125,19 +111,13 @@ async def get_verified_compound_ids(
 ) -> set[int]:
     """
     Compound IDs the user may access.
-    Derived from approved documents (compound_id + LLM) plus stored memberships
-    that are backed by document proof (prevents unverified auto-grants).
+    Approved users: document inference + all stored memberships (includes admin grants).
     """
-    approved_docs = await _get_approved_documents(db, user.id)
     compound_ids = set(await extract_compound_ids_from_documents(db, user))
     stored = await get_membership_compound_ids(db, user.id)
 
-    if user.status == UserStatus.APPROVED and approved_docs:
-        for membership_id in stored:
-            if membership_id in compound_ids:
-                continue
-            if await _membership_proven_by_documents(db, membership_id, approved_docs):
-                compound_ids.add(membership_id)
+    if user.status == UserStatus.APPROVED:
+        compound_ids |= stored
 
     if persist_inferred:
         for compound_id in compound_ids:
@@ -156,3 +136,67 @@ async def user_has_compound_membership(
 ) -> bool:
     compound_ids = await sync_user_compound_memberships(db, user)
     return compound_id in compound_ids
+
+
+async def remove_user_compound_membership(
+    db: AsyncSession, user_id: int, compound_id: int
+) -> bool:
+    """Remove a compound membership. Returns True if a row was deleted."""
+    result = await db.execute(
+        select(UserCompoundMembership).where(
+            UserCompoundMembership.user_id == user_id,
+            UserCompoundMembership.compound_id == compound_id,
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        return False
+    await db.delete(membership)
+    await db.flush()
+    return True
+
+
+async def admin_sync_user_compounds(
+    db: AsyncSession,
+    user: User,
+    compound_ids: list[int],
+    *,
+    primary_compound_id: int | None = None,
+    approve_user: bool = False,
+) -> set[int]:
+    """
+    Replace a user's compound memberships with the given list (admin override).
+    Optionally set primary compound and approve the user account.
+    """
+    from app.crud.compound import get_compound_by_id
+
+    unique_ids = list(dict.fromkeys(compound_ids))
+    for compound_id in unique_ids:
+        compound = await get_compound_by_id(db, compound_id)
+        if not compound:
+            raise ValueError(f"Compound {compound_id} not found")
+
+    if primary_compound_id is not None and primary_compound_id not in unique_ids:
+        raise ValueError("Primary compound must be included in compound_ids")
+
+    current = await get_membership_compound_ids(db, user.id)
+    to_remove = current - set(unique_ids)
+    for compound_id in to_remove:
+        await remove_user_compound_membership(db, user.id, compound_id)
+
+    for compound_id in unique_ids:
+        await ensure_user_compound_membership(db, user.id, compound_id)
+
+    if primary_compound_id is not None:
+        user.compound_id = primary_compound_id
+    elif unique_ids:
+        if user.compound_id not in unique_ids:
+            user.compound_id = unique_ids[0]
+    elif user.compound_id is not None:
+        user.compound_id = None
+
+    if approve_user and user.status != UserStatus.APPROVED:
+        user.status = UserStatus.APPROVED
+
+    await db.flush()
+    return set(unique_ids)

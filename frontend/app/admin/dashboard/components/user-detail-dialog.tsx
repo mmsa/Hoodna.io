@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 import { formatDocumentType, formatModeratorStatus, formatProviderStatus, formatUserRole, formatUserStatus } from '@/lib/format-enums'
 import { SignedFileLink } from '@/components/signed-file'
+import { AdminUserCompoundManager } from './admin-user-compound-manager'
 
 export interface AdminUserDetail {
   id: number
@@ -72,6 +73,7 @@ interface UserDetailDialogProps {
   onResetPassword: (user: { id: number; name: string; email: string }) => void
   onStatusAction: (userId: number, action: 'approve' | 'reject' | 'ban') => void
   statusActionPending?: boolean
+  onUserUpdated?: () => void
 }
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -115,7 +117,9 @@ export default function UserDetailDialog({
   onResetPassword,
   onStatusAction,
   statusActionPending,
+  onUserUpdated,
 }: UserDetailDialogProps) {
+  const queryClient = useQueryClient()
   const { data: user, isLoading, error } = useQuery<AdminUserDetail>({
     queryKey: ['admin-user-detail', userId],
     queryFn: async () => {
@@ -211,22 +215,16 @@ export default function UserDetailDialog({
               </div>
             </section>
 
-            {user.compound_memberships.length > 0 && (
-              <section>
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">Compound memberships</h3>
-                <ul className="space-y-2">
-                  {user.compound_memberships.map((m) => (
-                    <li key={m.compound_id} className="text-sm border rounded-lg p-3 bg-white">
-                      <span className="font-medium">{m.compound_name ?? `Compound ${m.compound_id}`}</span>
-                      {m.compound_area && <span className="text-gray-500"> · {m.compound_area}</span>}
-                      <span className="block text-xs text-gray-400 mt-1">
-                        Since {new Date(m.created_at).toLocaleDateString()}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            <AdminUserCompoundManager
+              userId={user.id}
+              userStatus={user.status}
+              primaryCompoundId={user.compound_id}
+              memberships={user.compound_memberships}
+              onUpdated={() => {
+                queryClient.invalidateQueries({ queryKey: ['admin-user-detail', userId] })
+                onUserUpdated?.()
+              }}
+            />
 
             {user.verification_documents.length > 0 && (
               <section>

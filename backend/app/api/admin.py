@@ -14,6 +14,7 @@ from app.schemas.admin import (
     AdminUserDetailResponse,
     AdminUserActivityStats,
     AdminCompoundMembershipItem,
+    AdminUserCompoundsUpdate,
 )
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
@@ -302,6 +303,43 @@ async def get_user_detail(
         moderator_profile=moderator_profile_data,
         activity=AdminUserActivityStats(**activity_counts),
     )
+
+
+@router.put("/users/{user_id}/compounds", response_model=AdminUserDetailResponse)
+async def admin_set_user_compounds(
+    user_id: int,
+    body: AdminUserCompoundsUpdate,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Assign a user to one or more compounds (admin override). Replaces existing memberships."""
+    from app.crud.user import get_user_by_id
+    from app.crud.user_compound_membership import admin_sync_user_compounds
+
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if user.role == UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot assign compounds to admin accounts",
+        )
+
+    try:
+        await admin_sync_user_compounds(
+            db,
+            user,
+            body.compound_ids,
+            primary_compound_id=body.primary_compound_id,
+            approve_user=body.approve_user,
+        )
+        await db.commit()
+        await db.refresh(user)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    return await get_user_detail(user_id, current_user, db)
 
 
 @router.get("/verifications", response_model=VerificationListResponse)
