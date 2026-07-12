@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { StyleSheet, Text, View } from "react-native";
 import type { ApiClient } from "@hoodna/shared";
@@ -21,6 +21,7 @@ export function CompoundHero({
   heroImageUrl,
   apiClient,
 }: CompoundHeroProps) {
+  const router = useRouter();
   const title = formatCompoundWithArea(compoundName, compoundArea);
 
   return (
@@ -47,11 +48,14 @@ export function CompoundHero({
           <Text style={styles.subtitle}>
             Community updates, help requests, and news from verified neighbours.
           </Text>
-          <Link href="/(tabs)/market" asChild>
-            <Button size="small" variant="accent" style={styles.cta}>
-              Browse marketplace
-            </Button>
-          </Link>
+          <Button
+            onPress={() => router.push("/(tabs)/market")}
+            size="small"
+            variant="accent"
+            style={styles.cta}
+          >
+            Browse marketplace
+          </Button>
         </View>
       </View>
     </View>

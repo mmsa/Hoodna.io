@@ -11,7 +11,6 @@ const config = getDefaultConfig(projectRoot);
 
 // Monorepo support for workspace packages (Metro must see both packages).
 config.watchFolders = [sharedRoot, tokensRoot];
-config.resolver.disableHierarchicalLookup = true;
 config.resolver.extraNodeModules = {
   '@hoodna/shared': sharedRoot,
   '@hoodna/tokens': tokensRoot,

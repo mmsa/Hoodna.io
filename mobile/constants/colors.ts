@@ -26,9 +26,9 @@ export const colors = {
   text: palette.ink,
   textSecondary: palette.inkMuted,
   
-  // Accent colors (vibrant and emotional)
-  accent: palette.warning,
-  accentLight: palette.warningSoft,
+  // Accent colors (coral CTAs from canvas spec)
+  accent: palette.accent,
+  accentLight: palette.accent,
   success: palette.success,
   successLight: palette.successSoft,
   error: palette.danger,
