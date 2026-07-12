@@ -6,6 +6,7 @@ import type {
   AdminAuditEntry,
   AdminAuditList,
   AdminBetaMetrics,
+  BetaMetricPoint,
   BusinessClaim,
   FeatureFlag,
   FeatureFlagOverride,
@@ -348,19 +349,15 @@ function BetaMetrics() {
     queryFn: async () => (await api.get('/api/admin/beta-metrics', { params: { date_from: from, date_to: to } })).data,
     enabled: Boolean(from && to && from <= to),
   })
-  const totals = useMemo(() => query.data ? [
+  const totals = useMemo<[string, number][]>(() => query.data ? [
     ['Registered users', query.data.total_registered_users], ['Active users', query.data.active_users],
     ['Posts', query.data.posts_created], ['Comments', query.data.comments_created],
     ['Searches', query.data.searches_performed], ['Business claims', query.data.business_claims],
     ['Reports awaiting review', query.data.reports_awaiting_review], ['Invitations sent', query.data.invitations_sent],
     ['Successful referrals', query.data.successful_referrals], ['Client errors', query.data.client_errors],
   ] : [], [query.data])
-  const maxTrend = Math.max(
-    1,
-    ...(query.data?.new_users_by_day.map(
-      (point: AdminBetaMetrics['new_users_by_day'][number]) => point.value,
-    ) || []),
-  )
+  const trendPoints: BetaMetricPoint[] = query.data?.new_users_by_day ?? []
+  const maxTrend = Math.max(1, ...trendPoints.map((point) => point.value))
 
   return <section className="space-y-5" aria-labelledby="metrics-heading">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="metrics-heading" className="text-xl font-semibold">Beta metrics</h2>
@@ -373,7 +370,7 @@ function BetaMetrics() {
       query.data && <div className="space-y-5">
         <div><h3 className="mb-2 font-semibold">Totals</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{totals.map(([label, value]) => <Card key={String(label)}><CardContent className="p-4"><div className="text-2xl font-bold">{value}</div><div className="text-xs text-muted-foreground">{label}</div></CardContent></Card>)}</div></div>
         <div><h3 className="mb-2 font-semibold">Rates</h3><Card><CardContent className="p-4"><div className="text-2xl font-bold">{(query.data.onboarding_completion_rate * 100).toFixed(1)}%</div><div className="text-sm text-muted-foreground">Onboarding completion rate</div></CardContent></Card></div>
-        <div><h3 className="mb-2 font-semibold">New-user trend</h3><Card><CardContent className="space-y-2 p-4">{query.data.new_users_by_day.length ? query.data.new_users_by_day.map((point) => <div key={point.date} className="grid grid-cols-[90px_1fr_40px] items-center gap-2 text-xs"><span>{point.date}</span><div className="h-2 rounded bg-muted"><div className="h-2 rounded bg-primary" style={{ width: `${Math.max(2, point.value / maxTrend * 100)}%` }} /></div><span className="text-right">{point.value}</span></div>) : <p className="text-sm text-muted-foreground">No new-user activity in this range.</p>}</CardContent></Card></div>
+        <div><h3 className="mb-2 font-semibold">New-user trend</h3><Card><CardContent className="space-y-2 p-4">{trendPoints.length ? trendPoints.map((point) => <div key={point.date} className="grid grid-cols-[90px_1fr_40px] items-center gap-2 text-xs"><span>{point.date}</span><div className="h-2 rounded bg-muted"><div className="h-2 rounded bg-primary" style={{ width: `${Math.max(2, point.value / maxTrend * 100)}%` }} /></div><span className="text-right">{point.value}</span></div>) : <p className="text-sm text-muted-foreground">No new-user activity in this range.</p>}</CardContent></Card></div>
       </div>}
   </section>
 }
