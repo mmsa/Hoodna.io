@@ -355,7 +355,12 @@ function BetaMetrics() {
     ['Reports awaiting review', query.data.reports_awaiting_review], ['Invitations sent', query.data.invitations_sent],
     ['Successful referrals', query.data.successful_referrals], ['Client errors', query.data.client_errors],
   ] : [], [query.data])
-  const maxTrend = Math.max(1, ...(query.data?.new_users_by_day.map((point) => point.value) || []))
+  const maxTrend = Math.max(
+    1,
+    ...(query.data?.new_users_by_day.map(
+      (point: AdminBetaMetrics['new_users_by_day'][number]) => point.value,
+    ) || []),
+  )
 
   return <section className="space-y-5" aria-labelledby="metrics-heading">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="metrics-heading" className="text-xl font-semibold">Beta metrics</h2>
