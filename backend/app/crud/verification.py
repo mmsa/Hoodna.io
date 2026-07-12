@@ -9,11 +9,13 @@ def compute_verification_status(
     user: User,
     national_id: VerificationDocument | None,
     contract: VerificationDocument | None,
+    *,
+    is_verified_for_current_compound: bool = False,
 ) -> str:
-    """Client-facing verification status: UNVERIFIED | PENDING | APPROVED | REJECTED."""
+    """Client-facing verification status for the active compound."""
     has_submitted_docs = bool(national_id or contract)
 
-    if user.status == UserStatus.APPROVED:
+    if is_verified_for_current_compound:
         return "APPROVED"
     if user.status in (UserStatus.REJECTED, UserStatus.BANNED):
         return "REJECTED"
@@ -25,20 +27,19 @@ def compute_verification_status(
         ):
             return "REJECTED"
 
-    if user.status == UserStatus.PENDING_VERIFICATION:
-        return "PENDING" if has_submitted_docs else "UNVERIFIED"
+    if has_submitted_docs:
+        for doc in (national_id, contract):
+            if doc and doc.status == DocumentStatus.PENDING:
+                return "PENDING"
+        if national_id or contract:
+            return "PENDING"
+
+    if user.status == UserStatus.PENDING_VERIFICATION and has_submitted_docs:
+        return "PENDING"
     return "UNVERIFIED"
 
 
-async def get_user_documents(
-    db: AsyncSession, user_id: int
-) -> dict[DocumentType, VerificationDocument | None]:
-    """Get all verification documents for a user."""
-    result = await db.execute(
-        select(VerificationDocument).where(VerificationDocument.user_id == user_id)
-    )
-    documents = result.scalars().all()
-
+def _docs_dict(documents: list[VerificationDocument]) -> dict[DocumentType, VerificationDocument | None]:
     return {
         DocumentType.NATIONAL_ID: next(
             (d for d in documents if d.type == DocumentType.NATIONAL_ID), None
@@ -49,30 +50,55 @@ async def get_user_documents(
     }
 
 
+async def get_user_documents(
+    db: AsyncSession,
+    user_id: int,
+    compound_id: int | None = None,
+) -> dict[DocumentType, VerificationDocument | None]:
+    """Get verification documents for a user, optionally scoped to one compound."""
+    query = select(VerificationDocument).where(VerificationDocument.user_id == user_id)
+    if compound_id is not None:
+        query = query.where(VerificationDocument.compound_id == compound_id)
+    result = await db.execute(query)
+    return _docs_dict(list(result.scalars().all()))
+
+
 async def create_document(
-    db: AsyncSession, user_id: int, document_type: DocumentType, file_url: str
+    db: AsyncSession,
+    user_id: int,
+    document_type: DocumentType,
+    file_url: str,
+    compound_id: int,
 ) -> VerificationDocument:
-    """Create a verification document."""
-    # Check if document of this type already exists
+    """Create or replace a verification document for a specific compound."""
     existing = await db.execute(
         select(VerificationDocument).where(
             VerificationDocument.user_id == user_id,
             VerificationDocument.type == document_type,
+            VerificationDocument.compound_id == compound_id,
         )
     )
     existing_doc = existing.scalar_one_or_none()
 
     if existing_doc:
-        # Update existing document
         existing_doc.file_url = file_url
         existing_doc.status = DocumentStatus.PENDING
         existing_doc.notes = None
+        existing_doc.reviewer_id = None
+        existing_doc.llm_verified = None
+        existing_doc.llm_confidence = None
+        existing_doc.llm_recommendation = None
+        existing_doc.llm_reasoning = None
+        existing_doc.llm_issues = None
+        existing_doc.llm_extracted_info = None
+        existing_doc.llm_verified_at = None
         await db.flush()
         await db.refresh(existing_doc)
         return existing_doc
 
     db_doc = VerificationDocument(
         user_id=user_id,
+        compound_id=compound_id,
         type=document_type,
         file_url=file_url,
         status=DocumentStatus.PENDING,
@@ -81,18 +107,18 @@ async def create_document(
     await db.flush()
     await db.refresh(db_doc)
 
-    # Check if user should be auto-approved (both documents uploaded)
-    await check_and_update_user_status(db, user_id)
-
+    await check_and_update_user_status(db, user_id, compound_id)
     return db_doc
 
 
-async def check_and_update_user_status(db: AsyncSession, user_id: int):
-    """Check if user has both documents and update status if needed."""
-    docs = await get_user_documents(db, user_id)
-
+async def check_and_update_user_status(
+    db: AsyncSession, user_id: int, compound_id: int | None = None
+):
+    """Check if user has both documents for a compound (status update on admin approval)."""
+    if compound_id is None:
+        return
+    docs = await get_user_documents(db, user_id, compound_id)
     if docs[DocumentType.NATIONAL_ID] and docs[DocumentType.CONTRACT]:
-        # Both documents exist, but status update happens on admin approval
         pass
 
 
@@ -100,25 +126,25 @@ def has_compound_name_in_document(doc: VerificationDocument) -> bool:
     """Check if document's LLM extracted info indicates compound name was found."""
     if not doc.llm_extracted_info or not isinstance(doc.llm_extracted_info, dict):
         return False
-    
-    # Check for compound_name_in_address field
+
     compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
     if compound_found:
         return True
-    
-    # Also check address_match field
+
     address_match = doc.llm_extracted_info.get("address_match", "")
     return address_match == "MATCH"
 
 
-async def _promote_user_if_any_doc_approved(db: AsyncSession, user_id: int) -> None:
-    """When admin approves a document, approve the user if any doc is approved."""
-    docs = await get_user_documents(db, user_id)
+async def _promote_user_if_any_doc_approved(
+    db: AsyncSession, user_id: int, compound_id: int | None = None
+) -> None:
+    """When admin approves a document, approve the user if any doc is approved for that compound."""
+    docs = await get_user_documents(db, user_id, compound_id)
     national_id = docs[DocumentType.NATIONAL_ID]
     contract = docs[DocumentType.CONTRACT]
 
     user = await db.get(User, user_id)
-    if not user or user.status == UserStatus.APPROVED:
+    if not user:
         return
 
     has_approved = (
@@ -127,13 +153,14 @@ async def _promote_user_if_any_doc_approved(db: AsyncSession, user_id: int) -> N
     if not has_approved:
         return
 
-    user.status = UserStatus.APPROVED
-    await db.flush()
-    try:
-        from app.services.notifications import notify_verification_approved
-        await notify_verification_approved(db, user.id)
-    except Exception:
-        pass
+    if user.status != UserStatus.APPROVED:
+        user.status = UserStatus.APPROVED
+        await db.flush()
+        try:
+            from app.services.notifications import notify_verification_approved
+            await notify_verification_approved(db, user.id)
+        except Exception:
+            pass
 
 
 async def approve_document(
@@ -154,12 +181,12 @@ async def approve_document(
 
     await db.flush()
 
-    user = await db.get(User, doc.user_id)
-    if user and user.compound_id:
+    membership_compound_id = doc.compound_id
+    if membership_compound_id:
         from app.crud.user_compound_membership import ensure_user_compound_membership
-        await ensure_user_compound_membership(db, user.id, user.compound_id)
+        await ensure_user_compound_membership(db, doc.user_id, membership_compound_id)
 
-    await _promote_user_if_any_doc_approved(db, doc.user_id)
+    await _promote_user_if_any_doc_approved(db, doc.user_id, doc.compound_id)
 
     await db.refresh(doc)
     return doc
@@ -178,11 +205,10 @@ async def reject_document(
     doc.notes = notes
 
     await db.flush()
-    
-    # Send notification
+
     from app.services.notifications import notify_verification_rejected
     await notify_verification_rejected(db, doc.user_id, notes)
-    
+
     await db.refresh(doc)
     return doc
 
@@ -200,11 +226,10 @@ async def request_more_details_document(
     doc.notes = notes
 
     await db.flush()
-    
-    # Send notification
+
     from app.services.notifications import notify_verification_request_more
     await notify_verification_request_more(db, doc.user_id, notes)
-    
+
     await db.refresh(doc)
     return doc
 
@@ -229,11 +254,10 @@ async def update_document_status(
     await db.flush()
 
     if new_status == DocumentStatus.APPROVED:
-        user = await db.get(User, doc.user_id)
-        if user and user.compound_id:
+        if doc.compound_id:
             from app.crud.user_compound_membership import ensure_user_compound_membership
-            await ensure_user_compound_membership(db, user.id, user.compound_id)
-        await _promote_user_if_any_doc_approved(db, doc.user_id)
+            await ensure_user_compound_membership(db, doc.user_id, doc.compound_id)
+        await _promote_user_if_any_doc_approved(db, doc.user_id, doc.compound_id)
 
     await db.refresh(doc)
     return doc
@@ -266,32 +290,47 @@ async def get_documents_with_status(
     Get verification documents with optional filters, search, and sorting.
     Returns (documents, total_count).
     """
-    from sqlalchemy import or_, func, desc, asc
+    from sqlalchemy import or_, func, desc, asc, and_
     from app.models.user import User
     from app.models.enums import DocumentType
-    
-    # Base query with joins for search
+
     query = select(VerificationDocument).join(User, VerificationDocument.user_id == User.id)
-    count_query = select(func.count()).select_from(VerificationDocument).join(User, VerificationDocument.user_id == User.id)
-    
-    # Apply filters
+    count_query = select(func.count()).select_from(VerificationDocument).join(
+        User, VerificationDocument.user_id == User.id
+    )
+
     if status_filter is not None:
         query = query.where(VerificationDocument.status == status_filter)
         count_query = count_query.where(VerificationDocument.status == status_filter)
-    
+
     if document_type:
         try:
             doc_type = DocumentType[document_type.upper()]
             query = query.where(VerificationDocument.type == doc_type)
             count_query = count_query.where(VerificationDocument.type == doc_type)
         except KeyError:
-            pass  # Invalid type, ignore filter
-    
+            pass
+
     if compound_id:
-        query = query.where(User.compound_id == compound_id)
-        count_query = count_query.where(User.compound_id == compound_id)
-    
-    # Apply search
+        query = query.where(
+            or_(
+                VerificationDocument.compound_id == compound_id,
+                and_(
+                    VerificationDocument.compound_id.is_(None),
+                    User.compound_id == compound_id,
+                ),
+            )
+        )
+        count_query = count_query.where(
+            or_(
+                VerificationDocument.compound_id == compound_id,
+                and_(
+                    VerificationDocument.compound_id.is_(None),
+                    User.compound_id == compound_id,
+                ),
+            )
+        )
+
     if search_query:
         search_pattern = f"%{search_query.lower()}%"
         search_filter = or_(
@@ -301,8 +340,7 @@ async def get_documents_with_status(
         )
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
-    
-    # Apply sorting
+
     if sort_by == "created_at_asc":
         query = query.order_by(asc(VerificationDocument.created_at))
     elif sort_by == "created_at_desc":
@@ -316,18 +354,14 @@ async def get_documents_with_status(
     elif sort_by == "status_desc":
         query = query.order_by(desc(VerificationDocument.status))
     else:
-        # Default: newest first
         query = query.order_by(desc(VerificationDocument.created_at))
-    
-    # Get total count
+
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
-    
-    # Apply pagination
+
     query = query.offset(skip).limit(limit)
-    
-    # Execute query
+
     result = await db.execute(query)
     documents = list(result.scalars().all())
-    
+
     return documents, total

@@ -10,6 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { VerificationCompoundBar } from "@/components/verification-compound-bar";
 import { useAuth } from "@/contexts/AuthContext";
 import { VerificationStatusResponse } from "@hoodna/shared";
 import {
@@ -113,7 +114,9 @@ export default function VerificationPendingScreen() {
           />
         }
       >
-        <View style={{ alignItems: "center", marginBottom: 32, marginTop: 24 }}>
+        <VerificationCompoundBar currentCompoundName={status?.compound_name} onCompoundChange={load} />
+
+        <View style={{ alignItems: "center", marginBottom: 32, marginTop: 8 }}>
           <View
             style={{
               width: 88,

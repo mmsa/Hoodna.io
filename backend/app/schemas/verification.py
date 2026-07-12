@@ -23,6 +23,7 @@ class DocumentSubmit(BaseModel):
 class VerificationDocumentResponse(BaseModel):
     id: int
     user_id: int
+    compound_id: Optional[int] = None
     type: DocumentType
     file_url: str
     status: DocumentStatus
@@ -46,6 +47,8 @@ class VerificationStatusResponse(BaseModel):
     contract: Optional[VerificationDocumentResponse] = None
     user_status: str
     can_post: bool
+    compound_id: Optional[int] = None
+    compound_name: Optional[str] = None
 
 
 class DocumentReview(BaseModel):

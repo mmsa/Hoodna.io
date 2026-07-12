@@ -12,6 +12,7 @@ export const DocumentStatusSchema = z.enum([
 export const VerificationDocumentSchema = z.object({
   id: z.number(),
   user_id: z.number(),
+  compound_id: z.number().nullable().optional(),
   type: DocumentTypeSchema,
   file_url: z.string(),
   status: DocumentStatusSchema,
@@ -32,6 +33,8 @@ export const VerificationStatusResponseSchema = z.object({
   contract: VerificationDocumentSchema.nullable(),
   user_status: z.string(),
   can_post: z.boolean(),
+  compound_id: z.number().nullable().optional(),
+  compound_name: z.string().nullable().optional(),
 });
 
 export const PresignRequestSchema = z.object({

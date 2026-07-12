@@ -181,7 +181,7 @@ async def get_user_detail(
         UserStatus.PENDING_VERIFICATION,
         UserStatus.REJECTED,
     ):
-        docs = await get_user_documents(db, user.id)
+        docs = await get_user_documents(db, user.id, user.compound_id)
         national_id = docs.get(DocumentType.NATIONAL_ID)
         contract = docs.get(DocumentType.CONTRACT)
         result = await db.execute(
@@ -650,7 +650,7 @@ async def verify_document_with_llm_endpoint(
                 await db.flush()
                 from app.crud.verification import get_user_documents, has_compound_name_in_document
                 
-                docs = await get_user_documents(db, doc.user_id)
+                docs = await get_user_documents(db, doc.user_id, doc.compound_id)
                 national_id = docs[DocumentType.NATIONAL_ID]
                 contract = docs[DocumentType.CONTRACT]
                 
@@ -884,7 +884,7 @@ async def bulk_verify_documents_with_llm(
                     await db.flush()
                     from app.crud.verification import get_user_documents, has_compound_name_in_document
                     
-                    docs_check = await get_user_documents(db, doc.user_id)
+                    docs_check = await get_user_documents(db, doc.user_id, doc.compound_id)
                     national_id = docs_check[DocumentType.NATIONAL_ID]
                     contract = docs_check[DocumentType.CONTRACT]
                     

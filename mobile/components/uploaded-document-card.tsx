@@ -46,11 +46,13 @@ export function UploadedDocumentCard({
   status,
   fileUrl,
   apiClient,
+  compact = false,
 }: {
   title: string;
   status?: string | null;
   fileUrl?: string | null;
   apiClient?: ApiClient;
+  compact?: boolean;
 }) {
   const storedUrl = normalizeFileUrl(fileUrl || "");
   const [viewUrl, setViewUrl] = useState("");
@@ -104,19 +106,33 @@ export function UploadedDocumentCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text style={styles.title}>{title}</Text>
+      {!compact && (
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {fileNameFromUrl(storedUrl || title)}
+            </Text>
+          </View>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.text }]}>
+              {statusLabel(status)}
+            </Text>
+          </View>
+        </View>
+      )}
+      {compact && (
+        <View style={styles.headerRow}>
           <Text style={styles.subtitle} numberOfLines={1}>
             {fileNameFromUrl(storedUrl || title)}
           </Text>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.text }]}>
+              {statusLabel(status)}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.badgeText, { color: badge.text }]}>
-            {statusLabel(status)}
-          </Text>
-        </View>
-      </View>
+      )}
 
       {loadingUrl && (
         <View style={styles.loadingRow}>
@@ -152,7 +168,7 @@ export function UploadedDocumentCard({
         </Text>
       )}
 
-      {status && status !== "REJECTED" && (
+      {!compact && status && status !== "REJECTED" && (
         <Text style={styles.savedNote}>Saved — this stays after you refresh</Text>
       )}
     </View>

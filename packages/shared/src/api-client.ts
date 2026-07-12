@@ -116,8 +116,12 @@ export class ApiClient {
     return this.request<User>("/api/auth/me");
   }
 
-  async getUserCompounds(): Promise<Array<{ id: number; name: string; area: string | null; is_current: boolean }>> {
-    return this.request<Array<{ id: number; name: string; area: string | null; is_current: boolean }>>("/api/auth/me/compounds");
+  async getUserCompounds(): Promise<
+    Array<{ id: number; name: string; area: string | null; is_current: boolean; is_verified: boolean }>
+  > {
+    return this.request<
+      Array<{ id: number; name: string; area: string | null; is_current: boolean; is_verified: boolean }>
+    >("/api/auth/me/compounds");
   }
 
   async switchCompound(compoundId: number): Promise<User> {

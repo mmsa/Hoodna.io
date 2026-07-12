@@ -10,6 +10,7 @@ class VerificationDocument(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    compound_id = Column(Integer, ForeignKey("compounds.id", ondelete="CASCADE"), nullable=True, index=True)
     type = Column(SQLEnum(DocumentType), nullable=False)
     file_url = Column(String, nullable=False)
     status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING, nullable=False)

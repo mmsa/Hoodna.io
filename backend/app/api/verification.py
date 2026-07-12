@@ -92,11 +92,18 @@ async def submit_document(
     db: AsyncSession = Depends(get_db),
 ):
     """Submit a verification document after uploading to S3."""
+    if not current_user.compound_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Select a neighbourhood before submitting verification documents.",
+        )
+
     doc = await create_document(
         db=db,
         user_id=current_user.id,
         document_type=document_data.document_type,
         file_url=document_data.file_url,
+        compound_id=current_user.compound_id,
     )
     return doc
 
@@ -127,18 +134,25 @@ async def get_verification_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get verification status for current user."""
+    """Get verification status for the user's current compound."""
     from app.crud.verification import has_compound_name_in_document
-    
-    docs = await get_user_documents(db, current_user.id)
-    
+    from app.crud.user_compound_membership import user_has_compound_membership
+
+    if not current_user.compound_id:
+        return VerificationStatusResponse(
+            national_id=None,
+            contract=None,
+            user_status=current_user.status.value,
+            can_post=False,
+            compound_id=None,
+            compound_name=None,
+        )
+
+    docs = await get_user_documents(db, current_user.id, current_user.compound_id)
+
     national_id = docs[DocumentType.NATIONAL_ID]
     contract = docs[DocumentType.CONTRACT]
-    
-    # Check if user can post based on new rules:
-    # 1. National ID approved + has compound name → sufficient
-    # 2. Contract approved (name match + compound match) → sufficient
-    # 3. Both documents approved → sufficient
+
     def _has_compound_name(doc):
         if not doc or not doc.llm_extracted_info:
             return False
@@ -147,47 +161,42 @@ async def get_verification_status(
             address_match = doc.llm_extracted_info.get("address_match", "")
             return compound_found or address_match == "MATCH"
         return False
-    
-    # Check if user should be auto-approved based on approved documents
-    # If ANY document is approved, approve the user
-    if current_user.status != UserStatus.APPROVED:
-        user_should_be_approved = False
-        
-        # If ANY document is approved, approve the user
-        if (
+
+    is_verified_here = await user_has_compound_membership(
+        db, current_user, current_user.compound_id
+    )
+
+    if (
+        not is_verified_here
+        and current_user.status != UserStatus.APPROVED
+    ):
+        user_should_be_approved = (
             national_id and national_id.status == DocumentStatus.APPROVED
-        ) or (
-            contract and contract.status == DocumentStatus.APPROVED
-        ):
-            user_should_be_approved = True
-        
+        ) or (contract and contract.status == DocumentStatus.APPROVED)
+
         if user_should_be_approved:
             current_user.status = UserStatus.APPROVED
-            if current_user.compound_id:
-                from app.crud.user_compound_membership import ensure_user_compound_membership
-                await ensure_user_compound_membership(
-                    db, current_user.id, current_user.compound_id
-                )
+            from app.crud.user_compound_membership import ensure_user_compound_membership
+            await ensure_user_compound_membership(
+                db, current_user.id, current_user.compound_id
+            )
             await db.commit()
             await db.refresh(current_user)
-            # Send notification
+            is_verified_here = True
             try:
                 from app.services.notifications import notify_verification_approved
                 await notify_verification_approved(db, current_user.id)
             except Exception:
-                # Don't fail if notification fails
                 pass
-    
+
     can_post = False
-    if current_user.status == UserStatus.APPROVED:
-        # Rule 1: National ID approved + has compound name
+    if is_verified_here:
         if (
-            national_id 
-            and national_id.status.value == "APPROVED" 
+            national_id
+            and national_id.status.value == "APPROVED"
             and _has_compound_name(national_id)
         ):
             can_post = True
-        # Rule 2: Contract approved + name match + compound match
         elif (
             contract
             and contract.status.value == "APPROVED"
@@ -197,17 +206,21 @@ async def get_verification_status(
             name_match = contract.llm_extracted_info.get("name_match", "")
             if name_match == "MATCH" and _has_compound_name(contract):
                 can_post = True
-        # Rule 3: Both documents approved
         elif (
             national_id and national_id.status.value == "APPROVED" and
             contract and contract.status.value == "APPROVED"
         ):
             can_post = True
-    
+
+    from app.crud.compound import get_compound_by_id
+    compound = await get_compound_by_id(db, current_user.compound_id)
+
     return VerificationStatusResponse(
         national_id=VerificationDocumentResponse.model_validate(national_id) if national_id else None,
         contract=VerificationDocumentResponse.model_validate(contract) if contract else None,
         user_status=current_user.status.value,
         can_post=can_post,
+        compound_id=current_user.compound_id,
+        compound_name=compound.name if compound else None,
     )
 

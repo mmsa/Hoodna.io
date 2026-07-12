@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import { uploadToPresignedUrl, resolveUploadContentType } from "@/lib/upload";
 import { isVerifiedForCurrentCompound } from "@/lib/resident-routing";
+import { VerificationCompoundBar } from "@/components/verification-compound-bar";
 
 interface VerificationStatus {
   national_id: {
@@ -36,6 +37,8 @@ interface VerificationStatus {
   } | null;
   user_status: string;
   can_post: boolean;
+  compound_id?: number | null;
+  compound_name?: string | null;
 }
 
 export default function VerificationPage() {
@@ -394,20 +397,14 @@ export default function VerificationPage() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Verification Documents
           </h1>
-          {compound && (
-            <div className="mb-3 inline-block px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 text-gray-700">
-                <MapPin className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-gray-500">Verifying for</span>
-                <span className="text-lg font-semibold text-gray-800">
-                  {compound.name}
-                </span>
-                {compound.area && (
-                  <span className="text-sm text-gray-500">• {compound.area}</span>
-                )}
-              </div>
-            </div>
-          )}
+          <VerificationCompoundBar
+            currentCompoundName={status?.compound_name ?? compound?.name}
+            currentCompoundArea={compound?.area}
+            onCompoundChange={() => {
+              refetch()
+              queryClient.invalidateQueries({ queryKey: ['current-user'] })
+            }}
+          />
           <p className="text-gray-600 text-lg mb-4">
             Upload <span className="font-semibold text-blue-600">one document</span> to get verified
           </p>

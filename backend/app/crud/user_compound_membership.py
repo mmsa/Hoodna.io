@@ -5,7 +5,7 @@ from app.models.user import User
 from app.models.compound import Compound
 from app.models.user_compound_membership import UserCompoundMembership
 from app.models.enums import UserStatus, DocumentStatus, DocumentType
-from app.crud.verification import get_user_documents
+from app.models.verification import VerificationDocument
 
 
 async def ensure_user_compound_membership(
@@ -36,22 +36,35 @@ async def get_membership_compound_ids(db: AsyncSession, user_id: int) -> set[int
 
 
 async def extract_compound_ids_from_documents(db: AsyncSession, user: User) -> set[int]:
-    """Infer compound IDs from approved verification document LLM data."""
-    if user.status != UserStatus.APPROVED:
-        return set()
+    """Compound IDs where the user has at least one approved verification document."""
+    result = await db.execute(
+        select(VerificationDocument.compound_id)
+        .where(
+            VerificationDocument.user_id == user.id,
+            VerificationDocument.status == DocumentStatus.APPROVED,
+            VerificationDocument.compound_id.isnot(None),
+        )
+        .distinct()
+    )
+    compound_ids = {cid for cid in result.scalars().all() if cid is not None}
+
+    if compound_ids:
+        return compound_ids
+
+    # Legacy fallback: infer from LLM data when compound_id was not stored
+    from app.crud.verification import get_user_documents
 
     docs = await get_user_documents(db, user.id)
     national_id = docs.get(DocumentType.NATIONAL_ID)
     contract = docs.get(DocumentType.CONTRACT)
-    compound_ids: set[int] = set()
 
     async def add_matches_from_name(compound_name: str | None) -> None:
         if not compound_name:
             return
-        result = await db.execute(
+        name_result = await db.execute(
             select(Compound).where(Compound.name.ilike(f"{compound_name}%")).limit(10)
         )
-        for compound in result.scalars().all():
+        for compound in name_result.scalars().all():
             compound_ids.add(compound.id)
 
     if national_id and national_id.status == DocumentStatus.APPROVED and national_id.llm_extracted_info:
@@ -86,9 +99,7 @@ async def get_verified_compound_ids(
     persist_inferred: bool = False,
 ) -> set[int]:
     """
-    Compound IDs the user may access.
-    Primary source: approved verification documents. Stored memberships without
-    document proof are not trusted (prevents skipping verification for new compounds).
+    Compound IDs the user may access, derived from approved documents per compound.
     """
     compound_ids = set(await extract_compound_ids_from_documents(db, user))
     stored = await get_membership_compound_ids(db, user.id)
@@ -97,11 +108,13 @@ async def get_verified_compound_ids(
         return stored
 
     if not compound_ids and stored:
-        docs = await get_user_documents(db, user.id)
-        has_approved = any(
-            d and d.status == DocumentStatus.APPROVED
-            for d in (docs.get(DocumentType.NATIONAL_ID), docs.get(DocumentType.CONTRACT))
+        doc_result = await db.execute(
+            select(VerificationDocument).where(
+                VerificationDocument.user_id == user.id,
+                VerificationDocument.status == DocumentStatus.APPROVED,
+            )
         )
+        has_approved = bool(doc_result.scalars().first())
         if has_approved and len(stored) == 1:
             compound_ids = set(stored)
 
@@ -122,24 +135,3 @@ async def user_has_compound_membership(
 ) -> bool:
     compound_ids = await sync_user_compound_memberships(db, user)
     return compound_id in compound_ids
-
-
-async def reset_verification_for_new_compound(db: AsyncSession, user_id: int) -> None:
-    """Clear prior verification so the user must submit documents for a new neighbourhood."""
-    from app.models.verification import VerificationDocument
-
-    result = await db.execute(
-        select(VerificationDocument).where(VerificationDocument.user_id == user_id)
-    )
-    for doc in result.scalars().all():
-        doc.status = DocumentStatus.PENDING
-        doc.notes = "Re-verification required for new neighbourhood"
-        doc.reviewer_id = None
-        doc.llm_verified = None
-        doc.llm_confidence = None
-        doc.llm_recommendation = None
-        doc.llm_reasoning = None
-        doc.llm_issues = None
-        doc.llm_extracted_info = None
-        doc.llm_verified_at = None
-    await db.flush()

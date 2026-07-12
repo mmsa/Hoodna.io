@@ -15,7 +15,7 @@ async def is_user_verified_for_compound(
     compound_id: int
 ) -> bool:
     """
-    Check if a user is verified for a specific compound via membership records.
+    Check if a user is verified for a specific compound via approved documents.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -23,8 +23,8 @@ async def is_user_verified_for_compound(
     try:
         await db.refresh(user)
 
-        if user.status != UserStatus.APPROVED:
-            docs = await get_user_documents(db, user.id)
+        if user.status != UserStatus.APPROVED and user.compound_id:
+            docs = await get_user_documents(db, user.id, compound_id)
             national_id = docs.get(DocumentType.NATIONAL_ID)
             contract = docs.get(DocumentType.CONTRACT)
 
@@ -36,9 +36,8 @@ async def is_user_verified_for_compound(
                 user.status = UserStatus.APPROVED
                 await db.commit()
                 await db.refresh(user)
-                if user.compound_id:
-                    await ensure_user_compound_membership(db, user.id, user.compound_id)
-                    await db.commit()
+                await ensure_user_compound_membership(db, user.id, compound_id)
+                await db.commit()
 
         if user.status != UserStatus.APPROVED:
             return False
@@ -54,4 +53,3 @@ async def is_user_verified_for_compound(
     except Exception as e:
         logger.error(f"Error checking verification for user {user.id}: {e}", exc_info=True)
         return False
-

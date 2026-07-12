@@ -277,16 +277,28 @@ async def get_current_user_info(
         UserStatus.PENDING_VERIFICATION,
         UserStatus.REJECTED,
     ):
-        docs = await get_user_documents(db, current_user.id)
+        docs = await get_user_documents(db, current_user.id, current_user.compound_id)
         national_id = docs[DocumentType.NATIONAL_ID]
         contract = docs[DocumentType.CONTRACT]
 
-    verification_status = compute_verification_status(
-        current_user, national_id, contract
+    from app.crud.user_compound_membership import get_verified_compound_ids
+
+    verified_compound_ids = sorted(
+        await get_verified_compound_ids(db, current_user, persist_inferred=True)
+    )
+    is_verified_for_current_compound = (
+        current_user.compound_id is not None
+        and current_user.compound_id in verified_compound_ids
     )
 
-    if current_user.status == UserStatus.APPROVED:
-        # Check if user can post (same logic as verification status endpoint)
+    verification_status = compute_verification_status(
+        current_user,
+        national_id,
+        contract,
+        is_verified_for_current_compound=is_verified_for_current_compound,
+    )
+
+    if is_verified_for_current_compound:
         def _has_compound_name(doc):
             if not doc or not doc.llm_extracted_info:
                 return False
@@ -316,10 +328,9 @@ async def get_current_user_info(
             contract and contract.status.value == "APPROVED"
         ):
             can_post = True
-    
-    # Approved users can comment and create listings
-    can_comment = current_user.status == UserStatus.APPROVED
-    can_create_listing = current_user.status == UserStatus.APPROVED
+
+    can_comment = is_verified_for_current_compound
+    can_create_listing = is_verified_for_current_compound
     
     # For service providers and moderators, check their profile status instead
     if current_user.role == UserRole.SERVICE_PROVIDER:
@@ -334,16 +345,6 @@ async def get_current_user_info(
         moderator_profile = await get_moderator_profile(db, current_user.id)
         if moderator_profile:
             can_create_listing = moderator_profile.moderator_status == ModeratorStatus.APPROVED
-
-    from app.crud.user_compound_membership import get_verified_compound_ids
-
-    verified_compound_ids = sorted(
-        await get_verified_compound_ids(db, current_user, persist_inferred=True)
-    )
-    is_verified_for_current_compound = (
-        current_user.compound_id is not None
-        and current_user.compound_id in verified_compound_ids
-    )
 
     if current_user.role in (UserRole.RESIDENT, UserRole.USER, None):
         if not is_verified_for_current_compound:
@@ -380,11 +381,7 @@ async def update_current_user(
     """Update current user information."""
     if user_update.compound_id is not None:
         from app.crud.compound import get_compound_by_id
-        from app.crud.user_compound_membership import (
-            ensure_user_compound_membership,
-            get_membership_compound_ids,
-            reset_verification_for_new_compound,
-        )
+        from app.crud.user_compound_membership import ensure_user_compound_membership
         from app.models.enums import UserStatus
 
         compound = await get_compound_by_id(db, user_update.compound_id)
@@ -395,7 +392,6 @@ async def update_current_user(
             )
 
         new_compound_id = user_update.compound_id
-        existing_memberships = await get_membership_compound_ids(db, current_user.id)
 
         if (
             current_user.compound_id
@@ -405,9 +401,6 @@ async def update_current_user(
             await ensure_user_compound_membership(
                 db, current_user.id, current_user.compound_id
             )
-
-        if new_compound_id not in existing_memberships:
-            await reset_verification_for_new_compound(db, current_user.id)
 
         current_user.compound_id = new_compound_id
     
@@ -431,31 +424,42 @@ async def get_user_compounds(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all compounds the user is verified for (for switching)."""
+    """Compounds the user can switch between (verified + current if still verifying)."""
     from sqlalchemy import select
     from app.models.compound import Compound
+    from app.crud.compound import get_compound_by_id
     from app.crud.user_compound_membership import sync_user_compound_memberships
 
     verified_compound_ids = await sync_user_compound_memberships(db, current_user)
+    seen_ids: set[int] = set()
+    result: list[dict] = []
 
-    if not verified_compound_ids:
-        return []
+    if verified_compound_ids:
+        result_query = await db.execute(
+            select(Compound).where(Compound.id.in_(verified_compound_ids))
+        )
+        for compound in result_query.scalars().all():
+            seen_ids.add(compound.id)
+            result.append({
+                "id": compound.id,
+                "name": compound.name,
+                "area": compound.area,
+                "is_current": compound.id == current_user.compound_id,
+                "is_verified": True,
+            })
 
-    result_query = await db.execute(
-        select(Compound).where(Compound.id.in_(verified_compound_ids))
-    )
-    verified_compounds = result_query.scalars().all()
+    if current_user.compound_id and current_user.compound_id not in seen_ids:
+        compound = await get_compound_by_id(db, current_user.compound_id)
+        if compound:
+            result.append({
+                "id": compound.id,
+                "name": compound.name,
+                "area": compound.area,
+                "is_current": True,
+                "is_verified": False,
+            })
 
-    result = []
-    for compound in verified_compounds:
-        result.append({
-            "id": compound.id,
-            "name": compound.name,
-            "area": compound.area,
-            "is_current": compound.id == current_user.compound_id,
-        })
-
-    result.sort(key=lambda x: (not x["is_current"], x["name"]))
+    result.sort(key=lambda x: (not x["is_current"], not x["is_verified"], x["name"]))
     return result
 
 

@@ -13,6 +13,7 @@ import {
   verificationDocumentsNeedReupload,
 } from "@/lib/resident-routing";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
+import { VerificationCompoundBar } from "@/components/verification-compound-bar";
 import * as SecureStore from "expo-secure-store";
 import { uploadToPresignedUrl } from "@/lib/upload";
 
@@ -214,25 +215,92 @@ export default function VerificationScreen() {
     }
   }
 
-  function getStatusIcon(docStatus: string | undefined) {
-    if (!docStatus) return "⏳";
-    if (docStatus === "APPROVED") return "✅";
-    if (docStatus === "REJECTED") return "❌";
-    return "⏳";
-  }
+  const nationalIdStatus = status?.national_id?.status;
+  const contractStatus = status?.contract?.status;
+  const hasPendingUploads = pendingNationalId || pendingContract;
+  const canSubmit = hasPendingUploads && !submitting;
 
-  function getStatusText(docStatus: string | undefined) {
-    if (!docStatus) return "Not uploaded";
-    if (docStatus === "APPROVED") return "Approved";
-    if (docStatus === "REJECTED") return "Rejected";
-    return "Uploaded — under review";
-  }
+  function renderDocumentSection(
+    type: "NATIONAL_ID" | "CONTRACT",
+    title: string,
+    emoji: string,
+    hint: string,
+    docStatus: string | undefined,
+    fileUrl: string | null | undefined,
+    pendingUrl: string | null,
+    onUpload: () => void,
+  ) {
+    const hasFile = !!(fileUrl || pendingUrl);
+    const displayStatus = docStatus || (pendingUrl ? "PENDING" : undefined);
+    const canUpload = displayStatus !== "APPROVED" && displayStatus !== "PENDING";
 
-  function getStatusColor(docStatus: string | undefined) {
-    if (!docStatus) return "#9CA3AF";
-    if (docStatus === "APPROVED") return "#10B981";
-    if (docStatus === "REJECTED") return "#EF4444";
-    return "#F59E0B";
+    return (
+      <View
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: "#E5E7EB",
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <Text style={{ fontSize: 22 }}>{emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 17, fontWeight: "600", color: "#111827" }}>{title}</Text>
+            <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>{hint}</Text>
+          </View>
+        </View>
+
+        {hasFile ? (
+          <UploadedDocumentCard
+            title={title}
+            status={displayStatus}
+            fileUrl={fileUrl || pendingUrl}
+            apiClient={apiClient}
+            compact
+          />
+        ) : (
+          <View
+            style={{
+              borderRadius: 12,
+              borderWidth: 1,
+              borderStyle: "dashed",
+              borderColor: "#CBD5E1",
+              backgroundColor: "#F8FAFC",
+              padding: 16,
+            }}
+          >
+            <Text style={{ fontSize: 14, color: "#64748B", textAlign: "center" }}>
+              No document uploaded for this neighbourhood yet
+            </Text>
+          </View>
+        )}
+
+        {canUpload && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#2563EB",
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: "center",
+              marginTop: 12,
+            }}
+            onPress={onUpload}
+            disabled={uploading === type}
+          >
+            {uploading === type ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "600" }}>
+                {displayStatus === "REJECTED" ? "Upload replacement" : `Upload ${title}`}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    );
   }
 
   if (loading) {
@@ -243,11 +311,6 @@ export default function VerificationScreen() {
       </SafeAreaView>
     );
   }
-
-  const nationalIdStatus = status?.national_id?.status;
-  const contractStatus = status?.contract?.status;
-  const hasPendingUploads = pendingNationalId || pendingContract;
-  const canSubmit = hasPendingUploads && !submitting;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
@@ -276,195 +339,38 @@ export default function VerificationScreen() {
         </TouchableOpacity>
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 24, paddingVertical: 32 }}>
-          {/* Header */}
-          <View style={{ alignItems: "center", marginBottom: 32 }}>
-            <View
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: "#3B82F6",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 16,
-              }}
-            >
-              <Ionicons name="shield-checkmark" size={32} color="#FFFFFF" />
-            </View>
-            <Text style={{ fontSize: 28, fontWeight: "bold", color: "#111827", marginBottom: 8 }}>
-              Verification Documents
-            </Text>
-            <Text style={{ fontSize: 16, color: "#6B7280", textAlign: "center", marginTop: 8 }}>
-              Upload <Text style={{ fontWeight: "600", color: "#3B82F6" }}>one document</Text> and submit to continue
-            </Text>
-          </View>
+        <View style={{ paddingHorizontal: 20, paddingVertical: 24 }}>
+          <VerificationCompoundBar
+            currentCompoundName={status?.compound_name}
+            onCompoundChange={loadStatus}
+          />
 
-          {/* Info Box */}
-          <View
-            style={{
-              backgroundColor: "#DBEAFE",
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 24,
-              borderWidth: 2,
-              borderColor: "#93C5FD",
-            }}
-          >
-            <Text style={{ fontSize: 14, color: "#1E40AF", textAlign: "center" }}>
-              Upload <Text style={{ fontWeight: "600" }}>National ID</Text> or <Text style={{ fontWeight: "600" }}>Contract</Text> showing your name and compound name
-            </Text>
-          </View>
+          <Text style={{ fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 }}>
+            Upload <Text style={{ fontWeight: "600", color: "#111827" }}>one document</Text> — National ID or contract showing your name and this neighbourhood.
+          </Text>
 
-          {/* National ID Card */}
-          <View
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 8,
-              elevation: 2,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text style={{ fontSize: 24 }}>🆔</Text>
-                <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
-                  National ID
-                </Text>
-              </View>
-              <View
-                style={{
-                  backgroundColor: `${getStatusColor(nationalIdStatus)}15`,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: getStatusColor(nationalIdStatus),
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: getStatusColor(nationalIdStatus) }}>
-                  {getStatusIcon(nationalIdStatus)} {getStatusText(nationalIdStatus)}
-                </Text>
-              </View>
-            </View>
-            <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
-              Upload a clear photo of your national ID
-            </Text>
-            {(status?.national_id || pendingNationalId) && (
-              <View style={{ marginBottom: 12 }}>
-                <UploadedDocumentCard
-                  title="National ID"
-                  status={status?.national_id?.status || (pendingNationalId ? "PENDING" : undefined)}
-                  fileUrl={status?.national_id?.file_url || pendingNationalId}
-                  apiClient={apiClient}
-                />
-              </View>
-            )}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  backgroundColor: "#3B82F6",
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  alignItems: "center",
-                }}
-                onPress={() => pickImage("NATIONAL_ID")}
-                disabled={uploading === "NATIONAL_ID" || nationalIdStatus === "APPROVED"}
-              >
-                {uploading === "NATIONAL_ID" ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
-                    {nationalIdStatus === "APPROVED" ? "✓ Approved" : "Upload National ID"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          {renderDocumentSection(
+            "NATIONAL_ID",
+            "National ID",
+            "🆔",
+            "Clear photo of your national ID",
+            nationalIdStatus,
+            status?.national_id?.file_url,
+            pendingNationalId,
+            () => pickImage("NATIONAL_ID"),
+          )}
 
-          {/* Contract Card */}
-          <View
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 24,
-              borderWidth: 1,
-              borderColor: "#E5E7EB",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.05,
-              shadowRadius: 8,
-              elevation: 2,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text style={{ fontSize: 24 }}>📄</Text>
-                <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
-                  Residency / Ownership Contract
-                </Text>
-              </View>
-              <View
-                style={{
-                  backgroundColor: `${getStatusColor(contractStatus)}15`,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: getStatusColor(contractStatus),
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: getStatusColor(contractStatus) }}>
-                  {getStatusIcon(contractStatus)} {getStatusText(contractStatus)}
-                </Text>
-              </View>
-            </View>
-            <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 16 }}>
-              Upload your residency or ownership contract
-            </Text>
-            {(status?.contract || pendingContract) && (
-              <View style={{ marginBottom: 12 }}>
-                <UploadedDocumentCard
-                  title="Residency / Ownership Contract"
-                  status={status?.contract?.status || (pendingContract ? "PENDING" : undefined)}
-                  fileUrl={status?.contract?.file_url || pendingContract}
-                  apiClient={apiClient}
-                />
-              </View>
-            )}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  backgroundColor: "#3B82F6",
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  alignItems: "center",
-                }}
-                onPress={() => pickDocument("CONTRACT")}
-                disabled={uploading === "CONTRACT" || contractStatus === "APPROVED"}
-              >
-                {uploading === "CONTRACT" ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
-                    {contractStatus === "APPROVED" ? "✓ Approved" : "Upload Contract"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          {renderDocumentSection(
+            "CONTRACT",
+            "Residency / Ownership Contract",
+            "📄",
+            "Contract showing your name and address",
+            contractStatus,
+            status?.contract?.file_url,
+            pendingContract,
+            () => pickDocument("CONTRACT"),
+          )}
 
-          {/* Submit Button */}
           {canSubmit && (
             <TouchableOpacity
               style={{
@@ -473,11 +379,6 @@ export default function VerificationScreen() {
                 paddingVertical: 16,
                 alignItems: "center",
                 marginBottom: 24,
-                shadowColor: "#10B981",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
               }}
               onPress={submitDocuments}
               disabled={submitting}
@@ -490,47 +391,6 @@ export default function VerificationScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          )}
-
-          {/* Status Summary */}
-          {status && (nationalIdStatus || contractStatus) && (
-            <View
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: 16,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-              }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 12 }}>
-                Verification Status
-              </Text>
-              <View style={{ gap: 8 }}>
-                {nationalIdStatus && (
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 14, color: "#6B7280" }}>National ID:</Text>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: getStatusColor(nationalIdStatus) }}>
-                      {getStatusText(nationalIdStatus)}
-                    </Text>
-                  </View>
-                )}
-                {contractStatus && (
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ fontSize: 14, color: "#6B7280" }}>Contract:</Text>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: getStatusColor(contractStatus) }}>
-                      {getStatusText(contractStatus)}
-                    </Text>
-                  </View>
-                )}
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>Overall Status:</Text>
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: getStatusColor(status.user_status) }}>
-                    {status.user_status}
-                  </Text>
-                </View>
-              </View>
-            </View>
           )}
         </View>
       </ScrollView>
