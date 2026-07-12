@@ -9,7 +9,7 @@ import { Clock, XCircle, Loader2, LogOut, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import Cookies from 'js-cookie'
-import { getResidentWebRoute, isResidentRole } from '@/lib/resident-routing'
+import { getResidentWebRoute, isResidentRole, isVerifiedForCurrentCompound } from '@/lib/resident-routing'
 import { UploadedDocumentCard } from '@/components/uploaded-document-card'
 
 interface VerificationStatus {
@@ -45,10 +45,6 @@ export default function VerificationPendingPage() {
       router.replace('/onboarding/compound-select')
       return
     }
-    if (user.status === 'APPROVED') {
-      router.replace('/feed')
-      return
-    }
     // Wait for status query before bouncing unverified users back to upload
     if (isLoading) return
     if (!hasDocs && user.verification_status !== 'PENDING' && user.status !== 'REJECTED' && user.status !== 'BANNED') {
@@ -57,12 +53,10 @@ export default function VerificationPendingPage() {
   }, [user, userLoading, router, isLoading, hasDocs])
 
   useEffect(() => {
-    if (status?.user_status === 'APPROVED') {
-      queryClient.invalidateQueries({ queryKey: ['current-user'] })
-      refreshUser()
-      router.replace('/feed')
-    }
-  }, [status?.user_status, queryClient, router, refreshUser])
+    if (status?.user_status !== 'APPROVED') return
+    queryClient.invalidateQueries({ queryKey: ['current-user'] })
+    refreshUser()
+  }, [status?.user_status, queryClient, refreshUser])
 
   useEffect(() => {
     if (!user) return

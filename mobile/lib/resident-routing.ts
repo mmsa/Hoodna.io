@@ -1,6 +1,6 @@
 import type { User } from "@hoodna/shared";
 
-function isVerifiedForCurrentCompound(user: User): boolean {
+export function isVerifiedForCurrentCompound(user: User): boolean {
   if (user.is_verified_for_current_compound != null) {
     return user.is_verified_for_current_compound;
   }

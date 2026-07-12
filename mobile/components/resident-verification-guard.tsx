@@ -5,6 +5,7 @@ import {
   canAccessVerificationUpload,
   getResidentRoute,
   isResidentRole,
+  isVerifiedForCurrentCompound,
 } from "@/lib/resident-routing";
 
 const PUBLIC_PREFIXES = ["/auth", "/features"];
@@ -27,7 +28,7 @@ export function ResidentVerificationGuard() {
   useEffect(() => {
     if (loading || !user || !pathname) return;
     if (!isResidentRole(user.role)) return;
-    if (user.status === "APPROVED") return;
+    if (user.status === "APPROVED" && isVerifiedForCurrentCompound(user)) return;
 
     if (PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
       return;

@@ -15,6 +15,7 @@ import { VerificationStatusResponse } from "@hoodna/shared";
 import {
   getResidentRoute,
   isResidentRole,
+  isVerifiedForCurrentCompound,
   isVerificationRejected,
   verificationDocumentsNeedReupload,
 } from "@/lib/resident-routing";
@@ -56,10 +57,6 @@ export default function VerificationPendingScreen() {
       router.replace("/onboarding/compound-select");
       return;
     }
-    if (user.status === "APPROVED") {
-      router.replace("/(tabs)/home");
-      return;
-    }
     load();
   }, [user, authLoading, router, load]);
 
@@ -76,7 +73,7 @@ export default function VerificationPendingScreen() {
   }, [user, authLoading, loading, hasDocs, router]);
 
   useEffect(() => {
-    if (!user || user.status === "APPROVED") return;
+    if (!user || (user.status === "APPROVED" && isVerifiedForCurrentCompound(user))) return;
     const id = setInterval(load, 8000);
     return () => clearInterval(id);
   }, [user, load]);

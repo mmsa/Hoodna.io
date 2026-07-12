@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import { uploadToPresignedUrl, resolveUploadContentType } from "@/lib/upload";
+import { isVerifiedForCurrentCompound } from "@/lib/resident-routing";
 
 interface VerificationStatus {
   national_id: {
@@ -88,7 +89,7 @@ export default function VerificationPage() {
       return;
     }
 
-    if (user.status === 'APPROVED') {
+    if (user.status === 'APPROVED' && isVerifiedForCurrentCompound(user)) {
       router.replace('/feed');
       return;
     }
@@ -135,15 +136,12 @@ export default function VerificationPage() {
 
   // Refresh user data when verification status changes to APPROVED
   useEffect(() => {
-    if (status?.user_status === "APPROVED" && user?.status !== "APPROVED") {
-      // Invalidate and refetch user data
-      queryClient.invalidateQueries({ queryKey: ['current-user'] });
-      // Redirect to feed after a short delay to allow user data to refresh
-      setTimeout(() => {
-        router.push("/feed");
-      }, 1000);
+    if (status?.user_status !== "APPROVED") return;
+    queryClient.invalidateQueries({ queryKey: ["current-user"] });
+    if (user && isVerifiedForCurrentCompound(user)) {
+      router.replace("/feed");
     }
-  }, [status?.user_status, user?.status, queryClient, router]);
+  }, [status?.user_status, user, queryClient, router]);
 
   // Clear pending uploads if documents are already submitted
   useEffect(() => {

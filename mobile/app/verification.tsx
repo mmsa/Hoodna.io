@@ -7,7 +7,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
-import { canAccessVerificationUpload, verificationDocumentsNeedReupload } from "@/lib/resident-routing";
+import {
+  canAccessVerificationUpload,
+  isVerifiedForCurrentCompound,
+  verificationDocumentsNeedReupload,
+} from "@/lib/resident-routing";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import * as SecureStore from "expo-secure-store";
 import { uploadToPresignedUrl } from "@/lib/upload";
@@ -27,7 +31,7 @@ export default function VerificationScreen() {
       router.replace("/onboarding/compound-select");
       return;
     }
-    if (user.status === "APPROVED") {
+    if (user.status === "APPROVED" && isVerifiedForCurrentCompound(user)) {
       router.replace("/(tabs)/home");
       return;
     }

@@ -4,7 +4,12 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
-import { getResidentWebRoute, isResidentRole, canAccessVerificationUpload } from '@/lib/resident-routing'
+import {
+  getResidentWebRoute,
+  isResidentRole,
+  canAccessVerificationUpload,
+  isVerifiedForCurrentCompound,
+} from '@/lib/resident-routing'
 
 interface RoleGuardProps {
   children: React.ReactNode
@@ -87,7 +92,7 @@ export function RoleGuard({ children }: RoleGuardProps) {
     }
 
     if (isResidentRole(user.role)) {
-      if (user.status === 'APPROVED') {
+      if (user.status === 'APPROVED' && isVerifiedForCurrentCompound(user)) {
         return
       }
 
