@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput, Alert, Modal, Share } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput, Alert, Modal, Share, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
 import { Post } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
+import { FeedComposer } from "@/components/community/feed-composer";
+import { Avatar, Button, Chip } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { formatCompoundName } from "@/utils/formatCompound";
+import { radii, spacing } from "@hoodna/tokens";
 
 const POST_LABELS = [
   { value: "", label: "All" },
@@ -34,26 +37,7 @@ function SheetOption({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={{
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: selected ? colors.primary : colors.gray100,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 14,
-          fontWeight: selected ? "600" : "500",
-          color: selected ? "#FFFFFF" : colors.textMain,
-        }}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
+    <Chip label={label} selected={selected} onPress={onPress} />
   );
 }
 
@@ -72,41 +56,16 @@ function formatTimeAgo(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function getAvatarColor(name: string): string {
-  const colors = [
-    "#8B5CF6", // purple
-    "#3B82F6", // blue
-    "#10B981", // green
-    "#F59E0B", // amber
-    "#EF4444", // red
-    "#EC4899", // pink
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
-
-// Category mapping for display
-const CATEGORY_INFO: Record<string, { icon: string; color: string; label: string; type: string }> = {
-  GENERAL: { icon: "💬", color: "#6B7280", label: "General", type: "general" },
-  HELP: { icon: "🆘", color: "#F59E0B", label: "Help", type: "help" },
-  LOST_FOUND: { icon: "🔍", color: "#EC4899", label: "Lost & Found", type: "lost" },
-  EVENT: { icon: "📅", color: "#6366F1", label: "Event", type: "event" },
-  MARKETPLACE: { icon: "🛒", color: "#10B981", label: "Marketplace", type: "marketplace" },
-  ANNOUNCEMENT: { icon: "🔔", color: "#F59E0B", label: "Announcement", type: "general" },
-  ALERT: { icon: "⚠️", color: "#EF4444", label: "Alert", type: "general" },
-  DISCUSSION: { icon: "💭", color: "#8B5CF6", label: "Discussion", type: "general" },
+// Category mapping for display (text labels only)
+const CATEGORY_INFO: Record<string, { color: string; label: string; type: string }> = {
+  GENERAL: { color: colors.textMuted, label: "General", type: "general" },
+  HELP: { color: colors.accent, label: "Help", type: "help" },
+  LOST_FOUND: { color: colors.error, label: "Lost & Found", type: "lost" },
+  EVENT: { color: colors.primary, label: "Event", type: "event" },
+  MARKETPLACE: { color: colors.success, label: "Marketplace", type: "marketplace" },
+  ANNOUNCEMENT: { color: colors.accent, label: "Announcement", type: "general" },
+  ALERT: { color: colors.error, label: "Alert", type: "general" },
+  DISCUSSION: { color: colors.primaryDark, label: "Discussion", type: "general" },
 };
 
 function getPostType(post: Post) {
@@ -160,8 +119,6 @@ function PostCard({
   const isNew = new Date().getTime() - new Date(post.created_at).getTime() < 3600000;
   const hasManyComments = post.comments && post.comments.length >= 5;
   const isHighlighted = isNew || hasManyComments || post.is_urgent;
-  const avatarColor = getAvatarColor(post.author_name);
-  const initials = getInitials(post.author_name);
   const postType = getPostType(post);
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
     post.reaction_counts ?? {},
@@ -207,30 +164,29 @@ function PostCard({
     <View
       style={{
         backgroundColor: bgColors[postType.type] || colors.backgroundCard,
-        marginHorizontal: 16,
-        marginBottom: 16,
-        borderRadius: 16,
-        padding: 16,
-        borderWidth: isHighlighted ? 2 : 1,
-        borderLeftWidth: 5,
+        marginHorizontal: spacing[4],
+        marginBottom: spacing[4],
+        borderRadius: radii.large,
+        padding: spacing[4],
+        borderWidth: 1,
+        borderLeftWidth: 4,
         borderLeftColor: postType.color,
-        borderColor: isHighlighted ? colors.purple : colors.border,
-        shadowColor: "#000",
+        borderColor: isHighlighted ? colors.primary : colors.border,
+        shadowColor: colors.textMain,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
         elevation: 2,
       }}
     >
-      {/* "Just now" or "Hot discussion" badge */}
       {isNew && (
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing[2] }}>
           <View
             style={{
-              backgroundColor: "#D1FAE5",
-              paddingHorizontal: 8,
+              backgroundColor: colors.successLight,
+              paddingHorizontal: spacing[2],
               paddingVertical: 4,
-              borderRadius: 12,
+              borderRadius: radii.full,
               flexDirection: "row",
               alignItems: "center",
               gap: 4,
@@ -241,55 +197,39 @@ function PostCard({
                 width: 6,
                 height: 6,
                 borderRadius: 3,
-                backgroundColor: "#10B981",
+                backgroundColor: colors.primary,
               }}
             />
-            <Text style={{ fontSize: 11, fontWeight: "600", color: "#065F46" }}>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: colors.primaryDark }}>
               Just now
             </Text>
           </View>
         </View>
       )}
       {hasManyComments && !isNew && (
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing[2] }}>
           <View
             style={{
-              backgroundColor: "#DBEAFE",
-              paddingHorizontal: 8,
+              backgroundColor: colors.primaryLight,
+              paddingHorizontal: spacing[2],
               paddingVertical: 4,
-              borderRadius: 12,
+              borderRadius: radii.full,
               flexDirection: "row",
               alignItems: "center",
               gap: 4,
             }}
           >
-            <Text style={{ fontSize: 12 }}>💬</Text>
-            <Text style={{ fontSize: 11, fontWeight: "600", color: "#1E40AF" }}>
-              Hot discussion ({post.comments.length} comments)
+            <Ionicons name="chatbubbles-outline" size={12} color={colors.primaryDark} />
+            <Text style={{ fontSize: 11, fontWeight: "600", color: colors.primaryDark }}>
+              Active discussion ({post.comments.length} comments)
             </Text>
           </View>
         </View>
       )}
 
-      {/* Header: Avatar + Name + Time */}
-      <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 12 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: spacing[3] }}>
         <View style={{ position: "relative" }}>
-          <View
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: avatarColor,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 2,
-              borderColor: "#F3F4F6",
-            }}
-          >
-            <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "600" }}>
-              {initials}
-            </Text>
-          </View>
+          <Avatar name={post.author_name} size={48} />
           {isNew && (
             <View
               style={{
@@ -299,19 +239,18 @@ function PostCard({
                 width: 12,
                 height: 12,
                 borderRadius: 6,
-                backgroundColor: "#EF4444",
+                backgroundColor: colors.error,
                 borderWidth: 2,
-                borderColor: "#FFFFFF",
+                borderColor: colors.backgroundWhite,
               }}
             />
           )}
         </View>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          {/* Compound Name - Prominently displayed */}
+        <View style={{ flex: 1, marginLeft: spacing[3] }}>
           {post.compound_name && (
             <View style={{ marginBottom: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="home" size={12} color={colors.textMuted} />
+                <Ionicons name="home-outline" size={12} color={colors.textMuted} />
                 <Text style={{ fontSize: 12, fontWeight: "500", color: colors.textMuted }}>
                   {formatCompoundName(post.compound_name)}
                 </Text>
@@ -321,60 +260,57 @@ function PostCard({
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", flex: 1 }}>
               <TouchableOpacity onPress={() => router.push(`/post/${post.id}`)}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: colors.textMain }}>
                   {post.author_name}
                 </Text>
               </TouchableOpacity>
-              {/* Verified Resident Badge */}
               {post.author_status === "APPROVED" && (
                 <View
                   style={{
-                    backgroundColor: "#D1FAE5",
+                    backgroundColor: colors.successLight,
                     paddingHorizontal: 6,
                     paddingVertical: 2,
-                    borderRadius: 4,
+                    borderRadius: radii.small,
                     marginLeft: 6,
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 3,
                   }}
                 >
-                  <Ionicons name="checkmark-circle" size={12} color="#065F46" />
-                  <Text style={{ fontSize: 10, fontWeight: "600", color: "#065F46" }}>
+                  <Ionicons name="checkmark-circle" size={12} color={colors.primaryDark} />
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: colors.primaryDark }}>
                     Verified
                   </Text>
                 </View>
               )}
-              {/* Category Badge - Always show */}
               <View
                 style={{
-                  backgroundColor: `${postType.color}15`,
-                  paddingHorizontal: 8,
+                  backgroundColor: colors.gray100,
+                  paddingHorizontal: spacing[2],
                   paddingVertical: 3,
-                  borderRadius: 6,
-                  marginLeft: 8,
+                  borderRadius: radii.small,
+                  marginLeft: spacing[2],
                 }}
               >
                 <Text style={{ fontSize: 10, fontWeight: "600", color: postType.color }}>
-                  {postType.icon} {postType.label}
+                  {postType.label}
                 </Text>
               </View>
-              {/* Urgent Badge */}
               {post.is_urgent && (
                 <View
                   style={{
-                    backgroundColor: "#FEE2E2",
+                    backgroundColor: colors.errorLight,
                     paddingHorizontal: 6,
                     paddingVertical: 2,
-                    borderRadius: 4,
+                    borderRadius: radii.small,
                     marginLeft: 6,
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 3,
                   }}
                 >
-                  <Ionicons name="alert-circle" size={12} color="#DC2626" />
-                  <Text style={{ fontSize: 10, fontWeight: "600", color: "#DC2626" }}>
+                  <Ionicons name="alert-circle" size={12} color={colors.error} />
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: colors.error }}>
                     Urgent
                   </Text>
                 </View>
@@ -439,33 +375,32 @@ function PostCard({
               </View>
             )}
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={{ fontSize: 12, color: "#6B7280" }}>🕐 {timeAgo}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>{timeAgo}</Text>
           </View>
         </View>
       </View>
 
-      {/* Content */}
       <Text
         style={{
           fontSize: 15,
-          color: "#1F2937",
+          color: colors.textMain,
           lineHeight: 22,
-          marginBottom: 12,
+          marginBottom: spacing[3],
         }}
       >
         {post.content}
       </Text>
 
-      {/* Reactions and Actions */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
-          paddingBottom: 12,
-          marginBottom: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: "#F3F4F6",
+          paddingBottom: spacing[3],
+          marginBottom: spacing[3],
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
         }}
       >
         {/* Reaction buttons */}
@@ -489,19 +424,19 @@ function PostCard({
                   minWidth: 32,
                   height: 32,
                   paddingHorizontal: 5,
-                  borderRadius: 16,
+                  borderRadius: radii.full,
                   flexDirection: "row",
                   gap: 2,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: selected ? "#F3E8FF" : "transparent",
+                  backgroundColor: selected ? colors.primaryLight : "transparent",
                   borderWidth: selected ? 1 : 0,
-                  borderColor: "#C084FC",
+                  borderColor: colors.primary,
                 }}
               >
                 <Text style={{ fontSize: 18 }}>{emoji}</Text>
                 {count > 0 && (
-                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#6B7280" }}>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: colors.textMuted }}>
                     {count}
                   </Text>
                 )}
@@ -516,20 +451,19 @@ function PostCard({
             flexDirection: "row",
             alignItems: "center",
             gap: 4,
-            marginLeft: 8,
-            paddingHorizontal: 8,
+            marginLeft: spacing[2],
+            paddingHorizontal: spacing[2],
             paddingVertical: 4,
-            borderRadius: 8,
+            borderRadius: radii.small,
           }}
           onPress={() => router.push(`/post/${post.id}`)}
         >
-          <Text style={{ fontSize: 14 }}>💬</Text>
-          <Text style={{ fontSize: 13, color: "#6B7280" }}>
+          <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} />
+          <Text style={{ fontSize: 13, color: colors.textMuted }}>
             {post.comments?.length || 0}
           </Text>
         </TouchableOpacity>
 
-        {/* Share button */}
         <TouchableOpacity
           onPress={handleShare}
           style={{
@@ -537,109 +471,86 @@ function PostCard({
             alignItems: "center",
             gap: 4,
             marginLeft: "auto",
-            paddingHorizontal: 8,
+            paddingHorizontal: spacing[2],
             paddingVertical: 4,
-            borderRadius: 8,
+            borderRadius: radii.small,
           }}
         >
-          <Text style={{ fontSize: 14 }}>📤</Text>
-          <Text style={{ fontSize: 13, color: "#6B7280" }}>Share</Text>
+          <Ionicons name="share-outline" size={16} color={colors.textMuted} />
+          <Text style={{ fontSize: 13, color: colors.textMuted }}>Share</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Comments Section */}
       {post.comments && post.comments.length > 0 && (
-        <View style={{ marginBottom: 12 }}>
+        <View style={{ marginBottom: spacing[3] }}>
           <ScrollView style={{ maxHeight: 150 }} showsVerticalScrollIndicator={false}>
-            {post.comments.map((comment) => {
-              const commentAvatarColor = getAvatarColor(comment.author_name);
-              const commentInitials = getInitials(comment.author_name);
-              return (
+            {post.comments.map((comment) => (
                 <View
                   key={comment.id}
                   style={{
-                    paddingLeft: 12,
+                    paddingLeft: spacing[3],
                     borderLeftWidth: 2,
-                    borderLeftColor: "#C084FC",
-                    backgroundColor: "#F3E8FF",
-                    borderRadius: 8,
+                    borderLeftColor: colors.primary,
+                    backgroundColor: colors.primaryLight,
+                    borderRadius: radii.medium,
                     padding: 10,
-                    marginBottom: 8,
+                    marginBottom: spacing[2],
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                    <View
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
-                        backgroundColor: commentAvatarColor,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: 8,
-                        borderWidth: 1,
-                        borderColor: "#E9D5FF",
-                      }}
-                    >
-                      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "600" }}>
-                        {commentInitials}
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                      <Text style={{ fontSize: 13, fontWeight: "600", color: "#111827" }}>
+                    <Avatar name={comment.author_name} size={28} style={{ marginRight: spacing[2] }} />
+                    <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4, flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMain }}>
                         {comment.author_name}
                       </Text>
-                      {/* Verified Resident Badge for Comments */}
                       {comment.author_status === "APPROVED" && (
                         <View
                           style={{
-                            backgroundColor: "#D1FAE5",
+                            backgroundColor: colors.successLight,
                             paddingHorizontal: 4,
                             paddingVertical: 1,
-                            borderRadius: 3,
+                            borderRadius: radii.small,
                             flexDirection: "row",
                             alignItems: "center",
                             gap: 2,
                           }}
                         >
-                          <Ionicons name="checkmark-circle" size={10} color="#065F46" />
-                          <Text style={{ fontSize: 9, fontWeight: "600", color: "#065F46" }}>
+                          <Ionicons name="checkmark-circle" size={10} color={colors.primaryDark} />
+                          <Text style={{ fontSize: 9, fontWeight: "600", color: colors.primaryDark }}>
                             Verified
                           </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={{ fontSize: 11, color: "#6B7280", marginLeft: 8 }}>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, marginLeft: spacing[2] }}>
                       {formatTimeAgo(comment.created_at)}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 13, color: "#374151", marginLeft: 36, lineHeight: 18 }}>
+                  <Text style={{ fontSize: 13, color: colors.textMain, marginLeft: 36, lineHeight: 18 }}>
                     {comment.content}
                   </Text>
                 </View>
-              );
-            })}
+              ))}
           </ScrollView>
         </View>
       )}
 
-      {/* Inline Comment Input */}
       {canPost && (
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+        <View style={{ flexDirection: "row", gap: spacing[2], marginTop: spacing[2] }}>
           <TextInput
             style={{
               flex: 1,
-              backgroundColor: "#F9FAFB",
-              borderRadius: 12,
-              paddingHorizontal: 12,
+              backgroundColor: colors.gray100,
+              borderRadius: radii.medium,
+              paddingHorizontal: spacing[3],
               paddingVertical: 10,
               fontSize: 14,
               borderWidth: 1,
-              borderColor: "#E5E7EB",
-              color: "#1B1B1B",
+              borderColor: colors.border,
+              color: colors.textMain,
             }}
-            placeholder="Write a comment..."
-            placeholderTextColor="#9CA3AF"
+            placeholder="Add a comment..."
+            placeholderTextColor={colors.textMuted}
             value={newComments[post.id] || ""}
             onChangeText={(text) =>
               setNewComments({ ...newComments, [post.id]: text })
@@ -648,19 +559,20 @@ function PostCard({
           />
           <TouchableOpacity
             style={{
-              backgroundColor: "#8B5CF6",
-              borderRadius: 12,
-              paddingHorizontal: 16,
+              backgroundColor: colors.primary,
+              borderRadius: radii.medium,
+              paddingHorizontal: spacing[4],
               paddingVertical: 10,
               justifyContent: "center",
+              opacity: submitting || !newComments[post.id]?.trim() ? 0.5 : 1,
             }}
             onPress={() => handleCreateComment(post.id)}
             disabled={submitting || !newComments[post.id]?.trim()}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.backgroundWhite} />
             ) : (
-              <Text style={{ fontSize: 16 }}>📤</Text>
+              <Ionicons name="send" size={18} color={colors.backgroundWhite} />
             )}
           </TouchableOpacity>
         </View>
@@ -957,7 +869,7 @@ export default function HomeScreen() {
         <View style={{ alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
-            Loading your community... ✨
+            Loading your community...
           </Text>
         </View>
       </SafeAreaView>
@@ -1047,24 +959,21 @@ export default function HomeScreen() {
       <FlatList
         data={posts.filter((p) => !p.is_urgent && !announcements.some((a) => a.id === p.id))} // Filter out urgent (shown in Alerts) and announcements
         keyExtractor={(item) => item.id.toString()}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary, colors.purple]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
         ListHeaderComponent={
           <View>
-            {/* Header with Logo */}
-            <Header
-              showLogo={true}
-              rightAction={{
-                label: "+ Post",
-                onPress: () => {
-                  if (canPost) {
-                    router.push("/create-post");
-                  }
-                },
-                disabled: !canPost,
+            <Header showLogo={true} />
+
+            <FeedComposer
+              name={user?.name || "Neighbor"}
+              disabled={!canPost}
+              onPress={() => {
+                if (canPost) {
+                  router.push("/create-post");
+                }
               }}
             />
             
-            {/* ALERTS SECTION - Urgent Posts */}
             {(() => {
               const urgentPosts = posts.filter((p) => p.is_urgent === true);
               if (urgentPosts.length === 0) return null;
@@ -1072,33 +981,33 @@ export default function HomeScreen() {
               return (
                 <View
                   style={{
-                    paddingHorizontal: 16,
-                    paddingTop: 20,
-                    paddingBottom: 16,
-                    backgroundColor: "#FEF2F2",
-                    borderBottomWidth: 2,
-                    borderBottomColor: "#FCA5A5",
+                    paddingHorizontal: spacing[4],
+                    paddingTop: spacing[5],
+                    paddingBottom: spacing[4],
+                    backgroundColor: colors.errorLight,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: colors.border,
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[3], marginBottom: spacing[4] }}>
                     <View
                       style={{
                         width: 40,
                         height: 40,
                         borderRadius: 20,
-                        backgroundColor: "#EF4444",
+                        backgroundColor: colors.error,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Ionicons name="alert-circle" size={24} color="#FFFFFF" />
+                      <Ionicons name="alert-circle" size={22} color={colors.backgroundWhite} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 18, fontWeight: "700", color: "#991B1B" }}>
-                        ⚠️ Urgent Alerts
+                      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain }}>
+                        Urgent alerts
                       </Text>
-                      <Text style={{ fontSize: 12, color: "#DC2626" }}>
-                        Time-sensitive updates requiring immediate attention
+                      <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                        Important updates from your neighbours
                       </Text>
                     </View>
                   </View>
@@ -1124,36 +1033,35 @@ export default function HomeScreen() {
               );
             })()}
             
-            {/* Compound Announcements Section */}
             <View
               style={{
-                paddingHorizontal: 16,
-                paddingTop: 20,
-                paddingBottom: 16,
-                backgroundColor: "#FFFFFF",
-                borderBottomWidth: 1,
-                borderBottomColor: "#E5E7EB",
+                paddingHorizontal: spacing[4],
+                paddingTop: spacing[5],
+                paddingBottom: spacing[4],
+                backgroundColor: colors.backgroundWhite,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.border,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[3], marginBottom: spacing[4] }}>
                 <View
                   style={{
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: "#F59E0B",
+                    backgroundColor: colors.accentLight,
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Text style={{ fontSize: 20 }}>🔔</Text>
+                  <Ionicons name="megaphone-outline" size={20} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827" }}>
-                    {compoundName ? `${formatCompoundName(compoundName)} Official Announcement${announcements.length !== 1 ? 's' : ''}` : 'Neighbourhood Announcements'}
+                  <Text style={{ fontSize: 18, fontWeight: "600", color: colors.textMain }}>
+                    {compoundName ? `${formatCompoundName(compoundName)} announcements` : "Neighbourhood announcements"}
                   </Text>
-                  <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                    Official updates from neighbourhood management
+                  <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                    Official updates from your compound
                   </Text>
                 </View>
               </View>
@@ -1174,32 +1082,32 @@ export default function HomeScreen() {
               ) : (
                 <View
                   style={{
-                    backgroundColor: "#FEF3C7",
-                    borderRadius: 12,
-                    padding: 20,
+                    backgroundColor: colors.gray100,
+                    borderRadius: radii.medium,
+                    padding: spacing[5],
                     alignItems: "center",
-                    borderWidth: 1,
-                    borderColor: "#FDE68A",
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: colors.border,
                   }}
                 >
                   <View
                     style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 32,
-                      backgroundColor: "#FEF3C7",
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      backgroundColor: colors.accentLight,
                       alignItems: "center",
                       justifyContent: "center",
-                      marginBottom: 12,
+                      marginBottom: spacing[3],
                     }}
                   >
-                    <Text style={{ fontSize: 32 }}>🔔</Text>
+                    <Ionicons name="megaphone-outline" size={24} color={colors.accent} />
                   </View>
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 4 }}>
-                    No announcements
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: colors.textMain, marginBottom: 4 }}>
+                    Nothing new for now
                   </Text>
-                  <Text style={{ fontSize: 14, color: "#6B7280", textAlign: "center" }}>
-                    Check back later for updates from neighbourhood management
+                  <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: "center", lineHeight: 20 }}>
+                    When management posts an update, it will show up here first.
                   </Text>
                 </View>
               )}
@@ -1213,33 +1121,33 @@ export default function HomeScreen() {
               return (
                 <View
                   style={{
-                    paddingHorizontal: 16,
-                    paddingTop: 20,
-                    paddingBottom: 12,
-                    backgroundColor: "#F9FAFB",
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#E5E7EB",
+                    paddingHorizontal: spacing[4],
+                    paddingTop: spacing[5],
+                    paddingBottom: spacing[3],
+                    backgroundColor: colors.background,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: colors.border,
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[3] }}>
                     <View
                       style={{
                         width: 40,
                         height: 40,
                         borderRadius: 20,
-                        backgroundColor: "#8B5CF6",
+                        backgroundColor: colors.primaryLight,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Ionicons name="chatbubbles" size={20} color="#FFFFFF" />
+                      <Ionicons name="chatbubbles-outline" size={20} color={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>
-                        Community Discussions
+                      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain }}>
+                        Community discussions
                       </Text>
-                      <Text style={{ fontSize: 12, color: "#6B7280" }}>
-                        Posts from your neighbors, organized by category
+                      <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                        Posts from your neighbours, by topic
                       </Text>
                     </View>
                   </View>
@@ -1337,33 +1245,17 @@ export default function HomeScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.border }}
+                contentContainerStyle={{ gap: spacing[2], paddingBottom: spacing[2] }}
               >
                 {POST_LABELS.map((label) => {
                   const selected = selectedLabel === label.value;
                   return (
-                    <TouchableOpacity
+                    <Chip
                       key={label.value}
+                      label={label.label}
+                      selected={selected}
                       onPress={() => setSelectedLabel(label.value)}
-                      activeOpacity={0.7}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                        borderBottomWidth: 2,
-                        borderBottomColor: selected ? colors.primary : "transparent",
-                        marginBottom: -1,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: selected ? "700" : "500",
-                          color: selected ? colors.primary : colors.textMuted,
-                        }}
-                      >
-                        {label.label}
-                      </Text>
-                    </TouchableOpacity>
+                    />
                   );
                 })}
               </ScrollView>
@@ -1486,44 +1378,35 @@ export default function HomeScreen() {
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 }}>
             <View
               style={{
-                width: 120,
-                height: 120,
-                borderRadius: 60,
-                backgroundColor: colors.purpleLight + "20",
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                backgroundColor: colors.primaryLight,
                 alignItems: "center",
                 justifyContent: "center",
-                marginBottom: 24,
+                marginBottom: spacing[6],
               }}
             >
-              <Text style={{ fontSize: 64 }}>📭</Text>
+              <Ionicons name="chatbubbles-outline" size={40} color={colors.primary} />
             </View>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: 8, textAlign: "center" }}>
-              {selectedLabel ? `No ${POST_LABELS.find((l) => l.value === selectedLabel)?.label.toLowerCase()} posts yet` : "Your feed is waiting! 🎉"}
+            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: spacing[2], textAlign: "center" }}>
+              {selectedLabel
+                ? `No ${POST_LABELS.find((l) => l.value === selectedLabel)?.label.toLowerCase()} posts yet`
+                : "Your feed is quiet for now"}
             </Text>
-            <Text style={{ fontSize: 15, color: colors.textMuted, marginTop: 4, textAlign: "center", lineHeight: 22 }}>
-              {selectedLabel 
-                ? "Try a different filter or be the first to post! ✨" 
-                : "Share something awesome with your community! Your neighbors are waiting to connect. 💫"}
+            <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: "center", lineHeight: 22 }}>
+              {selectedLabel
+                ? "Try another filter, or be the first to share something with your neighbours."
+                : "Say hello to your neighbours — share a question, update, or recommendation."}
             </Text>
             {!selectedLabel && canPost && (
-              <TouchableOpacity
-                style={{
-                  marginTop: 24,
-                  backgroundColor: colors.primary,
-                  paddingHorizontal: 24,
-                  paddingVertical: 14,
-                  borderRadius: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
+              <Button
+                size="medium"
+                style={{ marginTop: spacing[6], alignSelf: "stretch" }}
                 onPress={() => router.push("/create-post")}
               >
-                <Text style={{ fontSize: 18 }}>✨</Text>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#FFFFFF" }}>
-                  Create Your First Post
-                </Text>
-              </TouchableOpacity>
+                Start a post
+              </Button>
             )}
           </View>
         }

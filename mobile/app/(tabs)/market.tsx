@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { Listing } from "@hoodna/shared";
-import { spacing, typography } from "@hoodna/tokens";
+import { spacing, typography, palette, radii } from "@hoodna/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -133,16 +133,32 @@ export default function MarketScreen() {
               }}
               showLogo
             />
-            <View style={styles.intro}>
-              <Text accessibilityRole="header" style={styles.heading}>Marketplace</Text>
-              <Text style={styles.subheading}>Buy, sell and rent within your compound.</Text>
+            <View style={styles.hero}>
+              <View style={styles.heroBadge}>
+                <Ionicons color={colors.primary} name="sparkles" size={14} />
+                <Text style={styles.heroBadgeText}>Your neighbours</Text>
+              </View>
+              <Text accessibilityRole="header" style={styles.heading}>
+                Marketplace
+              </Text>
+              <Text style={styles.subheading}>
+                Buy and sell with people in your compound — like WhatsApp, but organised.
+              </Text>
+              <Button
+                disabled={!user?.can_create_listing}
+                onPress={() => router.push("/create-listing")}
+                size="medium"
+                style={styles.heroCta}
+              >
+                Post a listing
+              </Button>
             </View>
             <View style={styles.searchRow}>
               <TextField
                 accessibilityLabel="Search marketplace"
                 containerStyle={styles.search}
                 onChangeText={setSearch}
-                placeholder="Search listings"
+                placeholder="Search what neighbours are selling…"
                 returnKeyType="search"
                 value={search}
               />
@@ -182,9 +198,11 @@ export default function MarketScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            description="Try a different search, category or price range."
-            icon={<Ionicons color={colors.textMuted} name="search-outline" size={34} />}
-            title="No listings found"
+            actionLabel="Post the first listing"
+            description="Snap a photo and be the first neighbour to list something in your compound."
+            icon={<Ionicons color={colors.primary} name="camera-outline" size={36} />}
+            onAction={() => router.push("/create-listing")}
+            title="Nothing listed yet"
           />
         }
         numColumns={2}
@@ -228,14 +246,43 @@ export default function MarketScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: spacing[8] },
-  intro: { paddingHorizontal: spacing[4], paddingTop: spacing[2] },
+  hero: {
+    marginHorizontal: spacing[4],
+    marginTop: spacing[2],
+    marginBottom: spacing[2],
+    borderRadius: radii.large,
+    backgroundColor: palette.primarySoft,
+    padding: spacing[4],
+  },
+  heroBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[1],
+    borderRadius: radii.full,
+    backgroundColor: palette.surface,
+    paddingHorizontal: spacing[3],
+    paddingVertical: 6,
+    marginBottom: spacing[2],
+  },
+  heroBadgeText: {
+    color: colors.primary,
+    fontSize: typography.size.caption,
+    fontWeight: typography.weight.semibold,
+  },
   heading: {
     color: colors.text,
-    fontSize: typography.size.display,
-    lineHeight: typography.lineHeight.display,
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
     fontWeight: typography.weight.bold,
   },
-  subheading: { marginTop: spacing[1], color: colors.textSecondary, fontSize: typography.size.bodySmall },
+  subheading: {
+    marginTop: spacing[1],
+    color: colors.textSecondary,
+    fontSize: typography.size.bodySmall,
+    lineHeight: typography.lineHeight.bodySmall,
+  },
+  heroCta: { marginTop: spacing[4], alignSelf: "flex-start" },
   searchRow: { flexDirection: "row", gap: spacing[2], padding: spacing[4], paddingBottom: spacing[3] },
   search: { flex: 1 },
   filterButton: {

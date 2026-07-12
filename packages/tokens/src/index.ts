@@ -1,29 +1,31 @@
 /**
- * Platform-agnostic design tokens.
- * Web maps these values to CSS variables; mobile consumes them directly.
+ * Social-first design tokens for Eljiran (web + mobile).
+ * Warm, familiar palette for Egypt/Gulf users used to WhatsApp & social feeds.
  */
 export const palette = {
-  canvas: "#F7F6F3",
+  canvas: "#FBF8F2",
   surface: "#FFFFFF",
-  surfaceMuted: "#F1F0ED",
-  surfacePressed: "#EAE8E3",
-  ink: "#1C1C1A",
-  inkMuted: "#686761",
-  inkSubtle: "#8C8A84",
-  border: "#E3E1DC",
-  borderStrong: "#D3D0C9",
-  primary: "#4F46E5",
-  primaryHover: "#4338CA",
-  primarySoft: "#EEEDFF",
+  surfaceMuted: "#F3EEE6",
+  surfacePressed: "#EBE4DA",
+  ink: "#1F1A17",
+  inkMuted: "#6B635A",
+  inkSubtle: "#948C82",
+  border: "#E5DDD2",
+  borderStrong: "#D4CABD",
+  primary: "#2A9D63",
+  primaryHover: "#238552",
+  primarySoft: "#E4F5EC",
   onPrimary: "#FFFFFF",
-  success: "#287A52",
-  successSoft: "#EAF5EF",
-  warning: "#9A6700",
+  success: "#2A9D63",
+  successSoft: "#E4F5EC",
+  warning: "#C47F17",
   warningSoft: "#FFF4D6",
-  danger: "#C33A3A",
-  dangerSoft: "#FCECEC",
-  info: "#315E9B",
-  infoSoft: "#EAF1FA",
+  danger: "#D64545",
+  dangerSoft: "#FCEAEA",
+  info: "#3B7DD8",
+  infoSoft: "#E8F1FC",
+  socialWarm: "#F4A261",
+  socialViolet: "#7C5CBF",
 } as const;
 
 export const spacing = {
@@ -42,9 +44,10 @@ export const spacing = {
 
 export const radii = {
   none: 0,
-  small: 6,
-  medium: 8,
-  large: 12,
+  small: 8,
+  medium: 12,
+  large: 16,
+  xl: 20,
   full: 999,
 } as const;
 
@@ -55,7 +58,7 @@ export const typography = {
     body: 16,
     titleSmall: 18,
     title: 22,
-    display: 32,
+    display: 28,
   },
   lineHeight: {
     caption: 16,
@@ -63,7 +66,7 @@ export const typography = {
     body: 24,
     titleSmall: 24,
     title: 28,
-    display: 38,
+    display: 34,
   },
   weight: {
     regular: "400",

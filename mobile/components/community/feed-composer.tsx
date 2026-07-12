@@ -32,7 +32,7 @@ export function FeedComposer({
         style={styles.prompt}
       >
         <Text style={styles.promptText}>
-          {disabled ? "Posting is available after verification" : "Share an update"}
+          {disabled ? "Posting opens after verification" : "What's happening nearby?"}
         </Text>
         <Ionicons color={colors.primary} name="create-outline" size={20} />
       </AppPressable>
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: radii.large,
+    borderRadius: radii.full,
     backgroundColor: palette.surfaceMuted,
     paddingHorizontal: spacing[4],
   },

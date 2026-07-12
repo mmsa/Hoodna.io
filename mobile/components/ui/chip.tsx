@@ -47,22 +47,22 @@ const styles = StyleSheet.create({
     gap: spacing[2],
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radii.medium,
+    borderRadius: radii.full,
     backgroundColor: palette.surface,
     paddingHorizontal: spacing[3],
   },
   selected: {
     borderColor: colors.primary,
-    backgroundColor: palette.primarySoft,
+    backgroundColor: colors.primary,
   },
   label: {
     color: colors.text,
     fontSize: typography.size.bodySmall,
     lineHeight: typography.lineHeight.bodySmall,
-    fontWeight: typography.weight.medium,
+    fontWeight: typography.weight.semibold,
   },
   selectedLabel: {
-    color: colors.primaryDark,
+    color: palette.onPrimary,
   },
   pressed: {
     backgroundColor: palette.surfacePressed,
