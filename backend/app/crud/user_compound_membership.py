@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.compound import Compound
 from app.models.user_compound_membership import UserCompoundMembership
-from app.models.enums import UserStatus, DocumentStatus, DocumentType
+from app.models.enums import UserStatus, DocumentStatus
 from app.models.verification import VerificationDocument
 
 
@@ -35,60 +35,85 @@ async def get_membership_compound_ids(db: AsyncSession, user_id: int) -> set[int
     return set(result.scalars().all())
 
 
-async def extract_compound_ids_from_documents(db: AsyncSession, user: User) -> set[int]:
-    """Compound IDs where the user has at least one approved verification document."""
+def _compound_name_from_doc_llm(doc: VerificationDocument) -> str | None:
+    """Best-effort compound name from LLM extraction on an approved document."""
+    if not doc.llm_extracted_info or not isinstance(doc.llm_extracted_info, dict):
+        return None
+    info = doc.llm_extracted_info
+
+    for key in ("compound_name", "compound_name_in_address"):
+        value = info.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if value is True:
+            address = info.get("address")
+            if isinstance(address, dict):
+                compound = address.get("compound")
+                if isinstance(compound, str) and compound.strip():
+                    return compound.strip()
+
+    address = info.get("address")
+    if isinstance(address, dict):
+        compound = address.get("compound")
+        if isinstance(compound, str) and compound.strip():
+            return compound.strip()
+
+    property_address = info.get("property_address")
+    if isinstance(property_address, dict):
+        compound = property_address.get("compound")
+        if isinstance(compound, str) and compound.strip():
+            return compound.strip()
+
+    return None
+
+
+async def _compound_ids_matching_name(
+    db: AsyncSession, compound_name: str | None
+) -> set[int]:
+    if not compound_name:
+        return set()
     result = await db.execute(
-        select(VerificationDocument.compound_id)
-        .where(
-            VerificationDocument.user_id == user.id,
-            VerificationDocument.status == DocumentStatus.APPROVED,
-            VerificationDocument.compound_id.isnot(None),
-        )
-        .distinct()
+        select(Compound.id).where(Compound.name.ilike(f"{compound_name.strip()}%")).limit(10)
     )
-    compound_ids = {cid for cid in result.scalars().all() if cid is not None}
+    return set(result.scalars().all())
 
-    if compound_ids:
-        return compound_ids
 
-    # Legacy fallback: infer from LLM data when compound_id was not stored
-    from app.crud.verification import get_user_documents
-
-    docs = await get_user_documents(db, user.id)
-    national_id = docs.get(DocumentType.NATIONAL_ID)
-    contract = docs.get(DocumentType.CONTRACT)
-
-    async def add_matches_from_name(compound_name: str | None) -> None:
-        if not compound_name:
-            return
-        name_result = await db.execute(
-            select(Compound).where(Compound.name.ilike(f"{compound_name}%")).limit(10)
+async def _get_approved_documents(db: AsyncSession, user_id: int) -> list[VerificationDocument]:
+    result = await db.execute(
+        select(VerificationDocument).where(
+            VerificationDocument.user_id == user_id,
+            VerificationDocument.status == DocumentStatus.APPROVED,
         )
-        for compound in name_result.scalars().all():
-            compound_ids.add(compound.id)
+    )
+    return list(result.scalars().all())
 
-    if national_id and national_id.status == DocumentStatus.APPROVED and national_id.llm_extracted_info:
-        if isinstance(national_id.llm_extracted_info, dict):
-            compound_name = (
-                national_id.llm_extracted_info.get("compound_name")
-                or national_id.llm_extracted_info.get("compound_name_in_address")
-                or (
-                    national_id.llm_extracted_info.get("address", {}).get("compound")
-                    if isinstance(national_id.llm_extracted_info.get("address"), dict)
-                    else None
-                )
-            )
-            await add_matches_from_name(compound_name)
 
-    if contract and contract.status == DocumentStatus.APPROVED and contract.llm_extracted_info:
-        if isinstance(contract.llm_extracted_info, dict):
-            compound_name = contract.llm_extracted_info.get("compound_name") or (
-                contract.llm_extracted_info.get("property_address", {}).get("compound")
-                if isinstance(contract.llm_extracted_info.get("property_address"), dict)
-                else None
-            )
-            await add_matches_from_name(compound_name)
+async def _membership_proven_by_documents(
+    db: AsyncSession,
+    compound_id: int,
+    approved_docs: list[VerificationDocument],
+) -> bool:
+    for doc in approved_docs:
+        if doc.compound_id == compound_id:
+            return True
+        llm_name = _compound_name_from_doc_llm(doc)
+        if compound_id in await _compound_ids_matching_name(db, llm_name):
+            return True
+    return False
 
+
+async def extract_compound_ids_from_documents(db: AsyncSession, user: User) -> set[int]:
+    """
+    Compound IDs inferred from all approved verification documents.
+    Uses both stored compound_id and LLM-extracted compound names so historical
+    verifications (e.g. Palm Hills) are not lost when the user switches compound.
+    """
+    compound_ids: set[int] = set()
+    for doc in await _get_approved_documents(db, user.id):
+        if doc.compound_id:
+            compound_ids.add(doc.compound_id)
+        llm_name = _compound_name_from_doc_llm(doc)
+        compound_ids |= await _compound_ids_matching_name(db, llm_name)
     return compound_ids
 
 
@@ -99,24 +124,20 @@ async def get_verified_compound_ids(
     persist_inferred: bool = False,
 ) -> set[int]:
     """
-    Compound IDs the user may access, derived from approved documents per compound.
+    Compound IDs the user may access.
+    Derived from approved documents (compound_id + LLM) plus stored memberships
+    that are backed by document proof (prevents unverified auto-grants).
     """
+    approved_docs = await _get_approved_documents(db, user.id)
     compound_ids = set(await extract_compound_ids_from_documents(db, user))
     stored = await get_membership_compound_ids(db, user.id)
 
-    if user.status != UserStatus.APPROVED:
-        return stored
-
-    if not compound_ids and stored:
-        doc_result = await db.execute(
-            select(VerificationDocument).where(
-                VerificationDocument.user_id == user.id,
-                VerificationDocument.status == DocumentStatus.APPROVED,
-            )
-        )
-        has_approved = bool(doc_result.scalars().first())
-        if has_approved and len(stored) == 1:
-            compound_ids = set(stored)
+    if user.status == UserStatus.APPROVED and approved_docs:
+        for membership_id in stored:
+            if membership_id in compound_ids:
+                continue
+            if await _membership_proven_by_documents(db, membership_id, approved_docs):
+                compound_ids.add(membership_id)
 
     if persist_inferred:
         for compound_id in compound_ids:
