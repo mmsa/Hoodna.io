@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -21,6 +21,7 @@ class Post(Base):
     compound = relationship("Compound", back_populates="posts")
     author = relationship("User", back_populates="posts")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
+    reactions = relationship("PostReaction", back_populates="post", cascade="all, delete-orphan")
     saved_by_users = relationship("SavedPost", back_populates="post", cascade="all, delete-orphan")
 
 
@@ -36,4 +37,20 @@ class Comment(Base):
     # Relationships
     post = relationship("Post", back_populates="comments")
     author = relationship("User", back_populates="comments")
+
+
+class PostReaction(Base):
+    __tablename__ = "post_reactions"
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_post_reaction_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    reaction = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    post = relationship("Post", back_populates="reactions")
+    user = relationship("User")
 

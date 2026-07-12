@@ -1386,6 +1386,12 @@ function PostCard({
 }) {
   const { toast } = useToast();
   const [isMounted, setIsMounted] = useState(false);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
+    post.reaction_counts ?? {},
+  );
+  const [userReaction, setUserReaction] = useState<string | null>(
+    post.user_reaction ?? null,
+  );
 
   useEffect(() => {
     setIsMounted(true);
@@ -1439,6 +1445,60 @@ function PostCard({
   // Only render component icons after mount to prevent hydration mismatch
   const IconComponent = typeof postType.icon === 'string' ? null : postType.icon;
   const iconString = typeof postType.icon === 'string' ? postType.icon : null;
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/feed#post-${post.id}`;
+    const shareData = {
+      title: `${post.author_name} on eljiran.com`,
+      text: post.content,
+      url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Link copied",
+        description: "Post link copied to your clipboard.",
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Link copied",
+          description: "Post link copied to your clipboard.",
+        });
+      } catch {
+        toast({
+          title: "Could not share post",
+          description: "Please copy the page URL manually.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleReaction = async (reaction: string) => {
+    try {
+      const response = await api.put(`/api/community/posts/${post.id}/reaction`, {
+        reaction,
+      });
+      setReactionCounts(response.data.reaction_counts);
+      setUserReaction(response.data.user_reaction);
+    } catch (error: any) {
+      toast({
+        title: "Could not react",
+        description: error.response?.data?.detail || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Card
@@ -1563,18 +1623,30 @@ function PostCard({
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
           {/* Reaction buttons */}
           <div className="flex items-center gap-1">
-            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-red-500">
-              <span className="text-lg">❤️</span>
-            </button>
-            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-blue-500">
-              <span className="text-lg">👍</span>
-            </button>
-            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-yellow-500">
-              <span className="text-lg">😮</span>
-            </button>
-            <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-all hover:scale-110 text-gray-600 hover:text-purple-500">
-              <span className="text-lg">🙏</span>
-            </button>
+            {[
+              ["LOVE", "❤️"],
+              ["LIKE", "👍"],
+              ["WOW", "😮"],
+              ["PRAY", "🙏"],
+            ].map(([reaction, emoji]) => {
+              const count = reactionCounts[reaction] ?? 0;
+              const selected = userReaction === reaction;
+              return (
+                <button
+                  key={reaction}
+                  type="button"
+                  onClick={() => handleReaction(reaction)}
+                  aria-label={`React with ${reaction.toLowerCase()}`}
+                  aria-pressed={selected}
+                  className={`flex items-center gap-1 justify-center min-w-8 h-8 px-1.5 rounded-full transition-all hover:scale-110 ${
+                    selected ? "bg-purple-100 ring-2 ring-purple-300" : "hover:bg-gray-100"
+                  }`}
+                >
+                  <span className="text-lg">{emoji}</span>
+                  {count > 0 && <span className="text-xs font-semibold text-gray-600">{count}</span>}
+                </button>
+              );
+            })}
           </div>
 
           {/* Comment button */}
@@ -1584,7 +1656,12 @@ function PostCard({
           </button>
 
           {/* Share button */}
-          <button className="flex items-center gap-1 text-gray-600 hover:text-green-500 transition-colors text-sm px-2 py-1 rounded-lg hover:bg-green-50 ml-auto">
+          <button
+            type="button"
+            onClick={handleShare}
+            aria-label="Share post"
+            className="flex items-center gap-1 text-gray-600 hover:text-green-500 transition-colors text-sm px-2 py-1 rounded-lg hover:bg-green-50 ml-auto"
+          >
             <Share2 className="w-4 h-4" />
             <span className="hidden sm:inline">Share</span>
           </button>

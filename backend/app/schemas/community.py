@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 from app.models.enums import PostCategory
 
@@ -22,6 +22,8 @@ class PostResponse(BaseModel):
     is_urgent: Optional[bool] = False  # Urgent flag for alerts
     created_at: datetime
     comments: List["CommentResponse"] = []
+    reaction_counts: dict[str, int] = {}
+    user_reaction: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -29,6 +31,15 @@ class PostResponse(BaseModel):
 
 class CommentCreate(BaseModel):
     content: str
+
+
+class ReactionUpdate(BaseModel):
+    reaction: Literal["LOVE", "LIKE", "WOW", "PRAY"]
+
+
+class PostReactionsResponse(BaseModel):
+    reaction_counts: dict[str, int]
+    user_reaction: Optional[str] = None
 
 
 class CommentResponse(BaseModel):

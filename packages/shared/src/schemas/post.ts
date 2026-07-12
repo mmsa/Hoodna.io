@@ -33,6 +33,8 @@ export const PostSchema = z.object({
   is_urgent: z.boolean().optional(), // Urgent flag for alerts
   created_at: z.string().datetime(),
   comments: z.array(CommentSchema),
+  reaction_counts: z.record(z.string(), z.number()).optional(),
+  user_reaction: z.string().nullable().optional(),
 });
 
 export const PostCreateSchema = z.object({

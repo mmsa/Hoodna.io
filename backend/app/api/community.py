@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.schemas.community import PostCreate, PostResponse, CommentCreate, CommentResponse
-from app.crud.post import get_feed_posts, create_post, create_comment, get_compound_announcements
+from app.schemas.community import (
+    PostCreate, PostResponse, CommentCreate, CommentResponse,
+    ReactionUpdate, PostReactionsResponse,
+)
+from app.crud.post import (
+    get_feed_posts, create_post, create_comment, get_compound_announcements,
+    toggle_post_reaction,
+)
 from app.crud.listing import get_listings
 from app.crud.compound import get_compound_by_id
 from app.core.dependencies import get_current_approved_user, get_current_verified_user, get_current_user_optional, get_current_user
@@ -11,6 +17,17 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 router = APIRouter()
+
+
+def _reaction_fields(post, user_id: Optional[int]) -> dict:
+    counts = {"LOVE": 0, "LIKE": 0, "WOW": 0, "PRAY": 0}
+    user_reaction = None
+    for reaction in post.reactions:
+        if reaction.reaction in counts:
+            counts[reaction.reaction] += 1
+        if reaction.user_id == user_id:
+            user_reaction = reaction.reaction
+    return {"reaction_counts": counts, "user_reaction": user_reaction}
 
 
 class FeedSummaryResponse(BaseModel):
@@ -113,6 +130,7 @@ async def get_posts(
             category=post.category.value if post.category else None,  # Include category
             is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
             created_at=post.created_at,
+            **_reaction_fields(post, current_user.id if current_user else None),
             comments=[
                 CommentResponse(
                     id=c.id,
@@ -168,6 +186,7 @@ async def get_feed(
             category=post.category.value if post.category else None,  # Include category
             is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
             created_at=post.created_at,
+            **_reaction_fields(post, current_user.id),
             comments=[
                 CommentResponse(
                     id=c.id,
@@ -284,6 +303,25 @@ async def create_post_endpoint(
     )
 
 
+@router.put("/posts/{post_id}/reaction", response_model=PostReactionsResponse)
+async def react_to_post(
+    post_id: int,
+    reaction_data: ReactionUpdate,
+    current_user: User = Depends(get_current_approved_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add, change, or remove the current user's reaction."""
+    try:
+        post = await toggle_post_reaction(
+            db, post_id, current_user.id, reaction_data.reaction,
+            current_user.compound_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    return PostReactionsResponse(**_reaction_fields(post, current_user.id))
+
+
 @router.post("/posts/{post_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
 async def create_comment_endpoint(
     post_id: int,
@@ -351,6 +389,7 @@ async def get_announcements(
             category=post.category.value if post.category else None,  # Include category
             is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
             created_at=post.created_at,
+            **_reaction_fields(post, current_user.id),
             comments=[
                 CommentResponse(
                     id=c.id,

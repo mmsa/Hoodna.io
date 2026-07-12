@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput, Alert, Modal } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView, TextInput, Alert, Modal, Share } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
@@ -163,6 +163,18 @@ function PostCard({
   const avatarColor = getAvatarColor(post.author_name);
   const initials = getInitials(post.author_name);
   const postType = getPostType(post);
+
+  async function handleShare() {
+    try {
+      await Share.share({
+        title: `${post.author_name} on eljiran.com`,
+        message: `${post.content}\n\nhttps://eljiran.vercel.app/feed#post-${post.id}`,
+        url: `https://eljiran.vercel.app/feed#post-${post.id}`,
+      });
+    } catch {
+      Alert.alert("Could not share", "Please try again.");
+    }
+  }
 
   // Background color based on post type (using new vibrant colors)
   const bgColors: Record<string, string> = {
@@ -507,6 +519,7 @@ function PostCard({
 
         {/* Share button */}
         <TouchableOpacity
+          onPress={handleShare}
           style={{
             flexDirection: "row",
             alignItems: "center",

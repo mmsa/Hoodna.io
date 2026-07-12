@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from app.models.post import Post, Comment
+from app.models.post import Post, Comment, PostReaction
 from app.models.user import User
 from app.models.enums import UserRole
 from app.schemas.community import PostCreate, CommentCreate
@@ -17,7 +17,8 @@ async def get_feed_posts(
     query = select(Post).options(
         selectinload(Post.author),
         selectinload(Post.compound),  # Load compound for compound_name
-        selectinload(Post.comments).selectinload(Comment.author)
+        selectinload(Post.comments).selectinload(Comment.author),
+        selectinload(Post.reactions),
     )
     
     # Soft delete filtering disabled until migration (deleted_at column commented out in model)
@@ -59,7 +60,8 @@ async def get_compound_announcements(
         .options(
             selectinload(Post.author),
             selectinload(Post.compound),  # Load compound for compound_name
-            selectinload(Post.comments).selectinload(Comment.author)
+            selectinload(Post.comments).selectinload(Comment.author),
+            selectinload(Post.reactions),
         )
         .where(*where_conditions)
     )
@@ -81,6 +83,37 @@ async def get_compound_announcements(
     
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def toggle_post_reaction(
+    db: AsyncSession,
+    post_id: int,
+    user_id: int,
+    reaction: str,
+    compound_id: int,
+) -> Post:
+    post = await db.scalar(
+        select(Post)
+        .options(selectinload(Post.reactions))
+        .where(Post.id == post_id, Post.compound_id == compound_id)
+    )
+    if not post:
+        raise ValueError("Post not found")
+
+    existing = next((item for item in post.reactions if item.user_id == user_id), None)
+    if existing and existing.reaction == reaction:
+        await db.delete(existing)
+    elif existing:
+        existing.reaction = reaction
+    else:
+        db.add(PostReaction(post_id=post_id, user_id=user_id, reaction=reaction))
+
+    await db.commit()
+    return await db.scalar(
+        select(Post)
+        .options(selectinload(Post.reactions))
+        .where(Post.id == post_id, Post.compound_id == compound_id)
+    )
 
 
 async def create_post(
