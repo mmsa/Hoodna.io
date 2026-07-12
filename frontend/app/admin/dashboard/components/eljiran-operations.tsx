@@ -126,6 +126,7 @@ function ClaimsQueue() {
     },
     onError: (error) => toast.error(message(error)),
   })
+  const claimItems: BusinessClaim[] = query.data?.items ?? []
 
   return (
     <section className="space-y-4" aria-labelledby="claims-heading">
@@ -148,7 +149,7 @@ function ClaimsQueue() {
       </div>
       {query.isLoading ? <LoadingState title="Loading business claims" /> :
         query.isError ? <ErrorState title="Could not load business claims" description={message(query.error)} action={<Button onClick={() => query.refetch()}>Retry</Button>} /> :
-        !query.data?.items.length ? <EmptyState title="No claims in this queue" description={`There are no ${status.toLowerCase()} business claims.`} /> :
+        !claimItems.length ? <EmptyState title="No claims in this queue" description={`There are no ${status.toLowerCase()} business claims.`} /> :
         <DataTableShell>
           <DataTable>
             <DataTableHeader><DataTableRow>
@@ -157,7 +158,7 @@ function ClaimsQueue() {
               <DataTableHead className="text-right">Actions</DataTableHead>
             </DataTableRow></DataTableHeader>
             <DataTableBody>
-              {query.data.items.map((claim) => (
+              {claimItems.map((claim) => (
                 <DataTableRow key={claim.id}>
                   <DataTableCell className="font-medium">{claim.business_name || `Business #${claim.business_id}`}</DataTableCell>
                   <DataTableCell>
@@ -209,6 +210,7 @@ function ModerationQueue() {
     },
     onError: (error) => toast.error(message(error)),
   })
+  const reportItems: ReportResponse[] = query.data ?? []
 
   return (
     <section className="space-y-4" aria-labelledby="moderation-heading">
@@ -224,9 +226,9 @@ function ModerationQueue() {
       </div>
       {query.isLoading ? <LoadingState title="Loading moderation reports" /> :
         query.isError ? <ErrorState title="Could not load moderation reports" description={message(query.error)} action={<Button onClick={() => query.refetch()}>Retry</Button>} /> :
-        !query.data?.length ? <EmptyState title="Queue is clear" description={`No reports are ${status.toLowerCase().replace('_', ' ')}.`} /> :
+        !reportItems.length ? <EmptyState title="Queue is clear" description={`No reports are ${status.toLowerCase().replace('_', ' ')}.`} /> :
         <div className="space-y-3">
-          {query.data.map((report) => <Card key={report.id}>
+          {reportItems.map((report) => <Card key={report.id}>
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div><CardTitle className="text-base">{report.reported_type} #{report.reported_id}</CardTitle>
@@ -291,15 +293,17 @@ function FeatureControls() {
     onSuccess: async () => { await client.invalidateQueries({ queryKey: ['admin-feature-overrides', selectedKey] }); toast.success('Override removed') },
     onError: (error) => toast.error(message(error)),
   })
+  const flagItems: FeatureFlag[] = flags.data ?? []
+  const overrideItems: FeatureFlagOverride[] = overrides.data ?? []
 
   return <section className="space-y-5" aria-labelledby="features-heading">
     <div><h2 id="features-heading" className="text-xl font-semibold">Feature rollout</h2>
       <p className="text-sm text-muted-foreground">Global defaults stay off until enabled; scoped overrides support user, compound, and city pilots.</p></div>
     {flags.isLoading ? <LoadingState title="Loading feature controls" /> :
       flags.isError ? <ErrorState title="Could not load feature controls" description={message(flags.error)} action={<Button onClick={() => flags.refetch()}>Retry</Button>} /> :
-      !flags.data?.length ? <EmptyState title="No database flags seeded" description="Seed disabled defaults before configuring pilot overrides." /> :
+      !flagItems.length ? <EmptyState title="No database flags seeded" description="Seed disabled defaults before configuring pilot overrides." /> :
       <div className="grid gap-3 md:grid-cols-2">
-        {flags.data.map((flag) => <Card key={flag.key}>
+        {flagItems.map((flag) => <Card key={flag.key}>
           <CardHeader className="pb-3"><div className="flex items-start justify-between gap-3">
             <div><CardTitle className="text-base">{flagLabels[flag.key] || flag.key}</CardTitle><CardDescription>{flag.description || 'No description'}</CardDescription></div>
             <Badge variant={flag.enabled ? 'default' : 'outline'}>{flag.enabled ? 'Enabled' : 'Disabled'}</Badge>
@@ -329,8 +333,8 @@ function FeatureControls() {
         </div>
         {overrides.isLoading ? <LoadingState className="min-h-32" title="Loading overrides" /> :
           overrides.isError ? <ErrorState className="min-h-32" title="Could not load overrides" description={message(overrides.error)} /> :
-          !overrides.data?.length ? <EmptyState className="min-h-32" title="No scoped overrides" /> :
-          <div className="space-y-2">{overrides.data.map((item) => <div key={item.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
+          !overrideItems.length ? <EmptyState className="min-h-32" title="No scoped overrides" /> :
+          <div className="space-y-2">{overrideItems.map((item) => <div key={item.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
             <div><span className="font-medium">{item.scope}</span> · {item.target_key || item.city || item.user_id || item.compound_id} · <span className={item.enabled ? 'text-green-700' : 'text-red-700'}>{item.enabled ? 'enabled' : 'disabled'}</span></div>
             <Button size="icon" variant="ghost" aria-label={`Remove ${item.scope} override`} onClick={() => item.id && removeOverride.mutate(item.id)}><Trash2 aria-hidden="true" className="h-4 w-4" /></Button>
           </div>)}</div>}
@@ -382,6 +386,8 @@ function AuditLog() {
     queryKey: ['admin-audit-log', eventType, actorId],
     queryFn: async () => (await api.get('/api/admin/audit-logs', { params: { event_type: eventType || undefined, actor_id: actorId || undefined, limit: 100 } })).data,
   })
+  const auditItems: AdminAuditEntry[] = query.data?.items ?? []
+
   return <section className="space-y-4" aria-labelledby="audit-heading">
     <div><h2 id="audit-heading" className="text-xl font-semibold">Audit log</h2><p className="text-sm text-muted-foreground">Immutable administrative and moderation events.</p></div>
     <div className="flex flex-wrap gap-3"><div><Label htmlFor="audit-event">Event type</Label><Input id="audit-event" value={eventType} onChange={(e) => setEventType(e.target.value)} placeholder="e.g. report.resolved" /></div>
@@ -389,9 +395,9 @@ function AuditLog() {
       <Button className="self-end" variant="outline" onClick={() => query.refetch()}><RefreshCw aria-hidden="true" className="mr-1 h-4 w-4" />Refresh</Button></div>
     {query.isLoading ? <LoadingState title="Loading audit events" /> :
       query.isError ? <ErrorState title="Could not load audit log" description={message(query.error)} action={<Button onClick={() => query.refetch()}>Retry</Button>} /> :
-      !query.data?.items.length ? <EmptyState title="No audit events found" /> :
+      !auditItems.length ? <EmptyState title="No audit events found" /> :
       <DataTableShell><DataTable><DataTableHeader><DataTableRow><DataTableHead>Time</DataTableHead><DataTableHead>Event</DataTableHead><DataTableHead>Actor</DataTableHead><DataTableHead>Entity</DataTableHead><DataTableHead>Context</DataTableHead></DataTableRow></DataTableHeader>
-        <DataTableBody>{query.data.items.map((entry: AdminAuditEntry) => <DataTableRow key={entry.id}><DataTableCell>{new Date(entry.created_at).toLocaleString()}</DataTableCell><DataTableCell className="font-medium">{entry.event_type || entry.action}</DataTableCell><DataTableCell>{entry.actor_id || 'System'}</DataTableCell><DataTableCell>{entry.entity_type || entry.target_type || '—'} {entry.entity_id || entry.target_id || ''}</DataTableCell><DataTableCell className="max-w-sm truncate">{JSON.stringify(entry.data || entry.metadata || {})}</DataTableCell></DataTableRow>)}</DataTableBody>
+        <DataTableBody>{auditItems.map((entry) => <DataTableRow key={entry.id}><DataTableCell>{new Date(entry.created_at).toLocaleString()}</DataTableCell><DataTableCell className="font-medium">{entry.event_type || entry.action}</DataTableCell><DataTableCell>{entry.actor_id || 'System'}</DataTableCell><DataTableCell>{entry.entity_type || entry.target_type || '—'} {entry.entity_id || entry.target_id || ''}</DataTableCell><DataTableCell className="max-w-sm truncate">{JSON.stringify(entry.data || entry.metadata || {})}</DataTableCell></DataTableRow>)}</DataTableBody>
       </DataTable></DataTableShell>}
   </section>
 }
