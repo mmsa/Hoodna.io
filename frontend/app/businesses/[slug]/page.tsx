@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import {
   BusinessClaimCreateSchema,
   type BusinessDetail,
+  type BusinessHoursDay,
 } from "@hoodna/shared"
 import { useQuery } from "@tanstack/react-query"
 import { Building2, Globe, Loader2, Mail, MapPin, Phone } from "lucide-react"
@@ -88,7 +89,7 @@ export default function BusinessPage({ params }: { params: { slug: string } }) {
             <CardHeader><CardTitle>Opening hours</CardTitle></CardHeader>
             <CardContent>
               <dl className="grid gap-2 sm:grid-cols-2">
-                {Object.entries(item.hours).map(([day, hours]) => (
+                {(Object.entries(item.hours) as [string, BusinessHoursDay][]).map(([day, hours]) => (
                   <div className="flex justify-between gap-4 text-sm" key={day}>
                     <dt className="capitalize text-gray-600">{day}</dt>
                     <dd>{hours.closed ? "Closed" : `${hours.open || "—"} – ${hours.close || "—"}`}</dd>

@@ -8,14 +8,13 @@ export const BusinessVerificationStatusSchema = z.enum([
 export const BusinessClaimStatusSchema = z.enum(["PENDING", "APPROVED", "REJECTED"]);
 export const BusinessMembershipRoleSchema = z.enum(["OWNER", "MANAGER"]);
 
-export const BusinessHoursSchema = z.record(
-  z.string(),
-  z.object({
-    open: z.string().optional(),
-    close: z.string().optional(),
-    closed: z.boolean().optional(),
-  }),
-);
+export const BusinessHoursDaySchema = z.object({
+  open: z.string().optional(),
+  close: z.string().optional(),
+  closed: z.boolean().optional(),
+});
+
+export const BusinessHoursSchema = z.record(z.string(), BusinessHoursDaySchema);
 
 export const BusinessSummarySchema = z.object({
   id: z.number().int().positive(),
@@ -115,6 +114,8 @@ export const AdminBusinessUpdateSchema = BusinessCreateSchema.partial().extend({
   is_hidden: z.boolean().optional(),
 });
 
+export type BusinessHoursDay = z.infer<typeof BusinessHoursDaySchema>;
+export type BusinessHours = z.infer<typeof BusinessHoursSchema>;
 export type BusinessVerificationStatus = z.infer<typeof BusinessVerificationStatusSchema>;
 export type BusinessClaimStatus = z.infer<typeof BusinessClaimStatusSchema>;
 export type BusinessMembershipRole = z.infer<typeof BusinessMembershipRoleSchema>;
