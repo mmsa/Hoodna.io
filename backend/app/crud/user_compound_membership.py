@@ -152,18 +152,12 @@ async def get_verified_compound_ids(
 ) -> set[int]:
     """
     Compound IDs the user may access.
-    Approved users: document inference + all stored memberships (includes admin grants).
+
+    Membership verification_status is authoritative. Document approval promotes
+    a membership at review time; re-inferring on every request would resurrect
+    stale compound IDs after an admin corrects a historical mapping.
     """
-    compound_ids = set(await extract_compound_ids_from_documents(db, user))
-    compound_ids |= await get_membership_compound_ids(db, user.id)
-
-    if persist_inferred:
-        for compound_id in compound_ids:
-            await ensure_user_compound_membership(
-                db, user.id, compound_id, source="DOCUMENT"
-            )
-
-    return compound_ids
+    return await get_membership_compound_ids(db, user.id)
 
 
 async def sync_user_compound_memberships(db: AsyncSession, user: User) -> set[int]:
@@ -301,6 +295,31 @@ async def admin_sync_user_compounds(
 
     current = await get_membership_compound_ids(db, user.id)
     to_remove = current - set(unique_ids)
+
+    # When an admin corrects a historical one-compound assignment, move approved
+    # documents from the removed compound to the selected primary compound.
+    # This keeps document history aligned without affecting multi-compound docs
+    # that already have a same-type document at the target.
+    if primary_compound_id is not None and to_remove:
+        docs_result = await db.execute(
+            select(VerificationDocument).where(
+                VerificationDocument.user_id == user.id,
+                VerificationDocument.compound_id.in_(to_remove),
+                VerificationDocument.status == DocumentStatus.APPROVED,
+            )
+        )
+        for doc in docs_result.scalars().all():
+            target_result = await db.execute(
+                select(VerificationDocument).where(
+                    VerificationDocument.user_id == user.id,
+                    VerificationDocument.compound_id == primary_compound_id,
+                    VerificationDocument.type == doc.type,
+                    VerificationDocument.id != doc.id,
+                )
+            )
+            if target_result.scalar_one_or_none() is None:
+                doc.compound_id = primary_compound_id
+
     for compound_id in to_remove:
         await remove_user_compound_membership(db, user.id, compound_id)
 

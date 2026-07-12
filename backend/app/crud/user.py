@@ -150,6 +150,7 @@ async def list_users(
 
 async def get_user_activity_counts(db: AsyncSession, user_id: int) -> dict[str, int]:
     """Count user-related records across the platform."""
+    from sqlalchemy import inspect
     from app.models.post import Post, Comment
     from app.models.listing import Listing
     from app.models.saved_listing import SavedListing
@@ -159,14 +160,23 @@ async def get_user_activity_counts(db: AsyncSession, user_id: int) -> dict[str, 
     from app.models.review import Review
     from app.models.report import Report
 
+    connection = await db.connection()
+    table_names = set(
+        await connection.run_sync(lambda conn: inspect(conn).get_table_names())
+    )
+
     async def count(model, column):
+        if model.__tablename__ not in table_names:
+            return 0
         stmt = select(func.count()).select_from(model).where(column == user_id)
         return (await db.execute(stmt)).scalar_one()
 
-    conv_stmt = select(func.count()).select_from(Conversation).where(
-        or_(Conversation.user1_id == user_id, Conversation.user2_id == user_id)
-    )
-    conversations = (await db.execute(conv_stmt)).scalar_one()
+    conversations = 0
+    if Conversation.__tablename__ in table_names:
+        conv_stmt = select(func.count()).select_from(Conversation).where(
+            or_(Conversation.user1_id == user_id, Conversation.user2_id == user_id)
+        )
+        conversations = (await db.execute(conv_stmt)).scalar_one()
 
     return {
         "posts": await count(Post, Post.author_id),
