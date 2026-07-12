@@ -18,8 +18,12 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "zod": ["node_modules/zod"],
+      "@hoodna/shared": ["../packages/shared/dist/index.d.ts"],
+      "@hoodna/shared/*": ["../packages/shared/dist/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:packages && next build",
+    "build:packages": "npm install --prefix ../packages/shared --no-audit --no-fund && npm run build --prefix ../packages/shared && npm install --prefix ../packages/tokens --no-audit --no-fund && npm run build --prefix ../packages/tokens",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
