@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 import os
 from sqlalchemy import pool
@@ -8,6 +7,7 @@ from alembic import context
 import asyncio
 from app.db.base import Base
 from app.core.config import settings, normalize_database_url
+import app.models.all  # noqa: F401  Ensures all model tables populate Base.metadata.
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
 import api from "@/lib/api"
 import { uploadToPresignedUrl } from "@/lib/upload"
 import { cn } from "@/lib/utils"
@@ -45,7 +44,6 @@ export function ListingForm({
   onCancel,
   onSubmit,
 }: ListingFormProps) {
-  const { toast } = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
   const [images, setImages] = useState(initialValues?.image_urls ?? [])
   const [uploading, setUploading] = useState<string[]>([])

@@ -1,21 +1,37 @@
 import { z } from "zod";
 
+export const ReportEntityTypeSchema = z.enum(["post", "comment", "business", "user"]);
+export const ReportReasonSchema = z.enum([
+  "spam",
+  "harassment",
+  "false_information",
+  "inappropriate_content",
+  "duplicate_listing",
+  "other",
+]);
+export const ReportStatusSchema = z.enum([
+  "OPEN",
+  "UNDER_REVIEW",
+  "RESOLVED",
+  "DISMISSED",
+]);
+
 export const ReportCreateSchema = z.object({
-  reported_type: z.enum(["post", "listing", "comment", "user"]),
-  reported_id: z.number(),
-  reason: z.enum(["spam", "inappropriate", "scam", "harassment", "fake", "other"]),
-  description: z.string().optional().nullable(),
+  reported_type: ReportEntityTypeSchema,
+  reported_id: z.number().int().positive(),
+  reason: ReportReasonSchema,
+  description: z.string().trim().max(2000).optional().nullable(),
 });
 
 export const ReportResponseSchema = z.object({
   id: z.number(),
   reporter_id: z.number(),
   reporter_name: z.string().nullable().optional(),
-  reported_type: z.string(),
+  reported_type: ReportEntityTypeSchema,
   reported_id: z.number(),
-  reason: z.string(),
+  reason: ReportReasonSchema,
   description: z.string().nullable().optional(),
-  status: z.string(),
+  status: ReportStatusSchema,
   reviewed_by_id: z.number().nullable().optional(),
   reviewed_by_name: z.string().nullable().optional(),
   reviewed_at: z.string().datetime().nullable().optional(),
@@ -24,6 +40,15 @@ export const ReportResponseSchema = z.object({
   updated_at: z.string().datetime(),
 });
 
+export const ReportUpdateSchema = z.object({
+  status: ReportStatusSchema,
+  review_notes: z.string().trim().max(2000).optional().nullable(),
+});
+
 export type ReportCreate = z.infer<typeof ReportCreateSchema>;
 export type ReportResponse = z.infer<typeof ReportResponseSchema>;
+export type ReportEntityType = z.infer<typeof ReportEntityTypeSchema>;
+export type ReportReason = z.infer<typeof ReportReasonSchema>;
+export type ReportStatus = z.infer<typeof ReportStatusSchema>;
+export type ReportUpdate = z.infer<typeof ReportUpdateSchema>;
 

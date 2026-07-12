@@ -7,6 +7,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ReportModal } from "@/components/ReportModal";
 import { colors } from "@/constants/colors";
+import { useFeature } from "@/contexts/FeatureConfigContext";
+import { useTelemetry } from "@/contexts/TelemetryContext";
 
 function getInitials(name: string): string {
   return name
@@ -48,7 +50,10 @@ export default function PostDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: "comment" | "user"; id: number; title: string } | null>(null);
   const { apiClient, user } = useAuth();
+  const postingEnabled = useFeature("community_posting");
+  const { track } = useTelemetry();
   const router = useRouter();
 
   useEffect(() => {
@@ -74,6 +79,10 @@ export default function PostDetailScreen() {
   }
 
   async function handleSubmitComment() {
+    if (!postingEnabled) {
+      Alert.alert("Comments are paused", "Community posting is temporarily unavailable.");
+      return;
+    }
     if (!commentText.trim() || !user?.can_post) {
       Alert.alert("Error", "You need to be verified to comment");
       return;
@@ -81,7 +90,8 @@ export default function PostDetailScreen() {
 
     setSubmitting(true);
     try {
-      await apiClient.createComment(Number(id), { content: commentText.trim() });
+      const created = await apiClient.createComment(Number(id), { content: commentText.trim() });
+      track("comment_created", { comment_id: created?.id, post_id: Number(id) });
       setCommentText("");
       await loadPost(); // Reload to get new comments
     } catch (error: any) {
@@ -254,6 +264,16 @@ export default function PostDetailScreen() {
                 </Text>
                 <Text style={{ fontSize: 12, color: "#6B7280" }}>{formatTimeAgo(post.created_at)}</Text>
               </View>
+              {post.author_id !== user?.id ? (
+                <TouchableOpacity
+                  accessibilityLabel={`Report ${post.author_name}'s profile`}
+                  accessibilityRole="button"
+                  style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+                  onPress={() => setReportTarget({ type: "user", id: post.author_id, title: post.author_name })}
+                >
+                  <Ionicons name="person-remove-outline" size={19} color={colors.textMuted} />
+                </TouchableOpacity>
+              ) : null}
             </View>
             <Text style={{ fontSize: 16, color: "#1F2937", lineHeight: 24 }}>{post.content}</Text>
           </View>
@@ -291,13 +311,23 @@ export default function PostDetailScreen() {
                   <Text style={{ fontSize: 14, fontWeight: "600", color: "#111827" }}>{item.author_name}</Text>
                   <Text style={{ fontSize: 11, color: "#6B7280" }}>{formatTimeAgo(item.created_at)}</Text>
                 </View>
+                {item.author_id !== user?.id ? (
+                  <TouchableOpacity
+                    accessibilityLabel="Report comment"
+                    accessibilityRole="button"
+                    style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+                    onPress={() => setReportTarget({ type: "comment", id: item.id, title: item.content.slice(0, 50) })}
+                  >
+                    <Ionicons name="flag-outline" size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
               <Text style={{ fontSize: 14, color: "#4B5563", marginLeft: 40 }}>{item.content}</Text>
             </View>
           );
         }}
         ListFooterComponent={
-          user?.can_post ? (
+          user?.can_post && postingEnabled ? (
             <View style={{ padding: 16 }}>
               <TextInput
                 style={{
@@ -354,6 +384,15 @@ export default function PostDetailScreen() {
           reportedTitle={post.content.substring(0, 50) + "..."}
         />
       )}
+      {reportTarget ? (
+        <ReportModal
+          visible
+          onClose={() => setReportTarget(null)}
+          reportedType={reportTarget.type}
+          reportedId={reportTarget.id}
+          reportedTitle={reportTarget.title}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

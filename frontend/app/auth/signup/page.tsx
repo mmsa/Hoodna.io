@@ -12,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import api from '@/lib/api'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
+import { useFeatureConfig } from '@/components/feature-config-provider'
+import { track } from '@/lib/telemetry'
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -24,8 +26,10 @@ type SignupForm = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
   const searchParams = useSearchParams()
+  const { isEnabled, isLoading: flagsLoading } = useFeatureConfig()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const referralCode = searchParams?.get?.('ref')?.trim() || ''
 
   // Security: Remove sensitive data from URL immediately
   useEffect(() => {
@@ -41,6 +45,14 @@ export default function SignupPage() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    track('registration_started', {
+      method: 'email',
+      referral_present: Boolean(referralCode),
+      source_screen: 'signup',
+    })
+  }, [referralCode])
 
   const {
     register,
@@ -66,7 +78,10 @@ export default function SignupPage() {
       Cookies.remove('access_token', { path: '/' })
       Cookies.remove('refresh_token', { path: '/' })
 
-      const response = await api.post('/api/auth/signup', data)
+      const response = await api.post('/api/auth/signup', {
+        ...data,
+        ...(referralCode ? { referral_code: referralCode } : {}),
+      })
       const { access_token, refresh_token } = response.data
 
       if (!access_token || !refresh_token) {
@@ -93,6 +108,10 @@ export default function SignupPage() {
         return
       }
 
+      track('registration_completed', { method: 'email', source_screen: 'signup' })
+      if (referralCode) {
+        track('referral_registration_completed', { source_screen: 'signup' })
+      }
       window.location.href = '/onboarding/choose-role'
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Signup failed')
@@ -102,6 +121,17 @@ export default function SignupPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!flagsLoading && !isEnabled('user_registration')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader><CardTitle>Registration is paused</CardTitle><CardDescription>New account registration is not available right now. Please check back soon.</CardDescription></CardHeader>
+          <CardContent><Link href="/auth/login"><Button variant="outline" className="w-full">Sign in</Button></Link></CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -118,6 +148,11 @@ export default function SignupPage() {
                 {error}
               </div>
             )}
+            {referralCode ? (
+              <div className="rounded-md bg-green-50 p-3 text-sm text-green-800" role="status">
+                Neighbour invite applied.
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input

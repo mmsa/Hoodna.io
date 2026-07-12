@@ -13,6 +13,40 @@ import { VerificationStatusResponse, PresignRequest, PresignResponse, DocumentSu
 import { Post, PostCreate, CommentCreate } from "./schemas/post";
 import { Listing, ListingCreate } from "./schemas/listing";
 import { Compound } from "./schemas/compound";
+import {
+  ReferralCreate,
+  ReferralInvite,
+  ReferralMe,
+  ReferralRedeem,
+  ReferralRedeemResponse,
+  ReferralStats,
+} from "./schemas/referral";
+import {
+  AdminBusinessUpdate,
+  BusinessClaim,
+  BusinessClaimCreate,
+  BusinessClaimReview,
+  BusinessCreate,
+  BusinessDetail,
+  BusinessDirectoryResponse,
+  BusinessMembership,
+} from "./schemas/business";
+import { ReportCreate, ReportEntityType, ReportResponse, ReportUpdate } from "./schemas/report";
+import {
+  AccountDeletionRequest,
+  AccountDeletionRequestCreate,
+  UserPreferences,
+  UserPreferencesUpdate,
+} from "./schemas/preferences";
+import {
+  FeatureConfig,
+  FeatureFlag,
+  FeatureFlagOverride,
+  FeatureFlagUpdate,
+} from "./schemas/feature-flags";
+import { AnalyticsEventBatch, ClientErrorReport } from "./schemas/analytics";
+import { DigestSummary } from "./schemas/digest";
+import { AdminAuditList, AdminBetaMetrics } from "./schemas/admin";
 
 type RequestOptions = RequestInit & {
   timeout?: number;
@@ -96,6 +130,14 @@ export class ApiClient {
       }
       throw error;
     }
+  }
+
+  /** Generic injected transport used by Eljiran telemetry adapters. */
+  async post<T = unknown>(endpoint: string, body: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   }
 
   // Auth
@@ -746,6 +788,285 @@ export class ApiClient {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  }
+
+  // Eljiran referrals
+  async getReferralMe(): Promise<ReferralMe> {
+    return this.request<ReferralMe>("/api/referrals/me");
+  }
+
+  async createReferralInvite(data: ReferralCreate = {}): Promise<ReferralInvite> {
+    return this.request<ReferralInvite>("/api/referrals/invites", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getReferralInvites(): Promise<ReferralInvite[]> {
+    return this.request<ReferralInvite[]>("/api/referrals/invites");
+  }
+
+  async getReferralStats(): Promise<ReferralStats> {
+    return this.request<ReferralStats>("/api/referrals/stats");
+  }
+
+  async redeemReferral(data: ReferralRedeem): Promise<ReferralRedeemResponse> {
+    return this.request<ReferralRedeemResponse>("/api/referrals/redeem", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Eljiran business directory and claims
+  async getBusinesses(params?: {
+    search?: string;
+    category?: string;
+    city?: string;
+    area?: string;
+    compound_id?: number;
+    skip?: number;
+    limit?: number;
+  }): Promise<BusinessDirectoryResponse> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    });
+    const suffix = query.toString();
+    return this.request<BusinessDirectoryResponse>(`/api/businesses${suffix ? `?${suffix}` : ""}`);
+  }
+
+  async getBusiness(slug: string): Promise<BusinessDetail> {
+    return this.request<BusinessDetail>(`/api/businesses/${encodeURIComponent(slug)}`);
+  }
+
+  async createBusiness(data: BusinessCreate): Promise<BusinessDetail> {
+    return this.request<BusinessDetail>("/api/businesses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createAdminBusiness(data: BusinessCreate): Promise<BusinessDetail> {
+    return this.request<BusinessDetail>("/api/admin/businesses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async submitBusinessClaim(
+    businessId: number,
+    data: BusinessClaimCreate,
+  ): Promise<BusinessClaim> {
+    return this.request<BusinessClaim>(`/api/businesses/${businessId}/claims`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getMyBusinessClaims(): Promise<BusinessClaim[]> {
+    return this.request<BusinessClaim[]>("/api/business-claims/me");
+  }
+
+  async getBusinessMemberships(businessId: number): Promise<BusinessMembership[]> {
+    return this.request<BusinessMembership[]>(`/api/businesses/${businessId}/memberships`);
+  }
+
+  async setBusinessMembership(
+    businessId: number,
+    userId: number,
+    role: BusinessMembership["role"],
+  ): Promise<BusinessMembership> {
+    return this.request<BusinessMembership>(`/api/admin/businesses/${businessId}/memberships`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, role }),
+    });
+  }
+
+  async deleteBusinessMembership(businessId: number, userId: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      `/api/admin/businesses/${businessId}/memberships/${userId}`,
+      { method: "DELETE" },
+    );
+  }
+
+  async getAdminBusinesses(params?: {
+    search?: string;
+    status?: string;
+    skip?: number;
+    limit?: number;
+  }): Promise<BusinessDirectoryResponse> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    });
+    const suffix = query.toString();
+    return this.request<BusinessDirectoryResponse>(`/api/admin/businesses${suffix ? `?${suffix}` : ""}`);
+  }
+
+  async updateAdminBusiness(id: number, data: AdminBusinessUpdate): Promise<BusinessDetail> {
+    return this.request<BusinessDetail>(`/api/admin/businesses/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminBusinessClaims(status?: string): Promise<BusinessClaim[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    return this.request<BusinessClaim[]>(`/api/admin/business-claims${query}`);
+  }
+
+  async reviewBusinessClaim(id: number, data: BusinessClaimReview): Promise<BusinessClaim> {
+    return this.request<BusinessClaim>(`/api/admin/business-claims/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Generic reports
+  async createReport(
+    entityType: ReportEntityType,
+    entityId: number,
+    data: Omit<ReportCreate, "reported_type" | "reported_id">,
+  ): Promise<ReportResponse> {
+    return this.request<ReportResponse>(`/api/reports/${entityType}/${entityId}`, {
+      method: "POST",
+      body: JSON.stringify({ ...data, reported_type: entityType, reported_id: entityId }),
+    });
+  }
+
+  async updateReport(reportId: number, data: ReportUpdate): Promise<ReportResponse> {
+    return this.request<ReportResponse>(`/api/reports/${reportId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getReports(params?: {
+    status?: ReportResponse["status"];
+    reported_type?: ReportEntityType;
+    skip?: number;
+    limit?: number;
+  }): Promise<ReportResponse[]> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined) query.set(key, String(value));
+    });
+    const suffix = query.toString();
+    return this.request<ReportResponse[]>(`/api/reports${suffix ? `?${suffix}` : ""}`);
+  }
+
+  // Preferences and account deletion
+  async getUserPreferences(): Promise<UserPreferences> {
+    return this.request<UserPreferences>("/api/auth/me/preferences");
+  }
+
+  async updateUserPreferences(data: UserPreferencesUpdate): Promise<UserPreferences> {
+    return this.request<UserPreferences>("/api/auth/me/preferences", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async requestAccountDeletion(
+    data: AccountDeletionRequestCreate,
+  ): Promise<AccountDeletionRequest> {
+    return this.request<AccountDeletionRequest>("/api/auth/me/deletion-request", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAccountDeletionRequest(): Promise<AccountDeletionRequest | null> {
+    return this.request<AccountDeletionRequest | null>("/api/auth/me/deletion-request");
+  }
+
+  // Rollout configuration
+  async getPublicFeatureConfig(): Promise<FeatureConfig> {
+    return this.request<FeatureConfig>("/api/config/public", { skipAuthRefresh: true });
+  }
+
+  async getMyFeatureConfig(): Promise<FeatureConfig> {
+    return this.request<FeatureConfig>("/api/config/me");
+  }
+
+  async getAdminFeatureFlags(): Promise<FeatureFlag[]> {
+    return this.request<FeatureFlag[]>("/api/admin/feature-flags");
+  }
+
+  async updateAdminFeatureFlag(
+    key: string,
+    data: FeatureFlagUpdate,
+  ): Promise<FeatureFlag> {
+    return this.request<FeatureFlag>(`/api/admin/feature-flags/${encodeURIComponent(key)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createFeatureFlagOverride(
+    data: FeatureFlagOverride,
+  ): Promise<FeatureFlagOverride> {
+    return this.request<FeatureFlagOverride>("/api/admin/feature-flag-overrides", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFeatureFlagOverrides(): Promise<FeatureFlagOverride[]> {
+    return this.request<FeatureFlagOverride[]>("/api/admin/feature-flag-overrides");
+  }
+
+  async deleteFeatureFlagOverride(id: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/api/admin/feature-flag-overrides/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Privacy-safe first-party telemetry
+  async sendAnalyticsEvents(batch: AnalyticsEventBatch): Promise<{ accepted: number }> {
+    return this.request<{ accepted: number }>("/api/telemetry/events", {
+      method: "POST",
+      body: JSON.stringify(batch),
+      skipAuthRefresh: true,
+    });
+  }
+
+  async reportClientError(report: ClientErrorReport): Promise<{ accepted: boolean }> {
+    return this.request<{ accepted: boolean }>("/api/telemetry/errors", {
+      method: "POST",
+      body: JSON.stringify(report),
+      skipAuthRefresh: true,
+    });
+  }
+
+  async getLatestDigest(): Promise<DigestSummary | null> {
+    return this.request<DigestSummary | null>("/api/digests/me/latest");
+  }
+
+  // Eljiran beta operations
+  async getAdminBetaMetrics(params?: {
+    date_from?: string;
+    date_to?: string;
+  }): Promise<AdminBetaMetrics> {
+    const query = new URLSearchParams();
+    if (params?.date_from) query.set("date_from", params.date_from);
+    if (params?.date_to) query.set("date_to", params.date_to);
+    const suffix = query.toString();
+    return this.request<AdminBetaMetrics>(`/api/admin/beta-metrics${suffix ? `?${suffix}` : ""}`);
+  }
+
+  async getAdminAuditLog(params?: {
+    action?: string;
+    actor_id?: number;
+    skip?: number;
+    limit?: number;
+  }): Promise<AdminAuditList> {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    });
+    const suffix = query.toString();
+    return this.request<AdminAuditList>(`/api/admin/audit-log${suffix ? `?${suffix}` : ""}`);
   }
 }
 

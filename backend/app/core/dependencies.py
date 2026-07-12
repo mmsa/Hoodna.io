@@ -317,6 +317,18 @@ async def get_current_admin(
     return current_user
 
 
+async def get_current_platform_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Require the platform ADMIN role (business ownership does not grant access)."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform admin access required",
+        )
+    return current_user
+
+
 async def get_current_moderator_or_admin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

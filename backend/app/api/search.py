@@ -100,6 +100,7 @@ async def global_search(
         )
         .where(
             Post.compound_id == search_compound_id,
+            Post.deleted_at.is_(None),
             or_(
                 func.lower(Post.content).like(search_term)
             )
@@ -135,6 +136,7 @@ async def global_search(
         .where(
             Listing.compound_id == search_compound_id,
             Listing.status == ListingStatus.ACTIVE,
+            Listing.deleted_at.is_(None),
             Listing.category != ListingCategory.SERVICE,  # Exclude services
             or_(
                 func.lower(Listing.title).like(search_term),
@@ -173,6 +175,7 @@ async def global_search(
         .where(
             Listing.compound_id == search_compound_id,
             Listing.status == ListingStatus.ACTIVE,
+            Listing.deleted_at.is_(None),
             Listing.category == ListingCategory.SERVICE,
             or_(
                 func.lower(Listing.title).like(search_term),

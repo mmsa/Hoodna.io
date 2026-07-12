@@ -6,7 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
-import { Notification, NotificationListResponse } from "@hoodna/shared";
+import { getNotificationRoute, Notification, NotificationListResponse } from "@hoodna/shared";
+import { useTelemetry } from "@/contexts/TelemetryContext";
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -83,6 +84,7 @@ function FilterChip({
 export default function NotificationsScreen() {
   const router = useRouter();
   const { apiClient, user } = useAuth();
+  const { track } = useTelemetry();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -151,11 +153,16 @@ export default function NotificationsScreen() {
       if (!notification.read) {
         await apiClient.markNotificationRead(notification.id);
       }
-
-      if (notification.related_type === "post" && notification.related_id) {
-        router.push(`/post/${notification.related_id}`);
-      } else if (notification.related_type === "listing" && notification.related_id) {
-        router.push(`/listing/${notification.related_id}`);
+      track("notification_opened", { notification_id: notification.id, notification_type: notification.type });
+      const destination = getNotificationRoute(notification);
+      if (destination.type === "post") {
+        router.push(`/post/${destination.id}`);
+      } else if (destination.type === "listing") {
+        router.push(`/listing/${destination.id}`);
+      } else if (destination.type === "business") {
+        router.push(`/businesses/${destination.slug}`);
+      } else if (destination.type === "digest") {
+        router.push("/digest");
       } else if (notification.related_type === "message" && notification.related_id) {
         router.push(`/messages/${notification.related_id}`);
       } else if (notification.type.startsWith("VERIFICATION")) {

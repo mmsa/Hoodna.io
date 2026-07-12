@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
@@ -7,18 +9,66 @@ from app.schemas.auth import (
     PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest
 )
 from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.account import (
+    AccountDeletionRequestCreate,
+    AccountDeletionRequestResponse,
+    UserPreferencesResponse,
+    UserPreferencesUpdate,
+)
+from app.crud.account import (
+    create_or_get_pending_deletion_request,
+    deletion_request_response,
+    get_or_create_preferences,
+    preferences_response,
+    update_preferences,
+)
+from app.crud.referral import (
+    DuplicateReferralError,
+    ReferralNotFoundError,
+    ReferralUnavailableError,
+    SelfReferralError,
+    redeem_referral,
+)
 from app.crud.user import get_user_by_email, create_user, get_user_by_phone, create_user_by_phone
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token, create_password_reset_token, get_password_hash
 from app.services.email import send_password_reset_email, send_password_reset_confirmation_email
 from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.models.enums import AccountDeletionStatus
 from datetime import timedelta
 from app.core.config import settings
+from app.services.feature_flags import is_feature_enabled
 from typing import Optional
 import random
 import string
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+async def redeem_registration_referral(
+    db: AsyncSession,
+    referral_code: str,
+    user_id: int,
+) -> None:
+    """Redeem inside the registration transaction or reject registration."""
+    try:
+        invite = await redeem_referral(db, referral_code, user_id)
+    except ReferralNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except (SelfReferralError, DuplicateReferralError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except ReferralUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc))
+
+    logger.info(
+        "referral_registration_completed",
+        extra={
+            "user_id": user_id,
+            "referral_invite_id": invite.id,
+            "inviter_id": invite.inviter_id,
+        },
+    )
 
 
 # Explicit OPTIONS handler for CORS preflight
@@ -110,12 +160,23 @@ async def phone_auth_verify(
     # Get or create user
     user = await get_user_by_phone(db, phone_normalized)
     if not user:
+        if not await is_feature_enabled(
+            db, "user_registration", anonymous_id=f"phone:{phone_normalized}"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User registration is currently unavailable",
+            )
         if not request.name:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name is required for new users"
             )
         user = await create_user_by_phone(db, phone_normalized, request.name)
+        if request.referral_code:
+            await redeem_registration_referral(
+                db, request.referral_code.strip(), user.id
+            )
     
     # Check if banned
     if user.status.value == "BANNED":
@@ -138,6 +199,13 @@ async def phone_auth_verify(
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     """Sign up a new user and return authentication tokens."""
+    if not await is_feature_enabled(
+        db, "user_registration", anonymous_id=f"email:{user_data.email.casefold()}"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User registration is currently unavailable",
+        )
     # Normalize email to lowercase
     email_lower = user_data.email.lower().strip()
     
@@ -152,6 +220,10 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     # Create user with normalized email
     user_data.email = email_lower
     user = await create_user(db, user_data, role=user_data.role)
+    if user_data.referral_code:
+        await redeem_registration_referral(
+            db, user_data.referral_code.strip(), user.id
+        )
     
     # Automatically log the user in by creating tokens
     access_token = create_access_token(data={"sub": user.id})
@@ -413,6 +485,63 @@ async def update_current_user(
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+
+@router.get("/me/preferences", response_model=UserPreferencesResponse)
+async def get_current_user_preferences(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get preferences, creating defaults lazily on first access."""
+    preference = await get_or_create_preferences(db, current_user.id)
+    return preferences_response(preference)
+
+
+@router.patch("/me/preferences", response_model=UserPreferencesResponse)
+async def patch_current_user_preferences(
+    request: UserPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    preference = await update_preferences(db, current_user.id, request)
+    logger.info(
+        "user_preferences_updated",
+        extra={
+            "user_id": current_user.id,
+            "updated_fields": sorted(request.model_fields_set),
+        },
+    )
+    return preferences_response(preference)
+
+
+@router.post(
+    "/me/deletion-request",
+    response_model=AccountDeletionRequestResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def request_account_deletion(
+    request: AccountDeletionRequestCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Queue an explicit account deletion request without deleting account data."""
+    deletion_request, created = await create_or_get_pending_deletion_request(
+        db, current_user.id, request.reason
+    )
+    if deletion_request.status != AccountDeletionStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A completed or cancelled deletion request already exists",
+        )
+    logger.info(
+        "account_deletion_requested",
+        extra={
+            "user_id": current_user.id,
+            "deletion_request_id": deletion_request.id,
+            "created": created,
+        },
+    )
+    return deletion_request_response(deletion_request)
 
 
 @router.get("/me/compounds", response_model=list[dict])

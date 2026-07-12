@@ -83,7 +83,10 @@ async def get_saved_posts(
             selectinload(Post.compound),
             selectinload(Post.comments).selectinload("author")
         )
-        .where(SavedPost.user_id == user_id)
+        .where(
+            SavedPost.user_id == user_id,
+            Post.deleted_at.is_(None),
+        )
         .order_by(SavedPost.created_at.desc())
         .offset(skip)
         .limit(limit)

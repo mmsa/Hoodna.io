@@ -22,6 +22,8 @@ import {
   Loader2,
 } from "lucide-react";
 import api from "@/lib/api";
+import { notificationHref } from "@/lib/notification-routing";
+import { track } from "@/lib/telemetry";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -180,17 +182,18 @@ export function NotificationsDropdown() {
       markReadMutation.mutate(notification.id);
     }
 
-    // Navigate based on notification type
+    track("notification_opened", {
+      notification_id: notification.id,
+      notification_type: notification.type,
+      source_screen: "notification_menu",
+    });
+
     if (notification.related_type === "message" && notification.related_id) {
       router.push(`/messages/${notification.related_id}`);
-    } else if (notification.related_type === "listing" && notification.related_id) {
-      router.push(`/listing/${notification.related_id}`);
-    } else if (notification.related_type === "post" && notification.related_id) {
-      router.push(`/feed`);
     } else if (notification.type.includes("VERIFICATION")) {
       router.push("/verification");
     } else {
-      router.push("/notifications");
+      router.push(notificationHref(notification));
     }
     setOpen(false);
   };

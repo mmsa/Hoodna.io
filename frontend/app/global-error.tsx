@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect } from 'react'
+import { reportError } from '@/lib/telemetry'
+
 export default function GlobalError({
   error,
   reset,
@@ -7,6 +10,10 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  useEffect(() => {
+    reportError(error, { error_kind: 'render' })
+  }, [error])
+
   return (
     <html>
       <body>

@@ -38,12 +38,14 @@ import { useToast } from '@/hooks/use-toast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatCompoundName, formatCompoundWithArea } from '@/lib/format-compound'
+import { useFeatureConfig } from '@/components/feature-config-provider'
 
 export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isLoading, isAdmin } = useAuth()
   const { toast } = useToast()
+  const { isEnabled } = useFeatureConfig()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
@@ -226,6 +228,15 @@ export function Header() {
                 >
                   <Wrench className="w-4 h-4 mr-2" />
                   Services
+                </Button>
+              </Link>
+              <Link href="/businesses">
+                <Button
+                  variant={isActive('/businesses') ? 'default' : 'ghost'}
+                  className="hover:bg-gray-100 rounded-lg text-gray-700"
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Businesses
                 </Button>
               </Link>
               <Link href="/marketplace/new">
@@ -418,11 +429,11 @@ export function Header() {
                 <Link href="/auth/login">
                   <Button variant="ghost">Sign In</Button>
                 </Link>
-                <Link href="/auth/signup">
+                {isEnabled('user_registration') ? <Link href="/auth/signup">
                   <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                     Sign Up
                   </Button>
-                </Link>
+                </Link> : null}
               </div>
             )}
           </div>
@@ -456,6 +467,12 @@ export function Header() {
               >
                 <ShoppingBag className="w-4 h-4 mr-2" />
                 Marketplace
+              </Button>
+            </Link>
+            <Link href="/businesses" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant={isActive('/businesses') ? 'default' : 'ghost'} className="w-full justify-start">
+                <Building2 className="w-4 h-4 mr-2" />
+                Businesses
               </Button>
             </Link>
             <Link href="/notifications" onClick={() => setMobileMenuOpen(false)}>

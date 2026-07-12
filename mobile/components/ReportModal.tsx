@@ -3,20 +3,21 @@ import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, Alert, Acti
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
+import type { ReportEntityType, ReportReason } from "@hoodna/shared";
+import { useTelemetry } from "@/contexts/TelemetryContext";
 
 const REPORT_REASONS = [
   { value: "spam", label: "Spam", icon: "🚫" },
-  { value: "inappropriate", label: "Inappropriate Content", icon: "⚠️" },
-  { value: "scam", label: "Scam/Fraud", icon: "💳" },
+  { value: "inappropriate_content", label: "Inappropriate Content", icon: "⚠️" },
+  { value: "false_information", label: "False or Misleading", icon: "💳" },
   { value: "harassment", label: "Harassment", icon: "😡" },
-  { value: "fake", label: "Fake/Misleading", icon: "❌" },
   { value: "other", label: "Other", icon: "📝" },
 ];
 
 interface ReportModalProps {
   visible: boolean;
   onClose: () => void;
-  reportedType: "post" | "listing";
+  reportedType: ReportEntityType | "listing";
   reportedId: number;
   reportedTitle?: string;
 }
@@ -26,6 +27,7 @@ export function ReportModal({ visible, onClose, reportedType, reportedId, report
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { apiClient } = useAuth();
+  const { track } = useTelemetry();
 
   async function handleSubmit() {
     if (!selectedReason) {
@@ -35,17 +37,18 @@ export function ReportModal({ visible, onClose, reportedType, reportedId, report
 
     setSubmitting(true);
     try {
-      if (reportedType === "post") {
-        await apiClient.reportPost(reportedId, {
-          reason: selectedReason,
-          description: description.trim() || undefined,
-        });
-      } else {
+      if (reportedType === "listing") {
         await apiClient.reportListing(reportedId, {
           reason: selectedReason,
           description: description.trim() || undefined,
         });
+      } else {
+        await apiClient.createReport(reportedType, reportedId, {
+          reason: selectedReason as ReportReason,
+          description: description.trim() || undefined,
+        });
       }
+      track("report_submitted", { entity_type: reportedType, reason: selectedReason });
 
       Alert.alert(
         "Report Submitted",
@@ -97,9 +100,9 @@ export function ReportModal({ visible, onClose, reportedType, reportedId, report
             }}
           >
             <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain }}>
-              Report {reportedType === "post" ? "Post" : "Listing"}
+              Report {reportedType === "post" ? "Post" : reportedType === "comment" ? "Comment" : reportedType === "business" ? "Business" : reportedType === "user" ? "Profile" : "Listing"}
             </Text>
-            <TouchableOpacity onPress={handleClose} activeOpacity={0.7}>
+            <TouchableOpacity accessibilityLabel="Close report form" accessibilityRole="button" onPress={handleClose} activeOpacity={0.7} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </TouchableOpacity>
           </View>

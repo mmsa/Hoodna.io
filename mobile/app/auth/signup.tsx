@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { getRoleOnboardingRoute } from "@/lib/resident-routing";
+import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCode } from "@/lib/referral";
+import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
+import { useTelemetry } from "@/contexts/TelemetryContext";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -16,7 +19,25 @@ export default function SignupScreen() {
   const [selectedRole, setSelectedRole] = useState<"RESIDENT" | "SERVICE_PROVIDER" | "COMPOUND_MOD" | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+  const params = useLocalSearchParams<{ ref?: string }>();
   const { apiClient, login } = useAuth();
+  const { isEnabled, loading: configLoading } = useFeatureConfig();
+  const { track } = useTelemetry();
+  const [referralCode, setReferralCode] = useState<string | undefined>();
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const code = params.ref || (await getPendingReferralCode());
+      if (!active || !code) return;
+      setReferralCode(code);
+      await savePendingReferralCode(code);
+    })();
+    track("registration_started", { method: "email", referral_present: Boolean(params.ref) });
+    return () => {
+      active = false;
+    };
+  }, [params.ref, track]);
 
   function validate() {
     const newErrors: Record<string, string> = {};
@@ -47,9 +68,15 @@ export default function SignupScreen() {
         password,
         phone: phone || undefined,
         role: selectedRole!,
+        referral_code: referralCode,
       });
 
       await login(response.access_token, response.refresh_token);
+      track("registration_completed", { method: "email", role: selectedRole! });
+      if (referralCode) {
+        track("referral_registration_completed", {});
+        await clearPendingReferralCode();
+      }
 
       router.replace(getRoleOnboardingRoute(selectedRole!) as any);
     } catch (error: any) {
@@ -57,6 +84,26 @@ export default function SignupScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!configLoading && !isEnabled("user_registration")) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", padding: 24 }}>
+        <Text accessibilityRole="header" style={{ fontSize: 24, fontWeight: "700", color: "#1B1B1B", textAlign: "center" }}>
+          Registration is temporarily paused
+        </Text>
+        <Text style={{ color: "#6C757D", textAlign: "center", marginTop: 10, lineHeight: 22 }}>
+          Eljiran is opening access gradually. Please try again later.
+        </Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => router.replace("/auth/login")}
+          style={{ minHeight: 48, marginTop: 24, borderRadius: 12, backgroundColor: "#3B82F6", justifyContent: "center" }}
+        >
+          <Text style={{ color: "#FFFFFF", fontWeight: "600", textAlign: "center" }}>Back to sign in</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
   }
 
   return (

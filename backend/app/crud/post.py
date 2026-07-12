@@ -5,6 +5,7 @@ from app.models.post import Post, Comment, PostReaction
 from app.models.user import User
 from app.models.enums import UserRole
 from app.schemas.community import PostCreate, CommentCreate
+from datetime import datetime, timezone
 
 
 async def get_feed_posts(
@@ -19,11 +20,7 @@ async def get_feed_posts(
         selectinload(Post.compound),  # Load compound for compound_name
         selectinload(Post.comments).selectinload(Comment.author),
         selectinload(Post.reactions),
-    )
-    
-    # Soft delete filtering disabled until migration (deleted_at column commented out in model)
-    # Once migration is run, uncomment deleted_at in model and add:
-    # query = query.where(Post.deleted_at.is_(None))
+    ).where(Post.deleted_at.is_(None))
     
     if compound_id:
         query = query.where(Post.compound_id == compound_id)
@@ -48,11 +45,10 @@ async def get_compound_announcements(
     moderator_id = compound.moderator_id if compound else None
     
     # Build query: posts from global admins/moderators OR compound-specific moderator
-    where_conditions = [Post.compound_id == compound_id]
-    
-    # Soft delete filtering disabled until migration (deleted_at column commented out in model)
-    # Once migration is run, uncomment deleted_at in model and add:
-    # where_conditions.append(Post.deleted_at.is_(None))
+    where_conditions = [
+        Post.compound_id == compound_id,
+        Post.deleted_at.is_(None),
+    ]
     
     query = (
         select(Post)
@@ -95,7 +91,11 @@ async def toggle_post_reaction(
     post = await db.scalar(
         select(Post)
         .options(selectinload(Post.reactions))
-        .where(Post.id == post_id, Post.compound_id == compound_id)
+        .where(
+            Post.id == post_id,
+            Post.compound_id == compound_id,
+            Post.deleted_at.is_(None),
+        )
     )
     if not post:
         raise ValueError("Post not found")
@@ -112,7 +112,11 @@ async def toggle_post_reaction(
     return await db.scalar(
         select(Post)
         .options(selectinload(Post.reactions))
-        .where(Post.id == post_id, Post.compound_id == compound_id)
+        .where(
+            Post.id == post_id,
+            Post.compound_id == compound_id,
+            Post.deleted_at.is_(None),
+        )
     )
 
 
@@ -158,44 +162,30 @@ async def create_comment(
 
 async def get_post_by_id(db: AsyncSession, post_id: int, include_deleted: bool = False) -> Post | None:
     """Get a post by ID. By default excludes soft-deleted posts."""
-    post = await db.get(Post, post_id)
-    if not post:
-        return None
-    # Only check deleted_at if the column exists and we're not including deleted (commented out until migration)
-    # if not include_deleted and hasattr(post, 'deleted_at') and post.deleted_at is not None:
-    #     return None
-    return post
+    query = select(Post).where(Post.id == post_id)
+    if not include_deleted:
+        query = query.where(Post.deleted_at.is_(None))
+    return await db.scalar(query)
 
 
 async def delete_post(db: AsyncSession, post_id: int) -> bool:
     """Soft delete a post (set deleted_at timestamp instead of actually deleting)."""
-    from datetime import datetime
     post = await db.get(Post, post_id)
     if not post:
         return False
-    # Soft delete is disabled until migration (deleted_at column commented out in model)
-    # For now, just mark as deleted by setting a flag or actually delete
-    # Once migration is run, uncomment deleted_at in model and use:
-    # if post.deleted_at is not None:
-    #     return True  # Already deleted
-    # post.deleted_at = datetime.utcnow()
-    # For now, actually delete the post (temporary until migration)
-    from sqlalchemy import delete as sql_delete
-    await db.execute(sql_delete(Post).where(Post.id == post_id))
+    if post.deleted_at is not None:
+        return True
+    post.deleted_at = datetime.now(timezone.utc)
     await db.flush()
     return True
 
 
 async def restore_post(db: AsyncSession, post_id: int) -> bool:
     """Restore a soft-deleted post."""
-    # Soft delete is disabled until migration (deleted_at column commented out in model)
-    # Once migration is run, uncomment deleted_at in model and use:
-    # post = await db.get(Post, post_id)
-    # if not post or post.deleted_at is None:
-    #     return False
-    # post.deleted_at = None
-    # await db.flush()
-    # return True
-    # For now, return False as restore is not possible without soft delete
-    return False
+    post = await db.get(Post, post_id)
+    if not post or post.deleted_at is None:
+        return False
+    post.deleted_at = None
+    await db.flush()
+    return True
 

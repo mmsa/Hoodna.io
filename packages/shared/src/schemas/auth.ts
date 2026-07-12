@@ -32,6 +32,7 @@ export const UserSignupSchema = z.object({
   password: z.string().min(6),
   phone: z.string().optional(),
   role: z.enum(['RESIDENT', 'SERVICE_PROVIDER', 'COMPOUND_MOD']),
+  referral_code: z.string().trim().min(4).max(64).optional(),
 });
 
 export const ForgotPasswordRequestSchema = z.object({

@@ -22,9 +22,10 @@ import Link from 'next/link'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { formatTimeAgo } from '@/lib/utils'
+import { track } from '@/lib/telemetry'
 
 interface SearchResult {
-  type: 'post' | 'listing' | 'service'
+  type: 'post' | 'listing' | 'service' | 'business'
   id: number
   title: string
   content?: string
@@ -32,7 +33,8 @@ interface SearchResult {
   compound_name?: string
   category?: string
   price?: number
-  created_at: string
+  created_at?: string
+  slug?: string
 }
 
 interface SearchResponse {
@@ -69,9 +71,23 @@ export default function SearchPage() {
         return { query: '', posts: [], listings: [], services: [], total_results: 0 }
       }
       const response = await api.get(`/api/search/global?q=${encodeURIComponent(debouncedQuery.trim())}`)
+      track('search_performed', {
+        result_count: response.data.total_results,
+        source_screen: 'global_search',
+      })
       return response.data
     },
     enabled: debouncedQuery.trim().length > 0 && !!user?.compound_id,
+  })
+
+  const { data: businessResults } = useQuery({
+    queryKey: ['business-search', debouncedQuery],
+    queryFn: async () => {
+      const response = await api.get(`/api/businesses?search=${encodeURIComponent(debouncedQuery.trim())}&limit=10`)
+      return response.data.items || []
+    },
+    enabled: debouncedQuery.trim().length > 0,
+    retry: false,
   })
 
   const getTypeIcon = (type: string) => {
@@ -82,6 +98,8 @@ export default function SearchPage() {
         return ShoppingBag
       case 'service':
         return Wrench
+      case 'business':
+        return Home
       default:
         return Search
     }
@@ -95,6 +113,8 @@ export default function SearchPage() {
         return 'bg-purple-100 text-purple-800 border-purple-200'
       case 'service':
         return 'bg-green-100 text-green-800 border-green-200'
+      case 'business':
+        return 'bg-amber-100 text-amber-800 border-amber-200'
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200'
     }
@@ -108,6 +128,8 @@ export default function SearchPage() {
         return 'Marketplace'
       case 'service':
         return 'Service'
+      case 'business':
+        return 'Business'
       default:
         return 'Result'
     }
@@ -121,6 +143,8 @@ export default function SearchPage() {
         return `/marketplace/${result.id}`
       case 'service':
         return `/marketplace/${result.id}`
+      case 'business':
+        return `/businesses/${encodeURIComponent(result.slug || String(result.id))}`
       default:
         return '/'
     }
@@ -130,6 +154,14 @@ export default function SearchPage() {
     ...(searchResults?.posts || []).map(r => ({ ...r, type: 'post' as const })),
     ...(searchResults?.listings || []).map(r => ({ ...r, type: 'listing' as const })),
     ...(searchResults?.services || []).map(r => ({ ...r, type: 'service' as const })),
+    ...(businessResults || []).map((business: any) => ({
+      type: 'business' as const,
+      id: business.id,
+      slug: business.slug,
+      title: business.name,
+      content: [business.area, business.city].filter(Boolean).join(', '),
+      category: business.category,
+    })),
   ]
 
   return (
@@ -191,7 +223,7 @@ export default function SearchPage() {
                 {allResults.map((result) => {
                   const IconComponent = getTypeIcon(result.type)
                   return (
-                    <Link key={`${result.type}-${result.id}`} href={getResultUrl(result)}>
+                    <Link key={`${result.type}-${result.id}`} href={getResultUrl(result)} onClick={() => track('search_result_opened', { entity_type: result.type, entity_id: result.id, source_screen: 'global_search' })}>
                       <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-blue-300">
                         <CardContent className="p-5">
                           <div className="flex items-start gap-4">
@@ -237,10 +269,10 @@ export default function SearchPage() {
                                       <span>{result.author_name}</span>
                                     </div>
                                   )}
-                                  <div className="flex items-center gap-1">
+                                  {result.created_at ? <div className="flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     <span>{formatTimeAgo(result.created_at)}</span>
-                                  </div>
+                                  </div> : null}
                                 </div>
 
                                 {result.price && (

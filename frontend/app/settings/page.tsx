@@ -10,6 +10,7 @@ import { Settings as SettingsIcon, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import api from '@/lib/api'
 import { useQueryClient } from '@tanstack/react-query'
+import { LaunchAccountSettings } from '@/components/launch-account-settings'
 
 export default function SettingsPage() {
   const { user, isLoading } = useAuth()
@@ -146,6 +147,7 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        <LaunchAccountSettings />
       </div>
     </div>
   )

@@ -84,6 +84,12 @@ class NotificationType(str, Enum):
     LISTING_INQUIRY = "LISTING_INQUIRY"
     LISTING_SAVED = "LISTING_SAVED"
     MENTION = "MENTION"
+    WEEKLY_DIGEST = "WEEKLY_DIGEST"
+    BUSINESS_CLAIM_SUBMITTED = "BUSINESS_CLAIM_SUBMITTED"
+    BUSINESS_CLAIM_APPROVED = "BUSINESS_CLAIM_APPROVED"
+    BUSINESS_CLAIM_REJECTED = "BUSINESS_CLAIM_REJECTED"
+    REFERRAL_ACCEPTED = "REFERRAL_ACCEPTED"
+    REPORT_STATUS_UPDATED = "REPORT_STATUS_UPDATED"
 
 
 class PostCategory(str, Enum):
@@ -124,4 +130,94 @@ class ModeratorStatus(str, Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     SUSPENDED = "SUSPENDED"
+
+
+class ReferralInviteStatus(str, Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
+
+
+class ReferralRewardStatus(str, Enum):
+    NOT_ELIGIBLE = "NOT_ELIGIBLE"
+    PENDING = "PENDING"
+    EARNED = "EARNED"
+    PAID = "PAID"
+    VOIDED = "VOIDED"
+
+
+class AccountDeletionStatus(str, Enum):
+    PENDING = "PENDING"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+    REJECTED = "REJECTED"
+
+
+class BusinessVerificationStatus(str, Enum):
+    UNVERIFIED = "UNVERIFIED"
+    CLAIMED = "CLAIMED"
+    VERIFIED = "VERIFIED"
+
+
+class BusinessClaimStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class BusinessMembershipRole(str, Enum):
+    OWNER = "OWNER"
+    MANAGER = "MANAGER"
+
+
+class ModerationActionType(str, Enum):
+    WARN = "WARN"
+    HIDE = "HIDE"
+    UNHIDE = "UNHIDE"
+    REMOVE = "REMOVE"
+    RESTORE = "RESTORE"
+    SUSPEND = "SUSPEND"
+    BAN = "BAN"
+    UNBAN = "UNBAN"
+    NOTE = "NOTE"
+    RESOLVE_REPORT = "RESOLVE_REPORT"
+    DISMISS_REPORT = "DISMISS_REPORT"
+
+
+class FeatureFlagScope(str, Enum):
+    USER = "USER"
+    COMPOUND = "COMPOUND"
+    CITY = "CITY"
+
+
+class ClientErrorStatus(str, Enum):
+    OPEN = "OPEN"
+    RESOLVED = "RESOLVED"
+    IGNORED = "IGNORED"
+
+
+class DigestFrequency(str, Enum):
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+
+
+class DigestRunStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class DigestDeliveryStatus(str, Enum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
+class DigestChannel(str, Enum):
+    EMAIL = "EMAIL"
+    PUSH = "PUSH"
+    IN_APP = "IN_APP"
 

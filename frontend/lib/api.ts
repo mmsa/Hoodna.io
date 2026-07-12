@@ -26,6 +26,16 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    if (error.response?.status >= 500 && !originalRequest?.url?.includes('/api/telemetry/')) {
+      void import('@/lib/telemetry').then(({ reportError }) => {
+        reportError(error, {
+          error_kind: 'api',
+          status_code: error.response.status,
+          request_id: error.response.headers?.['x-request-id'],
+        })
+      })
+    }
+
     // Handle compound selection requirement
     // BUT: Don't redirect service providers or moderators (they don't need compound_id)
     if (error.response?.status === 400 && error.response?.data?.detail?.includes('compound')) {

@@ -333,7 +333,8 @@ async def create_listing_endpoint(
             select(func.count(Listing.id)).where(
                 Listing.owner_id == current_user.id,
                 Listing.category == ListingCategory.SERVICE,
-                Listing.status == ListingStatus.ACTIVE
+                Listing.status == ListingStatus.ACTIVE,
+                Listing.deleted_at.is_(None),
             )
         )
         existing_count = existing_count_result.scalar_one() or 0

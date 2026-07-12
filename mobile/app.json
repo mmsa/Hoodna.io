@@ -17,6 +17,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eljiran.mobile",
+      "associatedDomains": [
+        "applinks:eljiran.com"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "eljiran needs photo access so you can upload verification documents and listing images.",
@@ -29,7 +32,24 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#EFF6FF"
       },
-      "package": "com.eljiran.mobile"
+      "package": "com.eljiran.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "eljiran.com",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "plugins": [
       "expo-router",

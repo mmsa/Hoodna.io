@@ -1,80 +1,94 @@
-'use client'
+"use client"
 
-import { use } from 'react'
-import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import api from '@/lib/api'
+import Link from "next/link"
+import { useMutation } from "@tanstack/react-query"
+import { ArrowLeft, Check, Loader2, Megaphone } from "lucide-react"
 
-export default function PromotePage({ params }: { params: Promise<{ listingId: string }> }) {
-  const resolvedParams = use(params)
-  const router = useRouter()
-  const listingId = parseInt(resolvedParams.listingId)
+import { Button } from "@/components/ui/button"
+import { AppShell, PageHeader, PageLayout } from "@/components/ui/page-layout"
+import { useToast } from "@/hooks/use-toast"
+import api from "@/lib/api"
 
-  const promoteMutation = useMutation({
-    mutationFn: async ({ scope, duration }: { scope: string; duration: number }) => {
-      const response = await api.post('/api/promotions/checkout', {
-        listing_id: listingId,
-        scope,
-        duration_days: duration,
-      })
-      return response.data
-    },
+const OPTIONS = [
+  {
+    scope: "CROSS_COMPOUND" as const,
+    title: "Across Hoodna communities",
+    description: "Show your listing to signed-in residents beyond your compound.",
+    price: "50 EGP",
+  },
+  {
+    scope: "PUBLIC" as const,
+    title: "Public reach",
+    description: "Make your listing discoverable to everyone, including visitors.",
+    price: "100 EGP",
+  },
+]
+
+export default function PromotePage({
+  params,
+}: {
+  params: { listingId: string }
+}) {
+  const listingId = Number(params.listingId)
+  const { toast } = useToast()
+  const mutation = useMutation({
+    mutationFn: async (scope: "CROSS_COMPOUND" | "PUBLIC") =>
+      (
+        await api.post("/api/promotions/checkout", {
+          listing_id: listingId,
+          scope,
+          duration_days: 7,
+        })
+      ).data,
     onSuccess: (data) => {
-      // Redirect to Stripe checkout
       window.location.href = data.url
     },
+    onError: (error: any) =>
+      toast({
+        title: "Checkout could not be started",
+        description: error?.response?.data?.detail || "Please try again.",
+        variant: "destructive",
+      }),
   })
 
-  const handlePromote = (scope: 'CROSS_COMPOUND' | 'PUBLIC', duration: number) => {
-    promoteMutation.mutate({ scope, duration })
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <CardTitle>Promote Your Listing</CardTitle>
-            <CardDescription>Reach more people by promoting your listing</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-2">Cross-Compound Promotion</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Make your listing visible to users in other compounds
-              </p>
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">50 EGP/week</span>
-                <Button
-                  onClick={() => handlePromote('CROSS_COMPOUND', 7)}
-                  disabled={promoteMutation.isPending}
-                >
-                  Promote
-                </Button>
+    <AppShell>
+      <PageLayout width="sm" className="space-y-6">
+        <Button variant="ghost" asChild>
+          <Link href={`/listing/${listingId}`}>
+            <ArrowLeft className="h-4 w-4" />Back to listing
+          </Link>
+        </Button>
+        <PageHeader
+          eyebrow="Marketplace"
+          title="Promote your listing"
+          description="Choose where your listing appears. Each promotion runs for seven days."
+        />
+        <div className="space-y-3">
+          {OPTIONS.map((option) => (
+            <section key={option.scope} className="rounded-lg border border-border bg-card p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+                  <Megaphone className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold">{option.title}</h2>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{option.description}</p>
+                  <p className="mt-3 flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-primary" />Seven days of placement</p>
+                  <div className="mt-5 flex items-center justify-between gap-4 border-t border-border pt-4">
+                    <p><span className="text-lg font-semibold">{option.price}</span><span className="text-sm text-muted-foreground"> / week</span></p>
+                    <Button onClick={() => mutation.mutate(option.scope)} disabled={mutation.isPending}>
+                      {mutation.isPending && mutation.variables === option.scope ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Continue
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-2">Public Promotion</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Make your listing visible to everyone, including non-logged-in visitors
-              </p>
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">100 EGP/week</span>
-                <Button
-                  onClick={() => handlePromote('PUBLIC', 7)}
-                  disabled={promoteMutation.isPending}
-                >
-                  Promote
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+            </section>
+          ))}
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">You will review the final amount before paying through secure checkout.</p>
+      </PageLayout>
+    </AppShell>
   )
 }
-

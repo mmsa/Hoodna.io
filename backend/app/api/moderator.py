@@ -3,10 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.crud.post import delete_post, get_post_by_id, restore_post
 from app.crud.user import get_user_by_id, update_user_status
-from app.crud.listing import get_listing_by_id, archive_listing, restore_listing
+from app.crud.listing import get_listing_by_id, hide_listing, restore_listing
 from app.core.dependencies import get_current_moderator_or_admin
 from app.models.user import User
-from app.models.enums import UserStatus
+from app.models.enums import UserRole, UserStatus
+from app.models.report import ReportType
+from app.crud.report import get_report_for_reviewer
+from app.crud.moderation import apply_report_action, UnsupportedModerationAction
+from app.schemas.moderation import (
+    ModerationActionResponse,
+    ReportModerationActionRequest,
+)
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -14,6 +21,62 @@ router = APIRouter()
 
 class BanUserRequest(BaseModel):
     reason: str | None = None
+
+
+async def _moderator_compound_id(db: AsyncSession, user: User) -> int | None:
+    if user.role == UserRole.ADMIN:
+        return None
+    if user.role == UserRole.COMPOUND_MOD:
+        from app.crud.moderator import get_moderator_profile
+
+        profile = await get_moderator_profile(db, user.id)
+        compound_id = profile.compound_id if profile else user.compound_id
+    else:
+        compound_id = user.compound_id
+    if compound_id is None:
+        raise HTTPException(status_code=403, detail="Moderator has no compound assignment")
+    return compound_id
+
+
+@router.post(
+    "/reports/{report_id}/actions",
+    response_model=ModerationActionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def moderate_report_target(
+    report_id: int,
+    action_data: ReportModerationActionRequest,
+    current_user: User = Depends(get_current_moderator_or_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply one atomic moderation action and append its immutable audit entry."""
+    compound_id = await _moderator_compound_id(db, current_user)
+    report = await get_report_for_reviewer(db, report_id, compound_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if (
+        action_data.action.value == "SUSPEND"
+        and report.reported_type != ReportType.USER.value
+    ):
+        raise HTTPException(status_code=409, detail="SUSPEND requires a USER report")
+    try:
+        moderation_action = await apply_report_action(
+            db,
+            report=report,
+            actor=current_user,
+            action=action_data.action,
+            reason=action_data.reason,
+            notes=action_data.notes,
+        )
+        await db.commit()
+        await db.refresh(moderation_action)
+        return moderation_action
+    except UnsupportedModerationAction as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @router.delete("/posts/{post_id}")
@@ -137,7 +200,7 @@ async def delete_listing_endpoint(
             detail="You can only delete listings from your own compound"
         )
     
-    success = await archive_listing(db, listing_id)
+    success = await hide_listing(db, listing_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

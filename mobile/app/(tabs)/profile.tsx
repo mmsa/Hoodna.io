@@ -7,6 +7,7 @@ import { Compound } from "@hoodna/shared";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
+import { useFeature } from "@/contexts/FeatureConfigContext";
 
 interface ProviderProfile {
   provider_status?: string;
@@ -158,6 +159,7 @@ export default function ProfileScreen() {
   const [compound, setCompound] = useState<Compound | null>(null);
   const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
   const [serviceAreaCompounds, setServiceAreaCompounds] = useState<Compound[]>([]);
+  const invitationsEnabled = useFeature("invitations");
 
   useEffect(() => {
     let cancelled = false;
@@ -233,6 +235,20 @@ export default function ProfileScreen() {
 
   const quickActions = useMemo(() => {
     const actions: ActionItem[] = [
+      ...(invitationsEnabled ? [{
+        icon: "people-outline" as const,
+        title: "Invite neighbours",
+        description: "Share your personal invitation and see who joined.",
+        color: colors.success,
+        route: "/invite-neighbours",
+      }] : []),
+      {
+        icon: "business-outline" as const,
+        title: "Local businesses",
+        description: "Browse verified businesses and manage your claims.",
+        color: colors.accent,
+        route: "/businesses",
+      },
       {
         icon: "chatbubbles" as const,
         title: "Messages",
@@ -301,7 +317,7 @@ export default function ProfileScreen() {
     }
 
     return actions;
-  }, [user?.role]);
+  }, [invitationsEnabled, user?.role]);
 
   if (loading) {
     return (

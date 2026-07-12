@@ -15,7 +15,7 @@ class Post(Base):
     category = Column(SQLEnum(PostCategory), default=PostCategory.GENERAL, nullable=False, index=True)  # Post category for structure
     is_urgent = Column(Boolean, default=False, nullable=False, index=True)  # Urgent flag for alerts section
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    # deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)  # Soft delete - uncomment after migration
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     # Relationships
     compound = relationship("Compound", back_populates="posts")

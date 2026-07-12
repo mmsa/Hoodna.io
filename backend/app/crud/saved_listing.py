@@ -82,7 +82,10 @@ async def get_saved_listings(
             selectinload(Listing.owner)
         )
         .join(SavedListing, Listing.id == SavedListing.listing_id)
-        .where(SavedListing.user_id == user_id)
+        .where(
+            SavedListing.user_id == user_id,
+            Listing.deleted_at.is_(None),
+        )
         .order_by(SavedListing.created_at.desc())
         .offset(skip)
         .limit(limit)

@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
-from typing import List, Any
+from typing import List, Any, Dict
 import json
 
 
@@ -76,6 +76,30 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for email links
     # Public backend URL for local-storage upload/file links (set to LAN IP for physical devices)
     BACKEND_URL: str = "http://localhost:8000"
+
+    # Internal jobs
+    CRON_SECRET: str = ""
+    WEEKLY_DIGEST_MAX_POSTS: int = 5
+    WEEKLY_DIGEST_MAX_BUSINESSES: int = 5
+    WEEKLY_DIGEST_MAX_ANNOUNCEMENTS: int = 3
+    WEEKLY_DIGEST_MAX_RECOMMENDATIONS: int = 5
+
+    # Launch feature controls. Database values override these environment defaults.
+    FEATURE_INVITATIONS_ENABLED: bool = True
+    FEATURE_BUSINESS_CLAIMING_ENABLED: bool = True
+    FEATURE_WEEKLY_DIGEST_ENABLED: bool = False
+    FEATURE_COMMUNITY_POSTING_ENABLED: bool = True
+    FEATURE_BUSINESS_REVIEWS_ENABLED: bool = True
+    FEATURE_USER_REGISTRATION_ENABLED: bool = True
+    FEATURE_FLAG_CACHE_TTL_SECONDS: int = 15
+    FEATURE_ENABLED_CITIES: str = ""
+    FEATURE_ENABLED_NEIGHBOURHOODS: str = ""
+
+    # Optional vendor-neutral JSON forwarding. First-party storage remains authoritative.
+    ANALYTICS_FORWARD_URL: str = ""
+    CLIENT_ERROR_FORWARD_URL: str = ""
+    TELEMETRY_FORWARD_TIMEOUT_SECONDS: float = 2.0
+    TELEMETRY_ANONYMIZATION_SECRET: str = ""
     
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
@@ -106,6 +130,33 @@ class Settings(BaseSettings):
                 if origin.startswith("http") and "localhost" not in origin:
                     return origin.rstrip("/")
         return url or "http://localhost:3000"
+
+    @property
+    def feature_flag_defaults(self) -> Dict[str, bool]:
+        return {
+            "invitations": self.FEATURE_INVITATIONS_ENABLED,
+            "business_claiming": self.FEATURE_BUSINESS_CLAIMING_ENABLED,
+            "weekly_digest": self.FEATURE_WEEKLY_DIGEST_ENABLED,
+            "community_posting": self.FEATURE_COMMUNITY_POSTING_ENABLED,
+            "business_reviews": self.FEATURE_BUSINESS_REVIEWS_ENABLED,
+            "user_registration": self.FEATURE_USER_REGISTRATION_ENABLED,
+        }
+
+    @property
+    def feature_enabled_cities(self) -> set[str]:
+        return {
+            item.strip().casefold()
+            for item in self.FEATURE_ENABLED_CITIES.split(",")
+            if item.strip()
+        }
+
+    @property
+    def feature_enabled_neighbourhoods(self) -> set[str]:
+        return {
+            item.strip().casefold()
+            for item in self.FEATURE_ENABLED_NEIGHBOURHOODS.split(",")
+            if item.strip()
+        }
     
     class Config:
         env_file = [".env", "../.env"]  # Look in current dir and parent dir

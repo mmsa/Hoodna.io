@@ -1,15 +1,24 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Switch } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import type { AccountDeletionRequest, UserPreferences } from "@hoodna/shared";
+import { useFeature } from "@/contexts/FeatureConfigContext";
 
 export default function SettingsScreen() {
   const { user, apiClient, refreshUser } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
+  const [deletionReason, setDeletionReason] = useState("");
+  const [deletionRequest, setDeletionRequest] = useState<AccountDeletionRequest | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const invitationsEnabled = useFeature("invitations");
   const router = useRouter();
 
   useEffect(() => {
@@ -18,6 +27,53 @@ export default function SettingsScreen() {
       setPhone(user.phone || "");
     }
   }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      apiClient.getUserPreferences(),
+      apiClient.getAccountDeletionRequest(),
+    ]).then(([nextPreferences, nextDeletion]) => {
+      if (!active) return;
+      setPreferences(nextPreferences);
+      setDeletionRequest(nextDeletion);
+    }).catch(() => undefined).finally(() => {
+      if (active) setPreferencesLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [apiClient]);
+
+  async function updatePreference(key: keyof Omit<UserPreferences, "updated_at">, value: boolean) {
+    if (!preferences) return;
+    const previous = preferences;
+    setPreferences({ ...preferences, [key]: value });
+    try {
+      setPreferences(await apiClient.updateUserPreferences({ [key]: value }));
+    } catch {
+      setPreferences(previous);
+      Alert.alert("Could not save", "Your notification preference was not changed.");
+    }
+  }
+
+  async function requestDeletion() {
+    if (deletionConfirmation !== "DELETE") return;
+    setDeleting(true);
+    try {
+      const request = await apiClient.requestAccountDeletion({
+        confirmation: "DELETE",
+        reason: deletionReason.trim() || undefined,
+      });
+      setDeletionRequest(request);
+      setDeletionConfirmation("");
+      Alert.alert("Request received", "Your account deletion request is pending.");
+    } catch (error: any) {
+      Alert.alert("Could not submit request", error.message || "Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -157,6 +213,93 @@ export default function SettingsScreen() {
                 <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>Save Changes</Text>
               )}
             </TouchableOpacity>
+          </View>
+
+          {invitationsEnabled ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => router.push("/invite-neighbours")}
+              style={{
+                minHeight: 64,
+                backgroundColor: "#FFFFFF",
+                borderRadius: 16,
+                padding: 18,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Ionicons name="people-outline" size={24} color="#3B82F6" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontSize: 17, fontWeight: "600", color: "#111827" }}>Invite neighbours</Text>
+                <Text style={{ color: "#6B7280", marginTop: 3 }}>Share your link and view invitation stats</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color="#6B7280" />
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: "#E5E7EB" }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827", marginBottom: 8 }}>Notifications</Text>
+            {preferencesLoading ? <ActivityIndicator color="#3B82F6" /> : preferences ? (
+              ([
+                ["push_notifications", "Push notifications", "Activity and account updates"],
+                ["weekly_digest", "Weekly digest", "A summary of your neighbourhood"],
+                ["community_announcements", "Community announcements", "Important local notices"],
+                ["business_recommendations", "Business recommendations", "Relevant nearby businesses"],
+              ] as const).map(([key, label, description]) => (
+                <View key={key} style={{ minHeight: 60, flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderTopColor: "#F3F4F6" }}>
+                  <View style={{ flex: 1, paddingVertical: 10 }}>
+                    <Text style={{ color: "#111827", fontWeight: "600" }}>{label}</Text>
+                    <Text style={{ color: "#6B7280", fontSize: 12, marginTop: 2 }}>{description}</Text>
+                  </View>
+                  <Switch
+                    accessibilityLabel={label}
+                    value={preferences[key]}
+                    onValueChange={(value) => updatePreference(key, value)}
+                  />
+                </View>
+              ))
+            ) : <Text style={{ color: "#6B7280" }}>Preferences are unavailable right now.</Text>}
+          </View>
+
+          <View style={{ backgroundColor: "#FFF7F7", borderRadius: 16, padding: 20, marginBottom: 28, borderWidth: 1, borderColor: "#FECACA" }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#991B1B" }}>Delete account</Text>
+            {deletionRequest ? (
+              <Text style={{ color: "#991B1B", marginTop: 8 }}>Request status: {deletionRequest.status.toLowerCase()}</Text>
+            ) : (
+              <>
+                <Text style={{ color: "#7F1D1D", lineHeight: 20, marginTop: 8 }}>
+                  This requests permanent deletion. Type DELETE below to confirm.
+                </Text>
+                <TextInput
+                  accessibilityLabel="Type DELETE to confirm account deletion"
+                  autoCapitalize="characters"
+                  value={deletionConfirmation}
+                  onChangeText={setDeletionConfirmation}
+                  placeholder="DELETE"
+                  style={{ minHeight: 48, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#FCA5A5", borderRadius: 10, paddingHorizontal: 12, marginTop: 12 }}
+                />
+                <TextInput
+                  accessibilityLabel="Optional account deletion reason"
+                  value={deletionReason}
+                  onChangeText={setDeletionReason}
+                  placeholder="Reason (optional)"
+                  multiline
+                  style={{ minHeight: 70, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#FCA5A5", borderRadius: 10, padding: 12, marginTop: 10, textAlignVertical: "top" }}
+                />
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: deletionConfirmation !== "DELETE" || deleting }}
+                  disabled={deletionConfirmation !== "DELETE" || deleting}
+                  onPress={requestDeletion}
+                  style={{ minHeight: 48, borderRadius: 10, backgroundColor: deletionConfirmation === "DELETE" ? "#DC2626" : "#FCA5A5", justifyContent: "center", marginTop: 12 }}
+                >
+                  {deleting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: "#FFFFFF", fontWeight: "700", textAlign: "center" }}>Request account deletion</Text>}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </ScrollView>

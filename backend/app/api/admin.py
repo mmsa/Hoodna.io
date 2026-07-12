@@ -40,7 +40,9 @@ from app.models.enums import UserStatus, DocumentStatus, DocumentType, ProviderS
 from typing import List
 from app.models.service_provider import ServiceProviderProfile
 from app.models.compound_moderator import CompoundModeratorProfile
-from sqlalchemy import select
+from sqlalchemy import func, select
+from app.models.moderation import AuditLog
+from app.schemas.moderation import AuditLogListResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1187,3 +1189,48 @@ async def update_compound_details(
 
     await db.commit()
     return compound
+
+
+@router.get("/audit-logs", response_model=AuditLogListResponse)
+async def list_audit_logs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    actor_id: Optional[int] = Query(None, gt=0),
+    event_type: Optional[str] = Query(None),
+    entity_type: Optional[str] = Query(None),
+    entity_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List immutable audit events. This endpoint is restricted to full admins."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    filters = []
+    if actor_id is not None:
+        filters.append(AuditLog.actor_id == actor_id)
+    if event_type:
+        filters.append(AuditLog.event_type == event_type)
+    if entity_type:
+        filters.append(AuditLog.entity_type == entity_type.upper())
+    if entity_id:
+        filters.append(AuditLog.entity_id == entity_id)
+    query = select(AuditLog)
+    count_query = select(func.count()).select_from(AuditLog)
+    if filters:
+        query = query.where(*filters)
+        count_query = count_query.where(*filters)
+    total = (await db.execute(count_query)).scalar_one()
+    result = await db.execute(
+        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return AuditLogListResponse(
+        items=list(result.scalars().all()),
+        total=total,
+        skip=skip,
+        limit=limit,
+    )

@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 from app.models.listing import Listing, Promotion
 from app.models.enums import ListingStatus, PromotionScope, PromotionStatus, ListingCategory, ListingIntent
 from app.schemas.marketplace import ListingCreate, ListingUpdate
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 
@@ -30,11 +30,10 @@ async def get_listings(
     
     Can also filter by category and intent.
     """
-    where_conditions = [Listing.status == ListingStatus.ACTIVE]
-    
-    # Soft delete filtering disabled until migration (deleted_at column commented out in model)
-    # Once migration is run, uncomment deleted_at in model and add:
-    # where_conditions.append(Listing.deleted_at.is_(None))
+    where_conditions = [
+        Listing.status == ListingStatus.ACTIVE,
+        Listing.deleted_at.is_(None),
+    ]
     
     query = select(Listing).options(
         selectinload(Listing.compound),
@@ -106,85 +105,13 @@ async def get_listings(
     
     query = query.offset(skip).limit(limit)
     
-    # Execute query, retry without deleted_at filter if column doesn't exist
-    try:
-        result = await db.execute(query)
-        return list(result.scalars().all())
-    except Exception as e:
-        # If error is about missing column, retry without deleted_at filter
-        error_str = str(e).lower()
-        if 'deleted_at' in error_str or 'column' in error_str or 'does not exist' in error_str:
-            # Retry without deleted_at filter
-            where_conditions = [Listing.status == ListingStatus.ACTIVE]
-            query = select(Listing).options(
-                selectinload(Listing.compound),
-                selectinload(Listing.owner),
-                selectinload(Listing.promotions)
-            ).where(*where_conditions)
-            
-            # Filter by owner_id if provided (for scope=my)
-            if owner_id is not None:
-                query = query.where(Listing.owner_id == owner_id)
-            
-            # Filter by owner_id if provided (for scope=my)
-            if owner_id is not None:
-                query = query.where(Listing.owner_id == owner_id)
-            
-            if scope == "compound":
-                if compound_id:
-                    query = query.where(Listing.compound_id == compound_id)
-            elif scope == "cross":
-                query = query.join(Promotion).where(
-                    and_(
-                        Promotion.scope == PromotionScope.CROSS_COMPOUND,
-                        Promotion.status == PromotionStatus.ACTIVE,
-                        Promotion.starts_at <= datetime.utcnow(),
-                        Promotion.ends_at >= datetime.utcnow()
-                    )
-                )
-            elif scope == "public":
-                query = query.join(Promotion).where(
-                    and_(
-                        Promotion.scope == PromotionScope.PUBLIC,
-                        Promotion.status == PromotionStatus.ACTIVE,
-                        Promotion.starts_at <= datetime.utcnow(),
-                        Promotion.ends_at >= datetime.utcnow()
-                    )
-                )
-            
-            if category:
-                query = query.where(Listing.category == category)
-            if intent:
-                query = query.where(Listing.intent == intent)
-            if search:
-                search_term = f"%{search.lower()}%"
-                query = query.where(
-                    or_(
-                        func.lower(Listing.title).like(search_term),
-                        func.lower(Listing.description).like(search_term)
-                    )
-                )
-            if min_price is not None:
-                query = query.where(Listing.price >= min_price)
-            if max_price is not None:
-                query = query.where(Listing.price <= max_price)
-            if sort_by == "price_asc":
-                query = query.order_by(asc(Listing.price))
-            elif sort_by == "price_desc":
-                query = query.order_by(desc(Listing.price))
-            elif sort_by == "date_asc":
-                query = query.order_by(asc(Listing.created_at))
-            else:
-                query = query.order_by(desc(Listing.created_at))
-            query = query.offset(skip).limit(limit)
-            result = await db.execute(query)
-            return list(result.scalars().all())
-        raise
+    result = await db.execute(query)
+    return list(result.scalars().all())
 
 
 async def get_listing_by_id(db: AsyncSession, listing_id: int, include_deleted: bool = False) -> Listing | None:
     """Get listing by ID. By default excludes soft-deleted listings."""
-    result = await db.execute(
+    query = (
         select(Listing)
         .options(
             selectinload(Listing.compound),
@@ -193,13 +120,10 @@ async def get_listing_by_id(db: AsyncSession, listing_id: int, include_deleted: 
         )
         .where(Listing.id == listing_id)
     )
-    listing = result.scalar_one_or_none()
-    if not listing:
-        return None
-    # Only check deleted_at if the column exists (commented out until migration)
-    # if not include_deleted and hasattr(listing, 'deleted_at') and listing.deleted_at is not None:
-    #     return None
-    return listing
+    if not include_deleted:
+        query = query.where(Listing.deleted_at.is_(None))
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
 
 
 async def create_listing(
@@ -227,7 +151,7 @@ async def update_listing(
     owner_id: int
 ) -> Listing:
     """Update a listing (only by owner)."""
-    listing = await db.get(Listing, listing_id)
+    listing = await get_listing_by_id(db, listing_id)
     if not listing:
         raise ValueError("Listing not found")
     
@@ -297,36 +221,33 @@ async def activate_promotion(
 
 
 async def archive_listing(db: AsyncSession, listing_id: int) -> bool:
-    """Soft delete a listing (set deleted_at timestamp instead of actually deleting)."""
+    """Archive a listing without treating it as moderator-deleted."""
     listing = await db.get(Listing, listing_id)
     if not listing:
         return False
-    # Soft delete is disabled until migration (deleted_at column commented out in model)
-    # For now, just archive the listing
-    # Once migration is run, uncomment deleted_at in model and use:
-    # if listing.deleted_at is not None:
-    #     return True  # Already deleted
-    # listing.deleted_at = datetime.utcnow()
     listing.status = ListingStatus.ARCHIVED
+    await db.flush()
+    return True
+
+
+async def hide_listing(db: AsyncSession, listing_id: int) -> bool:
+    """Hide a listing for moderation while preserving its owner-managed status."""
+    listing = await db.get(Listing, listing_id)
+    if not listing:
+        return False
+    if listing.deleted_at is not None:
+        return True
+    listing.deleted_at = datetime.now(timezone.utc)
     await db.flush()
     return True
 
 
 async def restore_listing(db: AsyncSession, listing_id: int) -> bool:
     """Restore a soft-deleted listing."""
-    # Soft delete is disabled until migration (deleted_at column commented out in model)
-    # Once migration is run, uncomment deleted_at in model and use:
-    # listing = await db.get(Listing, listing_id)
-    # if not listing or listing.deleted_at is None:
-    #     return False
-    # listing.deleted_at = None
-    # await db.flush()
-    # return True
-    # For now, restore by setting status back to ACTIVE
     listing = await db.get(Listing, listing_id)
-    if not listing:
+    if not listing or listing.deleted_at is None:
         return False
-    listing.status = ListingStatus.ACTIVE
+    listing.deleted_at = None
     await db.flush()
     return True
 

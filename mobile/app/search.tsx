@@ -7,10 +7,11 @@ import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { formatCompoundName } from "@/utils/formatCompound";
+import { useTelemetry } from "@/contexts/TelemetryContext";
 // apiClient is available from useAuth hook
 
 interface SearchResult {
-  type: "post" | "listing" | "service";
+  type: "post" | "listing" | "service" | "business";
   id: number;
   title: string;
   content?: string;
@@ -19,6 +20,7 @@ interface SearchResult {
   category?: string;
   price?: number;
   created_at: string;
+  slug?: string;
 }
 
 interface SearchResponse {
@@ -26,6 +28,7 @@ interface SearchResponse {
   posts: SearchResult[];
   listings: SearchResult[];
   services: SearchResult[];
+  businesses: SearchResult[];
   total_results: number;
 }
 
@@ -53,6 +56,8 @@ function SearchResultCard({ result, router }: { result: SearchResult; router: an
         return "storefront";
       case "service":
         return "construct";
+      case "business":
+        return "business";
       default:
         return "search";
     }
@@ -66,6 +71,8 @@ function SearchResultCard({ result, router }: { result: SearchResult; router: an
         return colors.purple;
       case "service":
         return colors.accent;
+      case "business":
+        return colors.success;
       default:
         return colors.textMuted;
     }
@@ -79,6 +86,8 @@ function SearchResultCard({ result, router }: { result: SearchResult; router: an
         return "Marketplace";
       case "service":
         return "Service";
+      case "business":
+        return "Business";
       default:
         return "Result";
     }
@@ -92,6 +101,8 @@ function SearchResultCard({ result, router }: { result: SearchResult; router: an
         return `/listing/${result.id}`;
       case "service":
         return `/listing/${result.id}`;
+      case "business":
+        return `/businesses/${result.slug}`;
       default:
         return "/(tabs)/home";
     }
@@ -188,12 +199,14 @@ function SearchResultCard({ result, router }: { result: SearchResult; router: an
                   </Text>
                 </View>
               )}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="time-outline" size={14} color={colors.textMuted} />
-                <Text style={{ fontSize: 12, color: colors.textMuted }}>
-                  {formatTimeAgo(result.created_at)}
-                </Text>
-              </View>
+              {result.type !== "business" ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="time-outline" size={14} color={colors.textMuted} />
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                    {formatTimeAgo(result.created_at)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             {result.price && (
@@ -212,6 +225,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user, apiClient } = useAuth();
+  const { track } = useTelemetry();
   const [searchQuery, setSearchQuery] = useState((params.q as string) || "");
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [searchResults, setSearchResults] = useState<SearchResponse | null>(null);
@@ -251,15 +265,32 @@ export default function SearchScreen() {
   // Perform search
   useEffect(() => {
     async function performSearch() {
-      if (!debouncedQuery.trim() || !user?.compound_id || !apiClient) {
+      if (!debouncedQuery.trim() || !apiClient) {
         setSearchResults(null);
         return;
       }
 
       setLoading(true);
       try {
-        const response = await apiClient.globalSearch(debouncedQuery.trim());
-        setSearchResults(response as SearchResponse);
+        const [response, businesses] = await Promise.all([
+          user?.compound_id ? apiClient.globalSearch(debouncedQuery.trim()) : Promise.resolve({ query: debouncedQuery, posts: [], listings: [], services: [], total_results: 0 }),
+          apiClient.getBusinesses({ search: debouncedQuery.trim(), limit: 20 }),
+        ]);
+        const businessResults: SearchResult[] = businesses.items.map((business) => ({
+          type: "business",
+          id: business.id,
+          slug: business.slug,
+          title: business.name,
+          category: business.category,
+          compound_name: business.compound_name || business.area || undefined,
+          created_at: new Date(0).toISOString(),
+        }));
+        setSearchResults({
+          ...response,
+          businesses: businessResults,
+          total_results: response.total_results + businessResults.length,
+        } as SearchResponse);
+        track("search_performed", { result_count: response.total_results + businessResults.length });
       } catch (error) {
         console.error("Search failed:", error);
         setSearchResults(null);
@@ -269,12 +300,13 @@ export default function SearchScreen() {
     }
 
     performSearch();
-  }, [debouncedQuery, user?.compound_id, apiClient]);
+  }, [debouncedQuery, user?.compound_id, apiClient, track]);
 
   const allResults: SearchResult[] = [
     ...(searchResults?.posts || []).map((r) => ({ ...r, type: "post" as const })),
     ...(searchResults?.listings || []).map((r) => ({ ...r, type: "listing" as const })),
     ...(searchResults?.services || []).map((r) => ({ ...r, type: "service" as const })),
+    ...(searchResults?.businesses || []).map((r) => ({ ...r, type: "business" as const })),
   ];
 
   return (
@@ -346,7 +378,7 @@ export default function SearchScreen() {
               <FlatList
                 data={allResults}
                 keyExtractor={(item) => `${item.type}-${item.id}`}
-                renderItem={({ item }) => <SearchResultCard result={item} router={router} />}
+                renderItem={({ item, index }) => <SearchResultCard result={item} router={{ push: (route: string) => { track("search_result_opened", { entity_type: item.type, entity_id: item.id, position: index }); router.push(route as any); } }} />}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 24 }}
               />
@@ -393,6 +425,9 @@ export default function SearchScreen() {
                 }}
               >
                 <Text style={{ fontSize: 12, fontWeight: "600", color: colors.accent }}>Services</Text>
+              </View>
+              <View style={{ backgroundColor: `${colors.success}15`, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: colors.success }}>Businesses</Text>
               </View>
             </View>
           </View>

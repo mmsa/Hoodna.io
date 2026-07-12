@@ -47,6 +47,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
 import { formatCompoundName, formatCompoundWithArea } from "@/lib/format-compound";
+import { useFeatureConfig } from "@/components/feature-config-provider";
+import { ReportDialog } from "@/components/report-dialog";
+import { track } from "@/lib/telemetry";
 
 interface Post {
   id: number;
@@ -220,6 +223,8 @@ export default function FeedPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, isLoading: userLoading } = useAuth();
+  const { isEnabled } = useFeatureConfig();
+  const communityPostingEnabled = isEnabled("community_posting");
   const [newPost, setNewPost] = useState("");
   const [newComments, setNewComments] = useState<Record<number, string>>({});
   const [isMounted, setIsMounted] = useState(false);
@@ -504,7 +509,13 @@ export default function FeedPage() {
       const response = await api.post("/api/posts", postData);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (createdPost) => {
+      track("post_created", {
+        post_id: createdPost?.id,
+        category: createdPost?.category,
+        community_id: createdPost?.compound_id,
+        source_screen: "feed",
+      });
       queryClient.invalidateQueries({ queryKey: ["feed"] });
       queryClient.invalidateQueries({ queryKey: ["feed-summary"] });
       setNewPost("");
@@ -536,7 +547,12 @@ export default function FeedPage() {
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (createdComment) => {
+      track("comment_created", {
+        comment_id: createdComment?.id,
+        post_id: createdComment?.post_id,
+        source_screen: "feed",
+      });
       queryClient.invalidateQueries({ queryKey: ["feed"] });
     },
     onError: (error: any) => {
@@ -742,7 +758,7 @@ export default function FeedPage() {
             )}
 
             {/* Create Post Input - At the top */}
-            <Card className="mb-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-xl bg-white">
+            {communityPostingEnabled ? <Card className="mb-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-xl bg-white">
               <CardContent className="p-4">
                 <div className="flex gap-2">
                   <Input
@@ -765,7 +781,9 @@ export default function FeedPage() {
                   </Button>
                 </div>
               </CardContent>
-            </Card>
+            </Card> : (
+              <Card className="mb-6 border border-gray-200"><CardContent className="p-4 text-sm text-gray-600">Community posting is temporarily unavailable.</CardContent></Card>
+            )}
 
             {/* ALERTS SECTION - Urgent Posts */}
             {(() => {
@@ -1408,6 +1426,8 @@ function PostCard({
   currentUser?: any;
 }) {
   const { toast } = useToast();
+  const { isEnabled } = useFeatureConfig();
+  const communityPostingEnabled = isEnabled("community_posting");
   const [isMounted, setIsMounted] = useState(false);
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
     post.reaction_counts ?? {},
@@ -1689,6 +1709,16 @@ function PostCard({
             <Share2 className="w-4 h-4" />
             <span className="hidden sm:inline">Share</span>
           </button>
+          <ReportDialog
+            entityType="post"
+            entityId={post.id}
+            trigger={<button type="button" className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-red-50 hover:text-red-600">Report</button>}
+          />
+          <ReportDialog
+            entityType="user"
+            entityId={post.author_id}
+            trigger={<button type="button" className="rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-red-50 hover:text-red-600">Report user</button>}
+          />
         </div>
 
         {/* Comments Section */}
@@ -1723,13 +1753,20 @@ function PostCard({
                   <p className="text-sm text-gray-700 ml-9 leading-relaxed">
                     {comment.content}
                   </p>
+                  <div className="ml-7 mt-1">
+                    <ReportDialog
+                      entityType="comment"
+                      entityId={comment.id}
+                      trigger={<button type="button" className="px-2 py-1 text-xs text-gray-500 hover:text-red-600">Report comment</button>}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
           {/* Comment Input - More conversational */}
-          <div className="flex gap-2 pt-2">
+          {communityPostingEnabled ? <div className="flex gap-2 pt-2">
             <Input
               placeholder="Write a comment..."
               value={newComments[post.id] || ""}
@@ -1758,7 +1795,7 @@ function PostCard({
                 <Send className="w-4 h-4" />
               )}
             </Button>
-          </div>
+          </div> : null}
         </div>
       </CardContent>
     </Card>

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from app.models.enums import UserRole
 from app.schemas.user import UserResponse
@@ -10,6 +10,9 @@ class UserSignup(BaseModel):
     password: str
     phone: Optional[str] = None
     role: Optional[UserRole] = None
+    referral_code: Optional[str] = Field(
+        default=None, min_length=4, max_length=64
+    )
 
 
 class UserLogin(BaseModel):
@@ -50,3 +53,6 @@ class PhoneAuthVerifyRequest(BaseModel):
     phone: str
     otp_code: str
     name: Optional[str] = None  # Required for new users
+    referral_code: Optional[str] = Field(
+        default=None, min_length=4, max_length=64
+    )

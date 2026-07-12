@@ -3,8 +3,9 @@ from sqlalchemy import select, or_, func, and_
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.core.security import get_password_hash
-from app.models.enums import UserStatus, UserRole
-from typing import List
+from app.models.enums import ModeratorStatus, UserStatus, UserRole
+from app.models.compound_moderator import CompoundModeratorProfile
+from typing import List, Optional
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
@@ -79,18 +80,43 @@ async def update_user_status(
     return user
 
 
-async def get_compound_moderators_and_admins(db: AsyncSession, compound_id: int) -> List[User]:
-    """Get all moderators and admins for a compound."""
+async def get_compound_moderators_and_admins(
+    db: AsyncSession, compound_id: Optional[int]
+) -> List[User]:
+    """Get global admins and moderators assigned to the target compound."""
+    role_conditions = [User.role == UserRole.ADMIN]
+    if compound_id is not None:
+        role_conditions.extend(
+            [
+                and_(
+                    User.role == UserRole.MODERATOR,
+                    User.compound_id == compound_id,
+                ),
+            ]
+        )
     result = await db.execute(
         select(User).where(
-            User.compound_id == compound_id,
-            or_(
-                User.role == UserRole.MODERATOR,
-                User.role == UserRole.ADMIN
-            )
+            User.status != UserStatus.BANNED,
+            or_(*role_conditions),
         )
     )
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+    if compound_id is not None:
+        moderator_result = await db.execute(
+            select(User)
+            .join(
+                CompoundModeratorProfile,
+                CompoundModeratorProfile.user_id == User.id,
+            )
+            .where(
+                User.role == UserRole.COMPOUND_MOD,
+                User.status != UserStatus.BANNED,
+                CompoundModeratorProfile.compound_id == compound_id,
+                CompoundModeratorProfile.moderator_status == ModeratorStatus.APPROVED,
+            )
+        )
+        users.extend(moderator_result.scalars().all())
+    return list({user.id: user for user in users}.values())
 
 
 async def list_users(

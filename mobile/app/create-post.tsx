@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PostCreate } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFeature } from "@/contexts/FeatureConfigContext";
+import { useTelemetry } from "@/contexts/TelemetryContext";
 
 const POST_CATEGORIES = [
   { value: "GENERAL", label: "General", icon: "💬", color: "#6B7280" },
@@ -22,9 +24,15 @@ export default function CreatePostScreen() {
   const [isUrgent, setIsUrgent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { apiClient, user } = useAuth();
+  const postingEnabled = useFeature("community_posting");
+  const { track } = useTelemetry();
   const router = useRouter();
 
   async function handleSubmit() {
+    if (!postingEnabled) {
+      Alert.alert("Posting is paused", "Community posting is temporarily unavailable.");
+      return;
+    }
     if (!content.trim()) {
       Alert.alert("Error", "Please enter some content");
       return;
@@ -48,7 +56,8 @@ export default function CreatePostScreen() {
         is_urgent: isUrgent || category === "ALERT", // Auto-set urgent for ALERT category
       };
 
-      await apiClient.createPost(data);
+      const post = await apiClient.createPost(data);
+      track("post_created", { post_id: post.id, category, community_id: user.compound_id });
       Alert.alert("Success", "Post created successfully!", [
         { text: "OK", onPress: () => router.back() },
       ]);
@@ -209,12 +218,12 @@ export default function CreatePostScreen() {
               marginTop: 8,
             }}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || !postingEnabled}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>Post</Text>
+                <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>{postingEnabled ? "Post" : "Posting paused"}</Text>
             )}
           </TouchableOpacity>
         </View>
