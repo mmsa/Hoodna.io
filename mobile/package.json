@@ -8,8 +8,8 @@
     "start:dev": "npm run build:packages && expo start --dev-client --lan",
     "start:tunnel": "npm run build:packages && expo start --tunnel",
     "start:localhost": "npm run build:packages && expo start --localhost",
-    "build:packages": "npm run build --prefix ../packages/tokens && npm run build --prefix ../packages/shared",
-    "eas-build-pre-install": "npm install --prefix ../packages/tokens --include=dev && npm run build --prefix ../packages/tokens && npm install --prefix ../packages/shared --include=dev && npm run build --prefix ../packages/shared",
+    "build:packages": "npm run build --prefix ../packages/tokens && npm run build --prefix ../packages/shared && npm run build --prefix ../packages/i18n",
+    "eas-build-pre-install": "npm install --prefix ../packages/tokens --include=dev && npm run build --prefix ../packages/tokens && npm install --prefix ../packages/shared --include=dev && npm run build --prefix ../packages/shared && npm install --prefix ../packages/i18n --include=dev && npm run build --prefix ../packages/i18n",
     "android": "npm run build:packages && expo start --android --lan",
     "ios": "npm run build:packages && open -a Simulator && sleep 2 && expo start --ios --localhost --go -c",
     "ios:open": "expo start --ios --localhost --go",
@@ -20,6 +20,7 @@
     "submit:ios": "eas submit --platform ios --profile production --latest"
   },
   "dependencies": {
+    "@hoodna/i18n": "file:../packages/i18n",
     "@hoodna/shared": "file:../packages/shared",
     "@hoodna/tokens": "file:../packages/tokens",
     "@react-navigation/bottom-tabs": "^7.2.0",

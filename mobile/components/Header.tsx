@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
 import { Compound } from "@hoodna/shared";
 import { formatCompoundName, formatCompoundWithArea } from "@/utils/formatCompound";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { palette, radii, spacing, touchTarget, typography } from "@hoodna/tokens";
 
 type SwitchableCompound = {
@@ -167,14 +168,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 style={[styles.logoIcon, compactHeader && styles.logoIconCompact]}
                 resizeMode="cover"
               />
-              <View style={styles.logoTextGroup}>
-                <Text style={[styles.logoText, compactHeader && styles.logoTextCompact]}>
-                  eljiran
-                </Text>
-                <Text style={[styles.logoDomain, compactHeader && styles.logoDomainCompact]}>
-                  .com
-                </Text>
-              </View>
+              <BrandWordmark compact={compactHeader} />
             </TouchableOpacity>
             {/* Always show compound badge next to logo when no title */}
             {!title && compound && (
@@ -419,28 +413,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-  },
-  logoTextGroup: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  logoText: {
-    fontSize: typography.size.titleSmall,
-    fontWeight: typography.weight.bold,
-    color: palette.onPrimary,
-    letterSpacing: -0.3,
-  },
-  logoTextCompact: {
-    fontSize: 18,
-  },
-  logoDomain: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: palette.onPrimary,
-    letterSpacing: -0.3,
-  },
-  logoDomainCompact: {
-    fontSize: 18,
   },
   compoundBadgeInline: {
     flexDirection: "row",

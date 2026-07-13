@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from '@/components/locale-provider'
+import { BrandWordmark } from '@/components/brand-wordmark'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
@@ -45,6 +47,7 @@ export function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isLoading, isAdmin } = useAuth()
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { isEnabled } = useFeatureConfig()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -159,11 +162,11 @@ export function Header() {
               height={32}
               className="h-8 w-8 rounded-full"
             />
-            <span className="text-base font-semibold text-foreground">eljiran.com</span>
+            <BrandWordmark variant="compact" />
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="w-4 h-4 mr-2" />
-            Log out
+            {t('nav.logOut')}
           </Button>
         </div>
       </header>
@@ -185,7 +188,7 @@ export function Header() {
                 className="h-10 w-10 rounded-full"
                 priority
               />
-              <span className="hidden text-lg font-bold tracking-tight text-primary sm:inline">eljiran</span>
+              <BrandWordmark />
             </Link>
             {compound && mounted && isAuthenticated && (
               <CompoundSwitcher currentCompound={compound} />
@@ -205,12 +208,12 @@ export function Header() {
               }}
             >
               <div className="relative mx-auto max-w-xl">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   name="header-search"
                   type="search"
-                  placeholder="Search listings, posts, neighbours…"
-                  className="eljiran-search w-full"
+                  placeholder={t('header.searchPlaceholder')}
+                  className="eljiran-search w-full ps-10"
                 />
               </div>
             </form>
@@ -284,63 +287,63 @@ export function Header() {
                     <DropdownMenuItem asChild>
                       <Link href="/feed" className="flex items-center">
                         <Home className="mr-2 h-4 w-4" />
-                        <span>Community Feed</span>
+                        <span>{t('nav.communityFeed')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/marketplace" className="flex items-center">
                         <ShoppingBag className="mr-2 h-4 w-4" />
-                        <span>Marketplace</span>
+                        <span>{t('nav.marketplace')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/marketplace/new" className="flex items-center">
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        <span>Create Listing</span>
+                        <span>{t('nav.createListing')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/saved-listings" className="flex items-center">
                         <Bookmark className="mr-2 h-4 w-4" />
-                        <span>Saved Listings</span>
+                        <span>{t('nav.savedListings')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/messages" className="flex items-center">
                         <MessageCircle className="mr-2 h-4 w-4" />
-                        <span>Messages</span>
+                        <span>{t('nav.messages')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/notifications" className="flex items-center">
                         <Bell className="mr-2 h-4 w-4" />
-                        <span>Notifications</span>
+                        <span>{t('nav.notifications')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/verification" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
-                        <span>Verification</span>
+                        <span>{t('nav.verification')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="flex items-center">
                         <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                        <span>{t('nav.profile')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/settings" className="flex items-center">
                         <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
+                        <span>{t('nav.settings')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/features" className="flex items-center">
                         <Home className="mr-2 h-4 w-4" />
-                        <span>All Features</span>
+                        <span>{t('nav.allFeatures')}</span>
                       </Link>
                     </DropdownMenuItem>
                     {isAdmin && (
@@ -349,7 +352,7 @@ export function Header() {
                         <DropdownMenuItem asChild>
                           <Link href="/admin/dashboard" className="flex items-center">
                             <Shield className="mr-2 h-4 w-4" />
-                            <span>Admin Dashboard</span>
+                            <span>{t('nav.adminDashboard')}</span>
                           </Link>
                         </DropdownMenuItem>
                       </>
@@ -357,7 +360,7 @@ export function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                       <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
+                      <span>{t('nav.logOut')}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -497,7 +500,7 @@ export function Header() {
                 onClick={handleLogout}
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Log out
+                {t('nav.logOut')}
               </Button>
             </div>
           </div>

@@ -29,6 +29,12 @@
   }
 }
 
+@layer utilities {
+  .font-arabic {
+    font-family: var(--font-noto-arabic), sans-serif;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -66,7 +72,7 @@
   }
 
   .eljiran-search {
-    @apply h-11 rounded-full border border-border/50 bg-muted/80 px-4 pl-10 text-base shadow-none transition-shadow;
+    @apply h-11 rounded-full border border-border/50 bg-muted/80 px-4 ps-10 text-base shadow-none transition-shadow;
   }
 
   .eljiran-search:focus {

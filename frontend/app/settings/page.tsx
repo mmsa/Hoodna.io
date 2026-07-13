@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from '@/components/locale-provider'
+import { LanguagePicker } from '@/components/language-picker'
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,6 +18,7 @@ import { LaunchAccountSettings } from '@/components/launch-account-settings'
 
 export default function SettingsPage() {
   const { user, isLoading } = useAuth()
+  const { t } = useTranslation()
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [name, setName] = useState(user?.name || '')
@@ -44,7 +47,7 @@ export default function SettingsPage() {
         <PageLayout width="md" className="flex min-h-[50vh] items-center justify-center">
           <Card className="eljiran-card w-full max-w-md">
             <CardContent className="pt-6 text-center">
-              <p className="mb-4 text-muted-foreground">Please sign in to access settings.</p>
+              <p className="mb-4 text-muted-foreground">{t('auth.pleaseSignIn')}</p>
             </CardContent>
           </Card>
         </PageLayout>
@@ -61,14 +64,14 @@ export default function SettingsPage() {
       })
       queryClient.invalidateQueries({ queryKey: ['current-user'] })
       toast({
-        title: 'Settings saved',
-        description: 'Your profile has been updated.',
+        title: t('settings.saved'),
+        description: t('settings.savedDescription'),
         variant: 'success',
       })
     } catch (error: any) {
       toast({
-        title: 'Failed to save',
-        description: error?.response?.data?.detail || 'Please try again.',
+        title: t('settings.saveFailed'),
+        description: error?.response?.data?.detail || t('settings.saveFailedDescription'),
         variant: 'destructive',
       })
     } finally {
@@ -77,37 +80,38 @@ export default function SettingsPage() {
   }
 
   return (
-    <AccountShell title="Settings" description="Update your account and preferences.">
+    <AccountShell title={t('settings.title')} description={t('settings.description')}>
       <Card className="eljiran-card">
         <CardHeader>
-          <CardTitle>Profile settings</CardTitle>
-          <CardDescription>Update your account information</CardDescription>
+          <CardTitle>{t('settings.profileSettings')}</CardTitle>
+          <CardDescription>{t('settings.profileDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <LanguagePicker />
           <div className="space-y-2">
-            <Label htmlFor="name">Full name</Label>
+            <Label htmlFor="name">{t('settings.fullName')}</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
+              placeholder={t('settings.fullNamePlaceholder')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t('settings.email')}</Label>
             <Input id="email" type="email" value={user.email} disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+            <p className="text-xs text-muted-foreground">{t('settings.emailCannotChange')}</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone (optional)</Label>
+            <Label htmlFor="phone">{t('settings.phone')}</Label>
             <Input
               id="phone"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+20 123 456 7890"
+              placeholder={t('settings.phonePlaceholder')}
             />
           </div>
 
@@ -119,16 +123,16 @@ export default function SettingsPage() {
                 setPhone(user.phone || '')
               }}
             >
-              Cancel
+              {t('settings.cancel')}
             </Button>
             <Button onClick={handleSave} disabled={saving || name.trim() === ''}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving…
+                  {t('common.loading')}
                 </>
               ) : (
-                'Save changes'
+                t('settings.save')
               )}
             </Button>
           </div>

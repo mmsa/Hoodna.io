@@ -9,6 +9,20 @@ from app.schemas.account import (
     UserPreferencesUpdate,
 )
 
+SUPPORTED_LOCALES = {"en", "ar"}
+
+
+def _get_locale(preference: UserPreference) -> str:
+    values = preference.preferences if preference.preferences else {}
+    locale = values.get("locale", "en")
+    return locale if locale in SUPPORTED_LOCALES else "en"
+
+
+def _set_locale(preference: UserPreference, locale: str) -> None:
+    values = dict(preference.preferences or {})
+    values["locale"] = locale
+    preference.preferences = values
+
 
 async def get_or_create_preferences(
     db: AsyncSession,
@@ -38,6 +52,10 @@ async def update_preferences(
         "business_recommendations": "marketplace_notifications",
     }
     for field, value in update.model_dump(exclude_unset=True).items():
+        if field == "locale":
+            if value is not None:
+                _set_locale(preference, value)
+            continue
         if value is not None:
             setattr(preference, field_map[field], value)
     await db.flush()
@@ -51,6 +69,7 @@ def preferences_response(preference: UserPreference) -> UserPreferencesResponse:
         weekly_digest=preference.digest_enabled,
         community_announcements=preference.community_notifications,
         business_recommendations=preference.marketplace_notifications,
+        locale=_get_locale(preference),
         updated_at=preference.updated_at,
     )
 

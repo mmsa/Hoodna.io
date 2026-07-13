@@ -2,6 +2,7 @@ import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
+import { useTranslation } from "@/contexts/LocaleContext";
 import { palette, spacing, typography } from "@hoodna/tokens";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +12,7 @@ import { LoadingState } from "@/components/ui";
 export default function TabsLayout() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (loading) return;
@@ -27,7 +29,7 @@ export default function TabsLayout() {
   if (loading || !user || (isResidentRole(user.role) && user.status !== "APPROVED")) {
     return (
       <View style={styles.loading}>
-        <LoadingState label="Loading your community" />
+        <LoadingState label={t("common.loadingCommunity")} />
       </View>
     );
   }
@@ -54,7 +56,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
+          title: t("nav.home"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -63,7 +65,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="market"
         options={{
-          title: "Market",
+          title: t("nav.market"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="storefront" size={size} color={color} />
           ),
@@ -72,7 +74,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="services"
         options={{
-          title: "Services",
+          title: t("nav.services"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="construct" size={size} color={color} />
           ),
@@ -81,7 +83,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: "Messages",
+          title: t("nav.messages"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubbles" size={size} color={color} />
           ),
@@ -90,7 +92,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("nav.profile"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

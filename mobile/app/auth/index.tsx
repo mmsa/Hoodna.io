@@ -1,30 +1,33 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { palette, spacing, typography } from "@hoodna/tokens";
+import { useTranslation } from "@/contexts/LocaleContext";
+import { spacing } from "@hoodna/tokens";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { Button, KeyboardScreen } from "@/components/ui";
 
 export default function AuthSelectionScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <KeyboardScreen contentContainerStyle={styles.screen}>
       <View style={styles.brand}>
-        <Text style={styles.wordmark}>eljiran</Text>
-        <Text accessibilityRole="header" style={styles.title}>Your neighbourhood, connected.</Text>
-        <Text style={styles.subtitle}>Sign in to reach the people and services around you.</Text>
+        <BrandWordmark variant="auth" />
+        <Text accessibilityRole="header" style={styles.title}>{t("brand.taglineLong")}</Text>
+        <Text style={styles.subtitle}>{t("brand.taglineAuth")}</Text>
       </View>
       <View style={styles.actions}>
-        <Button accessibilityLabel="Sign in with email" onPress={() => router.push("/auth/login")} size="large">
-          Sign in with email
+        <Button accessibilityLabel={t("auth.signInWithEmail")} onPress={() => router.push("/auth/login")} size="large">
+          {t("auth.signInWithEmail")}
         </Button>
-        <Button accessibilityLabel="Continue with phone" onPress={() => router.push("/auth/phone-login")} size="large" variant="outline">
-          Continue with phone
+        <Button accessibilityLabel={t("auth.continueWithPhone")} onPress={() => router.push("/auth/phone-login")} size="large" variant="outline">
+          {t("auth.continueWithPhone")}
         </Button>
-        <Button accessibilityLabel="Create an account" onPress={() => router.push("/auth/signup")} variant="ghost">
-          New here? Create an account
+        <Button accessibilityLabel={t("auth.createAccount")} onPress={() => router.push("/auth/signup")} variant="ghost">
+          {t("auth.createAccount")}
         </Button>
       </View>
-      <Text style={styles.terms}>By continuing, you agree to our Terms of Service.</Text>
+      <Text style={styles.terms}>{t("auth.terms")}</Text>
     </KeyboardScreen>
   );
 }
@@ -32,9 +35,8 @@ export default function AuthSelectionScreen() {
 const styles = StyleSheet.create({
   screen: { justifyContent: "center", paddingVertical: spacing[8] },
   brand: { marginBottom: spacing[10] },
-  wordmark: { color: palette.primary, fontSize: typography.size.titleSmall, fontWeight: typography.weight.bold, marginBottom: spacing[6] },
-  title: { color: palette.ink, fontSize: typography.size.display, lineHeight: typography.lineHeight.display, fontWeight: typography.weight.bold, letterSpacing: -0.5 },
-  subtitle: { color: palette.inkMuted, fontSize: typography.size.body, lineHeight: typography.lineHeight.body, marginTop: spacing[3] },
+  title: { color: "#2D2D2A", fontSize: 32, lineHeight: 40, fontWeight: "700", letterSpacing: -0.5 },
+  subtitle: { color: "#707070", fontSize: 16, lineHeight: 24, marginTop: spacing[3] },
   actions: { gap: spacing[3] },
-  terms: { color: palette.inkSubtle, fontSize: typography.size.caption, lineHeight: typography.lineHeight.caption, textAlign: "center", marginTop: spacing[6] },
+  terms: { color: "#A3A3A3", fontSize: 12, lineHeight: 16, textAlign: "center", marginTop: spacing[6] },
 });

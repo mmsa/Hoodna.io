@@ -9,6 +9,7 @@ class UserPreferencesResponse(BaseModel):
     weekly_digest: bool
     community_announcements: bool
     business_recommendations: bool
+    locale: Literal["en", "ar"] = "en"
     updated_at: datetime | None = None
 
 
@@ -17,6 +18,7 @@ class UserPreferencesUpdate(BaseModel):
     weekly_digest: bool | None = None
     community_announcements: bool | None = None
     business_recommendations: bool | None = None
+    locale: Literal["en", "ar"] | None = None
 
 
 class AccountDeletionRequestCreate(BaseModel):

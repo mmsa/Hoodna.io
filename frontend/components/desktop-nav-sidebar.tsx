@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { BrandWordmark } from "@/components/brand-wordmark"
 import { usePathname } from "next/navigation"
+import { useTranslation } from "@/components/locale-provider"
 import {
   Bell,
   Bookmark,
@@ -16,17 +18,17 @@ import { cn } from "@/lib/utils"
 import { Avatar } from "@/components/ui/avatar"
 import { useAuth } from "@/hooks/use-auth"
 
-const links = [
+const linkDefs = [
   {
     href: "/feed",
-    label: "Home",
+    labelKey: "nav.home" as const,
     icon: Home,
     isActive: (pathname: string) =>
       pathname === "/feed" || pathname === "/notifications",
   },
   {
     href: "/marketplace",
-    label: "Marketplace",
+    labelKey: "nav.marketplace" as const,
     icon: ShoppingBag,
     isActive: (pathname: string) =>
       pathname.startsWith("/marketplace") ||
@@ -37,28 +39,35 @@ const links = [
   },
   {
     href: "/services",
-    label: "Services",
+    labelKey: "nav.services" as const,
     icon: Wrench,
     isActive: (pathname: string) =>
       pathname.startsWith("/services") || pathname.startsWith("/businesses"),
   },
   {
     href: "/settings",
-    label: "Settings",
+    labelKey: "nav.settings" as const,
     icon: Settings,
     isActive: (pathname: string) =>
       pathname.startsWith("/settings") ||
       pathname.startsWith("/profile"),
   },
-]
+] as const
+
+const secondaryLinkDefs = [
+  { href: "/messages", labelKey: "nav.messages" as const, icon: MessageCircle },
+  { href: "/notifications", labelKey: "nav.notifications" as const, icon: Bell },
+  { href: "/saved-listings", labelKey: "nav.saved" as const, icon: Bookmark },
+] as const
 
 export function DesktopNavSidebar() {
   const pathname = usePathname() ?? ""
   const { user } = useAuth()
+  const { t } = useTranslation()
 
   return (
     <nav
-      aria-label="Main navigation"
+      aria-label={t("header.mainNav")}
       className="sticky top-[5.5rem] flex min-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-[18px] bg-[#07534f] p-3 text-white shadow-[0_10px_30px_rgba(7,83,79,0.18)]"
     >
       <Link href="/feed" className="mb-4 flex items-center gap-3 rounded-xl px-2 py-2">
@@ -66,13 +75,13 @@ export function DesktopNavSidebar() {
           <Home className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-base font-bold">Eljiran</p>
-          <p className="text-[10px] text-white/60">Your neighbourhood</p>
+          <BrandWordmark variant="sidebar" />
+          <p className="text-[10px] text-white/60">{t("brand.tagline")}</p>
         </div>
       </Link>
 
       <div className="space-y-1">
-        {links.map(({ href, label, icon: Icon, isActive }) => {
+        {linkDefs.map(({ href, labelKey, icon: Icon, isActive }) => {
           const active = isActive(pathname)
           return (
             <Link
@@ -87,7 +96,7 @@ export function DesktopNavSidebar() {
               )}
             >
               <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
-              {label}
+              {t(labelKey)}
             </Link>
           )
         })}
@@ -96,11 +105,7 @@ export function DesktopNavSidebar() {
       <div className="my-4 h-px bg-white/10" />
 
       <div className="space-y-1">
-        {[
-          { href: "/messages", label: "Messages", icon: MessageCircle },
-          { href: "/notifications", label: "Notifications", icon: Bell },
-          { href: "/saved-listings", label: "Saved", icon: Bookmark },
-        ].map(({ href, label, icon: Icon }) => {
+        {secondaryLinkDefs.map(({ href, labelKey, icon: Icon }) => {
           const active = pathname.startsWith(href)
           return (
             <Link
@@ -112,7 +117,7 @@ export function DesktopNavSidebar() {
               )}
             >
               <Icon className="h-[18px] w-[18px]" />
-              {label}
+              {t(labelKey)}
             </Link>
           )
         })}
@@ -131,7 +136,7 @@ export function DesktopNavSidebar() {
           />
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold text-white">{user.name}</p>
-            <p className="text-[10px] text-white/55">View profile</p>
+            <p className="text-[10px] text-white/55">{t("nav.viewProfile")}</p>
           </div>
         </Link>
       ) : null}

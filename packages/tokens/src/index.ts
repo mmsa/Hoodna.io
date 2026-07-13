@@ -96,3 +96,11 @@ export const motion = {
 } as const;
 
 export const touchTarget = 44;
+
+/** Bilingual product name — Latin transliteration of the Arabic wordmark. */
+export const brand = {
+  nameLatin: "eljiran",
+  nameLatinTitle: "Eljiran",
+  nameArabic: "الجيران",
+  domain: ".com",
+} as const;

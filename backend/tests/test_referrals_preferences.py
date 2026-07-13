@@ -103,12 +103,14 @@ def test_preferences_are_lazy_and_patch_contract_fields():
                 push_notifications=False,
                 weekly_digest=False,
                 business_recommendations=False,
+                locale="ar",
             ),
         )
         assert updated.push_notifications is False
         assert updated.digest_enabled is False
         assert updated.marketplace_notifications is False
         assert updated.community_notifications is True
+        assert updated.preferences["locale"] == "ar"
 
     asyncio.run(with_session(exercise))
 
