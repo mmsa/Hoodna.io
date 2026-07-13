@@ -15,12 +15,12 @@ export function AppContentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   if (!shouldShowSidebar(pathname)) {
-    return <>{children}</>
+    return <div className="eljiran-shell px-4 sm:px-6">{children}</div>
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] gap-6 px-4 sm:px-6">
-      <aside className="hidden w-52 shrink-0 xl:block">
+    <div className="eljiran-shell flex gap-8 px-4 py-6 sm:px-6 sm:py-8">
+      <aside className="hidden w-56 shrink-0 xl:block">
         <DesktopNavSidebar />
       </aside>
       <div className="min-w-0 flex-1">{children}</div>

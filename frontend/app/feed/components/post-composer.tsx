@@ -5,7 +5,6 @@ import { AlertTriangle, Loader2, Send } from "lucide-react"
 
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -46,20 +45,10 @@ export function PostComposer({
   }
 
   return (
-    <section
-      aria-labelledby={`${textareaId}-heading`}
-      className="eljiran-card px-4 py-4"
-    >
-      <div className="flex gap-3">
-        <Avatar name={userName} />
+    <section aria-label="Create a post" className="eljiran-card p-4 sm:p-5">
+      <div className="flex gap-3 sm:gap-4">
+        <Avatar name={userName} className="mt-0.5" />
         <div className="min-w-0 flex-1">
-          <Label
-            id={`${textareaId}-heading`}
-            htmlFor={textareaId}
-            className="text-sm font-semibold"
-          >
-            Create a post
-          </Label>
           <Textarea
             id={textareaId}
             value={content}
@@ -72,30 +61,29 @@ export function PostComposer({
             }}
             placeholder="What's happening in the neighbourhood?"
             rows={3}
-            className="mt-2 min-h-24 resize-y bg-card text-[15px] leading-6"
+            className="min-h-[5.5rem] resize-none rounded-2xl border-border/70 bg-muted/30 text-[15px] leading-6 shadow-none focus-visible:border-primary/30 focus-visible:ring-primary/15"
           />
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="w-full sm:w-44">
-              <Label htmlFor={`${textareaId}-category`} className="sr-only">
-                Post category
-              </Label>
-              <Select
-                value={category}
-                onValueChange={(value) => setCategory(value as PostCategory)}
+            <Select
+              value={category}
+              onValueChange={(value) => setCategory(value as PostCategory)}
+            >
+              <SelectTrigger
+                id={`${textareaId}-category`}
+                aria-label="Post category"
+                className="h-10 w-full rounded-full border-border/70 bg-card sm:w-40"
               >
-                <SelectTrigger id={`${textareaId}-category`} className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {POST_CATEGORIES.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {POST_CATEGORIES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80">
               <input
                 type="checkbox"
                 checked={isUrgent}
@@ -122,9 +110,6 @@ export function PostComposer({
               Post
             </Button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Press Ctrl or ⌘ + Enter to post.
-          </p>
         </div>
       </div>
     </section>

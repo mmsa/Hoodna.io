@@ -27,19 +27,21 @@ export function CommunitySidebar({
   ).slice(0, 6)
 
   return (
-    <aside className="sticky top-24 space-y-4">
-      <Card className="eljiran-card border-0">
+    <aside className="sticky top-[5.5rem] space-y-4">
+      <Card className="eljiran-card">
         <CardContent className="p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" aria-hidden="true" />
+          <div className="mb-1 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary">
+              <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+            </div>
             <h2 className="text-lg font-bold text-foreground">Community</h2>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-5 text-sm text-muted-foreground">
             {totalNeighbors} verified {totalNeighbors === 1 ? "neighbour" : "neighbours"} in your compound
           </p>
 
           {verifiedAuthors.length > 0 ? (
-            <ul className="space-y-3">
+            <ul className="space-y-3.5">
               {verifiedAuthors.map(([id, name]) => (
                 <li key={id} className="flex items-center gap-3">
                   <Avatar name={name} size="sm" />
@@ -51,12 +53,12 @@ export function CommunitySidebar({
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="rounded-xl bg-muted/50 px-3 py-4 text-sm leading-relaxed text-muted-foreground">
               Neighbours will appear here as they post and get verified.
             </p>
           )}
 
-          <Button asChild variant="accent" className="mt-5 w-full">
+          <Button asChild variant="accent" className="mt-5 w-full shadow-card">
             <Link href="/settings">Invite neighbours</Link>
           </Button>
         </CardContent>

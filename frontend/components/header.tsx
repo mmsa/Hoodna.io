@@ -150,7 +150,7 @@ export function Header() {
   if (isUnapprovedResident) {
     return (
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
-        <div className="container mx-auto px-4 flex h-14 items-center justify-between">
+        <div className="eljiran-shell flex h-14 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Image
               src="/icon_light.jpg"
@@ -171,9 +171,9 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/95 shadow-card backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center gap-4">
+    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-card/90 shadow-card backdrop-blur-md supports-[backdrop-filter]:bg-card/75">
+      <div className="eljiran-shell px-4 sm:px-6">
+        <div className="flex h-[4.25rem] items-center gap-4">
           {/* Logo */}
           <div className="flex shrink-0 items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
@@ -226,7 +226,7 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 rounded-md hover:bg-muted"
+                    className="relative h-10 w-10 rounded-full hover:bg-muted"
                   >
                     <MessageCircle className="h-5 w-5 text-muted-foreground" />
                     {unreadMessagesCount > 0 && (
@@ -245,7 +245,7 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 rounded-md hover:bg-muted"
+                    className="relative h-10 w-10 rounded-full hover:bg-muted"
                   >
                     <Bookmark className="h-5 w-5 text-muted-foreground" />
                     {savedCount > 0 && (

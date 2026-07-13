@@ -13,16 +13,16 @@
     --popover-foreground: 60 3% 17%;
     --primary: 174 72% 29%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 174 33% 93%;
-    --secondary-foreground: 60 3% 17%;
-    --muted: 40 12% 94%;
-    --muted-foreground: 0 0% 44%;
+    --secondary: 168 38% 93%;
+    --secondary-foreground: 174 72% 22%;
+    --muted: 45 20% 93%;
+    --muted-foreground: 0 0% 42%;
     --accent: 6 100% 69%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 88%;
+    --border: 40 10% 88%;
+    --input: 40 10% 90%;
     --ring: 174 72% 29%;
     --radius: 1rem;
     --whatsapp: 142 70% 45%;
@@ -37,6 +37,9 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, hsl(174 40% 90% / 0.35), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, hsl(6 80% 92% / 0.2), transparent);
   }
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
@@ -45,9 +48,17 @@
 }
 
 @layer components {
+  .eljiran-shell {
+    @apply mx-auto w-full max-w-[1280px];
+  }
+
   .eljiran-card {
-    @apply overflow-hidden rounded-[16px] border border-border/70 bg-card;
+    @apply overflow-hidden rounded-[16px] border border-border/60 bg-card;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .eljiran-nav-panel {
+    @apply eljiran-card p-2;
   }
 
   .eljiran-pill {
@@ -55,7 +66,18 @@
   }
 
   .eljiran-search {
-    @apply h-11 rounded-full border-0 bg-muted px-4 pl-10 text-base shadow-none;
+    @apply h-11 rounded-full border border-border/50 bg-muted/80 px-4 pl-10 text-base shadow-none transition-shadow;
+  }
+
+  .eljiran-search:focus {
+    @apply border-primary/30 bg-card shadow-card outline-none ring-2 ring-primary/15;
+  }
+
+  .eljiran-hero-pattern {
+    background-image:
+      radial-gradient(circle at 15% 40%, rgba(255, 255, 255, 0.14) 0%, transparent 42%),
+      radial-gradient(circle at 85% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 38%),
+      radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.06) 0%, transparent 45%);
   }
 
   .eljiran-price {

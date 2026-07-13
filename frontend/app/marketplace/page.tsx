@@ -139,14 +139,17 @@ export default function MarketplacePage() {
 
   return (
     <AppShell>
-      <PageLayout width="xl" className="space-y-5 pb-10">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <PageLayout width="full" className="space-y-6 pb-10">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-[22px] font-bold tracking-tight text-foreground sm:text-2xl">
+            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
               Marketplace
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
+              Buy & sell in {compoundName}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {compoundName} · buy and sell with verified neighbours
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Verified neighbours only — no agents, direct deals
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

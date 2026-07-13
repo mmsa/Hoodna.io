@@ -35,7 +35,7 @@ const PageLayout = React.forwardRef<HTMLElement, PageLayoutProps>(
     <main
       ref={ref}
       className={cn(
-        "mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8",
+        "mx-auto w-full py-2 sm:py-4",
         pageWidths[width],
         className
       )}

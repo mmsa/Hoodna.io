@@ -483,9 +483,9 @@ export default function FeedPage() {
 
   return (
     <AppShell>
-      <PageLayout width="xl" className="py-6">
-        <div className="flex gap-6">
-          <div className="min-w-0 flex-1 lg:max-w-3xl">
+      <PageLayout width="full" className="py-0">
+        <div className="flex gap-6 xl:gap-8">
+          <div className="min-w-0 flex-1">
             {user && feedSummary?.compound_name && (
               <CompoundHero
                 compoundName={feedSummary.compound_name}
@@ -553,7 +553,7 @@ export default function FeedPage() {
                 description="Time-sensitive updates requiring immediate attention"
                 surface
               >
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {urgentPosts.map((alert) => (
                     <PostCard
                       key={alert.id}
@@ -579,7 +579,7 @@ export default function FeedPage() {
               description="Official updates from neighbourhood management"
             >
               {announcements && announcements.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {announcements.map((post) => (
                     <PostCard
                       key={post.id}
@@ -607,7 +607,7 @@ export default function FeedPage() {
                 title="Community discussions"
                 description="Posts from your neighbours, organized by category"
               >
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {regularPosts.map((post) => {
                     const isRecent =
                       isMounted &&
@@ -891,7 +891,7 @@ export default function FeedPage() {
             )}
           </div>
 
-          <aside className="hidden w-72 shrink-0 xl:block">
+          <aside className="hidden w-72 shrink-0 2xl:block">
             <CommunitySidebar
               totalNeighbors={feedSummary?.total_neighbors}
               posts={posts}

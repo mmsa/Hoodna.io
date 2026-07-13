@@ -152,7 +152,7 @@ export function PostCard({
       id={`post-${post.id}`}
       tabIndex={-1}
       className={cn(
-        "eljiran-card scroll-mt-24 border-l-[4px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "eljiran-card scroll-mt-24 border-l-[4px] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.07)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         categoryAccentClass(post.category)
       )}
     >
