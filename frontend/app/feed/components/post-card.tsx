@@ -153,6 +153,8 @@ export function PostCard({
       tabIndex={-1}
       className={cn(
         "eljiran-card scroll-mt-24 border-l-[4px] transition-shadow duration-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.07)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        post.category === "ALERT" && "bg-red-50/65",
+        post.category === "ANNOUNCEMENT" && "bg-emerald-50/45",
         categoryAccentClass(post.category)
       )}
     >

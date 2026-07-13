@@ -106,7 +106,7 @@ const CATEGORY_ACCENTS: Record<string, string> = {
   MARKETPLACE: "border-l-emerald-500",
   ANNOUNCEMENT: "border-l-amber-400",
   ALERT: "border-l-destructive",
-  DISCUSSION: "border-l-violet-400",
+  DISCUSSION: "border-l-primary",
 }
 
 const CATEGORY_BADGES: Record<string, string> = {
@@ -117,7 +117,7 @@ const CATEGORY_BADGES: Record<string, string> = {
   MARKETPLACE: "bg-emerald-50 text-emerald-800",
   ANNOUNCEMENT: "bg-amber-50 text-amber-900",
   ALERT: "bg-destructive/10 text-destructive",
-  DISCUSSION: "bg-violet-50 text-violet-800",
+  DISCUSSION: "bg-primary/10 text-primary",
 }
 
 export function categoryAccentClass(category?: string) {

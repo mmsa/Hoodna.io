@@ -1,11 +1,9 @@
-import { useRouter } from "expo-router";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { StyleSheet, Text, View } from "react-native";
 import type { ApiClient } from "@hoodna/shared";
+import { Ionicons } from "@expo/vector-icons";
 
 import { SignedImage } from "@/components/signed-image";
-import { Button } from "@/components/ui";
-import { colors } from "@/constants/colors";
 import { formatCompoundWithArea } from "@/utils/formatCompound";
 
 interface CompoundHeroProps {
@@ -13,6 +11,9 @@ interface CompoundHeroProps {
   compoundArea?: string | null;
   heroImageUrl?: string | null;
   apiClient?: ApiClient;
+  totalNeighbors?: number;
+  recentPosts?: number;
+  recentListings?: number;
 }
 
 export function CompoundHero({
@@ -20,13 +21,21 @@ export function CompoundHero({
   compoundArea,
   heroImageUrl,
   apiClient,
+  totalNeighbors = 0,
+  recentPosts = 0,
+  recentListings = 0,
 }: CompoundHeroProps) {
-  const router = useRouter();
   const title = formatCompoundWithArea(compoundName, compoundArea);
+  const stats = [
+    { icon: "people" as const, value: totalNeighbors, label: "Neighbours" },
+    { icon: "chatbubbles" as const, value: recentPosts, label: "Posts" },
+    { icon: "storefront" as const, value: recentListings, label: "Listings" },
+  ];
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.media}>
+      <View style={styles.compoundRow}>
+        <View style={styles.media}>
         {heroImageUrl ? (
           <SignedImage
             apiClient={apiClient}
@@ -35,28 +44,32 @@ export function CompoundHero({
             style={styles.image}
           />
         ) : (
-          <View style={[styles.image, styles.placeholder]} />
+            <View style={[styles.image, styles.placeholder]}>
+              <Ionicons name="business" size={28} color={palette.primary} />
+            </View>
         )}
-        <View style={styles.overlay} />
+        </View>
+
         <View style={styles.content}>
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>{title}</Text>
-          </View>
-          <Text accessibilityRole="header" style={styles.title}>
+          <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
             {compoundName}
           </Text>
-          <Text style={styles.subtitle}>
-            Community updates, help requests, and news from verified neighbours.
-          </Text>
-          <Button
-            onPress={() => router.push("/(tabs)/market")}
-            size="small"
-            variant="accent"
-            style={styles.cta}
-          >
-            Browse marketplace
-          </Button>
+          <Text numberOfLines={1} style={styles.subtitle}>{title}</Text>
+          <View style={styles.verified}>
+            <Ionicons name="shield-checkmark" size={13} color={palette.primary} />
+            <Text style={styles.verifiedText}>Verified community</Text>
+          </View>
         </View>
+      </View>
+
+      <View style={styles.stats}>
+        {stats.map((stat) => (
+          <View key={stat.label} style={styles.stat}>
+            <Ionicons name={stat.icon} size={16} color={palette.primary} />
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -70,62 +83,89 @@ const styles = StyleSheet.create({
     borderRadius: radii.large,
     overflow: "hidden",
     backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
     shadowColor: palette.ink,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 2,
   },
+  compoundRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[3],
+    padding: spacing[3],
+  },
   media: {
-    position: "relative",
-    minHeight: 168,
+    width: 92,
+    height: 72,
+    borderRadius: radii.medium,
+    overflow: "hidden",
     backgroundColor: palette.primarySoft,
   },
   image: {
-    ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeholder: {
     backgroundColor: palette.primarySoft,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(21, 128, 116, 0.72)",
-  },
   content: {
-    padding: spacing[4],
-    paddingTop: spacing[8],
-    justifyContent: "flex-end",
-    minHeight: 168,
-  },
-  chip: {
-    alignSelf: "flex-start",
-    borderRadius: radii.full,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: spacing[3],
-    paddingVertical: 6,
-    marginBottom: spacing[2],
-  },
-  chipText: {
-    color: palette.onPrimary,
-    fontSize: typography.size.caption,
-    fontWeight: typography.weight.semibold,
+    flex: 1,
+    minWidth: 0,
   },
   title: {
-    color: palette.onPrimary,
-    fontSize: typography.size.title,
-    lineHeight: typography.lineHeight.title,
+    color: palette.ink,
+    fontSize: typography.size.titleSmall,
+    lineHeight: typography.lineHeight.titleSmall,
     fontWeight: typography.weight.bold,
   },
   subtitle: {
-    marginTop: spacing[1],
-    color: "rgba(255,255,255,0.92)",
-    fontSize: typography.size.bodySmall,
-    lineHeight: typography.lineHeight.bodySmall,
+    marginTop: 2,
+    color: palette.inkMuted,
+    fontSize: typography.size.caption,
   },
-  cta: {
-    marginTop: spacing[3],
+  verified: {
+    marginTop: spacing[2],
     alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: radii.full,
+    backgroundColor: palette.primarySoft,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 4,
+  },
+  verifiedText: {
+    color: palette.primary,
+    fontSize: 10,
+    fontWeight: typography.weight.semibold,
+  },
+  stats: {
+    flexDirection: "row",
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingBottom: spacing[3],
+  },
+  stat: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: radii.medium,
+    backgroundColor: palette.canvas,
+    paddingVertical: spacing[2],
+  },
+  statValue: {
+    marginTop: 3,
+    color: palette.ink,
+    fontSize: typography.size.bodySmall,
+    fontWeight: typography.weight.bold,
+  },
+  statLabel: {
+    marginTop: 1,
+    color: palette.inkMuted,
+    fontSize: 9,
   },
 });

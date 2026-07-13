@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 
 import { DesktopNavSidebar } from "@/components/desktop-nav-sidebar"
+import { useAuth } from "@/hooks/use-auth"
 
 const HIDDEN_PREFIXES = ["/auth"]
 
@@ -13,8 +14,9 @@ function shouldShowSidebar(pathname: string | null) {
 
 export function AppContentLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { isAuthenticated, isLoading } = useAuth()
 
-  if (!shouldShowSidebar(pathname)) {
+  if (!shouldShowSidebar(pathname) || isLoading || !isAuthenticated) {
     return <div className="eljiran-shell px-4 sm:px-6">{children}</div>
   }
 

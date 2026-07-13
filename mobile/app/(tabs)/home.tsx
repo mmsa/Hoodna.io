@@ -589,6 +589,11 @@ export default function HomeScreen() {
   const [compoundName, setCompoundName] = useState<string | null>(null);
   const [compoundArea, setCompoundArea] = useState<string | null>(null);
   const [compoundHeroUrl, setCompoundHeroUrl] = useState<string | null>(null);
+  const [communityStats, setCommunityStats] = useState({
+    neighbours: 0,
+    posts: 0,
+    listings: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -612,6 +617,11 @@ export default function HomeScreen() {
         setCompoundName(summary.compound_name);
         setCompoundArea(summary.compound_area);
         setCompoundHeroUrl(summary.compound_hero_image_url ?? null);
+        setCommunityStats({
+          neighbours: summary.total_neighbors,
+          posts: summary.recent_posts_count,
+          listings: summary.recent_listings_count,
+        });
       } catch (error) {
         console.error("Failed to load feed summary:", error);
       }
@@ -970,6 +980,9 @@ export default function HomeScreen() {
                 compoundArea={compoundArea}
                 compoundName={compoundName}
                 heroImageUrl={compoundHeroUrl}
+                totalNeighbors={communityStats.neighbours}
+                recentPosts={communityStats.posts}
+                recentListings={communityStats.listings}
               />
             ) : null}
 
@@ -1421,6 +1434,32 @@ export default function HomeScreen() {
         }
         contentContainerStyle={{ paddingTop: 0, paddingBottom: 20 }}
       />
+      {canPost ? (
+        <TouchableOpacity
+          accessibilityLabel="Create a post"
+          accessibilityRole="button"
+          activeOpacity={0.85}
+          onPress={() => router.push("/create-post")}
+          style={{
+            position: "absolute",
+            right: spacing[5],
+            bottom: spacing[5],
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.accent,
+            shadowColor: colors.textMain,
+            shadowOffset: { width: 0, height: 5 },
+            shadowOpacity: 0.22,
+            shadowRadius: 10,
+            elevation: 7,
+          }}
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      ) : null}
     </SafeAreaView>
   );
 }

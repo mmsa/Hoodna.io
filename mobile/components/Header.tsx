@@ -150,7 +150,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         {/* Back Button */}
         {showBackButton && (
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color={colors.textMain} />
+            <Ionicons name="arrow-back" size={24} color={palette.onPrimary} />
           </TouchableOpacity>
         )}
 
@@ -183,7 +183,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 onPress={openCompoundSwitcher}
                 activeOpacity={0.7}
               >
-                <Ionicons name="home" size={10} color={colors.primary} />
+                <Ionicons name="home" size={10} color={palette.onPrimary} />
                 <Text
                   style={styles.compoundTextInline}
                   numberOfLines={1}
@@ -191,7 +191,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 >
                   {formatCompoundName(compound.name)}
                 </Text>
-                <Ionicons name="chevron-down" size={10} color={colors.primary} />
+                <Ionicons name="chevron-down" size={10} color={palette.onPrimary} />
               </TouchableOpacity>
             )}
           </View>
@@ -207,11 +207,11 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
                 onPress={openCompoundSwitcher}
                 activeOpacity={0.7}
               >
-                <Ionicons name="home" size={12} color={colors.primary} />
+                <Ionicons name="home" size={12} color={palette.onPrimary} />
                 <Text style={styles.compoundText} numberOfLines={1} ellipsizeMode="tail">
                   {formatCompoundName(compound.name)}
                 </Text>
-                <Ionicons name="chevron-down" size={12} color={colors.primary} />
+                <Ionicons name="chevron-down" size={12} color={palette.onPrimary} />
               </TouchableOpacity>
             )}
           </View>
@@ -226,7 +226,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
             accessibilityRole="button"
             accessibilityLabel="Search"
           >
-            <Ionicons name="search" size={22} color={colors.textMain} />
+            <Ionicons name="search" size={22} color={palette.onPrimary} />
           </TouchableOpacity>
 
           {/* Right Action */}
@@ -257,6 +257,19 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
           )}
         </View>
       </View>
+
+      {showLogoOnly ? (
+        <TouchableOpacity
+          accessibilityLabel="Search neighbours, posts, and services"
+          activeOpacity={0.8}
+          onPress={() => router.push("/search")}
+          style={styles.searchBar}
+        >
+          <Ionicons name="search" size={16} color="rgba(255,255,255,0.65)" />
+          <Text style={styles.searchPlaceholder}>Search neighbours, posts, services…</Text>
+          <Ionicons name="options-outline" size={16} color="rgba(255,255,255,0.65)" />
+        </TouchableOpacity>
+      ) : null}
 
       {/* Compound Switcher Modal */}
       <Modal
@@ -364,9 +377,9 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: palette.surface,
+    backgroundColor: "#07534F",
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: "rgba(255,255,255,0.12)",
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[2],
   },
@@ -414,7 +427,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: typography.size.titleSmall,
     fontWeight: typography.weight.bold,
-    color: colors.text,
+    color: palette.onPrimary,
     letterSpacing: -0.3,
   },
   logoTextCompact: {
@@ -423,7 +436,7 @@ const styles = StyleSheet.create({
   logoDomain: {
     fontSize: 20,
     fontWeight: "700",
-    color: colors.primary,
+    color: palette.onPrimary,
     letterSpacing: -0.3,
   },
   logoDomainCompact: {
@@ -433,7 +446,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.backgroundWhite,
+    backgroundColor: "rgba(255,255,255,0.12)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -441,12 +454,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
     maxWidth: 150,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(255,255,255,0.16)",
   },
   compoundTextInline: {
     fontSize: 11,
     fontWeight: "500",
-    color: colors.primary,
+    color: palette.onPrimary,
     flexShrink: 1,
   },
   titleContainer: {
@@ -459,13 +472,13 @@ const styles = StyleSheet.create({
     fontSize: typography.size.title,
     lineHeight: typography.lineHeight.title,
     fontWeight: typography.weight.semibold,
-    color: colors.text,
+    color: palette.onPrimary,
   },
   compoundBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: "rgba(255,255,255,0.12)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -475,7 +488,7 @@ const styles = StyleSheet.create({
   compoundText: {
     fontSize: 12,
     fontWeight: "500",
-    color: colors.primary,
+    color: palette.onPrimary,
     flexShrink: 1,
   },
   actionsSection: {
@@ -492,8 +505,23 @@ const styles = StyleSheet.create({
     marginRight: spacing[1],
     flexShrink: 0,
   },
+  searchBar: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    marginTop: spacing[2],
+    borderRadius: radii.medium,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: spacing[3],
+  },
+  searchPlaceholder: {
+    flex: 1,
+    color: "rgba(255,255,255,0.68)",
+    fontSize: typography.size.caption,
+  },
   rightButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: palette.accent,
     paddingHorizontal: 16,
     minHeight: touchTarget,
     borderRadius: radii.medium,

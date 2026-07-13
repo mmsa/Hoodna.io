@@ -491,6 +491,9 @@ export default function FeedPage() {
                 compoundName={feedSummary.compound_name}
                 compoundArea={feedSummary.compound_area}
                 heroImageUrl={feedSummary.compound_hero_image_url}
+                totalNeighbors={feedSummary.total_neighbors}
+                recentPostsCount={feedSummary.recent_posts_count}
+                recentListingsCount={feedSummary.recent_listings_count}
               />
             )}
 
@@ -891,9 +894,11 @@ export default function FeedPage() {
             )}
           </div>
 
-          <aside className="hidden w-72 shrink-0 2xl:block">
+          <aside className="hidden w-72 shrink-0 xl:block">
             <CommunitySidebar
               totalNeighbors={feedSummary?.total_neighbors}
+              recentPosts={feedSummary?.recent_posts_count}
+              recentListings={feedSummary?.recent_listings_count}
               posts={posts}
             />
           </aside>
