@@ -4,7 +4,7 @@ import type { ApiClient } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
 
 import { SignedImage } from "@/components/signed-image";
-import { formatCompoundWithArea } from "@/utils/formatCompound";
+import { formatCompoundName } from "@/utils/formatCompound";
 
 interface CompoundHeroProps {
   compoundName: string;
@@ -25,7 +25,6 @@ export function CompoundHero({
   recentPosts = 0,
   recentListings = 0,
 }: CompoundHeroProps) {
-  const title = formatCompoundWithArea(compoundName, compoundArea);
   const stats = [
     { icon: "people" as const, value: totalNeighbors, label: "Neighbours" },
     { icon: "chatbubbles" as const, value: recentPosts, label: "Posts" },
@@ -51,10 +50,12 @@ export function CompoundHero({
         </View>
 
         <View style={styles.content}>
-          <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
-            {compoundName}
+          <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
+            {formatCompoundName(compoundName)}
           </Text>
-          <Text numberOfLines={1} style={styles.subtitle}>{title}</Text>
+          <Text numberOfLines={1} style={styles.subtitle}>
+            {compoundArea || "Your verified neighbourhood"}
+          </Text>
           <View style={styles.verified}>
             <Ionicons name="shield-checkmark" size={13} color={palette.primary} />
             <Text style={styles.verifiedText}>Verified community</Text>
@@ -98,8 +99,8 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   media: {
-    width: 92,
-    height: 72,
+    width: 112,
+    height: 84,
     borderRadius: radii.medium,
     overflow: "hidden",
     backgroundColor: palette.primarySoft,
