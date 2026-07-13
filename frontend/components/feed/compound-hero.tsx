@@ -43,27 +43,26 @@ export function CompoundHero({
 
   return (
     <section className="eljiran-card mb-5 overflow-hidden border-border/70 bg-card p-3 sm:p-4">
-      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-[14px] bg-primary/10 sm:h-28 sm:w-40">
-            {heroImageUrl ? (
-              <SignedFileImage
-                fileUrl={heroImageUrl}
-                alt={`${compoundName} neighbourhood`}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <Image
-                src="/icon_light.jpg"
-                alt=""
-                fill
-                className="object-cover opacity-25"
-                priority
-              />
-            )}
-            <div className="absolute inset-0 ring-1 ring-inset ring-black/5" />
-          </div>
+      <div className="relative min-h-[150px] overflow-hidden rounded-[14px] bg-primary/5">
+        {heroImageUrl ? (
+          <SignedFileImage
+            fileUrl={heroImageUrl}
+            alt={`${compoundName} neighbourhood`}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <Image
+            src="/icon_light.jpg"
+            alt=""
+            fill
+            className="object-cover opacity-20"
+            priority
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-r from-card/82 via-card/62 to-card/15" />
 
-          <div className="min-w-0 flex-1 py-1">
+        <div className="relative flex min-h-[150px] max-w-[78%] items-center p-4 sm:max-w-[68%] sm:p-5">
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-primary">
               <ShieldCheck className="h-3.5 w-3.5" />
               Verified compound
@@ -83,6 +82,7 @@ export function CompoundHero({
               </Button>
             </div>
           </div>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">

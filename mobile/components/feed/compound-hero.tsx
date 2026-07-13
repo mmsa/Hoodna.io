@@ -34,20 +34,19 @@ export function CompoundHero({
   return (
     <View style={styles.wrap}>
       <View style={styles.compoundRow}>
-        <View style={styles.media}>
         {heroImageUrl ? (
           <SignedImage
             apiClient={apiClient}
             fileUrl={heroImageUrl}
             resizeMode="cover"
-            style={styles.image}
+            style={styles.backgroundImage}
           />
         ) : (
-            <View style={[styles.image, styles.placeholder]}>
-              <Ionicons name="business" size={28} color={palette.primary} />
-            </View>
+          <View style={styles.placeholder}>
+            <Ionicons name="business" size={36} color={palette.primary} />
+          </View>
         )}
-        </View>
+        <View style={styles.fade} />
 
         <View style={styles.content}>
           <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
@@ -93,41 +92,51 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   compoundRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[3],
-    padding: spacing[3],
-  },
-  media: {
-    width: 112,
-    height: 84,
+    position: "relative",
+    minHeight: 136,
     borderRadius: radii.medium,
     overflow: "hidden",
     backgroundColor: palette.primarySoft,
   },
-  image: {
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
   },
   placeholder: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: palette.primarySoft,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    paddingRight: spacing[6],
+  },
+  fade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(249,248,241,0.5)",
   },
   content: {
-    flex: 1,
-    minWidth: 0,
+    position: "relative",
+    width: "78%",
+    minHeight: 136,
+    justifyContent: "center",
+    padding: spacing[4],
   },
   title: {
     color: palette.ink,
     fontSize: typography.size.titleSmall,
     lineHeight: typography.lineHeight.titleSmall,
     fontWeight: typography.weight.bold,
+    textShadowColor: "rgba(255,255,255,0.95)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
   subtitle: {
     marginTop: 2,
     color: palette.inkMuted,
     fontSize: typography.size.caption,
+    textShadowColor: "rgba(255,255,255,0.95)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   verified: {
     marginTop: spacing[2],
