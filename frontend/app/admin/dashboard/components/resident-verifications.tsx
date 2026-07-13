@@ -285,7 +285,7 @@ export default function ResidentVerifications() {
                     doc.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
                     doc.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                     doc.status === 'REQUEST_MORE_DETAILS' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-blue-100 text-blue-800'
+                    'bg-secondary text-primary'
                   }`}>
                     {doc.status}
                   </span>
@@ -325,7 +325,7 @@ export default function ResidentVerifications() {
                 </div>
 
                 {doc.status !== 'PENDING' && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-900">
+                  <div className="p-3 bg-secondary border border-border rounded text-sm text-primary">
                     AI or system set this to <strong>{doc.status.replace(/_/g, ' ')}</strong>.
                     Use the actions below to override.
                   </div>

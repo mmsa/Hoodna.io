@@ -155,15 +155,15 @@ export default function ModeratorOnboardingScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F5F3FF" }}>
-        <ActivityIndicator size="large" color="#9333EA" />
+      <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F9F8F1" }}>
+        <ActivityIndicator size="large" color="#158074" />
         <Text style={{ marginTop: 12, color: colors.textSecondary }}>Loading moderator profile...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F3FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       <View style={{ flexDirection: "row", alignItems: "center", padding: 16, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
         <TouchableOpacity onPress={() => step ? setStep(step - 1) : router.back()} hitSlop={10}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -173,13 +173,13 @@ export default function ModeratorOnboardingScreen() {
         </Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-        <Text style={{ color: "#9333EA", fontWeight: "700", marginBottom: 6 }}>
+        <Text style={{ color: "#158074", fontWeight: "700", marginBottom: 6 }}>
           Step {step + 1} of {STEPS.length}
         </Text>
         <Text style={{ fontSize: 25, fontWeight: "700", color: colors.text, marginBottom: 18 }}>{STEPS[step]}</Text>
         <View style={{ flexDirection: "row", gap: 6, marginBottom: 24 }}>
           {STEPS.map((_, index) => (
-            <View key={index} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: index <= step ? "#9333EA" : "#D1D5DB" }} />
+            <View key={index} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: index <= step ? "#158074" : "#D1D5DB" }} />
           ))}
         </View>
 
@@ -236,11 +236,11 @@ function Field(props: ComponentProps<typeof TextInput> & { label: string }) {
 }
 
 function Option({ title, subtitle, selected, onPress }: { title: string; subtitle?: string; selected: boolean; onPress: () => void }) {
-  return <TouchableOpacity onPress={onPress} style={[cardStyle, { flexDirection: "row", alignItems: "center", borderColor: selected ? "#9333EA" : "#E5E7EB", borderWidth: selected ? 2 : 1, marginBottom: 10 }]}><View style={{ flex: 1 }}><Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{title}</Text>{subtitle ? <Text style={{ color: colors.textSecondary, marginTop: 3 }}>{subtitle}</Text> : null}</View><Ionicons name={selected ? "checkmark-circle" : "ellipse-outline"} size={24} color={selected ? "#9333EA" : "#9CA3AF"} /></TouchableOpacity>;
+  return <TouchableOpacity onPress={onPress} style={[cardStyle, { flexDirection: "row", alignItems: "center", borderColor: selected ? "#158074" : "#E5E7EB", borderWidth: selected ? 2 : 1, marginBottom: 10 }]}><View style={{ flex: 1 }}><Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{title}</Text>{subtitle ? <Text style={{ color: colors.textSecondary, marginTop: 3 }}>{subtitle}</Text> : null}</View><Ionicons name={selected ? "checkmark-circle" : "ellipse-outline"} size={24} color={selected ? "#158074" : "#9CA3AF"} /></TouchableOpacity>;
 }
 
 function DocumentButton({ title, done, loading, onPress }: { title: string; done: boolean; loading: boolean; onPress: () => void }) {
-  return <TouchableOpacity onPress={onPress} disabled={loading} style={[cardStyle, { flexDirection: "row", alignItems: "center", marginBottom: 12 }]}>{loading ? <ActivityIndicator color="#9333EA" /> : <Ionicons name={done ? "checkmark-circle" : "cloud-upload-outline"} size={26} color={done ? "#10B981" : "#9333EA"} />}<View style={{ marginLeft: 12, flex: 1 }}><Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{title}</Text><Text style={{ color: done ? "#059669" : colors.textSecondary, marginTop: 3 }}>{done ? "Uploaded — tap to replace" : "Choose image or PDF"}</Text></View></TouchableOpacity>;
+  return <TouchableOpacity onPress={onPress} disabled={loading} style={[cardStyle, { flexDirection: "row", alignItems: "center", marginBottom: 12 }]}>{loading ? <ActivityIndicator color="#158074" /> : <Ionicons name={done ? "checkmark-circle" : "cloud-upload-outline"} size={26} color={done ? "#10B981" : "#158074"} />}<View style={{ marginLeft: 12, flex: 1 }}><Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{title}</Text><Text style={{ color: done ? "#059669" : colors.textSecondary, marginTop: 3 }}>{done ? "Uploaded — tap to replace" : "Choose image or PDF"}</Text></View></TouchableOpacity>;
 }
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
@@ -249,4 +249,4 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 
 const labelStyle = { fontSize: 14, fontWeight: "600" as const, color: colors.text, marginBottom: 8 };
 const cardStyle = { backgroundColor: "#FFFFFF", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#E5E7EB" };
-const primaryButtonStyle = { backgroundColor: "#9333EA", borderRadius: 14, paddingVertical: 16, alignItems: "center" as const, marginTop: 24 };
+const primaryButtonStyle = { backgroundColor: "#158074", borderRadius: 14, paddingVertical: 16, alignItems: "center" as const, marginTop: 24 };

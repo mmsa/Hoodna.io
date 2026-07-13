@@ -194,7 +194,7 @@ export default function ProviderOnboardingScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       <Header title="Service Provider Onboarding" onBack={() => step ? setStep(step - 1) : router.back()} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         <Text style={{ color: colors.primary, fontWeight: "700", marginBottom: 6 }}>
@@ -279,7 +279,7 @@ export default function ProviderOnboardingScreen() {
 }
 
 function Loading({ label }: { label: string }) {
-  return <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#EFF6FF" }}><ActivityIndicator size="large" color={colors.primary} /><Text style={{ marginTop: 12, color: colors.textSecondary }}>{label}</Text></SafeAreaView>;
+  return <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F9F8F1" }}><ActivityIndicator size="large" color={colors.primary} /><Text style={{ marginTop: 12, color: colors.textSecondary }}>{label}</Text></SafeAreaView>;
 }
 
 function Header({ title, onBack }: { title: string; onBack: () => void }) {

@@ -89,8 +89,8 @@ export default function VerificationPendingScreen() {
 
   if (authLoading || loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#158074" />
         <Text style={{ marginTop: 16, color: "#6B7280" }}>Checking verification status...</Text>
       </SafeAreaView>
     );
@@ -101,7 +101,7 @@ export default function VerificationPendingScreen() {
     isRejected || verificationDocumentsNeedReupload(status) || !hasDocs;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
       <ScrollView
         contentContainerStyle={{ padding: 24, flexGrow: 1 }}
         refreshControl={
@@ -178,13 +178,13 @@ export default function VerificationPendingScreen() {
 
         <View
           style={{
-            backgroundColor: isRejected ? "#FEE2E2" : "#DBEAFE",
+            backgroundColor: isRejected ? "#FEE2E2" : "#E6F3F1",
             borderRadius: 12,
             padding: 16,
             marginBottom: 24,
           }}
         >
-          <Text style={{ fontSize: 14, color: isRejected ? "#991B1B" : "#1E40AF", textAlign: "center" }}>
+          <Text style={{ fontSize: 14, color: isRejected ? "#991B1B" : "#106B60", textAlign: "center" }}>
             {isRejected
               ? "Pull to refresh after re-submitting, or tap below to upload again."
               : "This usually takes a short time. Pull down to refresh status."}
@@ -194,7 +194,7 @@ export default function VerificationPendingScreen() {
         {canReupload && (
           <TouchableOpacity
             style={{
-              backgroundColor: "#3B82F6",
+              backgroundColor: "#158074",
               borderRadius: 12,
               paddingVertical: 16,
               alignItems: "center",

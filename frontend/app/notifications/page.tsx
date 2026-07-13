@@ -95,10 +95,10 @@ function getNotificationColor(type: string) {
       return "text-yellow-600 bg-yellow-50 border-yellow-200";
     case "MESSAGE":
     case "COMMENT":
-      return "text-blue-600 bg-blue-50 border-blue-200";
+      return "text-primary bg-secondary border-border";
     case "LISTING_INQUIRY":
     case "LISTING_SAVED":
-      return "text-purple-600 bg-purple-50 border-purple-200";
+      return "text-primary bg-secondary border-border";
     case "POST_LIKE":
       return "text-pink-600 bg-pink-50 border-pink-200";
     case "MENTION":
@@ -198,7 +198,7 @@ export default function NotificationsPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-gray-600">Please sign in to view notifications</p>
         </div>
@@ -207,14 +207,14 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
+    <div className="min-h-screen bg-background px-4 py-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4 shadow-lg">
             <Bell className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Notifications
           </h1>
           <p className="text-gray-600">
@@ -233,7 +233,7 @@ export default function NotificationsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Unread</p>
-                  <p className="text-2xl font-bold text-blue-600">{unreadCount}</p>
+                  <p className="text-2xl font-bold text-primary">{unreadCount}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function NotificationsPage() {
         {isLoading ? (
           <Card className="shadow-lg">
             <CardContent className="p-12 text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
               <p className="text-gray-600">Loading notifications...</p>
             </CardContent>
           </Card>
@@ -309,7 +309,7 @@ export default function NotificationsPage() {
                 <Card
                   key={notification.id}
                   className={`shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer ${
-                    !notification.read ? "border-l-4 border-l-blue-500 bg-blue-50/30" : ""
+                    !notification.read ? "border-l-4 border-l-primary bg-secondary/30" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
@@ -332,7 +332,7 @@ export default function NotificationsPage() {
                                 {notification.title}
                               </h3>
                               {!notification.read && (
-                                <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                               )}
                             </div>
                             <p className="text-sm text-gray-600 mb-2">

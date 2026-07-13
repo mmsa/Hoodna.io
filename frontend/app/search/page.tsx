@@ -108,9 +108,9 @@ export default function SearchPage() {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'post':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
+        return 'bg-secondary text-primary border-border'
       case 'listing':
-        return 'bg-purple-100 text-purple-800 border-purple-200'
+        return 'bg-secondary text-primary border-border'
       case 'service':
         return 'bg-green-100 text-green-800 border-green-200'
       case 'business':
@@ -224,7 +224,7 @@ export default function SearchPage() {
                   const IconComponent = getTypeIcon(result.type)
                   return (
                     <Link key={`${result.type}-${result.id}`} href={getResultUrl(result)} onClick={() => track('search_result_opened', { entity_type: result.type, entity_id: result.id, source_screen: 'global_search' })}>
-                      <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-blue-300">
+                      <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-primary/30">
                         <CardContent className="p-5">
                           <div className="flex items-start gap-4">
                             {/* Icon */}
@@ -308,8 +308,8 @@ export default function SearchPage() {
                 Search across posts, marketplace items, and services in your compound
               </p>
               <div className="flex flex-wrap justify-center gap-2">
-                <Badge className="bg-blue-100 text-blue-800">Posts</Badge>
-                <Badge className="bg-purple-100 text-purple-800">Marketplace</Badge>
+                <Badge className="bg-secondary text-primary">Posts</Badge>
+                <Badge className="bg-secondary text-primary">Marketplace</Badge>
                 <Badge className="bg-green-100 text-green-800">Services</Badge>
               </div>
             </CardContent>

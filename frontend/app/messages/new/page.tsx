@@ -74,7 +74,7 @@ export default function NewMessagePage() {
 
   if (!recipientId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="p-8 text-center shadow-lg">
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Invalid Request</h1>
           <p className="text-gray-600 mb-6">
@@ -89,7 +89,7 @@ export default function NewMessagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
+    <div className="min-h-screen bg-background px-4 py-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href={listingId ? `/listing/${listingId}` : '/marketplace'}>
           <Button variant="ghost" className="mb-4">
@@ -101,7 +101,7 @@ export default function NewMessagePage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-blue-600" />
+              <MessageCircle className="w-5 h-5 text-primary" />
               New Message
             </CardTitle>
           </CardHeader>
@@ -125,7 +125,7 @@ export default function NewMessagePage() {
               <Button
                 onClick={handleSend}
                 disabled={sendMessageMutation.isPending || !messageContent.trim()}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                className="bg-primary "
               >
                 {sendMessageMutation.isPending ? (
                   <>

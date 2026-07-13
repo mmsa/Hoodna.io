@@ -59,7 +59,7 @@ export default function BusinessesPage() {
 
         {businesses.isLoading ? (
           <div className="py-16 text-center" role="status">
-            <Loader2 className="mx-auto h-8 w-8 animate-spin text-purple-600" />
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
             <span className="sr-only">Loading businesses</span>
           </div>
         ) : businesses.isError ? (
@@ -86,8 +86,8 @@ export default function BusinessesPage() {
                   {business.image_url ? (
                     <img src={business.image_url} alt="" className="h-36 w-full rounded-t-lg object-cover" />
                   ) : (
-                    <div className="flex h-36 items-center justify-center rounded-t-lg bg-purple-50">
-                      <Building2 className="h-10 w-10 text-purple-400" />
+                    <div className="flex h-36 items-center justify-center rounded-t-lg bg-secondary">
+                      <Building2 className="h-10 w-10 text-primary/50" />
                     </div>
                   )}
                   <CardContent className="space-y-2 p-4">

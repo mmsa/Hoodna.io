@@ -12,9 +12,9 @@ const POST_CATEGORIES = [
   { value: "GENERAL", label: "General", icon: "💬", color: "#6B7280" },
   { value: "HELP", label: "Help", icon: "🆘", color: "#F59E0B" },
   { value: "LOST_FOUND", label: "Lost & Found", icon: "🔍", color: "#EC4899" },
-  { value: "EVENT", label: "Event", icon: "📅", color: "#6366F1" },
+  { value: "EVENT", label: "Event", icon: "📅", color: "#158074" },
   { value: "MARKETPLACE", label: "Marketplace", icon: "🛒", color: "#10B981" },
-  { value: "DISCUSSION", label: "Discussion", icon: "💭", color: "#8B5CF6" },
+  { value: "DISCUSSION", label: "Discussion", icon: "💭", color: "#707070" },
   { value: "ALERT", label: "Alert", icon: "⚠️", color: "#EF4444" },
 ];
 
@@ -69,7 +69,7 @@ export default function CreatePostScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -211,7 +211,7 @@ export default function CreatePostScreen() {
 
           <TouchableOpacity
             style={{
-              backgroundColor: "#3B82F6",
+              backgroundColor: "#158074",
               borderRadius: 12,
               paddingVertical: 16,
               alignItems: "center",

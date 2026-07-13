@@ -90,7 +90,7 @@ export default function CompoundSelectScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }} edges={["top"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F8F1' }} edges={["top"]}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted }}>
@@ -102,7 +102,7 @@ export default function CompoundSelectScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F8F1' }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{

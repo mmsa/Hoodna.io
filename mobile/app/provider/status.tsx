@@ -87,7 +87,7 @@ export default function ProviderStatusScreen() {
 
   if (authLoading || loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ marginTop: 16, color: colors.textSecondary }}>Loading status...</Text>
       </SafeAreaView>
@@ -98,16 +98,16 @@ export default function ProviderStatusScreen() {
     profile?.provider_status === "APPROVED" ? "#10B981" :
     profile?.provider_status === "REJECTED" ? "#EF4444" :
     profile?.provider_status === "SUSPENDED" ? "#F59E0B" :
-    "#3B82F6";
+    "#158074";
 
   const statusBgColor = 
     profile?.provider_status === "APPROVED" ? "#D1FAE5" :
     profile?.provider_status === "REJECTED" ? "#FEE2E2" :
     profile?.provider_status === "SUSPENDED" ? "#FEF3C7" :
-    "#DBEAFE";
+    "#E6F3F1";
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={{ alignItems: "center", marginBottom: 32 }}>
           <View
@@ -115,7 +115,7 @@ export default function ProviderStatusScreen() {
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: "#DBEAFE",
+              backgroundColor: "#E6F3F1",
               justifyContent: "center",
               alignItems: "center",
               marginBottom: 16,

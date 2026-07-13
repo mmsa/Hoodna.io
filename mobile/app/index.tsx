@@ -29,7 +29,7 @@ export default function SplashScreen() {
   }, [loading, user, minSplashShown, router]);
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9F8F1' }}>
       <Image
         source={require("@/assets/icon.png")}
         style={{
@@ -39,7 +39,7 @@ export default function SplashScreen() {
           resizeMode: 'contain',
         }}
       />
-      <ActivityIndicator size="large" color="#3B82F6" />
+      <ActivityIndicator size="large" color="#158074" />
     </View>
   );
 }

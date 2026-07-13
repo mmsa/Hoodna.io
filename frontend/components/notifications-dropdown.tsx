@@ -96,10 +96,10 @@ function getNotificationColor(type: string) {
       return "text-yellow-600 bg-yellow-50";
     case "MESSAGE":
     case "COMMENT":
-      return "text-blue-600 bg-blue-50";
+      return "text-primary bg-secondary";
     case "LISTING_INQUIRY":
     case "LISTING_SAVED":
-      return "text-purple-600 bg-purple-50";
+      return "text-primary bg-secondary";
     case "POST_LIKE":
       return "text-pink-600 bg-pink-50";
     case "MENTION":
@@ -221,7 +221,7 @@ export function NotificationsDropdown() {
         className="w-96 max-h-[600px] overflow-y-auto p-0"
         ref={dropdownRef}
       >
-        <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="p-4 border-b bg-gradient-to-r from-secondary to-background">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-lg">Notifications</h3>
             {unreadCount > 0 && (
@@ -269,7 +269,7 @@ export function NotificationsDropdown() {
                 <div
                   key={notification.id}
                   className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors group ${
-                    !notification.read ? "bg-blue-50/50" : ""
+                    !notification.read ? "bg-secondary/50" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
@@ -297,7 +297,7 @@ export function NotificationsDropdown() {
                           </p>
                         </div>
                         {!notification.read && (
-                          <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1" />
+                          <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />
                         )}
                       </div>
                     </div>

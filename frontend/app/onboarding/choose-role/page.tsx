@@ -68,9 +68,9 @@ export default function ChooseRolePage() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -82,7 +82,7 @@ export default function ChooseRolePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
+    <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -98,15 +98,15 @@ export default function ChooseRolePage() {
           <Card 
             className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
               selectedRole === 'RESIDENT' 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:border-blue-300'
+                ? 'border-primary bg-secondary' 
+                : 'border-gray-200 hover:border-primary/30'
             }`}
             onClick={() => handleSelectRole('RESIDENT')}
           >
             <CardHeader>
               <div className="flex items-center justify-center mb-4">
-                <div className="p-4 bg-blue-100 rounded-full">
-                  <Building2 className="w-8 h-8 text-blue-600" />
+                <div className="p-4 bg-secondary rounded-full">
+                  <Building2 className="w-8 h-8 text-primary" />
                 </div>
               </div>
               <CardTitle className="text-center">Resident</CardTitle>
@@ -117,15 +117,15 @@ export default function ChooseRolePage() {
             <CardContent>
               <ul className="space-y-2 text-sm text-gray-600 mb-4">
                 <li className="flex items-start gap-2">
-                  <ArrowRight className="w-4 h-4 mt-0.5 text-blue-600" />
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-primary" />
                   <span>Post and comment in community feed</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <ArrowRight className="w-4 h-4 mt-0.5 text-blue-600" />
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-primary" />
                   <span>Buy and sell items in marketplace</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <ArrowRight className="w-4 h-4 mt-0.5 text-blue-600" />
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-primary" />
                   <span>Access verified community content</span>
                 </li>
               </ul>
@@ -188,15 +188,15 @@ export default function ChooseRolePage() {
           <Card 
             className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
               selectedRole === 'COMPOUND_MOD' 
-                ? 'border-purple-500 bg-purple-50' 
-                : 'border-gray-200 hover:border-purple-300'
+                ? 'border-primary bg-secondary' 
+                : 'border-gray-200 hover:border-primary/30'
             }`}
             onClick={() => handleSelectRole('COMPOUND_MOD')}
           >
             <CardHeader>
               <div className="flex items-center justify-center mb-4">
-                <div className="p-4 bg-purple-100 rounded-full">
-                  <Shield className="w-8 h-8 text-purple-600" />
+                <div className="p-4 bg-secondary rounded-full">
+                  <Shield className="w-8 h-8 text-primary" />
                 </div>
               </div>
               <CardTitle className="text-center">Compound Moderator</CardTitle>
@@ -207,15 +207,15 @@ export default function ChooseRolePage() {
             <CardContent>
               <ul className="space-y-2 text-sm text-gray-600 mb-4">
                 <li className="flex items-start gap-2">
-                  <ArrowRight className="w-4 h-4 mt-0.5 text-purple-600" />
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-primary" />
                   <span>Approve and remove posts</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <ArrowRight className="w-4 h-4 mt-0.5 text-purple-600" />
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-primary" />
                   <span>Pin announcements</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <ArrowRight className="w-4 h-4 mt-0.5 text-purple-600" />
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-primary" />
                   <span>Handle reports and moderation</span>
                 </li>
               </ul>

@@ -117,7 +117,7 @@ export function VerificationCompoundBar({
     <div className="space-y-3 mb-6">
       <div className="rounded-xl border bg-white p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
-          <Building2 className="w-4 h-4 text-blue-600" />
+          <Building2 className="w-4 h-4 text-primary" />
           {verifyingNewCompound ? 'Verifying for' : 'Neighbourhood'}
         </div>
 
@@ -129,7 +129,7 @@ export function VerificationCompoundBar({
             onValueChange={(value) => handleSwitch(Number(value))}
             disabled={switching}
           >
-            <SelectTrigger className="h-auto py-2 text-left border-blue-200 bg-blue-50/50">
+            <SelectTrigger className="h-auto py-2 text-left border-border bg-secondary/50">
               <SelectValue placeholder="Select neighbourhood">
                 <span className="font-semibold text-gray-900">
                   {displayName
@@ -137,7 +137,7 @@ export function VerificationCompoundBar({
                     : 'Select neighbourhood'}
                 </span>
               </SelectValue>
-              <ChevronDown className="h-4 w-4 text-blue-600 shrink-0" />
+              <ChevronDown className="h-4 w-4 text-primary shrink-0" />
             </SelectTrigger>
             <SelectContent>
               {compounds.map((compound) => (
@@ -181,7 +181,7 @@ export function VerificationCompoundBar({
         type="button"
         variant="ghost"
         size="sm"
-        className="text-blue-600"
+        className="text-primary"
         onClick={() => router.push('/onboarding/compound-select')}
       >
         <Plus className="w-4 h-4 mr-1" />

@@ -29,35 +29,40 @@ export default function FeaturesPage() {
       title: "Community Feed",
       description: "Share posts, connect with neighbors, and see what's happening in your compound",
       link: "/feed",
-      color: "from-blue-500 to-cyan-500",
+      color: "bg-primary",
+      iconClass: "text-primary-foreground",
     },
     {
       icon: ShoppingBag,
       title: "Marketplace",
       description: "Buy, sell, and rent items within your compound. Create listings and browse what's available",
       link: "/marketplace",
-      color: "from-green-500 to-emerald-500",
+      color: "bg-secondary",
+      iconClass: "text-primary",
     },
     {
       icon: FileText,
       title: "Verification",
       description: "Upload your ID and residency documents to get verified and access all features",
       link: "/verification",
-      color: "from-purple-500 to-pink-500",
+      color: "bg-accent",
+      iconClass: "text-accent-foreground",
     },
     {
       icon: User,
       title: "Profile",
       description: "View and edit your profile information, see your listings and posts",
       link: "/profile",
-      color: "from-orange-500 to-red-500",
+      color: "bg-secondary",
+      iconClass: "text-primary",
     },
     {
       icon: Settings,
       title: "Settings",
       description: "Manage your account settings, notifications, and preferences",
       link: "/settings",
-      color: "from-indigo-500 to-purple-500",
+      color: "bg-primary",
+      iconClass: "text-primary-foreground",
     },
   ];
 
@@ -67,19 +72,20 @@ export default function FeaturesPage() {
       title: "Admin Panel",
       description: "Review and verify user documents, manage compounds, and moderate content",
       link: "/admin/verifications",
-      color: "from-red-500 to-orange-500",
+      color: "bg-accent",
+      iconClass: "text-accent-foreground",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
+    <div className="min-h-screen bg-background px-4 py-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4 shadow-lg">
             <Users className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             All Features
           </h1>
           <p className="text-gray-600 text-lg">
@@ -93,12 +99,12 @@ export default function FeaturesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {mainFeatures.map((feature) => (
               <Link key={feature.title} href={feature.link}>
-                <Card className="h-full hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer border-2 hover:border-blue-300">
+                <Card className="h-full hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer border-2 hover:border-primary/30">
                   <CardHeader>
                     <div
-                      className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-2`}
+                      className={`mb-2 flex h-12 w-12 items-center justify-center rounded-lg ${feature.color}`}
                     >
-                      <feature.icon className="w-6 h-6 text-white" />
+                      <feature.icon className={`h-6 w-6 ${feature.iconClass}`} />
                     </div>
                     <CardTitle className="text-xl">{feature.title}</CardTitle>
                   </CardHeader>
@@ -129,9 +135,9 @@ export default function FeaturesPage() {
                   <Card className="h-full hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer border-2 border-red-200 hover:border-red-400">
                     <CardHeader>
                       <div
-                        className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-2`}
+                        className={`mb-2 flex h-12 w-12 items-center justify-center rounded-lg ${feature.color}`}
                       >
-                        <feature.icon className="w-6 h-6 text-white" />
+                        <feature.icon className={`h-6 w-6 ${feature.iconClass}`} />
                       </div>
                       <CardTitle className="text-xl">{feature.title}</CardTitle>
                     </CardHeader>
@@ -208,17 +214,17 @@ export default function FeaturesPage() {
         </div>
 
         {/* Navigation Guide */}
-        <div className="mt-12 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-6 border-2 border-blue-200">
+        <div className="mt-12 bg-gradient-to-br from-secondary to-background rounded-lg p-6 border-2 border-border">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">How to Navigate</h2>
           <div className="space-y-3 text-gray-700">
             <div className="flex items-start gap-3">
-              <Home className="w-5 h-5 text-blue-600 mt-0.5" />
+              <Home className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <strong>Header Navigation:</strong> Use the top navigation bar to quickly access Feed and Marketplace
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <User className="w-5 h-5 text-purple-600 mt-0.5" />
+              <User className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <strong>User Menu:</strong> Click your avatar (top right) to access Profile, Settings, Verification, and Admin Panel
               </div>
@@ -230,7 +236,7 @@ export default function FeaturesPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <MessageCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+              <MessageCircle className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <strong>Feed Tabs:</strong> On the Feed page, use tabs to filter between All content, Posts only, or Marketplace items
               </div>

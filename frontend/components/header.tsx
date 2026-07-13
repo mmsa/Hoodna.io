@@ -463,7 +463,8 @@ export function Header() {
             </Link>
             <Link href="/marketplace/new" onClick={() => setMobileMenuOpen(false)}>
               <Button
-                className="w-full justify-start bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                className="w-full justify-start"
+                variant="whatsapp"
               >
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Create Listing

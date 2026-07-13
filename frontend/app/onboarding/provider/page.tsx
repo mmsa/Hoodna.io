@@ -673,13 +673,13 @@ export default function ProviderOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
+    <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Show loading state while checking for existing profile */}
         {isLoadingProfile && (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-gray-600">Loading profile...</p>
             </div>
           </div>
@@ -713,7 +713,7 @@ export default function ProviderOnboardingPage() {
                       currentStep > step.id
                         ? 'bg-green-500 text-white'
                         : currentStep === step.id
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-primary text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}
                   >
@@ -951,7 +951,7 @@ function FileUpload({
             <CheckCircle className="w-5 h-5 text-green-600" />
             <span className="text-sm text-gray-700">Document uploaded</span>
           </div>
-          <SignedFileLink fileUrl={fileUrl} className="text-sm text-blue-600 hover:underline">
+          <SignedFileLink fileUrl={fileUrl} className="text-sm text-primary hover:underline">
             View
           </SignedFileLink>
         </div>

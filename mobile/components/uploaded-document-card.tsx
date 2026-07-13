@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   viewLink: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#2563EB",
+    color: "#158074",
   },
   errorText: {
     fontSize: 13,

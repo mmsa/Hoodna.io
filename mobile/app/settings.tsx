@@ -95,7 +95,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -199,7 +199,7 @@ export default function SettingsScreen() {
             {/* Save Button */}
             <TouchableOpacity
               style={{
-                backgroundColor: "#3B82F6",
+                backgroundColor: "#158074",
                 borderRadius: 12,
                 paddingVertical: 14,
                 alignItems: "center",
@@ -231,7 +231,7 @@ export default function SettingsScreen() {
                 alignItems: "center",
               }}
             >
-              <Ionicons name="people-outline" size={24} color="#3B82F6" />
+              <Ionicons name="people-outline" size={24} color="#158074" />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={{ fontSize: 17, fontWeight: "600", color: "#111827" }}>Invite neighbours</Text>
                 <Text style={{ color: "#6B7280", marginTop: 3 }}>Share your link and view invitation stats</Text>
@@ -242,7 +242,7 @@ export default function SettingsScreen() {
 
           <View style={{ backgroundColor: "#FFFFFF", borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: "#E5E7EB" }}>
             <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827", marginBottom: 8 }}>Notifications</Text>
-            {preferencesLoading ? <ActivityIndicator color="#3B82F6" /> : preferences ? (
+            {preferencesLoading ? <ActivityIndicator color="#158074" /> : preferences ? (
               ([
                 ["push_notifications", "Push notifications", "Activity and account updates"],
                 ["weekly_digest", "Weekly digest", "A summary of your neighbourhood"],

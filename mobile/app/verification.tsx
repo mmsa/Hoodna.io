@@ -281,7 +281,7 @@ export default function VerificationScreen() {
         {canUpload && (
           <TouchableOpacity
             style={{
-              backgroundColor: "#2563EB",
+              backgroundColor: "#158074",
               borderRadius: 12,
               paddingVertical: 14,
               alignItems: "center",
@@ -305,15 +305,15 @@ export default function VerificationScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#158074" />
         <Text style={{ marginTop: 16, color: "#6C757D" }}>Loading...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       {/* Header — no back into the app until verified */}
       <View
         style={{

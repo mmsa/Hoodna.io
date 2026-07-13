@@ -274,7 +274,7 @@ export default function ProfileScreen() {
         icon: "settings" as const,
         title: "Settings",
         description: "Update your account information and phone number.",
-        color: "#4F46E5",
+        color: "#158074",
         route: "/settings",
       },
       {

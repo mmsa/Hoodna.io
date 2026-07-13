@@ -126,14 +126,14 @@ export function VerificationCompoundBar({
       >
         <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: showDropdown ? 0 : 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <Ionicons name="location" size={18} color="#2563EB" />
+            <Ionicons name="location" size={18} color="#158074" />
             <Text style={{ fontSize: 13, fontWeight: "600", color: "#6B7280", textTransform: "uppercase" }}>
               {verifyingNewCompound ? "Verifying for" : "Neighbourhood"}
             </Text>
           </View>
 
           {loading ? (
-            <ActivityIndicator color="#2563EB" style={{ alignSelf: "flex-start", marginBottom: 8 }} />
+            <ActivityIndicator color="#158074" style={{ alignSelf: "flex-start", marginBottom: 8 }} />
           ) : showDropdown ? (
             <TouchableOpacity
               onPress={() => setMenuOpen(true)}
@@ -158,9 +158,9 @@ export function VerificationCompoundBar({
                 )}
               </View>
               {switching ? (
-                <ActivityIndicator color="#2563EB" />
+                <ActivityIndicator color="#158074" />
               ) : (
-                <Ionicons name="chevron-down" size={22} color="#2563EB" />
+                <Ionicons name="chevron-down" size={22} color="#158074" />
               )}
             </TouchableOpacity>
           ) : (
@@ -189,10 +189,10 @@ export function VerificationCompoundBar({
               justifyContent: "space-between",
             }}
           >
-            <Text style={{ fontSize: 14, color: "#2563EB", fontWeight: "600" }}>
+            <Text style={{ fontSize: 14, color: "#158074", fontWeight: "600" }}>
               Switch neighbourhood ({compounds.length})
             </Text>
-            <Ionicons name="chevron-down" size={18} color="#2563EB" />
+            <Ionicons name="chevron-down" size={18} color="#158074" />
           </TouchableOpacity>
         )}
       </View>
@@ -207,8 +207,8 @@ export function VerificationCompoundBar({
           paddingVertical: 8,
         }}
       >
-        <Ionicons name="add-circle-outline" size={18} color="#2563EB" />
-        <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB" }}>
+        <Ionicons name="add-circle-outline" size={18} color="#158074" />
+        <Text style={{ fontSize: 14, fontWeight: "600", color: "#158074" }}>
           Add another neighbourhood
         </Text>
       </TouchableOpacity>
@@ -265,7 +265,7 @@ export function VerificationCompoundBar({
                       paddingVertical: 16,
                       borderBottomWidth: 1,
                       borderBottomColor: "#F3F4F6",
-                      backgroundColor: isActive ? "#EFF6FF" : "#FFFFFF",
+                      backgroundColor: isActive ? "#F9F8F1" : "#FFFFFF",
                     }}
                   >
                     <Ionicons
@@ -289,9 +289,9 @@ export function VerificationCompoundBar({
                       </Text>
                     </View>
                     {isBusy ? (
-                      <ActivityIndicator color="#2563EB" />
+                      <ActivityIndicator color="#158074" />
                     ) : isActive ? (
-                      <Ionicons name="checkmark" size={20} color="#2563EB" />
+                      <Ionicons name="checkmark" size={20} color="#158074" />
                     ) : (
                       <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                     )}
@@ -312,8 +312,8 @@ export function VerificationCompoundBar({
                     paddingVertical: 16,
                   }}
                 >
-                  <Ionicons name="add-circle-outline" size={22} color="#2563EB" />
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#2563EB" }}>
+                  <Ionicons name="add-circle-outline" size={22} color="#158074" />
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#158074" }}>
                     Add another neighbourhood
                   </Text>
                 </TouchableOpacity>

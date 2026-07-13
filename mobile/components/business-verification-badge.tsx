@@ -4,7 +4,7 @@ import type { BusinessVerificationStatus } from "@hoodna/shared";
 
 const PRESENTATION: Record<BusinessVerificationStatus, { label: string; color: string; background: string }> = {
   VERIFIED: { label: "Verified", color: "#047857", background: "#D1FAE5" },
-  CLAIMED: { label: "Claimed", color: "#1D4ED8", background: "#DBEAFE" },
+  CLAIMED: { label: "Claimed", color: "#106B60", background: "#E6F3F1" },
   UNVERIFIED: { label: "Unverified", color: "#6B7280", background: "#F3F4F6" },
 };
 

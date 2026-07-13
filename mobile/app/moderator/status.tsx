@@ -80,7 +80,7 @@ export default function ModeratorStatusScreen() {
 
   if (authLoading || loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ marginTop: 16, color: colors.textSecondary }}>Loading status...</Text>
       </SafeAreaView>
@@ -91,16 +91,16 @@ export default function ModeratorStatusScreen() {
     profile?.moderator_status === "APPROVED" ? "#10B981" :
     profile?.moderator_status === "REJECTED" ? "#EF4444" :
     profile?.moderator_status === "SUSPENDED" ? "#F59E0B" :
-    "#3B82F6";
+    "#158074";
 
   const statusBgColor = 
     profile?.moderator_status === "APPROVED" ? "#D1FAE5" :
     profile?.moderator_status === "REJECTED" ? "#FEE2E2" :
     profile?.moderator_status === "SUSPENDED" ? "#FEF3C7" :
-    "#DBEAFE";
+    "#E6F3F1";
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={{ alignItems: "center", marginBottom: 32 }}>
           <View
@@ -108,13 +108,13 @@ export default function ModeratorStatusScreen() {
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: "#E9D5FF",
+              backgroundColor: "#E6F3F1",
               justifyContent: "center",
               alignItems: "center",
               marginBottom: 16,
             }}
           >
-            <Ionicons name="shield-checkmark" size={40} color="#A855F7" />
+            <Ionicons name="shield-checkmark" size={40} color="#158074" />
           </View>
           <Text style={{ fontSize: 24, fontWeight: "bold", color: colors.text, marginBottom: 8 }}>
             Moderator Status
@@ -214,7 +214,7 @@ export default function ModeratorStatusScreen() {
                   {profile.rejection_reason?.includes("More details requested") && (
                     <TouchableOpacity
                       style={{
-                        backgroundColor: "#A855F7",
+                        backgroundColor: "#158074",
                         borderRadius: 8,
                         padding: 10,
                         marginTop: 8,
@@ -261,7 +261,7 @@ export default function ModeratorStatusScreen() {
                   </Text>
                   <TouchableOpacity
                     style={{
-                      backgroundColor: "#A855F7",
+                      backgroundColor: "#158074",
                       borderRadius: 12,
                       padding: 16,
                       alignItems: "center",
@@ -288,7 +288,7 @@ export default function ModeratorStatusScreen() {
             {(profile.moderator_status === "DRAFT" || profile.moderator_status === "REJECTED" || (profile.moderator_status === "IN_REVIEW" && profile.rejection_reason?.includes("More details requested"))) && (
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#A855F7",
+                  backgroundColor: "#158074",
                   borderRadius: 12,
                   padding: 16,
                   alignItems: "center",
@@ -324,7 +324,7 @@ export default function ModeratorStatusScreen() {
             </Text>
             <TouchableOpacity
               style={{
-                backgroundColor: "#A855F7",
+                backgroundColor: "#158074",
                 borderRadius: 12,
                 padding: 16,
                 alignItems: "center",

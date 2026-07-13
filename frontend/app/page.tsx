@@ -4,21 +4,89 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { 
-  Shield, 
-  Users, 
-  ShoppingBag, 
-  MessageCircle, 
-  CheckCircle, 
+import {
+  Shield,
+  Users,
+  ShoppingBag,
+  MessageCircle,
+  CheckCircle,
   ArrowRight,
-  Sparkles,
   Lock,
   TrendingUp,
-  Heart,
-  Zap
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { formatCompoundName } from '@/lib/format-compound'
+
+const features = [
+  {
+    icon: Shield,
+    title: 'Verified community',
+    description:
+      'Residents are verified with ID and residency documents for a trusted neighbourhood.',
+  },
+  {
+    icon: ShoppingBag,
+    title: 'Neighbourhood marketplace',
+    description:
+      'Buy, sell, and rent within your compound — or promote listings to reach more people.',
+  },
+  {
+    icon: Users,
+    title: 'No agents',
+    description:
+      'Direct communication between verified neighbours. No middlemen, no hidden fees.',
+  },
+  {
+    icon: MessageCircle,
+    title: 'Community feed',
+    description:
+      'Share updates, ask for help, and stay connected with people who actually live nearby.',
+  },
+  {
+    icon: Lock,
+    title: 'Secure & private',
+    description:
+      'Your data stays protected. Only verified residents access your neighbourhood space.',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Promote listings',
+    description:
+      'Reach beyond your compound with paid promotions to cross-compound or public feeds.',
+  },
+]
+
+const steps = [
+  {
+    number: '01',
+    title: 'Sign up & pick your compound',
+    description: 'Create your account and choose your neighbourhood.',
+  },
+  {
+    number: '02',
+    title: 'Get verified',
+    description: 'Upload your National ID and residency documents for review.',
+  },
+  {
+    number: '03',
+    title: 'Join the community',
+    description: 'Post updates, comment, and connect with verified neighbours.',
+  },
+  {
+    number: '04',
+    title: 'Buy & sell safely',
+    description: 'List items or browse the marketplace within your trusted community.',
+  },
+]
+
+const benefits = [
+  '100% verified residents',
+  'No agent fees',
+  'Secure transactions',
+  'Direct communication',
+  'Compound-specific content',
+  'AI-assisted verification',
+]
 
 export default function Home() {
   const { isAuthenticated } = useAuth()
@@ -28,201 +96,94 @@ export default function Home() {
     setMounted(true)
   }, [])
 
-  const features = [
-    {
-      icon: Shield,
-      title: 'Verified Community',
-      description: 'All residents are verified with ID and residency documents for a safe, trusted community.',
-      color: 'from-blue-500 to-cyan-500'
-    },
-    {
-      icon: ShoppingBag,
-      title: 'Neighbourhood Marketplace',
-      description: 'Buy, sell, and rent within your neighbourhood or promote listings to reach a wider audience.',
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      icon: Users,
-      title: 'No Agents',
-      description: 'Direct communication between verified residents. No middlemen, no fees (except promotions).',
-      color: 'from-green-500 to-emerald-500'
-    },
-    {
-      icon: MessageCircle,
-      title: 'Community Feed',
-      description: 'Connect with neighbors, share updates, and build relationships within your neighbourhood.',
-      color: 'from-orange-500 to-red-500'
-    },
-    {
-      icon: Lock,
-      title: 'Secure & Private',
-      description: 'Your data is protected. Only verified residents can access your neighbourhood community.',
-      color: 'from-indigo-500 to-purple-500'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Promote Listings',
-      description: 'Reach beyond your neighbourhood with paid promotions to cross-compound or public feeds.',
-      color: 'from-yellow-500 to-orange-500'
-    }
-  ]
-
-  const steps = [
-    {
-      number: '01',
-      title: 'Sign Up & Select Neighbourhood',
-      description: 'Create your account and choose your compound or neighbourhood.'
-    },
-    {
-      number: '02',
-      title: 'Get Verified',
-      description: 'Upload your National ID and residency documents for verification.'
-    },
-    {
-      number: '03',
-      title: 'Join the Community',
-      description: 'Start posting, commenting, and connecting with your verified neighbors.'
-    },
-    {
-      number: '04',
-      title: 'Buy & Sell Safely',
-      description: 'Create listings or browse the marketplace within your trusted community.'
-    }
-  ]
-
-  const benefits = [
-    { icon: CheckCircle, text: '100% Verified Residents' },
-    { icon: CheckCircle, text: 'No Agent Fees' },
-    { icon: CheckCircle, text: 'Secure Transactions' },
-    { icon: CheckCircle, text: 'Direct Communication' },
-    { icon: CheckCircle, text: 'Neighbourhood-Specific Content' },
-    { icon: CheckCircle, text: 'AI-Powered Verification' }
-  ]
-
   return (
-    <main className="min-h-screen bg-gradient-soft">
-      {/* Hero Section - More Emotional & Engaging */}
-      <section className="relative overflow-hidden pt-20 pb-32 px-4">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        {/* Animated gradient orbs */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '4s' }}></div>
-        
-        <div className="container mx-auto max-w-6xl relative z-10">
-          <div className="text-center max-w-4xl mx-auto animate-slide-up">
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full text-indigo-700 text-sm font-semibold mb-8 shadow-lg hover:scale-105 transition-transform duration-200">
-              <Sparkles className="w-4 h-4 animate-pulse" />
-              <span>✨ Verified Neighborhood Community</span>
-            </div>
-            
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold mb-8 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight tracking-tight">
-              Your Neighbourhood,<br />
-              <span className="bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Your Community
-              </span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl lg:text-3xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed font-medium">
-              Connect with verified neighbors, buy and sell safely, and build a thriving community within your neighbourhood. 
-              <span className="text-indigo-600 font-semibold"> No agents. No fees. Just real connections.</span> 💫
-            </p>
+    <main className="min-h-screen bg-background">
+      <section className="border-b border-border/70 px-4 py-20 md:py-28">
+        <div className="container mx-auto max-w-4xl text-center">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-primary">
+            Verified neighbourhood community
+          </p>
+          <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground md:text-6xl">
+            Your neighbourhood,
+            <br />
+            connected.
+          </h1>
+          <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
+            Connect with verified neighbours, buy and sell safely, and keep community life organised —
+            like a WhatsApp group, but built for your compound.
+          </p>
 
-            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center mb-16">
-              {mounted && isAuthenticated ? (
-                <>
-                  <Link href="/feed">
-                    <Button size="lg" className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 px-10 py-7 text-lg font-bold rounded-2xl group">
-                      <span className="flex items-center gap-2">
-                        Go to Feed
-                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    </Button>
-                  </Link>
-                  <Link href="/marketplace">
-                    <Button size="lg" variant="outline" className="border-3 border-indigo-300 hover:border-indigo-500 px-10 py-7 text-lg font-semibold rounded-2xl hover:bg-indigo-50 transition-all duration-300 hover:scale-105">
-                      Browse Marketplace 🛒
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href="/auth/signup">
-                    <Button size="lg" className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110 px-10 py-7 text-lg font-bold rounded-2xl group animate-pulse-glow">
-                      <span className="flex items-center gap-2">
-                        Get Started Free 🚀
-                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    </Button>
-                  </Link>
-                  <Link href="/auth/login">
-                    <Button size="lg" variant="outline" className="border-3 border-indigo-300 hover:border-indigo-500 px-10 py-7 text-lg font-semibold rounded-2xl hover:bg-indigo-50 transition-all duration-300 hover:scale-105">
-                      Sign In ✨
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            {mounted && isAuthenticated ? (
+              <>
+                <Link href="/feed">
+                  <Button size="lg" className="min-w-[180px]">
+                    Go to feed
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/marketplace">
+                  <Button size="lg" variant="outline" className="min-w-[180px]">
+                    Browse marketplace
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/signup">
+                  <Button size="lg" className="min-w-[180px]">
+                    Get started
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/auth/login">
+                  <Button size="lg" variant="outline" className="min-w-[180px]">
+                    Sign in
+                  </Button>
+                </Link>
+              </>
+            )}
+          </div>
 
-            {/* Stats - More Engaging */}
-            <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto pt-12 border-t-2 border-indigo-200">
-              <div className="group hover:scale-110 transition-transform duration-300 cursor-default">
-                <div className="text-5xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                  100%
-                </div>
-                <div className="text-base font-semibold text-slate-700">Verified ✨</div>
-                <div className="text-xs text-slate-500 mt-1">All neighbors checked</div>
-              </div>
-              <div className="group hover:scale-110 transition-transform duration-300 cursor-default">
-                <div className="text-5xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                  $0
-                </div>
-                <div className="text-base font-semibold text-slate-700">Agent Fees 💰</div>
-                <div className="text-xs text-slate-500 mt-1">Direct deals only</div>
-              </div>
-              <div className="group hover:scale-110 transition-transform duration-300 cursor-default">
-                <div className="text-5xl font-extrabold bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                  ∞
-                </div>
-                <div className="text-base font-semibold text-slate-700">Possibilities 🎯</div>
-                <div className="text-xs text-slate-500 mt-1">Endless connections</div>
-              </div>
+          <div className="mx-auto mt-14 grid max-w-2xl grid-cols-3 gap-6 border-t border-border pt-10">
+            <div>
+              <p className="text-3xl font-bold text-primary">100%</p>
+              <p className="mt-1 text-sm text-muted-foreground">Verified</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-primary">0</p>
+              <p className="mt-1 text-sm text-muted-foreground">Agent fees</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-primary">1</p>
+              <p className="mt-1 text-sm text-muted-foreground">Your compound</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section - More Engaging */}
-      <section className="py-24 px-4 bg-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-pink-50/50"></div>
-        <div className="container mx-auto max-w-6xl relative z-10">
-          <div className="text-center mb-20 animate-slide-up">
-            <h2 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 bg-gradient-to-r from-indigo-900 via-purple-900 to-pink-900 bg-clip-text text-transparent">
-              Everything You Need 🎁
+      <section className="px-4 py-20">
+        <div className="container mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">
+              Everything your neighbourhood needs
             </h2>
-            <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto font-medium">
-              A complete platform designed for your neighbourhood community. 
-              <span className="text-indigo-600 font-semibold"> Built with love, powered by trust.</span> 💙
+            <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+              Feed, marketplace, services, and verification — in one calm place.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => {
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {features.map((feature) => {
               const Icon = feature.icon
               return (
-                <Card 
-                  key={index} 
-                  className="border-2 border-slate-200 hover:border-indigo-300 hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:-translate-y-2 animate-fade-in group bg-white/80 backdrop-blur-sm"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <CardContent className="p-8">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
-                      <Icon className="w-8 h-8 text-white" />
+                <Card key={feature.title} className="eljiran-card border-border/70">
+                  <CardContent className="p-6">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+                      <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="text-2xl font-bold mb-3 text-gray-900 group-hover:text-indigo-600 transition-colors">
-                      {feature.title}
-                    </h3>
-                    <p className="text-slate-600 leading-relaxed text-base">{feature.description}</p>
+                    <h3 className="mb-2 text-lg font-semibold text-foreground">{feature.title}</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
                   </CardContent>
                 </Card>
               )
@@ -231,192 +192,124 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 px-4 bg-gradient-to-br from-purple-50 to-blue-50">
+      <section className="border-y border-border/70 bg-muted/40 px-4 py-20">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              How It Works
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Get started in just a few simple steps
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">How it works</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+              Get started in a few simple steps.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {steps.map((step, index) => (
-              <div key={index} className="relative animate-fade-in" style={{ animationDelay: `${index * 150}ms` }}>
-                <div className="text-6xl font-bold text-blue-200 mb-4">{step.number}</div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">{step.title}</h3>
-                <p className="text-gray-600">{step.description}</p>
-                {index < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-8 left-full w-1/2 h-0.5 bg-gradient-to-r from-blue-300 to-purple-300 -z-10"></div>
-                )}
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            {steps.map((step) => (
+              <div key={step.number}>
+                <p className="mb-3 text-sm font-bold text-primary">{step.number}</p>
+                <h3 className="mb-2 text-lg font-semibold text-foreground">{step.title}</h3>
+                <p className="text-sm text-muted-foreground">{step.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Trust & Social Proof Section */}
-      <section className="py-20 px-4 bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full text-blue-700 text-sm font-medium mb-4">
-              <Shield className="w-4 h-4" />
-              <span>Verified Residents Only</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Trust & Safety First
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Every member is verified with ID and residency documents. No bots, no scams, just real neighbors.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            <div className="bg-white rounded-xl p-6 shadow-lg text-center animate-fade-in">
-              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">100% Verified</h3>
-              <p className="text-gray-600">Every user verified with National ID and residency documents</p>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-lg text-center animate-fade-in" style={{ animationDelay: '100ms' }}>
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <Lock className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">Secure & Private</h3>
-              <p className="text-gray-600">Your data is protected. Only verified residents can access your neighbourhood</p>
-            </div>
-            <div className="bg-white rounded-xl p-6 shadow-lg text-center animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-bold mb-2">No Agents</h3>
-              <p className="text-gray-600">Direct communication between verified residents. No middlemen, no hidden fees</p>
-            </div>
-          </div>
-
-          {/* Benefits Grid */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Why Choose eljiran.com?</h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {benefits.map((benefit, index) => {
-                const Icon = benefit.icon
-                return (
-                  <div key={index} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-5 h-5 text-green-600" />
-                    </div>
-                    <span className="text-gray-700 font-medium">{benefit.text}</span>
+      <section className="px-4 py-20">
+        <div className="container mx-auto max-w-4xl">
+          <Card className="eljiran-card">
+            <CardContent className="p-8">
+              <h3 className="mb-6 text-center text-2xl font-bold text-foreground">
+                Why neighbours choose Eljiran
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {benefits.map((text) => (
+                  <div key={text} className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="text-foreground">{text}</span>
                   </div>
-                )
-              })}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
-      {/* Social Proof / Testimonials */}
-      <section className="py-20 px-4 bg-white">
+      <section className="px-4 py-20">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Loved by Residents
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              See what your neighbors are saying about eljiran.com
-            </p>
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">From real compounds</h2>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid gap-6 md:grid-cols-3">
             {[
               {
-                name: "Ahmed Mohamed",
-                compound: formatCompoundName("Tagamoa New Cairo"),
-                text: "eljiran.com made it so easy to connect with my neighbors and sell my furniture. The verification process gave me confidence that I'm dealing with real residents.",
-                rating: 5
+                name: 'Ahmed Mohamed',
+                compound: formatCompoundName('Tagamoa New Cairo'),
+                text: 'Easy to connect with neighbours and sell furniture. Verification gave me confidence I was dealing with real residents.',
               },
               {
-                name: "Sara Ali",
-                compound: formatCompoundName("Zayed"),
-                text: "Finally, a marketplace without agents! I sold my car directly to a neighbor in my neighbourhood. The whole process was smooth and secure.",
-                rating: 5
+                name: 'Sara Ali',
+                compound: formatCompoundName('Zayed'),
+                text: 'Finally a marketplace without agents. I sold my car directly to a neighbour in my compound.',
               },
               {
-                name: "Mohamed Hassan",
-                compound: formatCompoundName("New Capital"),
-                text: "The community feed is amazing. I've made so many connections and found great deals on items I needed. Highly recommend!",
-                rating: 5
-              }
-            ].map((testimonial, index) => (
-              <div key={index} className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-6 shadow-lg animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
-                    {testimonial.name.charAt(0)}
+                name: 'Mohamed Hassan',
+                compound: formatCompoundName('New Capital'),
+                text: 'The community feed keeps everyone in the loop. Great deals and real connections.',
+              },
+            ].map((testimonial) => (
+              <Card key={testimonial.name} className="eljiran-card">
+                <CardContent className="p-6">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                      {testimonial.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">{testimonial.name}</p>
+                      <p className="text-sm text-muted-foreground">{testimonial.compound}</p>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                    <div className="text-sm text-gray-500">{testimonial.compound}</div>
-                  </div>
-                </div>
-                <p className="text-gray-700 mb-4 italic">"{testimonial.text}"</p>
-                <div className="flex gap-1">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Heart key={i} className="w-4 h-4 fill-red-500 text-red-500" />
-                  ))}
-                </div>
-              </div>
+                  <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{testimonial.text}&rdquo;</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
-        <div className="container mx-auto max-w-4xl text-center">
-          <div className="animate-fade-in">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Ready to Join Your Community?
-            </h2>
-            <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-              Start connecting with verified neighbors today. It's free to join and takes less than 5 minutes.
-            </p>
-            {!(mounted && isAuthenticated) && (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/signup">
-                  <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 shadow-xl px-8 py-6 text-lg font-semibold">
-                    Get Started Free
-                    <Zap className="ml-2 w-5 h-5" />
-                  </Button>
-                </Link>
-                <Link href="/auth/login">
-                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-8 py-6 text-lg">
-                    Sign In
-                  </Button>
-                </Link>
-              </div>
-            )}
-            {mounted && isAuthenticated && (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/feed">
-                  <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 shadow-xl px-8 py-6 text-lg font-semibold">
-                    Go to Feed
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Button>
-                </Link>
-                <Link href="/marketplace">
-                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-8 py-6 text-lg">
-                    Browse Marketplace
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
+      <section className="bg-primary px-4 py-20">
+        <div className="container mx-auto max-w-3xl text-center">
+          <h2 className="mb-4 text-3xl font-bold text-primary-foreground md:text-4xl">
+            Ready to join your community?
+          </h2>
+          <p className="mb-8 text-primary-foreground/90">
+            Free to join. Verified neighbours only.
+          </p>
+          {mounted && isAuthenticated ? (
+            <Link href="/feed">
+              <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90">
+                Go to feed
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link href="/auth/signup">
+                <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90">
+                  Get started
+                </Button>
+              </Link>
+              <Link href="/auth/login">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10"
+                >
+                  Sign in
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
     </main>
   )
 }
-

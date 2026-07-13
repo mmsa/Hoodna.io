@@ -3,10 +3,12 @@
 import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { User, Mail, Phone, MapPin, Shield, Loader2, Home, Building2, Briefcase, CheckCircle } from 'lucide-react'
+import { AccountShell } from '@/components/account-shell'
+import { Mail, Phone, MapPin, Shield, Loader2, Home, Building2, Briefcase, CheckCircle, User } from 'lucide-react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { AppShell, PageLayout } from '@/components/ui/page-layout'
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -51,57 +53,49 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
+      <AppShell>
+        <PageLayout width="md" className="flex min-h-[50vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </PageLayout>
+      </AppShell>
     )
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <p className="text-gray-600 mb-4">Please sign in to view your profile.</p>
-            <Link href="/auth/login">
-              <Button>Sign In</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <AppShell>
+        <PageLayout width="md" className="flex min-h-[50vh] items-center justify-center">
+          <Card className="eljiran-card w-full max-w-md">
+            <CardContent className="pt-6 text-center">
+              <p className="mb-4 text-muted-foreground">Please sign in to view your profile.</p>
+              <Link href="/auth/login">
+                <Button>Sign in</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </PageLayout>
+      </AppShell>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 shadow-lg">
-            <User className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Profile
-          </h1>
-        </div>
-
-        {/* Profile Card */}
-        <Card className="shadow-xl border-2 border-gray-200">
-          <CardHeader>
-            <CardTitle>Account Information</CardTitle>
-            <CardDescription>Your profile details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
+    <AccountShell title="Profile" description="Your account details and neighbourhood info.">
+      <Card className="eljiran-card">
+        <CardHeader>
+          <CardTitle>Account information</CardTitle>
+          <CardDescription>Your profile details</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
               <div>
                 <h2 className="text-2xl font-bold">{user.name}</h2>
                 {user.role === 'ADMIN' || user.role === 'MODERATOR' ? (
                   <div className="flex items-center gap-2 mt-1">
-                    <Shield className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-purple-600 font-medium">{user.role}</span>
+                    <Shield className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-primary font-medium">{user.role}</span>
                   </div>
                 ) : user.role === 'SERVICE_PROVIDER' ? (
                   <div className="flex items-center gap-2 mt-1">
@@ -257,9 +251,8 @@ export default function ProfilePage() {
               )}
             </div>
           </CardContent>
-        </Card>
-      </div>
-    </div>
+      </Card>
+    </AccountShell>
   )
 }
 

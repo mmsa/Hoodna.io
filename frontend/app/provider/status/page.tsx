@@ -20,8 +20,8 @@ const STATUS_CONFIG = {
   },
   SUBMITTED: {
     icon: Clock,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100',
+    color: 'text-primary',
+    bgColor: 'bg-secondary',
     title: 'Submitted',
     description: 'Your profile is pending review',
   },
@@ -105,9 +105,9 @@ export default function ProviderStatusPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-gray-600">Loading status...</p>
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function ProviderStatusPage() {
   const Icon = config.icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
+    <div className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>

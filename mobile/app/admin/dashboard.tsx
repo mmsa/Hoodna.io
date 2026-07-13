@@ -555,7 +555,7 @@ export default function AdminDashboardScreen() {
                     {doc.llm_recommendation ? (
                       <View
                         style={{
-                          backgroundColor: "#EFF6FF",
+                          backgroundColor: "#F9F8F1",
                           borderRadius: 14,
                           padding: 12,
                           marginBottom: 10,
@@ -589,7 +589,7 @@ export default function AdminDashboardScreen() {
                     {doc.status !== "PENDING" ? (
                       <View
                         style={{
-                          backgroundColor: "#EFF6FF",
+                          backgroundColor: "#F9F8F1",
                           borderRadius: 14,
                           padding: 12,
                           marginBottom: 10,
@@ -597,7 +597,7 @@ export default function AdminDashboardScreen() {
                           borderColor: "#BFDBFE",
                         }}
                       >
-                        <Text style={{ fontSize: 12, color: "#1E40AF", lineHeight: 18 }}>
+                        <Text style={{ fontSize: 12, color: "#106B60", lineHeight: 18 }}>
                           AI or system set this to <Text style={{ fontWeight: "800" }}>{formatLabel(doc.status)}</Text>.
                           Use admin actions below to override.
                         </Text>
@@ -744,7 +744,7 @@ export default function AdminDashboardScreen() {
                                 ? "#FEE2E2"
                                 : provider.provider_status === "SUSPENDED"
                                   ? "#FDE68A"
-                                  : "#DBEAFE",
+                                  : "#E6F3F1",
                           borderRadius: 999,
                           paddingHorizontal: 10,
                           paddingVertical: 6,
@@ -861,7 +861,7 @@ export default function AdminDashboardScreen() {
                                 ? "#FEE2E2"
                                 : moderator.moderator_status === "SUSPENDED"
                                   ? "#FDE68A"
-                                  : "#DBEAFE",
+                                  : "#E6F3F1",
                           borderRadius: 999,
                           paddingHorizontal: 10,
                           paddingVertical: 6,

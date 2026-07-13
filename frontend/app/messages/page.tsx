@@ -69,9 +69,9 @@ export default function MessagesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading messages...</p>
         </div>
       </div>
@@ -79,17 +79,17 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-8">
+    <div className="min-h-screen bg-background px-4 py-8">
       <div className="max-w-5xl mx-auto">
         {/* Enhanced Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center shadow-lg">
               <MessageCircle className="w-7 h-7 text-white" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold text-foreground">
                   Messages
                 </h1>
                 {hasUnread && (
@@ -106,17 +106,17 @@ export default function MessagesPage() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-            <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+            <Card className="border-2 border-border bg-gradient-to-br from-secondary to-card">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Total Conversations</p>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-2xl font-bold text-primary">
                       {conversations?.length || 0}
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Inbox className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
+                    <Inbox className="w-6 h-6 text-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -172,16 +172,16 @@ export default function MessagesPage() {
                 <Link href={`/messages/${conv.id}`} key={conv.id}>
                   <Card className={`hover:shadow-xl transition-all duration-300 cursor-pointer border-2 ${
                     hasUnread
-                      ? 'border-blue-400 bg-gradient-to-r from-blue-50 to-white shadow-md'
+                      ? 'border-primary/40 bg-gradient-to-r from-secondary to-card shadow-md'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   } group`}>
                     <CardContent className="p-5">
                       <div className="flex items-start gap-4">
                         {/* Enhanced Avatar */}
                         <div className={`relative flex-shrink-0 ${
-                          hasUnread ? 'ring-2 ring-blue-400 ring-offset-2' : ''
+                          hasUnread ? 'ring-2 ring-primary/40 ring-offset-2' : ''
                         }`}>
-                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg shadow-lg">
                             {conv.other_user_name.charAt(0).toUpperCase()}
                           </div>
                           {hasUnread && (
@@ -212,8 +212,8 @@ export default function MessagesPage() {
 
                               {conv.listing_title && (
                                 <div className="flex items-center gap-2 mb-2 text-sm text-gray-600">
-                                  <div className="w-4 h-4 rounded bg-purple-100 flex items-center justify-center">
-                                    <ShoppingBag className="w-3 h-3 text-purple-600" />
+                                  <div className="w-4 h-4 rounded bg-secondary flex items-center justify-center">
+                                    <ShoppingBag className="w-3 h-3 text-primary" />
                                   </div>
                                   <span className="truncate font-medium">{conv.listing_title}</span>
                                 </div>
@@ -228,7 +228,7 @@ export default function MessagesPage() {
                                 </span>
                               </div>
                               <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
-                                hasUnread ? 'text-blue-500' : 'text-gray-400'
+                                hasUnread ? 'text-primary' : 'text-gray-400'
                               }`} />
                             </div>
                           </div>
@@ -236,14 +236,14 @@ export default function MessagesPage() {
                           {conv.last_message && (
                             <div className={`rounded-lg p-3 ${
                               hasUnread
-                                ? 'bg-blue-50 border border-blue-100'
+                                ? 'bg-secondary border border-border'
                                 : 'bg-gray-50 border border-gray-100'
                             }`}>
                               <p className={`text-sm truncate ${
                                 hasUnread ? 'text-gray-900 font-medium' : 'text-gray-600'
                               }`}>
                                 <span className={`font-semibold ${
-                                  hasUnread ? 'text-blue-700' : 'text-gray-700'
+                                  hasUnread ? 'text-primary' : 'text-gray-700'
                                 }`}>
                                   {conv.last_message.sender_name}:
                                 </span>{' '}
@@ -262,8 +262,8 @@ export default function MessagesPage() {
         ) : (
           <Card className="shadow-xl border-2 border-dashed border-gray-300 bg-white">
             <CardContent className="p-16 text-center">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center mx-auto mb-6">
-                <MessageCircle className="w-12 h-12 text-blue-500" />
+              <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center mx-auto mb-6">
+                <MessageCircle className="w-12 h-12 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 No messages yet
@@ -273,7 +273,7 @@ export default function MessagesPage() {
               </p>
               <div className="flex gap-4 justify-center">
                 <Link href="/marketplace">
-                  <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all">
+                  <Button className="bg-primary  text-white shadow-lg hover:shadow-xl transition-all">
                     <ShoppingBag className="w-4 h-4 mr-2" />
                     Browse Marketplace
                   </Button>

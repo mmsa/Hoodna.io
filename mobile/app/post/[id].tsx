@@ -20,7 +20,7 @@ function getInitials(name: string): string {
 }
 
 function getAvatarColor(name: string): string {
-  const colors = ["#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#EC4899"];
+  const colors = ["#8B5CF6", "#158074", "#10B981", "#F59E0B", "#EF4444", "#EC4899"];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -103,8 +103,8 @@ export default function PostDetailScreen() {
 
   if (loading || !post) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#158074" />
       </SafeAreaView>
     );
   }
@@ -113,7 +113,7 @@ export default function PostDetailScreen() {
   const initials = getInitials(post.author_name);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -351,7 +351,7 @@ export default function PostDetailScreen() {
               />
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#3B82F6",
+                  backgroundColor: "#158074",
                   borderRadius: 12,
                   paddingVertical: 12,
                   alignItems: "center",

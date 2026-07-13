@@ -89,9 +89,9 @@ export default function ConversationPage({ params }: { params: { id: string } })
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-gray-600 text-lg">Loading conversation...</p>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
 
   if (!conversation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="p-8 text-center shadow-lg">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">Conversation not found</h1>
           <p className="text-gray-600 mb-6">
@@ -117,7 +117,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
   const isOwnMessage = (message: Message) => message.sender_id === user?.id
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       <div className="max-w-4xl mx-auto w-full flex flex-col h-screen">
         {/* Header */}
         <div className="bg-white border-b shadow-sm p-4">
@@ -127,7 +127,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-semibold">
               {conversation.other_user_name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1">
@@ -160,7 +160,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
                 <div
                   className={`max-w-[70%] rounded-lg p-4 ${
                     isOwnMessage(message)
-                      ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                      ? 'bg-primary text-white'
                       : 'bg-white border border-gray-200 text-gray-900'
                   }`}
                 >
@@ -172,7 +172,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   <p
                     className={`text-xs mt-2 ${
-                      isOwnMessage(message) ? 'text-blue-100' : 'text-gray-500'
+                      isOwnMessage(message) ? 'text-primary-foreground/80' : 'text-gray-500'
                     }`}
                   >
                     {new Date(message.created_at).toLocaleTimeString([], {
@@ -205,7 +205,7 @@ export default function ConversationPage({ params }: { params: { id: string } })
             <Button
               onClick={handleSendMessage}
               disabled={sendMessageMutation.isPending || !messageContent.trim()}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              className="bg-primary "
             >
               {sendMessageMutation.isPending ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

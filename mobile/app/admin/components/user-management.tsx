@@ -237,7 +237,7 @@ export function UserManagement() {
                 </View>
                 <View
                   style={{
-                    backgroundColor: user.status === "APPROVED" ? "#DCFCE7" : user.status === "BANNED" ? "#1F2937" : "#DBEAFE",
+                    backgroundColor: user.status === "APPROVED" ? "#DCFCE7" : user.status === "BANNED" ? "#1F2937" : "#E6F3F1",
                     borderRadius: 999,
                     paddingHorizontal: 10,
                     paddingVertical: 4,

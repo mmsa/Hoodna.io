@@ -188,7 +188,7 @@ export default function AdminProvidersPage() {
                         provider.provider_status === 'APPROVED' ? 'bg-green-100 text-green-800' :
                         provider.provider_status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                         provider.provider_status === 'SUSPENDED' ? 'bg-orange-100 text-orange-800' :
-                        'bg-blue-100 text-blue-800'
+                        'bg-secondary text-primary'
                       }`}>
                         {provider.provider_status}
                       </span>

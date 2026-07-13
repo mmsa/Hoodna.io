@@ -64,7 +64,7 @@ function statusBadgeClass(status: string) {
     case 'BANNED':
       return 'bg-gray-800 text-white'
     default:
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-secondary text-primary'
   }
 }
 

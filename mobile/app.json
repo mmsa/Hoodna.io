@@ -8,7 +8,7 @@
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
-      "backgroundColor": "#EFF6FF",
+      "backgroundColor": "#F9F8F1",
       "resizeMode": "contain"
     },
     "assetBundlePatterns": [
@@ -27,7 +27,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#EFF6FF"
+        "backgroundColor": "#F9F8F1"
       },
       "package": "com.eljiran.mobile",
       "intentFilters": [

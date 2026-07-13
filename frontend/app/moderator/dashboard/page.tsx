@@ -268,7 +268,7 @@ export default function ModeratorDashboardPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-              <Shield className="w-8 h-8 text-blue-600" />
+              <Shield className="w-8 h-8 text-primary" />
               Moderator Dashboard
             </h1>
             <p className="text-gray-600">Manage content and users in {compoundName}</p>
@@ -320,7 +320,7 @@ export default function ModeratorDashboardPage() {
               <CardContent>
                 {reportsLoading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : filteredReports.length === 0 ? (
                   <div className="text-center py-12">
@@ -348,7 +348,7 @@ export default function ModeratorDashboardPage() {
                                 <div className="mt-2 p-2 bg-gray-50 rounded">
                                   <p className="text-sm font-semibold">{report.post.title}</p>
                                   <p className="text-sm text-gray-600 line-clamp-2">{report.post.content}</p>
-                                  <Link href={`/feed`} className="text-sm text-blue-600 hover:underline mt-1 inline-block">
+                                  <Link href={`/feed`} className="text-sm text-primary hover:underline mt-1 inline-block">
                                     View Post →
                                   </Link>
                                 </div>
@@ -395,7 +395,7 @@ export default function ModeratorDashboardPage() {
               <CardContent>
                 {postsLoading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : filteredPosts.length === 0 ? (
                   <div className="text-center py-12">
@@ -468,7 +468,7 @@ export default function ModeratorDashboardPage() {
               <CardContent>
                 {usersLoading ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
                 ) : !users ? (
                   <div className="text-center py-12">

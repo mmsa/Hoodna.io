@@ -134,7 +134,7 @@ export default function FeaturesScreen() {
       description: "Update your name and phone number to keep your account information current.",
       route: "/settings",
       icon: "settings",
-      color: "#4F46E5",
+      color: "#158074",
       requiresAuth: true,
     },
   ];

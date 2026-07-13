@@ -62,7 +62,7 @@ export function SignedFileLink({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className={className || 'inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700'}
+      className={className || 'inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary'}
     >
       {children || (
         <>

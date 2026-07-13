@@ -13,7 +13,7 @@ const COPY: Record<BusinessVerificationStatus, { label: string; help: string; cl
   CLAIMED: {
     label: "Claimed",
     help: "A business representative manages this profile. Verification is not complete.",
-    className: "border-blue-200 bg-blue-50 text-blue-800",
+    className: "border-border bg-secondary text-primary",
   },
   UNVERIFIED: {
     label: "Unverified",

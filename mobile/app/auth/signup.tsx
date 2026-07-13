@@ -88,7 +88,7 @@ export default function SignupScreen() {
 
   if (!configLoading && !isEnabled("user_registration")) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", padding: 24 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", padding: 24 }}>
         <Text accessibilityRole="header" style={{ fontSize: 24, fontWeight: "700", color: "#1B1B1B", textAlign: "center" }}>
           Registration is temporarily paused
         </Text>
@@ -98,7 +98,7 @@ export default function SignupScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           onPress={() => router.replace("/auth/login")}
-          style={{ minHeight: 48, marginTop: 24, borderRadius: 12, backgroundColor: "#3B82F6", justifyContent: "center" }}
+          style={{ minHeight: 48, marginTop: 24, borderRadius: 12, backgroundColor: "#158074", justifyContent: "center" }}
         >
           <Text style={{ color: "#FFFFFF", fontWeight: "600", textAlign: "center" }}>Back to sign in</Text>
         </TouchableOpacity>
@@ -107,7 +107,7 @@ export default function SignupScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
@@ -119,7 +119,7 @@ export default function SignupScreen() {
               onPress={() => router.back()}
               style={{ marginBottom: 24 }}
             >
-              <Text style={{ fontSize: 16, color: "#3B82F6" }}>← Back</Text>
+              <Text style={{ fontSize: 16, color: "#158074" }}>← Back</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 32, fontWeight: "bold", color: "#1B1B1B", marginBottom: 8 }}>
               Create Account
@@ -290,7 +290,7 @@ export default function SignupScreen() {
                   padding: 16,
                   marginBottom: 12,
                   borderWidth: 2,
-                  borderColor: selectedRole === "RESIDENT" ? "#3B82F6" : "#E5E7EB",
+                  borderColor: selectedRole === "RESIDENT" ? "#158074" : "#E5E7EB",
                 }}
                 onPress={() => {
                   setSelectedRole("RESIDENT");
@@ -304,7 +304,7 @@ export default function SignupScreen() {
                       width: 40,
                       height: 40,
                       borderRadius: 20,
-                      backgroundColor: selectedRole === "RESIDENT" ? "#DBEAFE" : "#F3F4F6",
+                      backgroundColor: selectedRole === "RESIDENT" ? "#E6F3F1" : "#F3F4F6",
                       justifyContent: "center",
                       alignItems: "center",
                     }}
@@ -312,7 +312,7 @@ export default function SignupScreen() {
                     <Ionicons
                       name="home"
                       size={20}
-                      color={selectedRole === "RESIDENT" ? "#3B82F6" : "#6C757D"}
+                      color={selectedRole === "RESIDENT" ? "#158074" : "#6C757D"}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -324,7 +324,7 @@ export default function SignupScreen() {
                     </Text>
                   </View>
                   {selectedRole === "RESIDENT" && (
-                    <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
+                    <Ionicons name="checkmark-circle" size={24} color="#158074" />
                   )}
                 </View>
               </TouchableOpacity>
@@ -384,7 +384,7 @@ export default function SignupScreen() {
                   padding: 16,
                   marginBottom: 12,
                   borderWidth: 2,
-                  borderColor: selectedRole === "COMPOUND_MOD" ? "#A855F7" : "#E5E7EB",
+                  borderColor: selectedRole === "COMPOUND_MOD" ? "#158074" : "#E5E7EB",
                 }}
                 onPress={() => {
                   setSelectedRole("COMPOUND_MOD");
@@ -398,7 +398,7 @@ export default function SignupScreen() {
                       width: 40,
                       height: 40,
                       borderRadius: 20,
-                      backgroundColor: selectedRole === "COMPOUND_MOD" ? "#E9D5FF" : "#F3F4F6",
+                      backgroundColor: selectedRole === "COMPOUND_MOD" ? "#E6F3F1" : "#F3F4F6",
                       justifyContent: "center",
                       alignItems: "center",
                     }}
@@ -406,7 +406,7 @@ export default function SignupScreen() {
                     <Ionicons
                       name="shield-checkmark"
                       size={20}
-                      color={selectedRole === "COMPOUND_MOD" ? "#A855F7" : "#6C757D"}
+                      color={selectedRole === "COMPOUND_MOD" ? "#158074" : "#6C757D"}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -418,7 +418,7 @@ export default function SignupScreen() {
                     </Text>
                   </View>
                   {selectedRole === "COMPOUND_MOD" && (
-                    <Ionicons name="checkmark-circle" size={24} color="#A855F7" />
+                    <Ionicons name="checkmark-circle" size={24} color="#158074" />
                   )}
                 </View>
               </TouchableOpacity>
@@ -427,11 +427,11 @@ export default function SignupScreen() {
             {/* Sign Up Button */}
             <TouchableOpacity
               style={{
-                backgroundColor: "#3B82F6",
+                backgroundColor: "#158074",
                 borderRadius: 12,
                 paddingVertical: 16,
                 alignItems: "center",
-                shadowColor: "#3B82F6",
+                shadowColor: "#158074",
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.1,
                 shadowRadius: 8,
@@ -456,7 +456,7 @@ export default function SignupScreen() {
             <Text style={{ fontSize: 14, color: "#6C757D" }}>
               Already have an account?{" "}
               <Text
-                style={{ color: "#3B82F6", fontWeight: "600" }}
+                style={{ color: "#158074", fontWeight: "600" }}
                 onPress={() => router.push("/auth/login")}
               >
                 Sign in

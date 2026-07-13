@@ -108,7 +108,7 @@ function Contact({ icon, label, value, href }: { icon: React.ReactNode; label: s
   return (
     <div className="flex items-start gap-2">
       <span className="mt-0.5 [&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">{icon}</span>
-      <div><dt className="text-gray-500">{label}</dt><dd>{href ? <a href={href} className="text-purple-700 underline">{value}</a> : value}</dd></div>
+      <div><dt className="text-gray-500">{label}</dt><dd>{href ? <a href={href} className="text-primary underline">{value}</a> : value}</dd></div>
     </div>
   )
 }

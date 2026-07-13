@@ -108,7 +108,7 @@ function statusBadgeClass(status: string) {
     case 'BANNED':
       return 'bg-gray-800 text-white'
     default:
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-secondary text-primary'
   }
 }
 
@@ -158,7 +158,7 @@ export default function UserDetailDialog({
                 {formatUserStatus(user.status)}
               </span>
               {user.verification_status && (
-                <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-secondary text-primary">
                   Verification: {user.verification_status}
                 </span>
               )}
@@ -238,7 +238,7 @@ export default function UserDetailDialog({
                         <span className="font-medium">{formatDocumentType(doc.type)}</span>
                         <span className="text-xs px-2 py-1 rounded bg-gray-100">{doc.status}</span>
                       </div>
-                      <SignedFileLink fileUrl={doc.file_url} className="text-sm text-blue-600 hover:underline">
+                      <SignedFileLink fileUrl={doc.file_url} className="text-sm text-primary hover:underline">
                         View document
                       </SignedFileLink>
                       {doc.notes && <p className="text-sm text-gray-600">Notes: {doc.notes}</p>}
@@ -296,7 +296,7 @@ export default function UserDetailDialog({
                       (doc, i) => (
                         <div key={i} className="flex items-center gap-2 text-sm">
                           <span>{formatDocumentType(doc.document_type)}</span>
-                          <SignedFileLink fileUrl={doc.file_url} className="text-blue-600 hover:underline">
+                          <SignedFileLink fileUrl={doc.file_url} className="text-primary hover:underline">
                             View
                           </SignedFileLink>
                         </div>
@@ -327,7 +327,7 @@ export default function UserDetailDialog({
                       (doc, i) => (
                         <div key={i} className="flex items-center gap-2 text-sm">
                           <span>{formatDocumentType(doc.document_type)}</span>
-                          <SignedFileLink fileUrl={doc.file_url} className="text-blue-600 hover:underline">
+                          <SignedFileLink fileUrl={doc.file_url} className="text-primary hover:underline">
                             View
                           </SignedFileLink>
                         </div>

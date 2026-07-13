@@ -382,14 +382,14 @@ export default function VerificationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-16">
+    <div className="min-h-screen bg-background px-4 py-16">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header with icon */}
         <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary mb-4 shadow-lg">
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Verification Documents
           </h1>
           <VerificationCompoundBar
@@ -401,17 +401,17 @@ export default function VerificationPage() {
             }}
           />
           <p className="text-gray-600 text-lg mb-4">
-            Upload <span className="font-semibold text-blue-600">one document</span> to get verified
+            Upload <span className="font-semibold text-primary">one document</span> to get verified
           </p>
-          <div className="max-w-2xl mx-auto bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+          <div className="max-w-2xl mx-auto bg-secondary border-2 border-border rounded-xl p-4 mb-4">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                   <span className="text-white text-sm font-bold">!</span>
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-sm text-blue-900 text-center">
+                <p className="text-sm text-primary text-center">
                   Upload <strong>National ID</strong> or <strong>Contract</strong> showing your name and compound name
                 </p>
               </div>
@@ -441,12 +441,12 @@ export default function VerificationPage() {
         )}
 
         <Card className="shadow-xl border-2 border-gray-200 hover:shadow-2xl transition-shadow duration-300">
-          <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
+          <CardHeader className="bg-primary text-white rounded-t-lg">
             <CardTitle className="text-2xl flex items-center gap-2">
               <FileCheck className="w-6 h-6" />
               Upload One Document
             </CardTitle>
-            <CardDescription className="text-blue-100">
+            <CardDescription className="text-primary-foreground/80">
               Choose either National ID or Contract - whichever shows your name and compound name clearly
             </CardDescription>
           </CardHeader>
@@ -454,10 +454,10 @@ export default function VerificationPage() {
             {/* National ID */}
             <div className={`border-2 rounded-xl p-6 transition-all duration-300 ${
               uploading === "national_id" 
-                ? "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]" 
+                ? "border-primary/40 bg-secondary shadow-lg scale-[1.02]" 
                 : nationalIdStatus === "APPROVED"
                 ? "border-green-300 bg-green-50"
-                : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
+                : "border-gray-200 bg-white hover:border-primary/30 hover:shadow-md"
             }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -495,7 +495,7 @@ export default function VerificationPage() {
                 <div className="mb-4">
                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
@@ -572,10 +572,10 @@ export default function VerificationPage() {
             {/* Contract */}
             <div className={`border-2 rounded-xl p-6 transition-all duration-300 ${
               uploading === "contract" 
-                ? "border-blue-400 bg-blue-50 shadow-lg scale-[1.02]" 
+                ? "border-primary/40 bg-secondary shadow-lg scale-[1.02]" 
                 : contractStatus === "APPROVED"
                 ? "border-green-300 bg-green-50"
-                : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-md"
+                : "border-gray-200 bg-white hover:border-primary/30 hover:shadow-md"
             }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
@@ -615,7 +615,7 @@ export default function VerificationPage() {
                 <div className="mb-4">
                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
@@ -685,7 +685,7 @@ export default function VerificationPage() {
                 <Button
                   onClick={submitDocuments}
                   disabled={!canSubmit}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  className="w-full bg-primary  text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                   size="lg"
                 >
                   {submitting ? (
@@ -707,7 +707,7 @@ export default function VerificationPage() {
                     ? "National ID will be submitted for verification"
                     : "Contract will be submitted for verification"}
                 </p>
-                <p className="text-xs text-blue-600 mt-1 text-center font-medium">
+                <p className="text-xs text-primary mt-1 text-center font-medium">
                   Make sure the document clearly shows your name and "{compound?.name || 'compound name'}"
                 </p>
               </div>

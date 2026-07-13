@@ -86,7 +86,7 @@ export default function OTPVerifyScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#EFF6FF' }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F8F1' }} edges={["top"]}>
       {/* Header with Back Button */}
       <View
         style={{
@@ -163,7 +163,7 @@ export default function OTPVerifyScreen() {
 
       <TouchableOpacity
         style={{
-          backgroundColor: '#3B82F6',
+          backgroundColor: '#158074',
           borderRadius: 12,
           paddingVertical: 16,
           alignItems: 'center',
@@ -187,7 +187,7 @@ export default function OTPVerifyScreen() {
         onPress={handleResend}
         disabled={loading}
       >
-        <Text style={{ color: '#3B82F6', fontSize: 14, fontWeight: '500' }}>
+        <Text style={{ color: '#158074', fontSize: 14, fontWeight: '500' }}>
           Resend OTP
         </Text>
       </TouchableOpacity>

@@ -139,7 +139,7 @@ export function UploadedDocumentCard({
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary"
         >
           <ExternalLink className="h-4 w-4" />
           View uploaded file

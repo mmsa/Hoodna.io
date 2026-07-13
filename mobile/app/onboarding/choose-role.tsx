@@ -53,7 +53,7 @@ export default function ChooseRoleScreen() {
 
   if (userLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ marginTop: 16, color: colors.textSecondary }}>Loading...</Text>
       </SafeAreaView>
@@ -66,7 +66,7 @@ export default function ChooseRoleScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#EFF6FF" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={{ marginBottom: 32, alignItems: "center" }}>
           <Text style={{ fontSize: 28, fontWeight: "bold", color: colors.text, marginBottom: 8 }}>
@@ -101,7 +101,7 @@ export default function ChooseRoleScreen() {
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: "#DBEAFE",
+                backgroundColor: "#E6F3F1",
                 justifyContent: "center",
                 alignItems: "center",
               }}
@@ -215,7 +215,7 @@ export default function ChooseRoleScreen() {
             padding: 20,
             marginBottom: 16,
             borderWidth: 2,
-            borderColor: selectedRole === "COMPOUND_MOD" ? "#A855F7" : "#E5E7EB",
+            borderColor: selectedRole === "COMPOUND_MOD" ? "#158074" : "#E5E7EB",
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.1,
@@ -231,12 +231,12 @@ export default function ChooseRoleScreen() {
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: "#E9D5FF",
+                backgroundColor: "#E6F3F1",
                 justifyContent: "center",
                 alignItems: "center",
               }}
             >
-              <Ionicons name="shield-checkmark" size={32} color="#A855F7" />
+              <Ionicons name="shield-checkmark" size={32} color="#158074" />
             </View>
           </View>
           <Text style={{ fontSize: 20, fontWeight: "600", color: colors.text, textAlign: "center", marginBottom: 8 }}>
@@ -247,19 +247,19 @@ export default function ChooseRoleScreen() {
           </Text>
           <View style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Ionicons name="checkmark-circle" size={16} color="#A855F7" />
+              <Ionicons name="checkmark-circle" size={16} color="#158074" />
               <Text style={{ fontSize: 14, color: colors.textSecondary }}>
                 Approve and remove posts
               </Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Ionicons name="checkmark-circle" size={16} color="#A855F7" />
+              <Ionicons name="checkmark-circle" size={16} color="#158074" />
               <Text style={{ fontSize: 14, color: colors.textSecondary }}>
                 Pin announcements
               </Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Ionicons name="checkmark-circle" size={16} color="#A855F7" />
+              <Ionicons name="checkmark-circle" size={16} color="#158074" />
               <Text style={{ fontSize: 14, color: colors.textSecondary }}>
                 Handle reports and moderation
               </Text>
@@ -267,7 +267,7 @@ export default function ChooseRoleScreen() {
           </View>
           {submitting && selectedRole === "COMPOUND_MOD" && (
             <View style={{ marginTop: 16, alignItems: "center" }}>
-              <ActivityIndicator size="small" color="#A855F7" />
+              <ActivityIndicator size="small" color="#158074" />
             </View>
           )}
         </TouchableOpacity>
