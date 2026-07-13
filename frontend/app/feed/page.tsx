@@ -37,7 +37,6 @@ import { PostCard } from "./components/post-card";
 import { PostComposer } from "./components/post-composer";
 import type { Listing, Post, FeedSummary } from "./components/types";
 import { CommunitySidebar } from "@/components/community-sidebar";
-import { DesktopNavSidebar } from "@/components/desktop-nav-sidebar";
 import { CompoundHero } from "@/components/feed/compound-hero";
 
 const getCategoryIcon = (category: string) => {
@@ -486,10 +485,6 @@ export default function FeedPage() {
     <AppShell>
       <PageLayout width="xl" className="py-6">
         <div className="flex gap-6">
-          <aside className="hidden w-52 shrink-0 xl:block">
-            <DesktopNavSidebar />
-          </aside>
-
           <div className="min-w-0 flex-1 lg:max-w-3xl">
             {user && feedSummary?.compound_name && (
               <CompoundHero

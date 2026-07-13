@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import { Toaster } from '@/components/ui/toaster'
 import { SonnerToaster } from '@/components/sonner-toaster'
 import { Header } from '@/components/header'
+import { AppContentLayout } from '@/components/app-content-layout'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -36,7 +37,7 @@ export default function RootLayout({
       <body className="font-sans">
         <Providers>
           <Header />
-          {children}
+          <AppContentLayout>{children}</AppContentLayout>
         </Providers>
         <Toaster />
         <SonnerToaster />
