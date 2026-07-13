@@ -103,7 +103,7 @@ export default function CompoundManagement() {
     },
   })
 
-  const compounds = data?.items ?? []
+  const compounds = useMemo(() => data?.items ?? [], [data?.items])
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 

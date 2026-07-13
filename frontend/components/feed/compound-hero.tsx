@@ -59,7 +59,7 @@ export function CompoundHero({
             priority
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-card/82 via-card/62 to-card/15" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
 
         <div className="relative flex min-h-[150px] max-w-[78%] items-center p-4 sm:max-w-[68%] sm:p-5">
           <div className="min-w-0">
@@ -67,17 +67,22 @@ export function CompoundHero({
               <ShieldCheck className="h-3.5 w-3.5" />
               Verified compound
             </div>
-            <h1 className="mt-2 line-clamp-2 text-xl font-bold leading-[1.15] tracking-tight text-foreground sm:text-2xl">
+            <h1 className="mt-2 line-clamp-2 text-xl font-bold leading-[1.15] tracking-tight text-white drop-shadow-md sm:text-2xl">
               {formatCompoundName(compoundName)}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-white/85 drop-shadow">
               {compoundArea || "Your verified neighbourhood"}
             </p>
             <div className="mt-3 hidden flex-wrap items-center gap-2 sm:flex">
               <Button asChild size="sm" className="h-8 px-3 text-xs">
                 <Link href="/feed#composer">Start a post</Link>
               </Button>
-              <Button asChild variant="ghost" size="sm" className="h-8 px-3 text-xs">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-8 bg-black/20 px-3 text-xs text-white hover:bg-black/35 hover:text-white"
+              >
                 <Link href="/marketplace">Browse market</Link>
               </Button>
             </div>

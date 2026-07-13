@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { formatUserRole, formatUserStatus } from "@/utils/format-enums";
-import { UserDetailModal } from "./user-detail-modal";
+import { UserDetailModal } from "@/components/admin/user-detail-modal";
 
 interface AdminUser {
   id: number;

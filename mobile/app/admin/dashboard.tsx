@@ -16,8 +16,8 @@ import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { openFileUrl } from "@/lib/file-url";
-import { UserManagement } from "./components/user-management";
-import { EljiranOperations } from "./components/eljiran-operations";
+import { UserManagement } from "@/components/admin/user-management";
+import { EljiranOperations } from "@/components/admin/eljiran-operations";
 
 type AdminTab = "users" | "residents" | "providers" | "moderators" | "operations";
 type ReasonAction =
