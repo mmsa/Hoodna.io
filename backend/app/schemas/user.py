@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime
 from app.models.enums import UserRole, UserStatus
@@ -21,6 +21,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    avatar_url: Optional[str] = None
     role: Optional[UserRole] = None
     status: UserStatus
     compound_id: Optional[int] = None
@@ -35,4 +36,13 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+
+class AvatarPresignRequest(BaseModel):
+    file_name: str = Field(min_length=1, max_length=255)
+    file_type: str = Field(min_length=1, max_length=100)
+
+
+class AvatarUpdate(BaseModel):
+    avatar_url: str = Field(min_length=1, max_length=512)
 

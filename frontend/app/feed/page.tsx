@@ -537,6 +537,7 @@ export default function FeedPage() {
               <div className="mb-6">
                 <PostComposer
                   userName={user.name}
+                  userAvatarUrl={user.avatar_url}
                   isSubmitting={createPostMutation.isPending}
                   onSubmit={(post) => createPostMutation.mutate(post)}
                 />

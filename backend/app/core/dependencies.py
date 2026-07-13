@@ -101,6 +101,15 @@ async def get_upload_user_id(
 
     logger = logging.getLogger(__name__)
 
+    def validate_profile_key(user_id: int) -> None:
+        if object_key.startswith("profiles/") and not object_key.startswith(
+            f"profiles/{user_id}/"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Profile upload does not belong to this user",
+            )
+
     if credentials is not None:
         payload = decode_token(credentials.credentials)
         if payload is not None and payload.get("type") == "access":
@@ -114,6 +123,7 @@ async def get_upload_user_id(
                 if user_id is not None:
                     user = await db.get(User, user_id)
                     if user is not None:
+                        validate_profile_key(user.id)
                         return user.id
 
     if upload_token:
@@ -123,6 +133,7 @@ async def get_upload_user_id(
         if user_id is not None:
             user = await db.get(User, user_id)
             if user is not None:
+                validate_profile_key(user.id)
                 return user.id
         logger.warning(
             "S3 upload token rejected: object_key=%s",

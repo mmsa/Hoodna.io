@@ -12,6 +12,7 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
+    avatar_url = Column(String(512), nullable=True)
     password_hash = Column(String, nullable=False)
     role = Column(SQLEnum(UserRole), nullable=True)  # Can be null until user selects role
     status = Column(SQLEnum(UserStatus), default=UserStatus.PENDING_VERIFICATION, nullable=False)

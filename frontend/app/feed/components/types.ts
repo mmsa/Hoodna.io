@@ -11,6 +11,7 @@ export type PostCategory =
 export interface Comment {
   id: number
   author_name: string
+  author_avatar_url?: string | null
   author_status?: string
   content: string
   created_at: string
@@ -20,6 +21,7 @@ export interface Post {
   id: number
   author_id: number
   author_name: string
+  author_avatar_url?: string | null
   content: string
   created_at: string
   compound_id?: number
@@ -59,6 +61,7 @@ export interface FeedSummary {
 export interface ResidentUser {
   id?: number
   name: string
+  avatar_url?: string | null
   role: string
   status?: string
   compound_id?: number | null

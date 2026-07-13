@@ -230,7 +230,12 @@ function PostCard({
 
       <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: spacing[3] }}>
         <View style={{ position: "relative" }}>
-          <Avatar name={post.author_name} size={48} />
+          <Avatar
+            name={post.author_name}
+            fileUrl={post.author_avatar_url}
+            apiClient={apiClient}
+            size={48}
+          />
           {isNew && (
             <View
               style={{
@@ -499,7 +504,13 @@ function PostCard({
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                    <Avatar name={comment.author_name} size={28} style={{ marginRight: spacing[2] }} />
+                    <Avatar
+                      name={comment.author_name}
+                      fileUrl={comment.author_avatar_url}
+                      apiClient={apiClient}
+                      size={28}
+                      style={{ marginRight: spacing[2] }}
+                    />
                     <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4, flex: 1 }}>
                       <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMain }}>
                         {comment.author_name}
@@ -988,6 +999,8 @@ export default function HomeScreen() {
 
             <FeedComposer
               name={user?.name || "Neighbor"}
+              avatarUrl={user?.avatar_url}
+              apiClient={apiClient}
               disabled={!canPost}
               onPress={() => {
                 if (canPost) {

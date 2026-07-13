@@ -196,6 +196,23 @@ export class ApiClient {
     return this.request<User>("/api/auth/me");
   }
 
+  async getAvatarPresignedUrl(data: {
+    file_name: string;
+    file_type: string;
+  }): Promise<PresignResponse> {
+    return this.request<PresignResponse>("/api/auth/me/avatar/presign", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAvatar(avatarUrl: string): Promise<User> {
+    return this.request<User>("/api/auth/me/avatar", {
+      method: "PUT",
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    });
+  }
+
   async getUserCompounds(): Promise<
     Array<{
       id: number;

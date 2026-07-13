@@ -18,6 +18,7 @@ import { POST_CATEGORIES, type PostCategory } from "./types"
 
 interface PostComposerProps {
   userName: string
+  userAvatarUrl?: string | null
   isSubmitting: boolean
   onSubmit: (post: {
     content: string
@@ -28,6 +29,7 @@ interface PostComposerProps {
 
 export function PostComposer({
   userName,
+  userAvatarUrl,
   isSubmitting,
   onSubmit,
 }: PostComposerProps) {
@@ -98,7 +100,7 @@ export function PostComposer({
         </div>
       </div>
       <div className="flex gap-3 sm:gap-4">
-        <Avatar name={userName} className="mt-0.5" />
+        <Avatar name={userName} src={userAvatarUrl} className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {quickActions.map((action) => {

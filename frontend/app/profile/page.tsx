@@ -1,17 +1,54 @@
 'use client'
 
 import { useAuth } from '@/hooks/use-auth'
+import { Avatar } from '@/components/ui/avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AccountShell } from '@/components/account-shell'
-import { Mail, Phone, MapPin, Shield, Loader2, Home, Building2, Briefcase, CheckCircle, User } from 'lucide-react'
+import { Mail, Phone, MapPin, Shield, Loader2, Home, Building2, Briefcase, CheckCircle, User, Camera } from 'lucide-react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { AppShell, PageLayout } from '@/components/ui/page-layout'
+import { resolveUploadContentType, uploadToPresignedUrl } from '@/lib/upload'
+import { useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth()
+  const { user, isLoading, refreshUser } = useAuth()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+  async function uploadAvatar(file: File) {
+    const mimeType = resolveUploadContentType(file)
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) {
+      toast.error('Choose a JPG, PNG, or WebP image.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Profile pictures must be 5 MB or smaller.')
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const presign = await api.post('/api/auth/me/avatar/presign', {
+        file_name: file.name,
+        file_type: mimeType,
+      })
+      await uploadToPresignedUrl(presign.data.presigned_url, file, mimeType)
+      await api.put('/api/auth/me/avatar', {
+        avatar_url: presign.data.file_url,
+      })
+      await refreshUser()
+      toast.success('Profile picture updated.')
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || error?.message || 'Could not update profile picture.')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
 
   // Fetch provider profile if user is a service provider
   const { data: providerProfile } = useQuery({
@@ -87,8 +124,31 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
-              {user.name.charAt(0).toUpperCase()}
+            <div className="relative shrink-0">
+              <Avatar name={user.name} src={user.avatar_url} className="h-20 w-20 text-2xl" />
+              <button
+                type="button"
+                aria-label="Change profile picture"
+                disabled={uploadingAvatar}
+                onClick={() => avatarInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-sm disabled:opacity-60"
+              >
+                {uploadingAvatar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Camera className="h-4 w-4" />
+                )}
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) void uploadAvatar(file)
+                }}
+              />
             </div>
               <div>
                 <h2 className="text-2xl font-bold">{user.name}</h2>

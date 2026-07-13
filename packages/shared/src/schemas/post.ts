@@ -5,6 +5,7 @@ export const CommentSchema = z.object({
   post_id: z.number(),
   author_id: z.number(),
   author_name: z.string(),
+  author_avatar_url: z.string().nullable().optional(),
   author_status: z.string().optional(), // User status (APPROVED, PENDING, etc.) - for verified badge
   content: z.string(),
   created_at: z.string().datetime(),
@@ -27,6 +28,7 @@ export const PostSchema = z.object({
   compound_name: z.string().optional(), // Compound name for context
   author_id: z.number(),
   author_name: z.string(),
+  author_avatar_url: z.string().nullable().optional(),
   author_status: z.string().optional(), // User status (APPROVED, PENDING, etc.) - for verified badge
   content: z.string(),
   category: z.string().optional(), // Post category (GENERAL, HELP, etc.)

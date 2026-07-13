@@ -1,25 +1,30 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
+import type { ApiClient } from "@hoodna/shared";
 
 import { AppPressable, Avatar } from "@/components/ui";
 import { colors } from "@/constants/colors";
 
 interface FeedComposerProps {
   name: string;
+  avatarUrl?: string | null;
+  apiClient?: ApiClient;
   disabled?: boolean;
   onPress: () => void;
 }
 
 export function FeedComposer({
   name,
+  avatarUrl,
+  apiClient,
   disabled = false,
   onPress,
 }: FeedComposerProps) {
   return (
     <View style={styles.container}>
       <View style={styles.promptRow}>
-        <Avatar name={name} size={40} />
+        <Avatar name={name} fileUrl={avatarUrl} apiClient={apiClient} size={40} />
         <AppPressable
           accessibilityHint={
             disabled ? "Complete verification to create a post" : undefined

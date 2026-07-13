@@ -16,6 +16,7 @@ class PostResponse(BaseModel):
     compound_name: Optional[str] = None  # Compound name for context
     author_id: int
     author_name: str
+    author_avatar_url: Optional[str] = None
     author_status: Optional[str] = None  # User status (APPROVED, PENDING, etc.) - for verified badge
     content: str
     category: Optional[str] = None  # Post category (GENERAL, HELP, etc.)
@@ -47,6 +48,7 @@ class CommentResponse(BaseModel):
     post_id: int
     author_id: int
     author_name: str
+    author_avatar_url: Optional[str] = None
     author_status: Optional[str] = None  # User status (APPROVED, PENDING, etc.) - for verified badge
     content: str
     created_at: datetime

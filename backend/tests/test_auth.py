@@ -2,7 +2,9 @@
 Unit tests for authentication endpoints.
 """
 import pytest
+from io import BytesIO
 from httpx import AsyncClient
+from PIL import Image
 from app.models.user import User
 from app.models.enums import UserRole, UserStatus
 from app.schemas.user import UserCreate
@@ -145,3 +147,54 @@ async def test_get_current_user_unauthenticated(async_client: AsyncClient):
     """Test getting current user info without authentication."""
     response = await async_client.get("/api/auth/me")
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_user_can_upload_profile_picture(
+    async_client: AsyncClient, monkeypatch
+):
+    signup = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "Avatar User",
+            "email": "avatar@example.com",
+            "password": "password123",
+            "role": "RESIDENT",
+        },
+    )
+    token = signup.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    external = await async_client.put(
+        "/api/auth/me/avatar",
+        headers=headers,
+        json={"avatar_url": "https://example.com/not-owned.png"},
+    )
+    assert external.status_code == 400
+
+    presign = await async_client.post(
+        "/api/auth/me/avatar/presign",
+        headers=headers,
+        json={"file_name": "avatar.png", "file_type": "image/png"},
+    )
+    assert presign.status_code == 200
+    assert presign.json()["file_url"]
+
+    image_buffer = BytesIO()
+    Image.new("RGB", (128, 128), color=(21, 128, 116)).save(
+        image_buffer, format="PNG"
+    )
+    monkeypatch.setattr(
+        "app.services.s3.download_file_bytes",
+        lambda _: image_buffer.getvalue(),
+    )
+    monkeypatch.setattr("app.services.storage.use_local_storage", lambda: True)
+
+    update = await async_client.put(
+        "/api/auth/me/avatar",
+        headers=headers,
+        json={"avatar_url": presign.json()["file_url"]},
+    )
+    assert update.status_code == 200
+    assert update.json()["avatar_url"] == presign.json()["file_url"]

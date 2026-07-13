@@ -161,7 +161,7 @@ export function PostCard({
       <CardContent className="p-5">
         <div className="mb-3 flex items-start gap-3">
           <div className="relative">
-            <Avatar name={post.author_name} size="lg" />
+            <Avatar name={post.author_name} src={post.author_avatar_url} size="lg" />
             {isMounted && isNew && (
               <span
                 className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-destructive"
@@ -380,7 +380,11 @@ export function PostCard({
                   className="rounded-md border-l-2 border-border bg-muted/40 p-2.5 pl-3"
                 >
                   <div className="mb-1 flex items-center gap-2">
-                    <Avatar name={comment.author_name} size="sm" />
+                    <Avatar
+                      name={comment.author_name}
+                      src={comment.author_avatar_url}
+                      size="sm"
+                    />
                     <span className="text-sm font-medium text-foreground">
                       {comment.author_name}
                     </span>

@@ -28,6 +28,7 @@ export const UserSchema = z.object({
   name: z.string(),
   email: z.string().email(),
   phone: z.string().nullable(),
+  avatar_url: z.string().nullable().optional(),
   role: UserRoleSchema,
   status: UserStatusSchema,
   compound_id: z.number().nullable(),

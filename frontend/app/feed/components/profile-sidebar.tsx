@@ -42,7 +42,7 @@ export function ProfileSidebar({
       <Card className="eljiran-card border-0 shadow-sm">
         <CardContent className="p-6">
           <div className="mb-4 flex flex-col items-center">
-            <Avatar name={user.name} size="lg" className="mb-3" />
+            <Avatar name={user.name} src={user.avatar_url} size="lg" className="mb-3" />
             <h3 className="mb-1 text-lg font-semibold text-foreground">
               {user.name}
             </h3>

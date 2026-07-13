@@ -3,11 +3,15 @@ import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } fr
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { Compound } from "@hoodna/shared";
 import { Header } from "@/components/Header";
+import { Avatar } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
+import { uploadToPresignedUrl } from "@/lib/upload";
 
 interface ProviderProfile {
   provider_status?: string;
@@ -19,15 +23,6 @@ interface ProviderProfile {
     name: string;
     icon?: string;
   } | null;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 function formatLabel(value?: string | null): string {
@@ -153,12 +148,13 @@ type ActionItem = {
 };
 
 export default function ProfileScreen() {
-  const { user, logout, apiClient } = useAuth();
+  const { user, logout, apiClient, refreshUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [compound, setCompound] = useState<Compound | null>(null);
   const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
   const [serviceAreaCompounds, setServiceAreaCompounds] = useState<Compound[]>([]);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const invitationsEnabled = useFeature("invitations");
 
   useEffect(() => {
@@ -227,7 +223,57 @@ export default function ProfileScreen() {
     ]);
   }
 
-  const initials = user?.name ? getInitials(user.name) : "U";
+  async function pickAvatar() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Photo access needed", "Allow photo access to choose a profile picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+
+    const image = result.assets[0];
+    const mimeType = image.mimeType || "image/jpeg";
+    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(mimeType)) {
+      Alert.alert("Unsupported photo", "Choose a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (image.fileSize && image.fileSize > 5 * 1024 * 1024) {
+      Alert.alert("Photo too large", "Profile pictures must be 5 MB or smaller.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+      const presign = await apiClient.getAvatarPresignedUrl({
+        file_name: image.fileName || `profile-${Date.now()}.${extension}`,
+        file_type: mimeType,
+      });
+      const response = await fetch(image.uri);
+      const token = await SecureStore.getItemAsync("accessToken");
+      await uploadToPresignedUrl(
+        presign.presigned_url,
+        await response.blob(),
+        mimeType,
+        token ?? undefined
+      );
+      await apiClient.updateAvatar(presign.file_url);
+      await refreshUser();
+      Alert.alert("Profile updated", "Your new profile picture is now visible.");
+    } catch (error: any) {
+      Alert.alert("Upload failed", error?.message || "Could not update your profile picture.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   const verificationStatus = user?.verification_status ? formatLabel(user.verification_status) : "unverified";
   const accountStatus = user?.status ? formatLabel(user.status) : "unknown";
   const accountType = formatRole(user?.role);
@@ -333,7 +379,11 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40 }}>
           <View style={{ alignItems: "center", marginBottom: 24 }}>
-            <View
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Change profile picture"
+              disabled={uploadingAvatar}
+              onPress={pickAvatar}
               style={{
                 width: 88,
                 height: 88,
@@ -344,8 +394,34 @@ export default function ProfileScreen() {
                 marginBottom: 14,
               }}
             >
-              <Text style={{ color: "#FFFFFF", fontSize: 30, fontWeight: "800" }}>{initials}</Text>
-            </View>
+              <Avatar
+                name={user?.name || "Profile"}
+                fileUrl={user?.avatar_url}
+                apiClient={apiClient}
+                size={88}
+              />
+              <View
+                style={{
+                  position: "absolute",
+                  right: -2,
+                  bottom: -2,
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: colors.accent,
+                  borderWidth: 2,
+                  borderColor: colors.background,
+                }}
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="camera" size={15} color="#FFFFFF" />
+                )}
+              </View>
+            </TouchableOpacity>
             <Text style={{ fontSize: 30, fontWeight: "800", color: colors.textMain, marginBottom: 6 }}>
               {user?.name || "Profile"}
             </Text>

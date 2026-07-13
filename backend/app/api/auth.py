@@ -8,7 +8,12 @@ from app.schemas.auth import (
     ForgotPasswordRequest, ResetPasswordRequest,
     PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest
 )
-from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user import (
+    AvatarPresignRequest,
+    AvatarUpdate,
+    UserResponse,
+    UserUpdate,
+)
 from app.schemas.account import (
     AccountDeletionRequestCreate,
     AccountDeletionRequestResponse,
@@ -430,6 +435,7 @@ async def get_current_user_info(
         name=current_user.name,
         email=current_user.email,
         phone=current_user.phone,
+        avatar_url=current_user.avatar_url,
         role=current_user.role,
         status=current_user.status,
         compound_id=current_user.compound_id,
@@ -481,6 +487,95 @@ async def update_current_user(
             )
         current_user.role = user_update.role
     
+    await db.flush()
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/avatar/presign")
+async def presign_current_user_avatar(
+    request: AvatarPresignRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Create a short-lived, user-owned image upload URL."""
+    from app.api.marketplace import validate_image_upload
+    from app.schemas.verification import PresignResponse
+    from app.services.s3 import generate_presigned_put_url
+
+    validate_image_upload(request.file_name, request.file_type)
+    presigned_url, file_url = generate_presigned_put_url(
+        file_name=request.file_name,
+        file_type=request.file_type,
+        folder=f"profiles/{current_user.id}",
+        user_id=current_user.id,
+    )
+    return PresignResponse(presigned_url=presigned_url, file_url=file_url)
+
+
+@router.put("/me/avatar", response_model=UserResponse)
+async def update_current_user_avatar(
+    request: AvatarUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate an uploaded image and attach it to the current user."""
+    from io import BytesIO
+
+    from PIL import Image, UnidentifiedImageError
+
+    from app.core.config import settings
+    from app.services.s3 import download_file_bytes, extract_s3_object_key
+    from app.services.storage import use_local_storage
+
+    object_key = extract_s3_object_key(request.avatar_url)
+    expected_prefix = f"profiles/{current_user.id}/"
+    is_local_upload = use_local_storage() and "/api/uploads/" in request.avatar_url
+    expected_s3_prefix = (
+        f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/"
+    )
+    expected_endpoint_prefix = (
+        f"{settings.S3_ENDPOINT_URL.rstrip('/')}/{settings.S3_BUCKET_NAME}/"
+        if settings.S3_ENDPOINT_URL
+        else None
+    )
+    is_owned_s3_upload = request.avatar_url.startswith(expected_s3_prefix) or (
+        expected_endpoint_prefix is not None
+        and request.avatar_url.startswith(expected_endpoint_prefix)
+    )
+    if not is_local_upload and (
+        not is_owned_s3_upload
+        or not object_key
+        or not object_key.startswith(expected_prefix)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Avatar must use your profile upload URL",
+        )
+
+    try:
+        image_bytes = download_file_bytes(request.avatar_url)
+        if len(image_bytes) > 5 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Profile picture must be 5 MB or smaller",
+            )
+        with Image.open(BytesIO(image_bytes)) as image:
+            image.verify()
+            width, height = image.size
+            if image.format not in {"JPEG", "PNG", "WEBP"}:
+                raise ValueError("Unsupported image format")
+            if width < 64 or height < 64 or width > 8000 or height > 8000:
+                raise ValueError("Image dimensions must be between 64 and 8000 pixels")
+    except HTTPException:
+        raise
+    except (FileNotFoundError, UnidentifiedImageError, ValueError, OSError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded profile picture is missing or invalid",
+        )
+
+    current_user.avatar_url = request.avatar_url
     await db.flush()
     await db.commit()
     await db.refresh(current_user)

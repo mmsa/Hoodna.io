@@ -260,7 +260,7 @@ export function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-                      <Avatar name={user.name} size="md" />
+                      <Avatar name={user.name} src={user.avatar_url} size="md" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>

@@ -128,6 +128,7 @@ async def get_posts(
             compound_name=compound_name,
             author_id=post.author_id,
             author_name=post.author.name,
+            author_avatar_url=post.author.avatar_url,
             author_status=post.author.status.value if post.author.status else None,  # Include verification status
             content=post.content,
             category=post.category.value if post.category else None,  # Include category
@@ -140,6 +141,7 @@ async def get_posts(
                     post_id=c.post_id,
                     author_id=c.author_id,
                     author_name=c.author.name,
+                    author_avatar_url=c.author.avatar_url,
                     author_status=c.author.status.value if c.author.status else None,  # Include verification status
                     content=c.content,
                     created_at=c.created_at,
@@ -184,6 +186,7 @@ async def get_feed(
             compound_name=compound_name,
             author_id=post.author_id,
             author_name=post.author.name,
+            author_avatar_url=post.author.avatar_url,
             author_status=post.author.status.value if post.author.status else None,  # Include verification status
             content=post.content,
             category=post.category.value if post.category else None,  # Include category
@@ -196,6 +199,7 @@ async def get_feed(
                     post_id=c.post_id,
                     author_id=c.author_id,
                     author_name=c.author.name,
+                    author_avatar_url=c.author.avatar_url,
                     author_status=c.author.status.value if c.author.status else None,  # Include verification status
                     content=c.content,
                     created_at=c.created_at,
@@ -297,6 +301,7 @@ async def create_post_endpoint(
         compound_name=post.compound.name if post.compound else None,
         author_id=post.author_id,
         author_name=current_user.name,
+        author_avatar_url=current_user.avatar_url,
         author_status=current_user.status.value if current_user.status else None,
         content=post.content,
         category=post.category.value if post.category else None,
@@ -348,6 +353,7 @@ async def create_comment_endpoint(
         post_id=comment.post_id,
         author_id=comment.author_id,
         author_name=current_user.name,
+        author_avatar_url=current_user.avatar_url,
         author_status=current_user.status.value if current_user.status else None,
         content=comment.content,
         created_at=comment.created_at,
@@ -387,6 +393,7 @@ async def get_announcements(
             compound_name=compound_name,
             author_id=post.author_id,
             author_name=post.author.name,
+            author_avatar_url=post.author.avatar_url,
             author_status=post.author.status.value if post.author.status else None,  # Include verification status
             content=post.content,
             category=post.category.value if post.category else None,  # Include category
@@ -399,6 +406,7 @@ async def get_announcements(
                     post_id=c.post_id,
                     author_id=c.author_id,
                     author_name=c.author.name,
+                    author_avatar_url=c.author.avatar_url,
                     author_status=c.author.status.value if c.author.status else None,  # Include verification status
                     content=c.content,
                     created_at=c.created_at,

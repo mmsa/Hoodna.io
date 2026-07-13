@@ -123,7 +123,12 @@ export function DesktopNavSidebar() {
           href="/profile"
           className="mt-auto flex items-center gap-3 rounded-xl border border-white/10 bg-black/10 p-2.5 transition-colors hover:bg-white/10"
         >
-          <Avatar name={user.name} size="sm" className="border-white/20 bg-white/15 text-white" />
+          <Avatar
+            name={user.name}
+            src={user.avatar_url}
+            size="sm"
+            className="border-white/20 bg-white/15 text-white"
+          />
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold text-white">{user.name}</p>
             <p className="text-[10px] text-white/55">View profile</p>

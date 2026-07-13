@@ -10,6 +10,7 @@ interface User {
   name: string
   email: string
   phone?: string
+  avatar_url?: string | null
   role: string
   status: string
   compound_id?: number

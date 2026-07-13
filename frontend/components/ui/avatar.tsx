@@ -1,6 +1,8 @@
-import * as React from "react"
-import Image from "next/image"
+"use client"
 
+import * as React from "react"
+
+import { resolveViewUrl } from "@/lib/upload"
 import { cn } from "@/lib/utils"
 
 type AvatarSize = "sm" | "md" | "lg"
@@ -29,7 +31,26 @@ function getInitials(name: string) {
 }
 
 const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
-  ({ name, src, size = "md", className, ...props }, ref) => (
+  ({ name, src, size = "md", className, ...props }, ref) => {
+    const [resolvedSrc, setResolvedSrc] = React.useState("")
+    const [imageFailed, setImageFailed] = React.useState(false)
+
+    React.useEffect(() => {
+      let cancelled = false
+      setImageFailed(false)
+      if (!src) {
+        setResolvedSrc("")
+        return
+      }
+      resolveViewUrl(src).then((url) => {
+        if (!cancelled) setResolvedSrc(url)
+      })
+      return () => {
+        cancelled = true
+      }
+    }, [src])
+
+    return (
     <span
       ref={ref}
       role="img"
@@ -41,19 +62,20 @@ const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
       )}
       {...props}
     >
-      {src ? (
-        <Image
-          src={src}
+      {resolvedSrc && !imageFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={resolvedSrc}
           alt=""
-          fill
-          sizes={size === "sm" ? "32px" : size === "lg" ? "48px" : "40px"}
-          className="object-cover"
+          onError={() => setImageFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
         <span aria-hidden="true">{getInitials(name) || "?"}</span>
       )}
     </span>
-  )
+    )
+  }
 )
 Avatar.displayName = "Avatar"
 

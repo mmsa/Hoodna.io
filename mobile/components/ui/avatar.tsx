@@ -8,12 +8,16 @@ import {
   type ViewStyle,
 } from "react-native";
 import { palette, typography } from "@hoodna/tokens";
+import type { ApiClient } from "@hoodna/shared";
 
 import { colors } from "@/constants/colors";
+import { useSignedFileUrl } from "@/components/signed-image";
 
 export interface AvatarProps {
   name: string;
   source?: ImageSourcePropType;
+  fileUrl?: string | null;
+  apiClient?: ApiClient;
   size?: number;
   style?: ViewStyle;
 }
@@ -28,12 +32,14 @@ function getInitials(name: string) {
     .toUpperCase() || "?";
 }
 
-export function Avatar({ name, source, size = 40, style }: AvatarProps) {
+export function Avatar({ name, source, fileUrl, apiClient, size = 40, style }: AvatarProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const signedFileUrl = useSignedFileUrl(fileUrl, apiClient);
+  const resolvedSource = source || (signedFileUrl ? { uri: signedFileUrl } : undefined);
 
   useEffect(() => {
     setImageFailed(false);
-  }, [source]);
+  }, [source, signedFileUrl]);
 
   const dimensions = {
     width: size,
@@ -47,10 +53,10 @@ export function Avatar({ name, source, size = 40, style }: AvatarProps) {
       accessibilityRole="image"
       style={[styles.base, dimensions, style]}
     >
-      {source && !imageFailed ? (
+      {resolvedSource && !imageFailed ? (
         <Image
           onError={() => setImageFailed(true)}
-          source={source}
+          source={resolvedSource}
           style={dimensions}
         />
       ) : (
