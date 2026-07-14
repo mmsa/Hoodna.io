@@ -255,12 +255,14 @@ def generate_presigned_put_url(
     safe_folder = (folder or "uploads").strip("/").replace("..", "") or "uploads"
 
     if use_local_storage():
-        file_path, file_url_path = generate_local_file_path(file_name)
+        file_extension = file_name.split(".")[-1] if "." in file_name else ""
+        unique_file_name = (
+            f"{uuid.uuid4()}.{file_extension}" if file_extension else str(uuid.uuid4())
+        )
+        relative_path = f"{safe_folder}/{unique_file_name}"
         base_url = settings.BACKEND_URL.rstrip("/")
-        relative_path = file_path.relative_to(LOCAL_STORAGE_DIR)
-        # Keep local path under folder/ for consistency
         presigned_url = f"{base_url}/api/uploads/upload?file_path={relative_path}"
-        file_url = f"{base_url}{file_url_path}"
+        file_url = f"{base_url}/api/uploads/{relative_path}"
         return presigned_url, file_url
 
     require_s3_configured()

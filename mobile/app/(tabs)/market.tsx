@@ -12,16 +12,20 @@ import { Header } from "@/components/Header";
 import { AppPressable, Button, Chip, EmptyState, LoadingState, TextField } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompound } from "@/contexts/CompoundContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 
-const CATEGORIES = [
-  { value: "", label: "All" },
-  { value: "PROPERTY", label: "Property" },
-  { value: "CAR", label: "Cars" },
-  { value: "ITEM", label: "Items" },
+const CATEGORY_KEYS = [
+  { value: "", labelKey: "marketplace.allCategories" as const },
+  { value: "PROPERTY", labelKey: "marketplace.categories.PROPERTY" as const },
+  { value: "CAR", labelKey: "marketplace.categories.CAR" as const },
+  { value: "ITEM", labelKey: "marketplace.categories.ITEM" as const },
 ];
 
 export default function MarketScreen() {
   const { apiClient, user } = useAuth();
+  const { activeCompoundId } = useCompound();
+  const { t } = useTranslation();
   const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +39,8 @@ export default function MarketScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   async function loadListings() {
-    if (user?.role === "SERVICE_PROVIDER") {
+    const compoundId = activeCompoundId || user?.compound_id;
+    if (!compoundId || user?.role === "SERVICE_PROVIDER") {
       setLoading(false);
       setRefreshing(false);
       return;
@@ -48,6 +53,7 @@ export default function MarketScreen() {
       if (minPrice) params.min_price = minPrice;
       if (maxPrice) params.max_price = maxPrice;
       const data = await apiClient.getListings(params);
+      if (compoundId !== (activeCompoundId || user?.compound_id)) return;
       setListings((data || []).filter((item) => item.category !== "SERVICE"));
     } catch (error: any) {
       console.error("Failed to load listings:", error);
@@ -62,7 +68,7 @@ export default function MarketScreen() {
 
   useEffect(() => {
     loadListings();
-  }, [user?.compound_id, user?.role, search, category, intent, sortBy, minPrice, maxPrice]);
+  }, [activeCompoundId, user?.compound_id, user?.role, search, category, intent, sortBy, minPrice, maxPrice]);
 
   const activeFilterCount = useMemo(
     () => [intent, minPrice, maxPrice, sortBy !== "date_desc" ? sortBy : ""].filter(Boolean).length,
@@ -81,11 +87,11 @@ export default function MarketScreen() {
       <SafeAreaView edges={["top"]} style={styles.safe}>
         <Header showLogo />
         <EmptyState
-          actionLabel="Go to services"
-          description="Provider accounts manage their offers from Services and do not browse resident marketplace listings."
+          actionLabel={t("marketplace.goToServices")}
+          description={t("marketplace.providerMarketDesc")}
           icon={<Ionicons color={colors.textMuted} name="storefront-outline" size={36} />}
           onAction={() => router.push("/(tabs)/services")}
-          title="Marketplace is for residents"
+          title={t("marketplace.providerMarketTitle")}
         />
       </SafeAreaView>
     );
@@ -96,10 +102,10 @@ export default function MarketScreen() {
       <SafeAreaView edges={["top"]} style={styles.safe}>
         <Header showLogo />
         <EmptyState
-          actionLabel="Review documents"
-          description="One or more documents need attention before you can use the marketplace."
+          actionLabel={t("marketplace.reviewDocuments")}
+          description={t("marketplace.verificationRejectedDesc")}
           onAction={() => router.replace("/verification-pending")}
-          title="Verification needs attention"
+          title={t("marketplace.verificationNeedsAttention")}
         />
       </SafeAreaView>
     );
@@ -109,7 +115,7 @@ export default function MarketScreen() {
     return (
       <SafeAreaView edges={["top"]} style={styles.safe}>
         <Header showLogo />
-        <LoadingState label="Loading marketplace" />
+        <LoadingState label={t("marketplace.loadingMarketplace")} />
       </SafeAreaView>
     );
   }
@@ -127,7 +133,7 @@ export default function MarketScreen() {
           <View>
             <Header
               rightAction={{
-                label: "New listing",
+                label: t("marketplace.newListing"),
                 disabled: !user?.can_create_listing,
                 onPress: () => router.push("/create-listing"),
               }}
@@ -136,13 +142,13 @@ export default function MarketScreen() {
             <View style={styles.hero}>
               <View style={styles.heroBadge}>
                 <Ionicons color={colors.primary} name="sparkles" size={14} />
-                <Text style={styles.heroBadgeText}>Your neighbours</Text>
+                <Text style={styles.heroBadgeText}>{t("marketplace.yourNeighbours")}</Text>
               </View>
               <Text accessibilityRole="header" style={styles.heading}>
-                Marketplace
+                {t("marketplace.title")}
               </Text>
               <Text style={styles.subheading}>
-                Buy and sell with people in your compound — like WhatsApp, but organised.
+                {t("marketplace.marketSubtitle")}
               </Text>
               <Button
                 disabled={!user?.can_create_listing}
@@ -150,7 +156,7 @@ export default function MarketScreen() {
                 size="medium"
                 style={styles.heroCta}
               >
-                Post a listing
+                {t("marketplace.postListing")}
               </Button>
             </View>
             <View style={styles.searchRow}>
@@ -158,7 +164,7 @@ export default function MarketScreen() {
                 accessibilityLabel="Search marketplace"
                 containerStyle={styles.search}
                 onChangeText={setSearch}
-                placeholder="Search what neighbours are selling…"
+                placeholder={t("marketplace.searchPlaceholder")}
                 returnKeyType="search"
                 value={search}
               />
@@ -177,10 +183,10 @@ export default function MarketScreen() {
               </AppPressable>
             </View>
             <View style={styles.categoryRow}>
-              {CATEGORIES.map((item) => (
+              {CATEGORY_KEYS.map((item) => (
                 <Chip
                   key={item.value}
-                  label={item.label}
+                  label={t(item.labelKey)}
                   onPress={() => setCategory(item.value)}
                   selected={category === item.value}
                 />
@@ -188,21 +194,23 @@ export default function MarketScreen() {
             </View>
             <View style={styles.resultRow}>
               <Text style={styles.resultText}>
-                {listings.length} {listings.length === 1 ? "listing" : "listings"}
+                {listings.length === 1
+                  ? t("marketplace.listingCountOne")
+                  : t("marketplace.listingCount", { count: listings.length })}
               </Text>
               {activeFilterCount ? (
-                <Button onPress={resetFilters} size="small" variant="ghost">Clear filters</Button>
+                <Button onPress={resetFilters} size="small" variant="ghost">{t("marketplace.clearFilters")}</Button>
               ) : null}
             </View>
           </View>
         }
         ListEmptyComponent={
           <EmptyState
-            actionLabel="Post the first listing"
-            description="Snap a photo and be the first neighbour to list something in your compound."
+            actionLabel={t("marketplace.postFirstListing")}
+            description={t("marketplace.nothingListedDesc")}
             icon={<Ionicons color={colors.primary} name="camera-outline" size={36} />}
             onAction={() => router.push("/create-listing")}
-            title="Nothing listed yet"
+            title={t("marketplace.nothingListedYet")}
           />
         }
         numColumns={2}

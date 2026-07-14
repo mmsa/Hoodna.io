@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,6 +11,7 @@ export default function PhoneLoginScreen() {
   const [loading, setLoading] = useState(false);
   const { apiClient } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   // Normalize phone number to match backend normalization
   const normalizePhone = (phoneNumber: string): string => {
@@ -18,7 +20,7 @@ export default function PhoneLoginScreen() {
 
   async function handleStart() {
     if (!phone.trim()) {
-      Alert.alert("Error", "Please enter your phone number");
+      Alert.alert(t("common.error"), t("auth.enterPhone"));
       return;
     }
 
@@ -31,7 +33,7 @@ export default function PhoneLoginScreen() {
         params: { phone: normalizedPhone },
       });
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to send OTP");
+      Alert.alert(t("common.error"), error.message || t("auth.otpFailed"));
     } finally {
       setLoading(false);
     }
@@ -58,14 +60,14 @@ export default function PhoneLoginScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Phone Login</Text>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>{t("auth.phoneLogin")}</Text>
       </View>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
-          Welcome to eljiran
+          {t("auth.welcomeTo")}
         </Text>
       <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
-        Enter your phone number to continue
+        {t("auth.enterPhoneSubtitle")}
       </Text>
 
       <TextInput
@@ -80,7 +82,7 @@ export default function PhoneLoginScreen() {
           marginBottom: 24,
           color: '#1B1B1B',
         }}
-        placeholder="Phone number"
+        placeholder={t("auth.phonePlaceholder")}
         placeholderTextColor="#6C757D"
         value={phone}
         onChangeText={setPhone}
@@ -101,7 +103,7 @@ export default function PhoneLoginScreen() {
         disabled={loading}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-          {loading ? "Sending..." : "Continue"}
+          {loading ? t("auth.signingIn") : t("auth.sendCode")}
         </Text>
       </TouchableOpacity>
 
@@ -113,7 +115,7 @@ export default function PhoneLoginScreen() {
         onPress={() => router.push("/auth/login")}
       >
         <Text style={{ color: '#6C757D', fontSize: 14 }}>
-          Or sign in with email
+          {t("auth.signInWithEmail")}
         </Text>
       </TouchableOpacity>
       </View>

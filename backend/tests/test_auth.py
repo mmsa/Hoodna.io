@@ -198,3 +198,61 @@ async def test_user_can_upload_profile_picture(
     )
     assert update.status_code == 200
     assert update.json()["avatar_url"] == presign.json()["file_url"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_signup_rejects_privileged_roles(async_client: AsyncClient):
+    """Signup must not allow ADMIN or MODERATOR role escalation."""
+    for role in ("ADMIN", "MODERATOR"):
+        response = await async_client.post(
+            "/api/auth/signup",
+            json={
+                "name": f"Bad {role}",
+                "email": f"bad-{role.lower()}@example.com",
+                "password": "password123",
+                "role": role,
+            },
+        )
+        assert response.status_code == 400
+        assert "role" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_local_upload_rejects_foreign_profile_path(
+    async_client: AsyncClient, monkeypatch
+):
+    """Local uploads must stay under profiles/{user_id}/."""
+    monkeypatch.setattr("app.services.storage.use_local_storage", lambda: True)
+
+    signup = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "Upload User",
+            "email": "upload@example.com",
+            "password": "password123",
+            "role": "RESIDENT",
+        },
+    )
+    token = signup.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    image_buffer = BytesIO()
+    Image.new("RGB", (32, 32), color=(21, 128, 116)).save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+
+    traversal = await async_client.post(
+        "/api/uploads/upload?file_path=profiles/999/evil.png",
+        headers=headers,
+        files={"file": ("evil.png", image_buffer.getvalue(), "image/png")},
+    )
+    assert traversal.status_code == 403
+
+    image_buffer.seek(0)
+    invalid = await async_client.post(
+        "/api/uploads/upload?file_path=../secrets.png",
+        headers=headers,
+        files={"file": ("secrets.png", image_buffer.getvalue(), "image/png")},
+    )
+    assert invalid.status_code == 400

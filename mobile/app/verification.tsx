@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
-import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
@@ -15,7 +14,8 @@ import {
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import { VerificationCompoundBar } from "@/components/verification-compound-bar";
 import * as SecureStore from "expo-secure-store";
-import { uploadToPresignedUrl } from "@/lib/upload";
+import { uploadLocalFileToPresignedUrl } from "@/lib/upload";
+import { pickImageSource } from "@/lib/pick-media";
 
 export default function VerificationScreen() {
   const { apiClient, user, refreshUser, logout } = useAuth();
@@ -85,17 +85,13 @@ export default function VerificationScreen() {
 
   async function pickImage(type: DocumentType) {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const image = await pickImageSource({
         allowsEditing: true,
         quality: 0.8,
+        title: "Verification photo",
       });
-
-      if (result.canceled) return;
-
-      const asset = result.assets[0];
-      const fileName = asset.uri.split("/").pop() || `image.jpg`;
-      await uploadDocument(type, asset.uri, asset.mimeType || "image/jpeg", fileName);
+      if (!image) return;
+      await uploadDocument(type, image.uri, image.mimeType, image.fileName);
     } catch (error) {
       Alert.alert("Error", "Failed to pick image");
     }
@@ -116,15 +112,15 @@ export default function VerificationScreen() {
         document_type: type,
       });
 
-      // Read file
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
       const token = await SecureStore.getItemAsync("accessToken");
 
-      await uploadToPresignedUrl(
+      await uploadLocalFileToPresignedUrl(
         presignResponse.presigned_url,
-        blob,
-        mimeType,
+        {
+          uri: fileUri,
+          mimeType,
+          fileName,
+        },
         token ?? undefined
       );
 

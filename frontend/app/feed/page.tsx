@@ -101,7 +101,7 @@ export default function FeedPage() {
   );
 
   const { data: feedSummary } = useQuery<FeedSummary>({
-    queryKey: ["feed-summary"],
+    queryKey: ["feed-summary", effectiveCompoundId],
     queryFn: async () => {
       const response = await api.get("/api/feed/summary");
       return response.data;
@@ -111,7 +111,7 @@ export default function FeedPage() {
   });
 
   useQuery<Listing[]>({
-    queryKey: ["recent-listings"],
+    queryKey: ["recent-listings", effectiveCompoundId],
     queryFn: async () => {
       const response = await api.get("/api/listings?scope=compound&limit=20");
       return response.data;
@@ -121,7 +121,7 @@ export default function FeedPage() {
   });
 
   const { data: latestForSale } = useQuery<Listing[]>({
-    queryKey: ["latest-for-sale"],
+    queryKey: ["latest-for-sale", effectiveCompoundId],
     queryFn: async () => {
       const response = await api.get(
         "/api/listings?scope=compound&intent=SELL&limit=10"
@@ -133,7 +133,7 @@ export default function FeedPage() {
   });
 
   const { data: latestForRent } = useQuery<Listing[]>({
-    queryKey: ["latest-for-rent"],
+    queryKey: ["latest-for-rent", effectiveCompoundId],
     queryFn: async () => {
       const response = await api.get(
         "/api/listings?scope=compound&intent=RENT&limit=10"
@@ -145,7 +145,7 @@ export default function FeedPage() {
   });
 
   const { data: latestServices } = useQuery<Listing[]>({
-    queryKey: ["latest-services"],
+    queryKey: ["latest-services", effectiveCompoundId],
     queryFn: async () => {
       const response = await api.get(
         "/api/listings?scope=compound&category=SERVICE&limit=10"
@@ -177,7 +177,7 @@ export default function FeedPage() {
   });
 
   const { data: announcements } = useQuery<Post[]>({
-    queryKey: ["announcements"],
+    queryKey: ["announcements", effectiveCompoundId],
     queryFn: async () => {
       const response = await api.get("/api/feed/announcements?limit=5");
       return response.data;
@@ -191,7 +191,7 @@ export default function FeedPage() {
     listings_count: number;
     saved_listings_count: number;
   }>({
-    queryKey: ["user-stats"],
+    queryKey: ["user-stats", effectiveCompoundId],
     queryFn: async () => {
       try {
         const postsResponse = await api.get("/api/feed?limit=1000");
@@ -236,7 +236,7 @@ export default function FeedPage() {
     isLoading,
     error,
   } = useQuery<Post[]>({
-    queryKey: ["feed", postsLimit],
+    queryKey: ["feed", effectiveCompoundId, postsLimit],
     queryFn: async () => {
       const response = await api.get(`/api/feed?limit=${postsLimit}`);
       return response.data;

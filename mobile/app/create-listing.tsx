@@ -3,7 +3,6 @@ import type { ListingCategory, ListingCreate, ListingIntent } from "@hoodna/shar
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { useEffect, useState } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
@@ -12,7 +11,8 @@ import { SignedImage } from "@/components/signed-image";
 import { AppPressable, Button, Chip, KeyboardScreen, LoadingState, TextArea, TextField } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
-import { uploadToPresignedUrl } from "@/lib/upload";
+import { uploadLocalFileToPresignedUrl } from "@/lib/upload";
+import { isSupportedImageType, pickImageSource, pickImagesFromLibrary, type PickedImage } from "@/lib/pick-media";
 
 const MAX_IMAGES = 5;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -35,7 +35,7 @@ export default function CreateListingScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [images, setImages] = useState<PickedImage[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [loadingListing, setLoadingListing] = useState(!!editId);
   const [submitting, setSubmitting] = useState(false);
@@ -67,39 +67,62 @@ export default function CreateListingScreen() {
       Alert.alert("Photo limit", `You can include up to ${MAX_IMAGES} photos.`);
       return;
     }
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Photo access needed", "Allow photo access to add listing photos.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-      quality: 0.8,
-    });
-    if (result.canceled) return;
-    const valid = result.assets.filter((asset) => {
-      const supported = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(asset.mimeType || "image/jpeg");
-      return supported && (!asset.fileSize || asset.fileSize <= MAX_IMAGE_BYTES);
-    });
-    if (valid.length !== result.assets.length) {
-      Alert.alert("Some photos were skipped", "Use JPG, PNG or WebP photos up to 5 MB each.");
-    }
-    setImages((current) => [...current, ...valid].slice(0, remaining + current.length));
+
+    Alert.alert("Add photos", "Choose a source", [
+      {
+        text: "Take photo",
+        onPress: () => {
+          void (async () => {
+            const image = await pickImageSource({ quality: 0.8, title: "Listing photo" });
+            if (!image || !isSupportedImageType(image.mimeType)) {
+              if (image) Alert.alert("Unsupported photo", "Use JPG, PNG or WebP photos up to 5 MB each.");
+              return;
+            }
+            if (image.fileSize && image.fileSize > MAX_IMAGE_BYTES) {
+              Alert.alert("Photo too large", "Use photos up to 5 MB each.");
+              return;
+            }
+            setImages((current) => [...current, image].slice(0, remaining + current.length));
+          })();
+        },
+      },
+      {
+        text: "Choose from library",
+        onPress: () => {
+          void (async () => {
+            const picked = await pickImagesFromLibrary({ quality: 0.8, selectionLimit: remaining });
+            const valid = picked.filter(
+              (asset) =>
+                isSupportedImageType(asset.mimeType) &&
+                (!asset.fileSize || asset.fileSize <= MAX_IMAGE_BYTES)
+            );
+            if (valid.length !== picked.length) {
+              Alert.alert("Some photos were skipped", "Use JPG, PNG or WebP photos up to 5 MB each.");
+            }
+            setImages((current) => [...current, ...valid].slice(0, remaining + current.length));
+          })();
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }
 
   async function uploadImages() {
     const token = await SecureStore.getItemAsync("accessToken");
     return Promise.all(images.map(async (image, index) => {
-      const mimeType = image.mimeType || "image/jpeg";
-      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
       const presign = await apiClient.getListingImagePresignedUrl({
-        file_name: image.fileName || `listing-${Date.now()}-${index}.${extension}`,
-        file_type: mimeType,
+        file_name: image.fileName || `listing-${Date.now()}-${index}.jpg`,
+        file_type: image.mimeType,
       });
-      const response = await fetch(image.uri);
-      await uploadToPresignedUrl(presign.presigned_url, await response.blob(), mimeType, token ?? undefined);
+      await uploadLocalFileToPresignedUrl(
+        presign.presigned_url,
+        {
+          uri: image.uri,
+          mimeType: image.mimeType,
+          fileName: image.fileName,
+        },
+        token ?? undefined
+      );
       return presign.file_url;
     }));
   }

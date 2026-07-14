@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
@@ -11,10 +12,11 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState("");
   const router = useRouter();
   const { apiClient } = useAuth();
+  const { t } = useTranslation();
 
   async function handleSubmit() {
     if (!email || !email.includes("@")) {
-      setError("Please enter a valid email address");
+      setError(t("auth.validEmailRequired"));
       return;
     }
 
@@ -24,7 +26,7 @@ export default function ForgotPasswordScreen() {
       await apiClient.forgotPassword({ email: email.trim().toLowerCase() });
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || "Failed to send reset email. Please try again.");
+      setError(err.message || t("auth.resetEmailFailed"));
     } finally {
       setLoading(false);
     }
@@ -32,24 +34,17 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
-          {/* Header */}
           <View style={{ marginBottom: 32 }}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={{ marginBottom: 24 }}
-            >
-              <Text style={{ fontSize: 16, color: "#158074" }}>← Back</Text>
+            <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 16, color: "#158074" }}>← {t("common.back")}</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 32, fontWeight: "bold", color: "#1B1B1B", marginBottom: 8 }}>
-              Forgot Password
+              {t("auth.forgotPasswordTitle")}
             </Text>
             <Text style={{ fontSize: 16, color: "#6C757D", lineHeight: 24 }}>
-              Enter your email to receive a password reset link
+              {t("auth.forgotPasswordSubtitle")}
             </Text>
           </View>
 
@@ -64,8 +59,7 @@ export default function ForgotPasswordScreen() {
                 }}
               >
                 <Text style={{ fontSize: 14, color: "#065F46", lineHeight: 20 }}>
-                  If an account with that email exists, a password reset link has been sent.
-                  Please check your email.
+                  {t("auth.resetLinkSent")}
                 </Text>
               </View>
               <TouchableOpacity
@@ -78,13 +72,13 @@ export default function ForgotPasswordScreen() {
                 onPress={() => router.push("/auth/login")}
               >
                 <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                  Back to Login
+                  {t("auth.backToLogin")}
                 </Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={{ flex: 1 }}>
-              {error && (
+              {error ? (
                 <View
                   style={{
                     backgroundColor: "#FEE2E2",
@@ -95,12 +89,11 @@ export default function ForgotPasswordScreen() {
                 >
                   <Text style={{ fontSize: 14, color: "#DC2626" }}>{error}</Text>
                 </View>
-              )}
+              ) : null}
 
-              {/* Email Input */}
               <View style={{ marginBottom: 24 }}>
                 <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                  Email
+                  {t("auth.email")}
                 </Text>
                 <TextInput
                   style={{
@@ -113,7 +106,7 @@ export default function ForgotPasswordScreen() {
                     borderColor: error ? "#E63946" : "#E5E7EB",
                     color: "#1B1B1B",
                   }}
-                  placeholder="you@example.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   placeholderTextColor="#9CA3AF"
                   value={email}
                   onChangeText={(text) => {
@@ -126,7 +119,6 @@ export default function ForgotPasswordScreen() {
                 />
               </View>
 
-              {/* Submit Button */}
               <TouchableOpacity
                 style={{
                   backgroundColor: "#158074",
@@ -147,16 +139,15 @@ export default function ForgotPasswordScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                    Send Reset Link
+                    {t("auth.sendResetLink")}
                   </Text>
                 )}
               </TouchableOpacity>
 
-              {/* Back to Login */}
               <View style={{ alignItems: "center", marginTop: 24 }}>
                 <TouchableOpacity onPress={() => router.push("/auth/login")}>
                   <Text style={{ fontSize: 14, color: "#158074", fontWeight: "600" }}>
-                    Back to login
+                    {t("auth.backToLogin")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -167,4 +158,3 @@ export default function ForgotPasswordScreen() {
     </SafeAreaView>
   );
 }
-

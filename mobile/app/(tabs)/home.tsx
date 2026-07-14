@@ -617,14 +617,29 @@ export default function HomeScreen() {
   const { activeCompoundId } = useCompound();
   const router = useRouter();
 
-  // Load compound feed context (name + hero banner)
+  // Load compound feed context and posts — guard against stale responses on compound switch
   useEffect(() => {
-    if (user?.role === "SERVICE_PROVIDER") return;
+    if (user?.role === "SERVICE_PROVIDER") {
+      setLoading(false);
+      return;
+    }
+    if (!activeCompoundId || !apiClient) return;
 
-    async function loadFeedSummary() {
-      if (!apiClient) return;
+    let cancelled = false;
+    const compoundId = activeCompoundId;
+
+    setLoading(true);
+    setAllPosts([]);
+    setAnnouncements([]);
+
+    async function loadCompoundData() {
       try {
-        const summary = await apiClient.getFeedSummary();
+        const [summary, posts, announcementPosts] = await Promise.all([
+          apiClient.getFeedSummary(),
+          apiClient.getPosts(compoundId),
+          apiClient.getAnnouncements(compoundId),
+        ]);
+        if (cancelled) return;
         setCompoundName(summary.compound_name);
         setCompoundArea(summary.compound_area);
         setCompoundHeroUrl(summary.compound_hero_image_url ?? null);
@@ -633,27 +648,27 @@ export default function HomeScreen() {
           posts: summary.recent_posts_count,
           listings: summary.recent_listings_count,
         });
+        setAllPosts(posts || []);
+        setAnnouncements(announcementPosts || []);
       } catch (error) {
-        console.error("Failed to load feed summary:", error);
+        if (!cancelled) {
+          console.error("Failed to load feed:", error);
+          setAllPosts([]);
+          setAnnouncements([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
-    if (activeCompoundId || user?.compound_id) {
-      loadFeedSummary();
-    }
-  }, [activeCompoundId, user?.compound_id, user?.role, apiClient]);
-
-  // Refetch posts when compound changes
-  useEffect(() => {
-    if (user?.role === "SERVICE_PROVIDER") {
-      setLoading(false);
-      return;
-    }
-    if (activeCompoundId) {
-      loadPosts();
-      loadAnnouncements();
-    }
-  }, [activeCompoundId, user?.role]);
+    void loadCompoundData();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompoundId, user?.role, apiClient]);
 
   // Organize posts into sections: Alerts, Announcements, Discussions
   const organizePosts = (allPosts: Post[], announcements: Post[]) => {
@@ -691,6 +706,7 @@ export default function HomeScreen() {
 
     try {
       const data = await apiClient.getPosts(compoundId);
+      if (compoundId !== (activeCompoundId || user?.compound_id)) return;
       setAllPosts(data || []);
       // Filtering is handled by useMemo hook below
     } catch (error: any) {
@@ -715,6 +731,7 @@ export default function HomeScreen() {
 
     try {
       const data = await apiClient.getAnnouncements(5);
+      if (compoundId !== (activeCompoundId || user?.compound_id)) return;
       setAnnouncements(data || []);
     } catch (error: any) {
       console.error("Failed to load announcements:", error);

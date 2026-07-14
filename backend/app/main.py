@@ -176,6 +176,7 @@ if use_local_storage():
     async def upload_file(
         file: UploadFile = File(...),
         file_path: Optional[str] = Query(None),
+        current_user: User = Depends(get_current_user),
     ):
         """Upload file to local storage (development only)."""
         if not use_local_storage():
@@ -183,6 +184,21 @@ if use_local_storage():
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Local storage is not enabled",
             )
+
+        if file_path:
+            normalized = file_path.replace("\\", "/").lstrip("/")
+            if ".." in normalized.split("/"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid file path",
+                )
+            if normalized.startswith("profiles/"):
+                expected = f"profiles/{current_user.id}/"
+                if not normalized.startswith(expected):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Profile upload does not belong to this user",
+                    )
 
         # Validate file type
         ALLOWED_TYPES = {
@@ -213,7 +229,7 @@ if use_local_storage():
 
         # Determine file path
         if file_path:
-            save_path = LOCAL_STORAGE_DIR / file_path
+            save_path = LOCAL_STORAGE_DIR / normalized
         else:
             from app.services.storage import generate_local_file_path
 

@@ -51,3 +51,22 @@ export function translate(
 export function createTranslator(locale: SupportedLocale) {
   return (key: MessageKey, values?: InterpolationValues) => translate(locale, key, values);
 }
+
+export function formatRelativeTime(
+  locale: SupportedLocale,
+  dateInput: Date | string,
+): string {
+  const t = createTranslator(locale);
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return t("feed.justNow");
+  if (diffMins < 60) return t("feed.minutesAgo", { count: diffMins });
+  if (diffHours < 24) return t("feed.hoursAgo", { count: diffHours });
+  if (diffDays < 7) return t("feed.daysAgo", { count: diffDays });
+  return date.toLocaleDateString(locale === "ar" ? "ar-EG" : undefined);
+}

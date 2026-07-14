@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useTranslation } from "@/components/locale-provider"
 
 import { POST_CATEGORIES, type PostCategory } from "./types"
 
@@ -34,6 +35,7 @@ export function PostComposer({
   onSubmit,
 }: PostComposerProps) {
   const textareaId = useId()
+  const { t } = useTranslation()
   const [content, setContent] = useState("")
   const [category, setCategory] = useState<PostCategory>("GENERAL")
   const [isUrgent, setIsUrgent] = useState(false)
@@ -54,27 +56,27 @@ export function PostComposer({
     icon: React.ReactNode
   }> = [
     {
-      label: "Ask neighbours",
-      helper: "Questions and recommendations",
+      label: t("feed.ask"),
+      helper: t("feed.categories.GENERAL"),
       value: "DISCUSSION",
       icon: <BadgeHelp className="h-4 w-4" />,
     },
     {
-      label: "Report issue",
-      helper: "Maintenance or community problem",
+      label: t("feed.report"),
+      helper: t("feed.categories.HELP"),
       value: "HELP",
       urgent: true,
       icon: <Megaphone className="h-4 w-4" />,
     },
     {
-      label: "Sell item",
-      helper: "Marketplace or service offer",
+      label: t("feed.sell"),
+      helper: t("feed.categories.MARKETPLACE"),
       value: "MARKETPLACE",
       icon: <ShoppingBag className="h-4 w-4" />,
     },
     {
-      label: "Offer help",
-      helper: "Support a neighbour nearby",
+      label: t("feed.help"),
+      helper: t("feed.categories.HELP"),
       value: "HELP",
       icon: <Sparkles className="h-4 w-4" />,
     },
@@ -144,7 +146,7 @@ export function PostComposer({
                 submit()
               }
             }}
-            placeholder="What's happening in the neighbourhood?"
+            placeholder={t("feed.composerPrompt")}
             rows={3}
             className="min-h-[6rem] resize-none rounded-[22px] border-border/70 bg-muted/30 text-[15px] leading-6 shadow-none focus-visible:border-primary/30 focus-visible:ring-primary/15"
           />
@@ -176,7 +178,7 @@ export function PostComposer({
                 className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
               />
               <AlertTriangle aria-hidden="true" className="h-4 w-4" />
-              Mark urgent
+              {t("feed.urgent")}
             </label>
             <Button
               type="button"
@@ -192,7 +194,7 @@ export function PostComposer({
               ) : (
                 <Send aria-hidden="true" className="h-4 w-4" />
               )}
-              Post
+              {isSubmitting ? t("feed.publishing") : t("feed.publish")}
             </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getPostAuthRoute } from "@/lib/resident-routing";
@@ -19,6 +20,7 @@ export default function OTPVerifyScreen() {
   const [loading, setLoading] = useState(false);
   const { apiClient, login, user } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
   const nameInputRef = useRef<TextInput>(null);
 
   // Navigate after successful login
@@ -35,7 +37,7 @@ export default function OTPVerifyScreen() {
 
   async function handleResend() {
     if (!phone) {
-      Alert.alert("Error", "Phone number not found");
+      Alert.alert(t("common.error"), t("auth.enterPhone"));
       return;
     }
 
@@ -43,9 +45,9 @@ export default function OTPVerifyScreen() {
     try {
       await apiClient.phoneAuthStart({ phone: normalizePhone(phone) });
       setOtp("");
-      Alert.alert("Success", "A new OTP code has been sent");
+      Alert.alert(t("common.success"), t("auth.resendCode"));
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to resend OTP");
+      Alert.alert(t("common.error"), error.message || t("auth.otpFailed"));
     } finally {
       setLoading(false);
     }
@@ -53,12 +55,12 @@ export default function OTPVerifyScreen() {
 
   async function handleVerify() {
     if (!otp.trim()) {
-      Alert.alert("Error", "Please enter the OTP code");
+      Alert.alert(t("common.error"), t("auth.enterOtp"));
       return;
     }
 
     if (!phone) {
-      Alert.alert("Error", "Phone number not found");
+      Alert.alert(t("common.error"), t("auth.enterPhone"));
       return;
     }
 
@@ -78,7 +80,7 @@ export default function OTPVerifyScreen() {
         setShowNameInput(true);
         setTimeout(() => nameInputRef.current?.focus(), 100);
       } else {
-        Alert.alert("Error", error.message || "Invalid OTP code");
+        Alert.alert(t("common.error"), error.message || t("auth.otpVerifyFailed"));
       }
     } finally {
       setLoading(false);
@@ -106,14 +108,14 @@ export default function OTPVerifyScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Verify OTP</Text>
+        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>{t("auth.verifyCode")}</Text>
       </View>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
-          Verify your phone
+          {t("auth.enterOtp")}
         </Text>
       <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
-        Enter the code sent to {phone || 'your phone'}
+        {t("auth.otpSentTo", { phone: phone || "…" })}
       </Text>
 
       {showNameInput && (
@@ -130,7 +132,7 @@ export default function OTPVerifyScreen() {
             marginBottom: 16,
             color: '#1B1B1B',
           }}
-          placeholder="Your name"
+          placeholder={t("auth.fullNamePlaceholder")}
           placeholderTextColor="#6C757D"
           value={name}
           onChangeText={setName}
@@ -152,7 +154,7 @@ export default function OTPVerifyScreen() {
           letterSpacing: 8,
           color: '#1B1B1B',
         }}
-        placeholder="000000"
+        placeholder={t("auth.otpPlaceholder")}
         placeholderTextColor="#6C757D"
         value={otp}
         onChangeText={setOtp}
@@ -174,7 +176,7 @@ export default function OTPVerifyScreen() {
         disabled={loading}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-          {loading ? "Verifying..." : "Verify"}
+          {loading ? t("auth.signingIn") : t("auth.verifyCode")}
         </Text>
       </TouchableOpacity>
 
@@ -188,7 +190,7 @@ export default function OTPVerifyScreen() {
         disabled={loading}
       >
         <Text style={{ color: '#158074', fontSize: 14, fontWeight: '500' }}>
-          Resend OTP
+          {t("auth.resendCode")}
         </Text>
       </TouchableOpacity>
       </View>

@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 export default function ResetPasswordScreen() {
   const params = useLocalSearchParams();
@@ -16,28 +17,29 @@ export default function ResetPasswordScreen() {
   const [error, setError] = useState("");
   const router = useRouter();
   const { apiClient } = useAuth();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const tokenParam = params.token as string;
     if (!tokenParam) {
-      setError("Invalid reset link. Please request a new password reset.");
+      setError(t("auth.passwordResetFailed"));
     } else {
       try {
         const decodedToken = decodeURIComponent(tokenParam);
         setToken(decodedToken);
       } catch (e) {
-        setError("Invalid reset link format. Please request a new password reset.");
+        setError(t("auth.passwordResetFailed"));
       }
     }
   }, [params]);
 
   async function handleSubmit() {
     if (!password || password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError(t("auth.passwordMinLength"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords don't match");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
     if (!token) {
@@ -57,7 +59,7 @@ export default function ResetPasswordScreen() {
         router.replace("/auth/login");
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Failed to reset password. Please try again.");
+      setError(err.message || t("auth.passwordResetFailed"));
     } finally {
       setLoading(false);
     }
@@ -67,7 +69,7 @@ export default function ResetPasswordScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#158074" />
-        <Text style={{ marginTop: 16, color: "#6C757D" }}>Loading...</Text>
+        <Text style={{ marginTop: 16, color: "#6C757D" }}>{t("common.loading")}</Text>
       </SafeAreaView>
     );
   }
@@ -82,10 +84,10 @@ export default function ResetPasswordScreen() {
           {/* Header */}
           <View style={{ marginBottom: 32 }}>
             <Text style={{ fontSize: 32, fontWeight: "bold", color: "#1B1B1B", marginBottom: 8 }}>
-              Reset Password
+              {t("auth.resetPassword")}
             </Text>
             <Text style={{ fontSize: 16, color: "#6C757D", lineHeight: 24 }}>
-              Enter your new password
+              {t("auth.resetPasswordSubtitle")}
             </Text>
           </View>
 
@@ -100,7 +102,7 @@ export default function ResetPasswordScreen() {
                 }}
               >
                 <Text style={{ fontSize: 14, color: "#065F46", lineHeight: 20 }}>
-                  Password has been reset successfully! Redirecting to login...
+                  {t("auth.passwordResetSuccess")}
                 </Text>
               </View>
             </View>
@@ -122,7 +124,7 @@ export default function ResetPasswordScreen() {
               {/* Password Input */}
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                  New Password
+                  {t("auth.newPassword")}
                 </Text>
                 <View style={{ position: "relative" }}>
                   <TextInput
@@ -164,7 +166,7 @@ export default function ResetPasswordScreen() {
               {/* Confirm Password Input */}
               <View style={{ marginBottom: 24 }}>
                 <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                  Confirm Password
+                  {t("auth.confirmPassword")}
                 </Text>
                 <View style={{ position: "relative" }}>
                   <TextInput
@@ -224,7 +226,7 @@ export default function ResetPasswordScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                    Reset Password
+                    {t("auth.resetPassword")}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -233,7 +235,7 @@ export default function ResetPasswordScreen() {
               <View style={{ alignItems: "center", marginTop: 24 }}>
                 <TouchableOpacity onPress={() => router.push("/auth/login")}>
                   <Text style={{ fontSize: 14, color: "#158074", fontWeight: "600" }}>
-                    Back to login
+                    {t("auth.backToLogin")}
                   </Text>
                 </TouchableOpacity>
               </View>

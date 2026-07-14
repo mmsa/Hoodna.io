@@ -30,9 +30,8 @@ interface HeaderProps {
   };
 }
 
-// Cache compound data to avoid reloading on every page
-let compoundCache: Compound | null = null;
-let cacheTimestamp = 0;
+// Cache compound data per compound id
+const compoundCache = new Map<number, { compound: Compound; ts: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function Header({ title, showLogo = true, showBackButton = false, rightAction }: HeaderProps) {
@@ -49,32 +48,26 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
   const shouldLoadCompound = user && compoundIdToLoad && apiClient;
 
   useEffect(() => {
-    if (shouldLoadCompound) {
-      // Check cache first
+    if (shouldLoadCompound && compoundIdToLoad) {
       const now = Date.now();
-      if (compoundCache && compoundCache.id === compoundIdToLoad && (now - cacheTimestamp) < CACHE_DURATION) {
-        setCompound(compoundCache);
+      const cached = compoundCache.get(compoundIdToLoad);
+      if (cached && now - cached.ts < CACHE_DURATION) {
+        setCompound(cached.compound);
       } else {
-        // Load in background, don't block UI
-        loadCompound();
+        loadCompound(compoundIdToLoad);
       }
     } else {
-      // Clear compound if user logs out or doesn't have compound_id
       setCompound(null);
-      compoundCache = null;
     }
-  }, [compoundIdToLoad]); // Watch activeCompoundId from context
+  }, [compoundIdToLoad, shouldLoadCompound]);
 
-  async function loadCompound() {
-    if (!shouldLoadCompound || !apiClient || !compoundIdToLoad) return;
-    
-    // Load in background - don't block UI rendering
-    // Use getUserCompounds which is optimized and includes current compound
+  async function loadCompound(compoundId: number) {
+    if (!apiClient) return;
+
     try {
       const userCompounds = await apiClient.getUserCompounds();
-      const foundCompound = userCompounds.find((c) => c.id === compoundIdToLoad);
+      const foundCompound = userCompounds.find((c) => c.id === compoundId);
       if (foundCompound) {
-        // Convert to Compound format
         const compoundData: Compound = {
           id: foundCompound.id,
           name: foundCompound.name,
@@ -84,16 +77,12 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
           category: null,
         };
         setCompound(compoundData);
-        // Cache it
-        compoundCache = compoundData;
-        cacheTimestamp = Date.now();
-      } else {
+        compoundCache.set(compoundId, { compound: compoundData, ts: Date.now() });
+      } else if (compoundId === compoundIdToLoad) {
         setCompound(null);
-        compoundCache = null;
+        compoundCache.delete(compoundId);
       }
     } catch (error) {
-      // Silently fail - compound display is optional
-      // Don't clear cache on error, might be temporary network issue
       if (user && apiClient) {
         console.error("Failed to load compound:", error);
       }
@@ -125,7 +114,7 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
       setShowCompoundSwitcher(false);
       await switchCompound(compoundId);
       await refreshUser();
-      loadCompound();
+      loadCompound(compoundId);
       if (isVerified) {
         router.replace("/(tabs)/home");
       } else {

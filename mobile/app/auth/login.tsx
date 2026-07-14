@@ -5,6 +5,7 @@ import { palette, spacing, typography } from "@hoodna/tokens";
 
 import { Button, KeyboardScreen, TextField } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 import { API_BASE_URL } from "@/lib/config";
 import { getPostAuthRoute } from "@/lib/resident-routing";
 
@@ -15,6 +16,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const { apiClient, login, user } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (user) {
@@ -24,11 +26,11 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     if (!email.trim()) {
-      Alert.alert("Error", "Please enter your email");
+      Alert.alert(t("common.error"), t("auth.enterEmail"));
       return;
     }
     if (!password.trim()) {
-      Alert.alert("Error", "Please enter your password");
+      Alert.alert(t("common.error"), t("auth.enterPassword"));
       return;
     }
 
@@ -40,15 +42,15 @@ export default function LoginScreen() {
       });
       await login(response.access_token, response.refresh_token);
     } catch (error: any) {
-      let errorMessage = error.message || "Invalid email or password";
+      let errorMessage = error.message || t("auth.invalidCredentials");
       if (
         errorMessage.includes("Cannot connect") ||
         errorMessage.includes("Network error") ||
         errorMessage.includes("timed out")
       ) {
-        errorMessage = `${errorMessage}\n\nAPI URL: ${API_BASE_URL}\n\nMake sure:\n• Backend is running\n• Phone and computer are on same WiFi\n• IP address matches mobile/.env`;
+        errorMessage = `${errorMessage}\n\nAPI URL: ${API_BASE_URL}`;
       }
-      Alert.alert("Error", errorMessage);
+      Alert.alert(t("common.error"), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -58,9 +60,9 @@ export default function LoginScreen() {
     <KeyboardScreen contentContainerStyle={styles.screen}>
       <View style={styles.header}>
         <Text accessibilityRole="header" style={styles.title}>
-          Welcome back
+          {t("auth.welcomeBack")}
         </Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+        <Text style={styles.subtitle}>{t("auth.signInSubtitle")}</Text>
       </View>
 
       <View style={styles.form}>
@@ -69,41 +71,41 @@ export default function LoginScreen() {
           autoCorrect={false}
           autoFocus
           keyboardType="email-address"
-          label="Email"
+          label={t("auth.email")}
           onChangeText={setEmail}
-          placeholder="you@example.com"
+          placeholder={t("auth.emailPlaceholder")}
           value={email}
         />
         <TextField
           autoCapitalize="none"
           autoCorrect={false}
-          label="Password"
+          label={t("auth.password")}
           onChangeText={setPassword}
-          placeholder="Your password"
+          placeholder={t("auth.passwordPlaceholder")}
           secureTextEntry={!showPassword}
           value={password}
         />
         <Button onPress={() => setShowPassword((v) => !v)} size="small" variant="ghost">
-          {showPassword ? "Hide password" : "Show password"}
+          {showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
         </Button>
       </View>
 
       <View style={styles.actions}>
-        <Button loading={loading} loadingLabel="Signing in…" onPress={handleLogin} size="large">
-          Sign in
+        <Button loading={loading} loadingLabel={t("auth.signingIn")} onPress={handleLogin} size="large">
+          {t("auth.signIn")}
         </Button>
         <Button onPress={() => router.push("/auth/forgot-password")} variant="ghost">
-          Forgot password?
+          {t("auth.forgotPassword")}
         </Button>
         <Button onPress={() => router.push("/auth/phone-login")} variant="outline">
-          Continue with phone
+          {t("auth.continueWithPhone")}
         </Button>
       </View>
 
       <Text style={styles.footer}>
-        Don&apos;t have an account?{" "}
+        {t("auth.noAccount")}{" "}
         <Text onPress={() => router.push("/auth/signup")} style={styles.link}>
-          Sign up
+          {t("auth.createAccountLink")}
         </Text>
       </Text>
     </KeyboardScreen>
@@ -120,18 +122,18 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.title,
   },
   subtitle: {
-    color: palette.inkMuted,
-    fontSize: typography.size.body,
-    lineHeight: typography.lineHeight.body,
-    marginTop: spacing[2],
-  },
-  form: { gap: spacing[3], marginBottom: spacing[4] },
-  actions: { gap: spacing[3] },
-  footer: {
+    marginTop: spacing[1],
     color: palette.inkMuted,
     fontSize: typography.size.bodySmall,
-    marginTop: spacing[6],
+    lineHeight: typography.lineHeight.bodySmall,
+  },
+  form: { gap: spacing[4], marginBottom: spacing[6] },
+  actions: { gap: spacing[3] },
+  footer: {
+    marginTop: spacing[8],
     textAlign: "center",
+    color: palette.inkMuted,
+    fontSize: typography.size.bodySmall,
   },
   link: { color: palette.primary, fontWeight: typography.weight.semibold },
 });

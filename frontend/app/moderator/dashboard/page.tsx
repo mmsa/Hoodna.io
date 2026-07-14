@@ -100,29 +100,26 @@ export default function ModeratorDashboardPage() {
     )
   }
 
+  const moderatorCompoundId = moderatorProfile?.compound_id ?? user?.compound_id
+
   // Fetch reports
   const { data: reports, isLoading: reportsLoading, refetch: refetchReports } = useQuery<Report[]>({
-    queryKey: ['moderator-reports', user.compound_id],
+    queryKey: ['moderator-reports', moderatorCompoundId],
     queryFn: async () => {
       const response = await api.get(`/api/reports?status_filter=PENDING`)
-      // Filter by compound_id on client side since backend doesn't support compound_id filter yet
-      const allReports = response.data || []
-      return allReports.filter((report: Report) => {
-        // For now, we'll show all pending reports - backend should filter by compound_id
-        return report.status === 'PENDING'
-      })
+      return response.data || []
     },
-    enabled: !!user?.compound_id,
+    enabled: !!moderatorCompoundId,
   })
 
   // Fetch posts from compound
   const { data: posts, isLoading: postsLoading, refetch: refetchPosts } = useQuery<Post[]>({
-    queryKey: ['moderator-posts', user.compound_id],
+    queryKey: ['moderator-posts', moderatorCompoundId],
     queryFn: async () => {
-      const response = await api.get(`/api/posts?compound_id=${user.compound_id}`)
+      const response = await api.get(`/api/posts?compound_id=${moderatorCompoundId}`)
       return response.data || []
     },
-    enabled: !!user?.compound_id,
+    enabled: !!moderatorCompoundId,
   })
 
   // Note: User management endpoint doesn't exist yet, so we'll show a message

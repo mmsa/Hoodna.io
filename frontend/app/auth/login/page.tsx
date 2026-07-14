@@ -13,6 +13,7 @@ import api from '@/lib/api'
 import Cookies from 'js-cookie'
 import Link from 'next/link'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
+import { useTranslation } from '@/components/locale-provider'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const { t } = useTranslation()
 
   // Security: Remove sensitive data from URL immediately
   useEffect(() => {
@@ -126,8 +128,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sign In</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
+          <CardTitle>{t('auth.signIn')}</CardTitle>
+          <CardDescription>{t('auth.signInSubtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -137,19 +139,19 @@ export default function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
                 {...register('email')}
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
               />
               {errors.email && (
                 <p className="text-sm text-red-600">{errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -161,18 +163,18 @@ export default function LoginPage() {
               )}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
             <div className="text-center text-sm space-y-2">
               <div>
                 <Link href="/auth/forgot-password" className="text-primary hover:underline">
-                  Forgot password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
               <div>
-                <span className="text-gray-600">Don't have an account? </span>
+                <span className="text-gray-600">{t('auth.noAccount')} </span>
                 <Link href="/auth/signup" className="text-primary hover:underline">
-                  Sign up
+                  {t('auth.createAccountLink')}
                 </Link>
               </div>
             </div>

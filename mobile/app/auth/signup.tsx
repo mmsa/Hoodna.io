@@ -8,6 +8,7 @@ import { getRoleOnboardingRoute } from "@/lib/resident-routing";
 import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCode } from "@/lib/referral";
 import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -23,6 +24,7 @@ export default function SignupScreen() {
   const { apiClient, login } = useAuth();
   const { isEnabled, loading: configLoading } = useFeatureConfig();
   const { track } = useTelemetry();
+  const { t } = useTranslation();
   const [referralCode, setReferralCode] = useState<string | undefined>();
 
   useEffect(() => {
@@ -42,16 +44,16 @@ export default function SignupScreen() {
   function validate() {
     const newErrors: Record<string, string> = {};
     if (!name || name.length < 2) {
-      newErrors.name = "Name must be at least 2 characters";
+      newErrors.name = t("auth.nameMinLength");
     }
     if (!email || !email.includes("@")) {
-      newErrors.email = "Invalid email address";
+      newErrors.email = t("auth.invalidEmail");
     }
     if (!password || password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+      newErrors.password = t("auth.passwordMinLength");
     }
     if (!selectedRole) {
-      newErrors.role = "Please select an account type";
+      newErrors.role = t("auth.selectAccountType");
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -80,7 +82,7 @@ export default function SignupScreen() {
 
       router.replace(getRoleOnboardingRoute(selectedRole!) as any);
     } catch (error: any) {
-      Alert.alert("Signup Failed", error.message || "Failed to create account. Please try again.");
+      Alert.alert(t("auth.signupFailedTitle"), error.message || t("auth.signupFailed"));
     } finally {
       setLoading(false);
     }
@@ -90,17 +92,17 @@ export default function SignupScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", padding: 24 }}>
         <Text accessibilityRole="header" style={{ fontSize: 24, fontWeight: "700", color: "#1B1B1B", textAlign: "center" }}>
-          Registration is temporarily paused
+          {t("auth.registrationPaused")}
         </Text>
         <Text style={{ color: "#6C757D", textAlign: "center", marginTop: 10, lineHeight: 22 }}>
-          Eljiran is opening access gradually. Please try again later.
+          {t("auth.registrationPausedDesc")}
         </Text>
         <TouchableOpacity
           accessibilityRole="button"
           onPress={() => router.replace("/auth/login")}
           style={{ minHeight: 48, marginTop: 24, borderRadius: 12, backgroundColor: "#158074", justifyContent: "center" }}
         >
-          <Text style={{ color: "#FFFFFF", fontWeight: "600", textAlign: "center" }}>Back to sign in</Text>
+          <Text style={{ color: "#FFFFFF", fontWeight: "600", textAlign: "center" }}>{t("auth.backToSignIn")}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -119,13 +121,13 @@ export default function SignupScreen() {
               onPress={() => router.back()}
               style={{ marginBottom: 24 }}
             >
-              <Text style={{ fontSize: 16, color: "#158074" }}>← Back</Text>
+              <Text style={{ fontSize: 16, color: "#158074" }}>← {t("common.back")}</Text>
             </TouchableOpacity>
             <Text style={{ fontSize: 32, fontWeight: "bold", color: "#1B1B1B", marginBottom: 8 }}>
-              Create Account
+              {t("auth.signUp")}
             </Text>
             <Text style={{ fontSize: 16, color: "#6C757D", lineHeight: 24 }}>
-              Join your community and start connecting
+              {t("auth.signupSubtitle")}
             </Text>
           </View>
 
@@ -134,7 +136,7 @@ export default function SignupScreen() {
             {/* Name */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                Full Name
+                {t("auth.fullName")}
               </Text>
               <TextInput
                 style={{
@@ -147,7 +149,7 @@ export default function SignupScreen() {
                   borderColor: errors.name ? "#E63946" : "#E5E7EB",
                   color: "#1B1B1B",
                 }}
-                placeholder="Enter your name"
+                placeholder={t("auth.namePlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={name}
                 onChangeText={(text) => {
@@ -166,7 +168,7 @@ export default function SignupScreen() {
             {/* Email */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                Email
+                {t("auth.email")}
               </Text>
               <TextInput
                 style={{
@@ -179,7 +181,7 @@ export default function SignupScreen() {
                   borderColor: errors.email ? "#E63946" : "#E5E7EB",
                   color: "#1B1B1B",
                 }}
-                placeholder="you@example.com"
+                placeholder={t("auth.emailPlaceholder")}
                 placeholderTextColor="#9CA3AF"
                 value={email}
                 onChangeText={(text) => {
@@ -200,7 +202,7 @@ export default function SignupScreen() {
             {/* Phone (Optional) */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                Phone (Optional)
+                {t("auth.phoneOptional")}
               </Text>
               <TextInput
                 style={{
@@ -224,7 +226,7 @@ export default function SignupScreen() {
             {/* Password */}
             <View style={{ marginBottom: 24 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                Password
+                {t("auth.password")}
               </Text>
               <View style={{ position: "relative" }}>
                 <TextInput
@@ -267,14 +269,14 @@ export default function SignupScreen() {
                 </Text>
               )}
               <Text style={{ fontSize: 12, color: "#6C757D", marginTop: 4 }}>
-                Must be at least 6 characters
+                {t("auth.passwordHint")}
               </Text>
             </View>
 
             {/* Role Selection */}
             <View style={{ marginBottom: 24 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 12 }}>
-                Account Type <Text style={{ color: "#E63946" }}>*</Text>
+                {t("auth.accountType")} <Text style={{ color: "#E63946" }}>*</Text>
               </Text>
               {errors.role && (
                 <Text style={{ fontSize: 12, color: "#E63946", marginBottom: 8 }}>
@@ -317,10 +319,10 @@ export default function SignupScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
-                      Resident
+                      {t("auth.roleResident")}
                     </Text>
                     <Text style={{ fontSize: 12, color: "#6C757D" }}>
-                      Live in a compound
+                      {t("auth.roleResidentDesc")}
                     </Text>
                   </View>
                   {selectedRole === "RESIDENT" && (
@@ -364,10 +366,10 @@ export default function SignupScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
-                      Service Provider
+                      {t("auth.roleProvider")}
                     </Text>
                     <Text style={{ fontSize: 12, color: "#6C757D" }}>
-                      Provide services to residents
+                      {t("auth.roleProviderDesc")}
                     </Text>
                   </View>
                   {selectedRole === "SERVICE_PROVIDER" && (
@@ -411,10 +413,10 @@ export default function SignupScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
-                      Compound Moderator
+                      {t("auth.roleModerator")}
                     </Text>
                     <Text style={{ fontSize: 12, color: "#6C757D" }}>
-                      Moderate content for your compound
+                      {t("auth.roleModeratorDesc")}
                     </Text>
                   </View>
                   {selectedRole === "COMPOUND_MOD" && (
@@ -445,7 +447,7 @@ export default function SignupScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                  Create Account
+                  {loading ? t("auth.signingUp") : t("auth.signUp")}
                 </Text>
               )}
             </TouchableOpacity>
@@ -454,12 +456,12 @@ export default function SignupScreen() {
           {/* Sign In Link */}
           <View style={{ alignItems: "center", marginTop: 24 }}>
             <Text style={{ fontSize: 14, color: "#6C757D" }}>
-              Already have an account?{" "}
+              {t("auth.alreadyHaveAccount")}{" "}
               <Text
                 style={{ color: "#158074", fontWeight: "600" }}
                 onPress={() => router.push("/auth/login")}
               >
-                Sign in
+                {t("auth.signIn")}
               </Text>
             </Text>
           </View>

@@ -5,23 +5,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
+import { formatRelativeTime } from "@hoodna/i18n";
 import { colors } from "@/constants/colors";
 import { getNotificationRoute, Notification, NotificationListResponse } from "@hoodna/shared";
 import { useTelemetry } from "@/contexts/TelemetryContext";
 
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+function formatTime(dateString: string, locale: "en" | "ar"): string {
+  return formatRelativeTime(locale, dateString);
 }
 
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
@@ -85,6 +76,7 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const { apiClient, user } = useAuth();
   const { track } = useTelemetry();
+  const { t, locale } = useTranslation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -181,9 +173,9 @@ export default function NotificationsScreen() {
       await apiClient.markAllNotificationsRead();
       loadNotifications();
       loadUnreadCount();
-      Alert.alert("Success", "All notifications marked as read");
+      Alert.alert(t("common.success"), t("notifications.markAllRead"));
     } catch (error) {
-      Alert.alert("Error", "Failed to mark all notifications as read");
+      Alert.alert(t("common.error"), t("common.error"));
     }
   }
 
@@ -203,10 +195,10 @@ export default function NotificationsScreen() {
   if (!user) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <Header showLogo={true} showBackButton={true} title="Notifications" />
+        <Header showLogo={true} showBackButton={true} title={t("notifications.title")} />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
           <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginBottom: 8 }}>
-            Sign in required
+            {t("auth.pleaseSignIn")}
           </Text>
           <Text style={{ fontSize: 14, textAlign: "center", color: colors.textMuted }}>
             Notifications are only available for signed-in users.
@@ -219,11 +211,11 @@ export default function NotificationsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <Header showLogo={true} showBackButton={true} title="Notifications" />
+        <Header showLogo={true} showBackButton={true} title={t("notifications.title")} />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
-            Loading notifications...
+            {t("common.loading")}
           </Text>
         </View>
       </SafeAreaView>
@@ -235,11 +227,11 @@ export default function NotificationsScreen() {
       <Header
         showLogo={true}
         showBackButton={true}
-        title={unreadCount > 0 ? `Notifications (${unreadCount})` : "Notifications"}
+        title={unreadCount > 0 ? `${t("notifications.title")} (${unreadCount})` : t("notifications.title")}
         rightAction={
           unreadCount > 0
             ? {
-                label: "Read all",
+                label: t("notifications.markAllRead"),
                 onPress: handleMarkAllRead,
                 icon: "checkmark-done",
               }
@@ -284,8 +276,8 @@ export default function NotificationsScreen() {
       </View>
 
       <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingBottom: 12 }}>
-        <FilterChip label="All notifications" active={filter === "all"} onPress={() => setFilter("all")} />
-        <FilterChip label="Unread only" active={filter === "unread"} onPress={() => setFilter("unread")} />
+        <FilterChip label={t("notifications.filterAll")} active={filter === "all"} onPress={() => setFilter("all")} />
+        <FilterChip label={t("notifications.filterUnread")} active={filter === "unread"} onPress={() => setFilter("unread")} />
       </View>
 
       <FlatList
@@ -318,12 +310,10 @@ export default function NotificationsScreen() {
           >
             <Ionicons name="notifications-off-outline" size={38} color={colors.textMuted} />
             <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain, marginTop: 12, marginBottom: 8 }}>
-              No notifications
+              {t("notifications.empty")}
             </Text>
             <Text style={{ fontSize: 14, lineHeight: 21, color: colors.textMuted, textAlign: "center" }}>
-              {filter === "unread"
-                ? "You are caught up. There are no unread notifications right now."
-                : "New activity will show up here as messages, saves, comments, or verification updates arrive."}
+              {t("notifications.emptyDesc")}
             </Text>
           </View>
         }
@@ -390,7 +380,7 @@ export default function NotificationsScreen() {
                     <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textMuted, marginBottom: 8 }}>
                       {item.message}
                     </Text>
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: iconColor }}>{formatTime(item.created_at)}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: iconColor }}>{formatTime(item.created_at, locale)}</Text>
                   </View>
                 </TouchableOpacity>
 

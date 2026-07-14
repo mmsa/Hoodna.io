@@ -5,6 +5,7 @@ import type { ApiClient } from "@hoodna/shared";
 
 import { AppPressable, Avatar } from "@/components/ui";
 import { colors } from "@/constants/colors";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 interface FeedComposerProps {
   name: string;
@@ -21,15 +22,17 @@ export function FeedComposer({
   disabled = false,
   onPress,
 }: FeedComposerProps) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
       <View style={styles.promptRow}>
         <Avatar name={name} fileUrl={avatarUrl} apiClient={apiClient} size={40} />
         <AppPressable
           accessibilityHint={
-            disabled ? "Complete verification to create a post" : undefined
+            disabled ? t("feed.composerDisabled") : undefined
           }
-          accessibilityLabel="Create a community post"
+          accessibilityLabel={t("feed.createPost")}
           accessibilityRole="button"
           accessibilityState={{ disabled }}
           disabled={disabled}
@@ -38,21 +41,21 @@ export function FeedComposer({
           style={styles.prompt}
         >
           <Text style={styles.promptText}>
-            {disabled ? "Posting opens after verification" : "What's happening in your neighbourhood?"}
+            {disabled ? t("feed.composerDisabled") : t("feed.composerPrompt")}
           </Text>
         </AppPressable>
       </View>
 
       <View style={styles.actions}>
         {[
-          { label: "Ask", icon: "help-circle" as const },
-          { label: "Report", icon: "warning" as const },
-          { label: "Sell", icon: "pricetag" as const },
-          { label: "Help", icon: "heart" as const },
+          { labelKey: "feed.ask" as const, icon: "help-circle" as const },
+          { labelKey: "feed.report" as const, icon: "warning" as const },
+          { labelKey: "feed.sell" as const, icon: "pricetag" as const },
+          { labelKey: "feed.help" as const, icon: "heart" as const },
         ].map((action) => (
           <AppPressable
-            key={action.label}
-            accessibilityLabel={`${action.label} neighbours`}
+            key={action.labelKey}
+            accessibilityLabel={t(action.labelKey)}
             disabled={disabled}
             onPress={onPress}
             pressedStyle={styles.pressed}
@@ -61,7 +64,7 @@ export function FeedComposer({
             <View style={styles.actionIcon}>
               <Ionicons color={colors.primary} name={action.icon} size={17} />
             </View>
-            <Text style={styles.actionLabel}>{action.label}</Text>
+            <Text style={styles.actionLabel}>{t(action.labelKey)}</Text>
           </AppPressable>
         ))}
       </View>

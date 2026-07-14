@@ -35,7 +35,7 @@ export default function MarketplacePage() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
 
   const { data: feedSummary } = useQuery({
-    queryKey: ["feed-summary"],
+    queryKey: ["feed-summary", user?.compound_id],
     queryFn: async () => (await api.get("/api/feed/summary")).data,
     enabled: !!user && user.role !== "COMPOUND_MOD" && user.role !== "SERVICE_PROVIDER",
     retry: false,
@@ -61,7 +61,7 @@ export default function MarketplacePage() {
   }, [filters])
 
   const { data: listings, isLoading, error, refetch } = useQuery<ListingView[]>({
-    queryKey: ["listings", "compound", queryParams],
+    queryKey: ["listings", "compound", user?.compound_id, queryParams],
     queryFn: async () => {
       const queryString = new URLSearchParams(queryParams).toString()
       const response = await api.get(`/api/listings?${queryString}`)

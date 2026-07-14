@@ -1,7 +1,7 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as SecureStore from "expo-secure-store";
 import type { ApiClient } from "@hoodna/shared";
-import { uploadToPresignedUrl } from "@/lib/upload";
+import { uploadLocalFileToPresignedUrl } from "@/lib/upload";
 
 type OnboardingOwner = "providers" | "moderators";
 
@@ -30,13 +30,14 @@ export async function pickAndUploadOnboardingDocument(
     method: "POST",
   });
 
-  const response = await fetch(file.uri);
-  const blob = await response.blob();
   const token = await SecureStore.getItemAsync("accessToken");
-  await uploadToPresignedUrl(
+  await uploadLocalFileToPresignedUrl(
     presign.presigned_url,
-    blob,
-    file.mimeType || "application/octet-stream",
+    {
+      uri: file.uri,
+      mimeType: file.mimeType || "application/octet-stream",
+      fileName: file.name,
+    },
     token ?? undefined,
   );
 

@@ -3,7 +3,6 @@ import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } fr
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { Compound } from "@hoodna/shared";
 import { Header } from "@/components/Header";
@@ -11,7 +10,8 @@ import { Avatar } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
-import { uploadToPresignedUrl } from "@/lib/upload";
+import { uploadLocalFileToPresignedUrl } from "@/lib/upload";
+import { isSupportedImageType, pickImageSource } from "@/lib/pick-media";
 
 interface ProviderProfile {
   provider_status?: string;
@@ -224,23 +224,15 @@ export default function ProfileScreen() {
   }
 
   async function pickAvatar() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Photo access needed", "Allow photo access to choose a profile picture.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const image = await pickImageSource({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      title: "Profile picture",
     });
-    if (result.canceled) return;
+    if (!image) return;
 
-    const image = result.assets[0];
-    const mimeType = image.mimeType || "image/jpeg";
-    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(mimeType)) {
+    if (!isSupportedImageType(image.mimeType)) {
       Alert.alert("Unsupported photo", "Choose a JPG, PNG, or WebP image.");
       return;
     }
@@ -251,17 +243,18 @@ export default function ProfileScreen() {
 
     setUploadingAvatar(true);
     try {
-      const extension = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
       const presign = await apiClient.getAvatarPresignedUrl({
-        file_name: image.fileName || `profile-${Date.now()}.${extension}`,
-        file_type: mimeType,
+        file_name: image.fileName,
+        file_type: image.mimeType,
       });
-      const response = await fetch(image.uri);
       const token = await SecureStore.getItemAsync("accessToken");
-      await uploadToPresignedUrl(
+      await uploadLocalFileToPresignedUrl(
         presign.presigned_url,
-        await response.blob(),
-        mimeType,
+        {
+          uri: image.uri,
+          mimeType: image.mimeType,
+          fileName: image.fileName,
+        },
         token ?? undefined
       );
       await apiClient.updateAvatar(presign.file_url);

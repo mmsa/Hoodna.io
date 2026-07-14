@@ -537,6 +537,18 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       await refreshUser()
       queryClient.invalidateQueries({ queryKey: ['user-compounds'] })
       queryClient.invalidateQueries({ queryKey: ['compound'] })
+      for (const key of [
+        'feed',
+        'feed-summary',
+        'announcements',
+        'recent-listings',
+        'latest-for-sale',
+        'latest-for-rent',
+        'latest-services',
+        'user-stats',
+      ]) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
       if (isVerified) {
         toast({
           title: 'Neighbourhood switched',

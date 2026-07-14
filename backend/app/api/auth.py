@@ -222,9 +222,27 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
             detail="Email already registered"
         )
     
-    # Create user with normalized email
+    # Create user with normalized email — never trust client role for privileged accounts
     user_data.email = email_lower
-    user = await create_user(db, user_data, role=user_data.role)
+    from app.models.enums import UserRole
+
+    signup_role = user_data.role
+    allowed_roles = {
+        UserRole.RESIDENT,
+        UserRole.SERVICE_PROVIDER,
+        UserRole.COMPOUND_MOD,
+        UserRole.USER,
+    }
+    if signup_role is not None and signup_role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid role for registration",
+        )
+    user = await create_user(
+        db,
+        user_data,
+        role=signup_role or UserRole.RESIDENT,
+    )
     if user_data.referral_code:
         await redeem_registration_referral(
             db, user_data.referral_code.strip(), user.id
@@ -543,7 +561,13 @@ async def update_current_user_avatar(
         expected_endpoint_prefix is not None
         and request.avatar_url.startswith(expected_endpoint_prefix)
     )
-    if not is_local_upload and (
+    if is_local_upload:
+        if f"/profiles/{current_user.id}/" not in request.avatar_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Avatar must use your profile upload URL",
+            )
+    elif (
         not is_owned_s3_upload
         or not object_key
         or not object_key.startswith(expected_prefix)

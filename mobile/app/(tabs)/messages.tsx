@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
+import { formatRelativeTime } from "@hoodna/i18n";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { colors } from "@/constants/colors";
@@ -23,15 +25,15 @@ interface Conversation {
   updated_at: string;
 }
 
-const TABS = [
-  { value: "all", label: "All" },
-  { value: "unread", label: "Unread" },
+const TAB_KEYS = [
+  { value: "all", labelKey: "messages.filterAll" as const },
+  { value: "unread", labelKey: "messages.filterUnread" as const },
 ];
 
-const SORT_OPTIONS = [
-  { value: "recent", label: "Recent" },
-  { value: "unread_first", label: "Unread first" },
-  { value: "name", label: "Name A–Z" },
+const SORT_KEYS = [
+  { value: "recent", labelKey: "messages.sortRecent" as const },
+  { value: "unread_first", labelKey: "messages.sortUnreadFirst" as const },
+  { value: "name", labelKey: "messages.sortName" as const },
 ];
 
 function SheetOption({
@@ -67,19 +69,8 @@ function SheetOption({
   );
 }
 
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+function formatTime(dateString: string, locale: "en" | "ar"): string {
+  return formatRelativeTime(locale, dateString);
 }
 
 function getInitials(name: string): string {
@@ -118,6 +109,7 @@ export default function MessagesTab() {
   const [showFilters, setShowFilters] = useState(false);
   const { apiClient, user } = useAuth();
   const router = useRouter();
+  const { t, locale } = useTranslation();
 
   useEffect(() => {
     // Only load if user is approved
@@ -205,7 +197,7 @@ export default function MessagesTab() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
-            Loading messages...
+            Loading {t("messages.title").toLowerCase()}…
           </Text>
         </View>
       </SafeAreaView>
@@ -245,7 +237,7 @@ export default function MessagesTab() {
                     fontSize: 15,
                     color: colors.textMain,
                   }}
-                  placeholder="Search messages..."
+                  placeholder={t("messages.searchPlaceholder")}
                   placeholderTextColor={colors.textMuted}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -302,12 +294,12 @@ export default function MessagesTab() {
 
             {/* Tabs */}
             <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              {TABS.map((tab) => {
+              {TAB_KEYS.map((tab) => {
                 const selected = selectedTab === tab.value;
                 const label =
                   tab.value === "unread" && unreadCount > 0
-                    ? `Unread (${unreadCount})`
-                    : tab.label;
+                    ? `${t("messages.filterUnread")} (${unreadCount})`
+                    : t(tab.labelKey);
                 return (
                   <TouchableOpacity
                     key={tab.value}
@@ -348,7 +340,7 @@ export default function MessagesTab() {
               >
                 <Text style={{ fontSize: 12, color: colors.textMuted, flex: 1 }} numberOfLines={1}>
                   {[
-                    sortBy !== "recent" ? SORT_OPTIONS.find((o) => o.value === sortBy)?.label : null,
+                    sortBy !== "recent" ? t(SORT_KEYS.find((o) => o.value === sortBy)?.labelKey ?? "messages.sortRecent") : null,
                     listingOnly ? "Listing chats" : null,
                   ]
                     .filter(Boolean)
@@ -398,10 +390,10 @@ export default function MessagesTab() {
                     Sort by
                   </Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
-                    {SORT_OPTIONS.map((opt) => (
+                    {SORT_KEYS.map((opt) => (
                       <SheetOption
                         key={opt.value}
-                        label={opt.label}
+                        label={t(opt.labelKey)}
                         selected={sortBy === opt.value}
                         onPress={() => setSortBy(opt.value)}
                       />
@@ -514,7 +506,7 @@ export default function MessagesTab() {
                       {item.other_user_name}
                     </Text>
                     <Text style={{ fontSize: 12, color: colors.textMuted, marginLeft: 8 }}>
-                      {formatTime(item.updated_at)}
+                      {formatTime(item.updated_at, locale)}
                     </Text>
                   </View>
 
@@ -571,8 +563,8 @@ export default function MessagesTab() {
             </View>
             <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: 8, textAlign: "center" }}>
               {searchQuery.trim() || selectedTab === "unread" || sheetFilterCount > 0
-                ? "No messages match"
-                : "No messages yet"}
+                ? t("messages.noConversations")
+                : t("messages.emptyInbox")}
             </Text>
             <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: "center", lineHeight: 22, marginBottom: 24 }}>
               {searchQuery.trim() || selectedTab === "unread" || sheetFilterCount > 0
