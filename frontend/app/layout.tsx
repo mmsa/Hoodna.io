@@ -1,11 +1,25 @@
 import type { Metadata } from 'next'
 import { Inter, Noto_Sans_Arabic } from 'next/font/google'
+import { LOCALE_STORAGE_KEY } from '@hoodna/i18n'
 import './globals.css'
 import { Providers } from './providers'
 import { Toaster } from '@/components/ui/toaster'
 import { SonnerToaster } from '@/components/sonner-toaster'
 import { Header } from '@/components/header'
 import { AppContentLayout } from '@/components/app-content-layout'
+
+const localeBootstrapScript = `
+(function () {
+  try {
+    var locale = localStorage.getItem(${JSON.stringify(LOCALE_STORAGE_KEY)});
+    if (locale === 'ar' || locale === 'en') {
+      document.documentElement.lang = locale;
+      document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.dataset.locale = locale;
+    }
+  } catch (e) {}
+})();
+`
 
 const inter = Inter({
   subsets: ['latin'],
@@ -33,7 +47,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${notoSansArabic.variable}`}>
+    <html lang="en" dir="ltr" suppressHydrationWarning className={`${inter.variable} ${notoSansArabic.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: localeBootstrapScript }} />
+      </head>
       <body className="font-sans">
         <Providers>
           <Header />

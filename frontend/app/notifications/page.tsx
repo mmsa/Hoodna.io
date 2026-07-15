@@ -22,6 +22,8 @@ import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "@/components/locale-provider";
+import { formatRelativeTime } from "@hoodna/i18n";
 import { notificationHref } from "@/lib/notification-routing";
 import { track } from "@/lib/telemetry";
 
@@ -46,19 +48,8 @@ interface NotificationListResponse {
   limit: number;
 }
 
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+function formatTime(dateString: string, locale: "en" | "ar") {
+  return formatRelativeTime(locale, dateString);
 }
 
 function getNotificationIcon(type: string) {
@@ -112,6 +103,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  const { t, locale } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const pageSize = 50;
@@ -156,7 +148,7 @@ export default function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
       toast({
-        title: "All notifications marked as read",
+        title: t("notifications.markAllReadSuccess"),
         variant: "success",
       });
     },
@@ -170,7 +162,7 @@ export default function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
       toast({
-        title: "Notification deleted",
+        title: t("notifications.deleted"),
         variant: "success",
       });
     },
@@ -200,7 +192,7 @@ export default function NotificationsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-gray-600">Please sign in to view notifications</p>
+          <p className="text-gray-600">{t("notifications.signInRequired")}</p>
         </div>
       </div>
     );
@@ -215,10 +207,10 @@ export default function NotificationsPage() {
             <Bell className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            Notifications
+            {t("notifications.title")}
           </h1>
           <p className="text-gray-600">
-            Stay updated with your community activity
+            {t("notifications.subtitle")}
           </p>
         </div>
 
@@ -228,11 +220,11 @@ export default function NotificationsPage() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-6">
                 <div>
-                  <p className="text-sm text-gray-600">Total</p>
+                  <p className="text-sm text-gray-600">{t("notifications.total")}</p>
                   <p className="text-2xl font-bold text-gray-900">{total}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Unread</p>
+                  <p className="text-sm text-gray-600">{t("notifications.unread")}</p>
                   <p className="text-2xl font-bold text-primary">{unreadCount}</p>
                 </div>
               </div>
@@ -245,7 +237,7 @@ export default function NotificationsPage() {
                   }}
                   size="sm"
                 >
-                  All
+                  {t("notifications.filterAll")}
                 </Button>
                 <Button
                   variant={filter === "unread" ? "default" : "outline"}
@@ -255,7 +247,7 @@ export default function NotificationsPage() {
                   }}
                   size="sm"
                 >
-                  Unread ({unreadCount})
+                  {t("notifications.filterUnread")} ({unreadCount})
                 </Button>
                 {unreadCount > 0 && (
                   <Button
@@ -265,11 +257,11 @@ export default function NotificationsPage() {
                     size="sm"
                   >
                     {markAllReadMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-4 h-4 me-2 animate-spin" />
                     ) : (
-                      <CheckCheck className="w-4 h-4 mr-2" />
+                      <CheckCheck className="w-4 h-4 me-2" />
                     )}
-                    Mark all read
+                    {t("notifications.markAllRead")}
                   </Button>
                 )}
               </div>
@@ -282,7 +274,7 @@ export default function NotificationsPage() {
           <Card className="shadow-lg">
             <CardContent className="p-12 text-center">
               <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-              <p className="text-gray-600">Loading notifications...</p>
+              <p className="text-gray-600">{t("notifications.loading")}</p>
             </CardContent>
           </Card>
         ) : notifications.length === 0 ? (
@@ -290,12 +282,12 @@ export default function NotificationsPage() {
             <CardContent className="p-12 text-center">
               <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                {filter === "unread" ? "No unread notifications" : "No notifications"}
+                {filter === "unread" ? t("notifications.noUnread") : t("notifications.empty")}
               </h3>
               <p className="text-gray-500">
                 {filter === "unread"
-                  ? "You're all caught up!"
-                  : "You'll see notifications here when you receive them."}
+                  ? t("notifications.allCaughtUp")
+                  : t("notifications.willAppearHere")}
               </p>
             </CardContent>
           </Card>
@@ -309,7 +301,7 @@ export default function NotificationsPage() {
                 <Card
                   key={notification.id}
                   className={`shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer ${
-                    !notification.read ? "border-l-4 border-l-primary bg-secondary/30" : ""
+                    !notification.read ? "border-s-4 border-s-primary bg-secondary/30" : ""
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
@@ -339,7 +331,7 @@ export default function NotificationsPage() {
                               {notification.message}
                             </p>
                             <p className="text-xs text-gray-400">
-                              {formatTime(notification.created_at)}
+                              {formatTime(notification.created_at, locale)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -384,8 +376,7 @@ export default function NotificationsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  Page <span className="font-semibold">{page}</span> of{" "}
-                  <span className="font-semibold">{totalPages}</span>
+                  {t("notifications.pageOf", { page, total: totalPages })}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -394,7 +385,7 @@ export default function NotificationsPage() {
                     disabled={page === 1}
                     size="sm"
                   >
-                    Previous
+                    {t("notifications.previous")}
                   </Button>
                   <Button
                     variant="outline"
@@ -402,7 +393,7 @@ export default function NotificationsPage() {
                     disabled={page === totalPages}
                     size="sm"
                   >
-                    Next
+                    {t("notifications.next")}
                   </Button>
                 </div>
               </div>

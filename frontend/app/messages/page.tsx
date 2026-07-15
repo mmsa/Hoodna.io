@@ -18,6 +18,8 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { useTranslation } from '@/components/locale-provider'
+import { formatRelativeTime } from '@hoodna/i18n'
 import { useRouter } from 'next/navigation'
 
 interface Conversation {
@@ -36,24 +38,14 @@ interface Conversation {
   updated_at: string
 }
 
-function formatTime(dateString: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
+function formatTime(dateString: string, locale: 'en' | 'ar') {
+  return formatRelativeTime(locale, dateString)
 }
 
 export default function MessagesPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { t, locale } = useTranslation()
 
   const { data: conversations, isLoading } = useQuery<Conversation[]>({
     queryKey: ['conversations'],
@@ -72,7 +64,7 @@ export default function MessagesPage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading messages...</p>
+          <p className="text-gray-600 text-lg">{t('messages.loadingMessages')}</p>
         </div>
       </div>
     )
@@ -90,16 +82,16 @@ export default function MessagesPage() {
             <div className="flex-1">
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-foreground">
-                  Messages
+                  {t('messages.title')}
                 </h1>
                 {hasUnread && (
                   <span className="px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-full animate-pulse">
-                    {unreadCount} {unreadCount === 1 ? 'unread' : 'unread'}
+                    {unreadCount} {t('messages.unreadLabel')}
                   </span>
                 )}
               </div>
               <p className="text-gray-600 mt-1">
-                Connect with your neighbors and sellers
+                {t('messages.subtitle')}
               </p>
             </div>
           </div>
@@ -110,7 +102,7 @@ export default function MessagesPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Conversations</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('messages.totalConversations')}</p>
                     <p className="text-2xl font-bold text-primary">
                       {conversations?.length || 0}
                     </p>
@@ -126,7 +118,7 @@ export default function MessagesPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Unread Messages</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('messages.unreadMessages')}</p>
                     <p className="text-2xl font-bold text-red-600">
                       {unreadCount}
                     </p>
@@ -142,7 +134,7 @@ export default function MessagesPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Active Chats</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('messages.activeChats')}</p>
                     <p className="text-2xl font-bold text-green-600">
                       {conversations?.filter(c => c.last_message).length || 0}
                     </p>
@@ -185,7 +177,7 @@ export default function MessagesPage() {
                             {conv.other_user_name.charAt(0).toUpperCase()}
                           </div>
                           {hasUnread && (
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
+                            <div className="absolute -top-1 -end-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
                               <span className="text-xs font-bold text-white">
                                 {conv.unread_count > 9 ? '9+' : conv.unread_count}
                               </span>
@@ -205,7 +197,7 @@ export default function MessagesPage() {
                                 </h3>
                                 {isRecent && (
                                   <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                                    Recent
+                                    {t('messages.recent')}
                                   </span>
                                 )}
                               </div>
@@ -220,11 +212,11 @@ export default function MessagesPage() {
                               )}
                             </div>
 
-                            <div className="flex flex-col items-end gap-2 ml-4">
+                            <div className="flex flex-col items-end gap-2 ms-4">
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-gray-400" />
                                 <span className="text-xs text-gray-500 whitespace-nowrap">
-                                  {formatTime(conv.updated_at)}
+                                  {formatTime(conv.updated_at, locale)}
                                 </span>
                               </div>
                               <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
@@ -266,22 +258,22 @@ export default function MessagesPage() {
                 <MessageCircle className="w-12 h-12 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                No messages yet
+                {t('messages.emptyTitle')}
               </h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                Start a conversation by messaging a seller from a listing page. Connect with your neighbors and build your community!
+                {t('messages.emptyDesc')}
               </p>
               <div className="flex gap-4 justify-center">
                 <Link href="/marketplace">
                   <Button className="bg-primary  text-white shadow-lg hover:shadow-xl transition-all">
-                    <ShoppingBag className="w-4 h-4 mr-2" />
-                    Browse Marketplace
+                    <ShoppingBag className="w-4 h-4 me-2" />
+                    {t('messages.browseMarketplace')}
                   </Button>
                 </Link>
                 <Link href="/feed">
                   <Button variant="outline" className="border-2">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Explore Feed
+                    <Sparkles className="w-4 h-4 me-2" />
+                    {t('messages.exploreFeed')}
                   </Button>
                 </Link>
               </div>

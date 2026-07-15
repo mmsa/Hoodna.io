@@ -1,4 +1,4 @@
-import { SUPPORTED_LOCALES, type SupportedLocale } from "@hoodna/i18n";
+import { SUPPORTED_LOCALES, createTranslator, type SupportedLocale } from "@hoodna/i18n";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
@@ -25,7 +25,8 @@ export function LanguagePicker() {
               accessibilityState={{ selected }}
               onPress={() => {
                 void setLocale(option).then(() => {
-                  Alert.alert(t("settings.saved"), localeLabels[option]);
+                  const nextT = createTranslator(option);
+                  Alert.alert(nextT("settings.saved"), localeLabels[option]);
                 });
               }}
               style={[styles.option, selected && styles.optionSelected]}

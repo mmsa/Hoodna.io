@@ -37,8 +37,12 @@ const LocaleContext = createContext<LocaleContextValue | null>(null)
 function applyDocumentLocale(locale: SupportedLocale) {
   if (typeof document === 'undefined') return
   const root = document.documentElement
+  const rtl = isRTL(locale)
   root.lang = locale
-  root.dir = isRTL(locale) ? 'rtl' : 'ltr'
+  root.dir = rtl ? 'rtl' : 'ltr'
+  root.dataset.locale = locale
+  document.body.classList.remove('locale-en', 'locale-ar')
+  document.body.classList.add(`locale-${locale}`)
 }
 
 function readStoredLocale(): SupportedLocale | null {
@@ -113,8 +117,32 @@ export function AppLocaleProvider({ children }: { children: ReactNode }) {
   return (
     <LocaleContext.Provider value={value}>
       <LocaleBootstrap />
-      {children}
+      <LocaleShell locale={locale}>{children}</LocaleShell>
     </LocaleContext.Provider>
+  )
+}
+
+function LocaleShell({
+  locale,
+  children,
+}: {
+  locale: SupportedLocale
+  children: ReactNode
+}) {
+  const rtl = isRTL(locale)
+
+  useEffect(() => {
+    applyDocumentLocale(locale)
+  }, [locale])
+
+  return (
+    <div
+      dir={rtl ? 'rtl' : 'ltr'}
+      lang={locale}
+      className="locale-shell min-h-full"
+    >
+      {children}
+    </div>
   )
 }
 

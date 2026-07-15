@@ -128,8 +128,8 @@ export function Header() {
       Cookies.remove('access_token')
       Cookies.remove('refresh_token')
       toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
+        title: t('header.loggedOutTitle'),
+        description: t('header.loggedOutDesc'),
       })
       router.push('/auth/login')
     }
@@ -154,18 +154,18 @@ export function Header() {
     return (
       <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
         <div className="eljiran-shell flex h-14 items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
+          <div className="brand-lock flex shrink-0 items-center gap-2">
             <Image
               src="/icon_light.jpg"
               alt="eljiran.com"
               width={32}
               height={32}
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 shrink-0 rounded-full"
             />
             <BrandWordmark variant="compact" />
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
+            <LogOut className="w-4 h-4 me-2" />
             {t('nav.logOut')}
           </Button>
         </div>
@@ -178,14 +178,14 @@ export function Header() {
       <div className="eljiran-shell px-4 sm:px-6">
         <div className="flex h-[4.25rem] items-center gap-4">
           {/* Logo */}
-          <div className="flex shrink-0 items-center gap-3">
-            <Link href="/" className="flex items-center gap-2">
+          <div className="flex min-w-0 shrink-0 items-center gap-3">
+            <Link href="/" className="brand-lock flex shrink-0 items-center gap-2">
               <Image
                 src="/icon_light.jpg"
                 alt="eljiran.com"
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-full"
+                className="h-10 w-10 shrink-0 rounded-full"
                 priority
               />
               <BrandWordmark />
@@ -219,7 +219,7 @@ export function Header() {
             </form>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             {!mounted || isLoading ? (
               <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
             ) : isAuthenticated && user ? (
@@ -233,7 +233,7 @@ export function Header() {
                   >
                     <MessageCircle className="h-5 w-5 text-muted-foreground" />
                     {unreadMessagesCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
+                      <span className="absolute -top-1 -end-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
                         {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                       </span>
                     )}
@@ -252,7 +252,7 @@ export function Header() {
                   >
                     <Bookmark className="h-5 w-5 text-muted-foreground" />
                     {savedCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-yellow-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
+                      <span className="absolute -top-1 -end-1 h-5 w-5 rounded-full bg-yellow-500 text-white text-xs font-bold flex items-center justify-center border-2 border-white">
                         {savedCount > 99 ? '99+' : savedCount}
                       </span>
                     )}
@@ -286,63 +286,63 @@ export function Header() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/feed" className="flex items-center">
-                        <Home className="mr-2 h-4 w-4" />
+                        <Home className="me-2 h-4 w-4" />
                         <span>{t('nav.communityFeed')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/marketplace" className="flex items-center">
-                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        <ShoppingBag className="me-2 h-4 w-4" />
                         <span>{t('nav.marketplace')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/marketplace/new" className="flex items-center">
-                        <PlusCircle className="mr-2 h-4 w-4" />
+                        <PlusCircle className="me-2 h-4 w-4" />
                         <span>{t('nav.createListing')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/saved-listings" className="flex items-center">
-                        <Bookmark className="mr-2 h-4 w-4" />
+                        <Bookmark className="me-2 h-4 w-4" />
                         <span>{t('nav.savedListings')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/messages" className="flex items-center">
-                        <MessageCircle className="mr-2 h-4 w-4" />
+                        <MessageCircle className="me-2 h-4 w-4" />
                         <span>{t('nav.messages')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/notifications" className="flex items-center">
-                        <Bell className="mr-2 h-4 w-4" />
+                        <Bell className="me-2 h-4 w-4" />
                         <span>{t('nav.notifications')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/verification" className="flex items-center">
-                        <FileText className="mr-2 h-4 w-4" />
+                        <FileText className="me-2 h-4 w-4" />
                         <span>{t('nav.verification')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="flex items-center">
-                        <User className="mr-2 h-4 w-4" />
+                        <User className="me-2 h-4 w-4" />
                         <span>{t('nav.profile')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/settings" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
+                        <Settings className="me-2 h-4 w-4" />
                         <span>{t('nav.settings')}</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/features" className="flex items-center">
-                        <Home className="mr-2 h-4 w-4" />
+                        <Home className="me-2 h-4 w-4" />
                         <span>{t('nav.allFeatures')}</span>
                       </Link>
                     </DropdownMenuItem>
@@ -351,7 +351,7 @@ export function Header() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <Link href="/admin/dashboard" className="flex items-center">
-                            <Shield className="mr-2 h-4 w-4" />
+                            <Shield className="me-2 h-4 w-4" />
                             <span>{t('nav.adminDashboard')}</span>
                           </Link>
                         </DropdownMenuItem>
@@ -359,7 +359,7 @@ export function Header() {
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                      <LogOut className="mr-2 h-4 w-4" />
+                      <LogOut className="me-2 h-4 w-4" />
                       <span>{t('nav.logOut')}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -382,11 +382,11 @@ export function Header() {
             ) : (
               <div className="flex items-center gap-2">
                 <Link href="/auth/login">
-                  <Button variant="ghost">Sign In</Button>
+                  <Button variant="ghost">{t('nav.signIn')}</Button>
                 </Link>
                 {isEnabled('user_registration') ? <Link href="/auth/signup">
                   <Button>
-                    Sign Up
+                    {t('nav.signUp')}
                   </Button>
                 </Link> : null}
               </div>
@@ -402,8 +402,8 @@ export function Header() {
                 variant={isActive('/feed') ? 'default' : 'ghost'}
                 className="w-full justify-start"
               >
-                <Home className="w-4 h-4 mr-2" />
-                Feed
+                <Home className="w-4 h-4 me-2" />
+                {t('nav.feed')}
               </Button>
             </Link>
             <Link href="/services" onClick={() => setMobileMenuOpen(false)}>
@@ -411,8 +411,8 @@ export function Header() {
                 variant={isActive('/services') ? 'default' : 'ghost'}
                 className="w-full justify-start"
               >
-                <Wrench className="w-4 h-4 mr-2" />
-                Services
+                <Wrench className="w-4 h-4 me-2" />
+                {t('nav.services')}
               </Button>
             </Link>
             <Link href="/marketplace" onClick={() => setMobileMenuOpen(false)}>
@@ -420,20 +420,20 @@ export function Header() {
                 variant={isActive('/marketplace') ? 'default' : 'ghost'}
                 className="w-full justify-start"
               >
-                <ShoppingBag className="w-4 h-4 mr-2" />
-                Marketplace
+                <ShoppingBag className="w-4 h-4 me-2" />
+                {t('nav.marketplace')}
               </Button>
             </Link>
             <Link href="/businesses" onClick={() => setMobileMenuOpen(false)}>
               <Button variant={isActive('/businesses') ? 'default' : 'ghost'} className="w-full justify-start">
-                <Building2 className="w-4 h-4 mr-2" />
-                Businesses
+                <Building2 className="w-4 h-4 me-2" />
+                {t('nav.businesses')}
               </Button>
             </Link>
             <Link href="/notifications" onClick={() => setMobileMenuOpen(false)}>
               <Button variant="ghost" className="w-full justify-start relative">
-                <Bell className="w-4 h-4 mr-2" />
-                Notifications
+                <Bell className="w-4 h-4 me-2" />
+                {t('nav.notifications')}
               </Button>
             </Link>
             <Link href="/messages" onClick={() => setMobileMenuOpen(false)}>
@@ -441,10 +441,10 @@ export function Header() {
                 variant="ghost"
                 className="w-full justify-start relative"
               >
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Messages
+                <MessageCircle className="w-4 h-4 me-2" />
+                {t('nav.messages')}
                 {unreadMessagesCount > 0 && (
-                  <span className="ml-auto px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                  <span className="ms-auto px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
                     {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                   </span>
                 )}
@@ -455,10 +455,10 @@ export function Header() {
                 variant="ghost"
                 className="w-full justify-start relative"
               >
-                <Bookmark className="w-4 h-4 mr-2" />
-                Saved Items
+                <Bookmark className="w-4 h-4 me-2" />
+                {t('nav.savedItems')}
                 {savedCount > 0 && (
-                  <span className="ml-auto px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full">
+                  <span className="ms-auto px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full">
                     {savedCount}
                   </span>
                 )}
@@ -469,8 +469,8 @@ export function Header() {
                 className="w-full justify-start"
                 variant="whatsapp"
               >
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Create Listing
+                <PlusCircle className="w-4 h-4 me-2" />
+                {t('nav.createListing')}
               </Button>
             </Link>
             <Link href="/verification" onClick={() => setMobileMenuOpen(false)}>
@@ -478,8 +478,8 @@ export function Header() {
                 variant={isActive('/verification') ? 'default' : 'ghost'}
                 className="w-full justify-start"
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Verification
+                <FileText className="w-4 h-4 me-2" />
+                {t('nav.verification')}
               </Button>
             </Link>
             {isAdmin && (
@@ -488,8 +488,8 @@ export function Header() {
                   variant={isActive('/admin') ? 'default' : 'ghost'}
                   className="w-full justify-start"
                 >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Admin Dashboard
+                  <Shield className="w-4 h-4 me-2" />
+                  {t('nav.adminDashboard')}
                 </Button>
               </Link>
             )}
@@ -499,7 +499,7 @@ export function Header() {
                 className="w-full justify-start text-red-600"
                 onClick={handleLogout}
               >
-                <LogOut className="w-4 h-4 mr-2" />
+                <LogOut className="w-4 h-4 me-2" />
                 {t('nav.logOut')}
               </Button>
             </div>
@@ -515,6 +515,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   const { user, refreshUser } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   
   const { data: availableCompounds, isLoading } = useQuery<Array<{ id: number; name: string; area: string | null; is_current: boolean; is_verified: boolean }>>({
@@ -551,22 +552,22 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       }
       if (isVerified) {
         toast({
-          title: 'Neighbourhood switched',
-          description: 'Your active neighbourhood has been updated.',
+          title: t('compound.switchedTitle'),
+          description: t('compound.switchedDesc'),
         })
         router.replace('/feed')
         router.refresh()
       } else {
         toast({
-          title: 'Continue verification',
-          description: 'Complete verification documents for this neighbourhood.',
+          title: t('compound.continueVerificationTitle'),
+          description: t('compound.continueVerificationDesc'),
         })
         router.push('/verification')
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to switch compound'
+      const errorMessage = error.response?.data?.detail || t('compound.switchFailed')
       toast({
-        title: 'Error',
+        title: t('common.error'),
         description: errorMessage,
         variant: 'destructive',
       })
@@ -576,7 +577,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
   if (isLoading) {
     // Show simple display while loading
     return (
-      <div className="ml-2 flex items-center gap-1.5">
+      <div className="ms-2 flex items-center gap-1.5">
         <Building2 className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium text-muted-foreground">
           {formatCompoundWithArea(currentCompound.name, currentCompound.area)}
@@ -596,7 +597,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Switch Neighbourhood</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('compound.switchNeighbourhood')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {availableCompounds && availableCompounds.length > 0 ? (
           availableCompounds.map((compound) => (
@@ -615,7 +616,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
                       compound.is_verified ? 'text-muted-foreground' : 'text-amber-700'
                     }`}
                   >
-                    {compound.is_verified ? 'Verified' : 'Verification in progress'}
+                    {compound.is_verified ? t('nav.verified') : t('compound.verificationInProgress')}
                   </span>
                 </div>
                 {compound.is_current && (
@@ -627,9 +628,9 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
         ) : (
           <DropdownMenuItem disabled>
             <div className="flex flex-col w-full">
-              <span className="text-sm text-gray-600">No neighbourhoods yet</span>
+              <span className="text-sm text-gray-600">{t('compound.noNeighbourhoods')}</span>
               <span className="text-xs text-gray-500 mt-1">
-                Request access and submit verification documents
+                {t('compound.noNeighbourhoodsDesc')}
               </span>
             </div>
           </DropdownMenuItem>
@@ -644,8 +645,8 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
               }}
               className="font-medium text-primary"
             >
-              <Building2 className="w-4 h-4 mr-2" />
-              Request Access to New Neighbourhood
+              <Building2 className="w-4 h-4 me-2" />
+              {t('compound.requestNewNeighbourhood')}
             </DropdownMenuItem>
           </>
         )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { SUPPORTED_LOCALES, type SupportedLocale } from '@hoodna/i18n'
+import { SUPPORTED_LOCALES, createTranslator, type SupportedLocale } from '@hoodna/i18n'
 import { useTranslation } from '@/components/locale-provider'
 import { Loader2 } from 'lucide-react'
 
@@ -34,10 +34,12 @@ export function LanguagePicker() {
       <Select
         value={locale}
         onValueChange={async (value) => {
-          await setLocale(value as SupportedLocale)
+          const nextLocale = value as SupportedLocale
+          await setLocale(nextLocale)
+          const nextT = createTranslator(nextLocale)
           toast({
-            title: t('settings.saved'),
-            description: localeLabels[value as SupportedLocale],
+            title: nextT('settings.saved'),
+            description: localeLabels[nextLocale],
             variant: 'success',
           })
         }}

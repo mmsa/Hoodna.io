@@ -35,10 +35,12 @@ const styles = StyleSheet.create({
   headerStack: {
     flexDirection: "column",
     gap: 1,
+    direction: "ltr",
   },
   latinRow: {
     flexDirection: "row",
     alignItems: "baseline",
+    direction: "ltr",
   },
   latin: {
     fontSize: typography.size.titleSmall,
@@ -63,7 +65,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.semibold,
     color: "rgba(255,255,255,0.88)",
     lineHeight: 14,
-    writingDirection: "rtl",
+    textAlign: "left",
   },
   arabicCompact: {
     fontSize: 10,
@@ -72,6 +74,7 @@ const styles = StyleSheet.create({
   authStack: {
     gap: 4,
     marginBottom: 24,
+    direction: "ltr",
   },
   authLatin: {
     color: palette.primary,
@@ -83,6 +86,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.bodySmall,
     fontWeight: typography.weight.semibold,
     opacity: 0.9,
-    writingDirection: "rtl",
+    textAlign: "left",
   },
 })

@@ -70,11 +70,11 @@ export function DesktopNavSidebar() {
       aria-label={t("header.mainNav")}
       className="sticky top-[5.5rem] flex min-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-[18px] bg-[#07534f] p-3 text-white shadow-[0_10px_30px_rgba(7,83,79,0.18)]"
     >
-      <Link href="/feed" className="mb-4 flex items-center gap-3 rounded-xl px-2 py-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12">
+      <Link href="/feed" className="brand-lock mb-4 flex items-center gap-3 rounded-xl px-2 py-2">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12">
           <Home className="h-5 w-5" />
         </span>
-        <div>
+        <div className="min-w-0">
           <BrandWordmark variant="sidebar" />
           <p className="text-[10px] text-white/60">{t("brand.tagline")}</p>
         </div>

@@ -28,6 +28,7 @@ import {
 import { EmptyState, LoadingState } from "@/components/ui/states";
 import { useFeatureConfig } from "@/components/feature-config-provider";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "@/components/locale-provider";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { formatCompoundName, formatCompoundWithArea } from "@/lib/format-compound";
@@ -57,6 +58,7 @@ const getCategoryIcon = (category: string) => {
 export default function FeedPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { user, isLoading: userLoading } = useAuth();
   const { isEnabled } = useFeatureConfig();
   const communityPostingEnabled = isEnabled("community_posting");
@@ -329,15 +331,15 @@ export default function FeedPage() {
       queryClient.invalidateQueries({ queryKey: ["feed"] });
       queryClient.invalidateQueries({ queryKey: ["feed-summary"] });
       toast({
-        title: "Post created",
-        description: "Your post has been shared with the community.",
+        title: t("feed.postCreated"),
+        description: t("feed.postCreatedDesc"),
         variant: "success",
       });
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
       toast({
-        title: "Failed to create post",
-        description: error?.response?.data?.detail || "Please try again.",
+        title: t("feed.postFailed"),
+        description: error?.response?.data?.detail || t("common.retry"),
         variant: "destructive",
       });
     },
@@ -366,8 +368,8 @@ export default function FeedPage() {
     },
     onError: (error: { response?: { data?: { detail?: string } } }) => {
       toast({
-        title: "Failed to add comment",
-        description: error?.response?.data?.detail || "Please try again.",
+        title: t("feed.commentFailed"),
+        description: error?.response?.data?.detail || t("common.retry"),
         variant: "destructive",
       });
     },
@@ -393,8 +395,8 @@ export default function FeedPage() {
       setHasMorePosts(response.data.length >= newLimit);
     } catch {
       toast({
-        title: "Could not load more posts",
-        description: "Please try again.",
+        title: t("feed.couldNotLoadMore"),
+        description: t("common.retry"),
         variant: "destructive",
       });
     } finally {
@@ -414,11 +416,11 @@ export default function FeedPage() {
       <AppShell>
         <PageLayout width="sm" className="flex min-h-[calc(100vh-4rem)] items-center">
           <EmptyState
-            title="Access restricted"
-            description="Service providers are not allowed to browse the feed. Please manage your services from the Services page."
+            title={t("feed.accessRestricted")}
+            description={t("feed.providerNoFeed")}
             action={
               <Link href="/services">
-                <Button>Go to My Services</Button>
+                <Button>{t("marketplace.goToServices")}</Button>
               </Link>
             }
           />
@@ -431,7 +433,7 @@ export default function FeedPage() {
     return (
       <AppShell>
         <PageLayout className="flex min-h-[calc(100vh-4rem)] items-center">
-          <LoadingState title="Loading" className="w-full border-none bg-transparent" />
+          <LoadingState title={t("common.loading")} className="w-full border-none bg-transparent" />
         </PageLayout>
       </AppShell>
     );
@@ -443,8 +445,8 @@ export default function FeedPage() {
         <AppShell>
           <PageLayout className="flex min-h-[calc(100vh-4rem)] items-center">
             <LoadingState
-              title="Redirecting"
-              description="Taking you to neighbourhood selection…"
+              title={t("feed.redirecting")}
+              description={t("feed.redirectingCompound")}
               className="w-full border-none bg-transparent"
             />
           </PageLayout>
@@ -457,11 +459,11 @@ export default function FeedPage() {
         <AppShell>
           <PageLayout className="flex min-h-[calc(100vh-4rem)] items-center">
             <LoadingState
-              title="Redirecting"
+              title={t("feed.redirecting")}
               description={
                 isModerator
-                  ? "Taking you to moderator status…"
-                  : "Taking you to verification…"
+                  ? t("feed.redirectingModerator")
+                  : t("feed.redirectingVerification")
               }
               className="w-full border-none bg-transparent"
             />
@@ -475,7 +477,7 @@ export default function FeedPage() {
     return (
       <AppShell>
         <PageLayout className="flex min-h-[calc(100vh-4rem)] items-center">
-          <LoadingState title="Loading feed" className="w-full border-none bg-transparent" />
+          <LoadingState title={t("feed.loadingFeed")} className="w-full border-none bg-transparent" />
         </PageLayout>
       </AppShell>
     );
@@ -553,8 +555,8 @@ export default function FeedPage() {
             {urgentPosts.length > 0 && (
               <Section
                 className="mb-8"
-                title="Urgent alerts"
-                description="Time-sensitive updates requiring immediate attention"
+                title={t("feed.urgentAlerts")}
+                description={t("feed.urgentAlertsDesc")}
                 surface
               >
                 <div className="space-y-5">
@@ -578,9 +580,9 @@ export default function FeedPage() {
               title={
                 feedSummary?.compound_name
                   ? `${formatCompoundName(feedSummary.compound_name)} official announcement${announcements?.length !== 1 ? "s" : ""}`
-                  : "Neighbourhood announcements"
+                  : t("feed.neighbourhoodAnnouncements")
               }
-              description="Official updates from neighbourhood management"
+              description={t("feed.neighbourhoodAnnouncementsDesc")}
             >
               {announcements && announcements.length > 0 ? (
                 <div className="space-y-5">
@@ -599,8 +601,8 @@ export default function FeedPage() {
               ) : (
                 <EmptyState
                   icon={<Bell className="h-5 w-5" />}
-                  title="No announcements"
-                  description="Check back later for updates from neighbourhood management"
+                  title={t("feed.noAnnouncements")}
+                  description={t("feed.noAnnouncementsDesc")}
                 />
               )}
             </Section>
@@ -608,8 +610,8 @@ export default function FeedPage() {
             {regularPosts.length > 0 && (
               <Section
                 className="mb-8"
-                title="Community discussions"
-                description="Posts from your neighbours, organized by category"
+                title={t("feed.communityDiscussions")}
+                description={t("feed.communityDiscussionsDesc")}
               >
                 <div className="space-y-5">
                   {regularPosts.map((post) => {
@@ -683,7 +685,7 @@ export default function FeedPage() {
             {featuredItems && featuredItems.length > 0 && (
               <Section
                 className="mb-8"
-                title="Featured items"
+                title={t("feed.featuredItems")}
                 actions={
                   <Link href="/marketplace?scope=cross">
                     <Button variant="ghost" size="sm">
@@ -735,7 +737,7 @@ export default function FeedPage() {
               (latestServices && latestServices.length > 0)) && (
               <Section
                 className="mb-8"
-                title="Latest marketplace"
+                title={t("feed.latestMarketplace")}
                 actions={
                   <Link href="/marketplace">
                     <Button variant="ghost" size="sm">
@@ -889,8 +891,8 @@ export default function FeedPage() {
             {posts && posts.length === 0 && (
               <EmptyState
                 icon={<MessageCircle className="h-5 w-5" />}
-                title="No posts yet"
-                description="Be the first to share something with your community."
+                title={t("feed.emptyPosts")}
+                description={t("feed.noPostsDesc")}
               />
             )}
           </div>

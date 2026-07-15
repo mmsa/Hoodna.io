@@ -392,6 +392,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     flexShrink: 0,
+    direction: "ltr",
   },
   logoIcon: {
     width: 36,

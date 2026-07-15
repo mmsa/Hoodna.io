@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { I18nManager } from "react-native";
+import { I18nManager, View } from "react-native";
 import {
   createContext,
   useCallback,
@@ -38,6 +38,22 @@ function applyRtlLayout(locale: SupportedLocale) {
     I18nManager.allowRTL(true);
     I18nManager.forceRTL(shouldUseRtl);
   }
+}
+
+function LocaleShell({
+  locale,
+  children,
+}: {
+  locale: SupportedLocale;
+  children: ReactNode;
+}) {
+  const rtl = isRTL(locale);
+
+  return (
+    <View style={{ flex: 1, direction: rtl ? "rtl" : "ltr" }}>
+      {children}
+    </View>
+  );
 }
 
 function LocaleBootstrap({
@@ -116,7 +132,7 @@ export function AppLocaleProvider({ children }: { children: ReactNode }) {
   return (
     <LocaleContext.Provider value={value}>
       <LocaleBootstrap isAuthenticated={isAuthenticated} apiClient={apiClient} />
-      {children}
+      <LocaleShell locale={locale}>{children}</LocaleShell>
     </LocaleContext.Provider>
   );
 }

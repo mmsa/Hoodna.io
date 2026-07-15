@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states"
 import { AppShell, PageLayout } from "@/components/ui/page-layout"
 import { useAuth } from "@/hooks/use-auth"
+import { useTranslation } from "@/components/locale-provider"
 import api from "@/lib/api"
 import { formatCompoundName } from "@/lib/format-compound"
 
@@ -30,6 +31,7 @@ const DEFAULT_FILTERS: ListingFilterValues = {
 
 export default function MarketplacePage() {
   const { user, isLoading: userLoading } = useAuth()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const router = useRouter()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
@@ -102,7 +104,7 @@ export default function MarketplacePage() {
     return (
       <AppShell>
         <PageLayout width="xl">
-          <LoadingState title="Loading marketplace…" />
+          <LoadingState title={t('marketplace.loadingMarketplace')} />
         </PageLayout>
       </AppShell>
     )
@@ -116,18 +118,18 @@ export default function MarketplacePage() {
         <PageLayout width="sm">
           <ErrorState
             icon={<ShieldAlert className="h-5 w-5" />}
-            title={rejected ? "Marketplace unavailable" : "Marketplace access is restricted"}
+            title={rejected ? t('marketplace.marketplaceUnavailable') : t('marketplace.marketplaceRestricted')}
             description={
               rejected
-                ? "Your account must be approved before you can browse or post listings."
+                ? t('marketplace.accountMustBeApproved')
                 : provider
-                  ? "Service providers manage their listings from Services."
-                  : "Moderators manage community content from the moderation dashboard."
+                  ? t('marketplace.providerManageFromServices')
+                  : t('marketplace.moderatorManageFromDashboard')
             }
             action={
               <Button asChild>
                 <Link href={rejected ? "/verification" : provider ? "/services" : "/moderator/dashboard"}>
-                  Continue
+                  {t('marketplace.continue')}
                 </Link>
               </Button>
             }
@@ -143,21 +145,21 @@ export default function MarketplacePage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Marketplace
+              {t('marketplace.title')}
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
-              Buy & sell in {compoundName}
+              {t('marketplace.buySellIn', { compound: compoundName })}
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Verified neighbours only — no agents, direct deals
+              {t('marketplace.verifiedNeighboursOnly')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link href="/saved"><Bookmark className="h-4 w-4" />Saved</Link>
+              <Link href="/saved"><Bookmark className="h-4 w-4" />{t('marketplace.saved')}</Link>
             </Button>
             <Button asChild>
-              <Link href="/marketplace/new"><Camera className="h-4 w-4" />Post listing</Link>
+              <Link href="/marketplace/new"><Camera className="h-4 w-4" />{t('marketplace.postListing')}</Link>
             </Button>
           </div>
         </div>
@@ -170,14 +172,16 @@ export default function MarketplacePage() {
 
         {error ? (
           <ErrorState
-            title="Couldn&apos;t load listings"
-            description="Check your connection and try again."
-            action={<Button onClick={() => refetch()}>Try again</Button>}
+            title={t('marketplace.couldNotLoad')}
+            description={t('marketplace.checkConnection')}
+            action={<Button onClick={() => refetch()}>{t('common.retry')}</Button>}
           />
         ) : listings?.length ? (
           <>
             <p className="text-sm font-medium text-muted-foreground">
-              {listings.length} {listings.length === 1 ? "listing" : "listings"} near you
+              {listings.length === 1
+                ? t('marketplace.listingNearYou')
+                : t('marketplace.listingsNearYou', { count: listings.length })}
             </p>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {listings.map((listing) => (
@@ -188,22 +192,22 @@ export default function MarketplacePage() {
         ) : (
           <EmptyState
             icon={<ShoppingBag className="h-6 w-6" />}
-            title={hasActiveFilters ? "Nothing matched" : "Nothing listed yet"}
+            title={hasActiveFilters ? t('marketplace.nothingMatched') : t('marketplace.nothingListedYet')}
             description={
               hasActiveFilters
-                ? "Try different filters — or be the first to post something new."
-                : `Snap a photo and be the first neighbour to list something in ${compoundName}.`
+                ? t('marketplace.nothingMatchedDesc')
+                : t('marketplace.nothingListedDesc', { compound: compoundName })
             }
             action={
               hasActiveFilters ? (
                 <Button variant="outline" onClick={() => setFilters(DEFAULT_FILTERS)}>
-                  Clear filters
+                  {t('marketplace.clearFilters')}
                 </Button>
               ) : (
                 <Button asChild size="lg">
                   <Link href="/marketplace/new">
                     <Plus className="h-4 w-4" />
-                    Post the first listing
+                    {t('marketplace.postFirstListing')}
                   </Link>
                 </Button>
               )
