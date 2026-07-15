@@ -15,9 +15,8 @@
     "ios:open": "expo start --ios --localhost --go",
     "web": "expo start --web",
     "prebuild": "expo prebuild",
-    "build:ios": "eas build --platform ios --profile production",
-    "build:ios:preview": "eas build --platform ios --profile preview",
-    "submit:ios": "eas submit --platform ios --profile production --latest"
+    "build:ios:local": "bash scripts/build-ios-release.sh",
+    "upload:ios": "bash scripts/upload-transporter.sh"
   },
   "dependencies": {
     "@hoodna/i18n": "file:../packages/i18n",

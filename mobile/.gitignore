@@ -3,6 +3,8 @@ node_modules/
 .expo/
 .expo-shared/
 dist/
+ios/
+android/
 *.log
 *.jks
 *.p8
@@ -11,4 +13,3 @@ dist/
 *.mobileprovision
 *.orig.*
 web-build/
-

@@ -1,51 +1,60 @@
-# Shipping eljiran to TestFlight
+# Shipping eljiran to TestFlight (Xcode + Transporter)
+
+Build locally with Xcode, upload with Apple Transporter. No EAS cloud build.
 
 ## Prerequisites
 
-1. **Apple Developer Program** membership (paid) for `mmsa12@gmail.com` or your team
-2. **App Store Connect** app with bundle ID `com.eljiran.mobile`
-3. **Public API** at `https://api.eljiran.com` (currently unreachable — TestFlight builds cannot use localhost)
+1. **Apple Developer Program** membership
+2. **Xcode** from the Mac App Store
+3. **Apple Transporter** from the Mac App Store
+4. App Store Connect app: bundle ID `com.eljiran.mobile`, ASC app id `6789875474`
+5. Public API: `https://eljiran-api.onrender.com`
 
-## One-time setup
+One-time Xcode setup:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+```
+
+In Xcode → Settings → Accounts, sign in and download the **iPhone Distribution** certificate + App Store profile for `com.eljiran.mobile`.
+
+## Build IPA locally
 
 ```bash
 cd mobile
-eas login   # already logged in as mmsa
+chmod +x scripts/*.sh
+npm run build:ios:local
 ```
 
-Create the iOS app in [App Store Connect](https://appstoreconnect.apple.com) if it does not exist:
-- Name: eljiran
-- Bundle ID: `com.eljiran.mobile`
-- SKU: anything unique (e.g. `eljiran-mobile-001`)
+This runs `expo prebuild` to generate `ios/` (gitignored), archives with Xcode, and exports `dist/eljiran-build-<number>.ipa`.
 
-## Build + submit
+Bump build number in `app.json` → `expo.ios.buildNumber` before each release.
 
-Run these in your own terminal (Apple login is interactive):
+## Upload to TestFlight
 
 ```bash
-cd mobile
-
-# 1) Build for App Store / TestFlight
-eas build --platform ios --profile production
-
-# 2) After the build finishes, submit to TestFlight
-eas submit --platform ios --profile production --latest
+npm run upload:ios
 ```
 
-Or combine once credentials are set up:
+Sign in to Transporter → **Deliver**.
+
+CLI option (app-specific password):
 
 ```bash
-eas build --platform ios --profile production --auto-submit
+export APPLE_ID="your@email.com"
+export APPLE_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+npm run upload:ios
 ```
 
-## After submit
+## After upload
 
-1. Wait for Apple processing (usually 5–30 minutes)
-2. In App Store Connect → TestFlight, add internal testers
-3. Install via the TestFlight app on device
+1. Wait 5–30 minutes for Apple processing
+2. App Store Connect → TestFlight → add testers
+3. Install via the TestFlight app
 
 ## Notes
 
-- Production builds use `EXPO_PUBLIC_API_URL=https://api.eljiran.com`
-- Local Expo Go still uses your LAN IP / localhost for development
-- Icon/splash assets for store builds are `assets/icon.png` and `assets/splash.png`
+- `ios/` and `android/` are generated locally and not committed — run `npm run prebuild` or `build:ios:local` to recreate
+- Dev still uses `npm start` / Expo Go
+- Icon/splash: `assets/icon.png`, `assets/splash.png`
