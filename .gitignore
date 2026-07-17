@@ -47,3 +47,4 @@ Thumbs.db
 # Local uploads directory (development)
 backend/uploads/
 uploads/
+.vercel
