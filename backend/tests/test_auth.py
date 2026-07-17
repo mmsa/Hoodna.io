@@ -5,6 +5,8 @@ import pytest
 from io import BytesIO
 from httpx import AsyncClient
 from PIL import Image
+from app.crud.user_compound_membership import ensure_user_compound_membership
+from app.models.compound import Compound
 from app.models.user import User
 from app.models.enums import UserRole, UserStatus
 from app.schemas.user import UserCreate
@@ -139,6 +141,54 @@ async def test_get_current_user_authenticated(async_client: AsyncClient, db_sess
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "me@example.com"
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_verified_compound_member_can_post_without_llm_metadata(
+    async_client: AsyncClient, db_session
+):
+    """Verified membership is the posting permission source of truth."""
+    from app.crud.user import create_user, update_user_status
+
+    compound = Compound(name="Verified Compound")
+    db_session.add(compound)
+    await db_session.flush()
+
+    user = await create_user(
+        db_session,
+        UserCreate(
+            name="Verified Resident",
+            email="verified-resident@example.com",
+            password="password123",
+        ),
+        role=UserRole.RESIDENT,
+    )
+    user.compound_id = compound.id
+    await update_user_status(db_session, user.id, UserStatus.APPROVED)
+    await ensure_user_compound_membership(
+        db_session, user.id, compound.id, source="ADMIN"
+    )
+    await db_session.commit()
+
+    login_response = await async_client.post(
+        "/api/auth/login",
+        json={
+            "email": "verified-resident@example.com",
+            "password": "password123",
+        },
+    )
+    token = login_response.json()["access_token"]
+    response = await async_client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["verification_status"] == "APPROVED"
+    assert data["is_verified_for_current_compound"] is True
+    assert data["can_post"] is True
 
 
 @pytest.mark.asyncio

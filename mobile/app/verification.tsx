@@ -7,7 +7,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DocumentType, VerificationStatusResponse } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  canAccessVerificationUpload,
   isVerifiedForCurrentCompound,
   verificationDocumentsNeedReupload,
 } from "@/lib/resident-routing";
@@ -36,7 +35,7 @@ export default function VerificationScreen() {
       router.replace("/(tabs)/home");
       return;
     }
-    if (!canAccessVerificationUpload(user) && user.verification_status === "PENDING") {
+    if (user.verification_status === "PENDING") {
       router.replace("/verification-pending");
       return;
     }
@@ -141,10 +140,10 @@ export default function VerificationScreen() {
         setPendingNationalId(null);
         setPendingContract(null);
         await refreshUser();
+        router.replace("/verification-pending");
         Alert.alert(
           "Submitted",
-          "Document submitted for review. You'll get access once approved.",
-          [{ text: "OK", onPress: () => router.replace("/verification-pending") }]
+          "Document submitted for review. You'll get access once approved."
         );
       } catch (submitError: any) {
         Alert.alert(
@@ -192,17 +191,11 @@ export default function VerificationScreen() {
       setPendingNationalId(null);
       setPendingContract(null);
       await refreshUser();
-      await loadStatus();
+      router.replace("/verification-pending");
 
       Alert.alert(
         "Submitted",
-        "Documents submitted for review. You'll get access once approved.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/verification-pending"),
-          },
-        ]
+        "Documents submitted for review. You'll get access once approved."
       );
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to submit documents");

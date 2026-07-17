@@ -361,16 +361,11 @@ async def get_current_user_info(
     
     # Fetch documents for residents who still need verification so clients can
     # distinguish "needs upload" (UNVERIFIED) vs "under review" (PENDING).
-    can_post = False
     national_id = None
     contract = None
     docs = None
 
-    if current_user.status in (
-        UserStatus.APPROVED,
-        UserStatus.PENDING_VERIFICATION,
-        UserStatus.REJECTED,
-    ):
+    if current_user.compound_id is not None:
         docs = await get_user_documents(db, current_user.id, current_user.compound_id)
         national_id = docs[DocumentType.NATIONAL_ID]
         contract = docs[DocumentType.CONTRACT]
@@ -392,37 +387,11 @@ async def get_current_user_info(
         is_verified_for_current_compound=is_verified_for_current_compound,
     )
 
-    if is_verified_for_current_compound:
-        def _has_compound_name(doc):
-            if not doc or not doc.llm_extracted_info:
-                return False
-            if isinstance(doc.llm_extracted_info, dict):
-                compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
-                address_match = doc.llm_extracted_info.get("address_match", "")
-                return compound_found or address_match == "MATCH"
-            return False
-
-        if (
-            national_id
-            and national_id.status.value == "APPROVED"
-            and _has_compound_name(national_id)
-        ):
-            can_post = True
-        elif (
-            contract
-            and contract.status.value == "APPROVED"
-            and contract.llm_extracted_info
-            and isinstance(contract.llm_extracted_info, dict)
-        ):
-            name_match = contract.llm_extracted_info.get("name_match", "")
-            if name_match == "MATCH" and _has_compound_name(contract):
-                can_post = True
-        elif (
-            national_id and national_id.status.value == "APPROVED" and
-            contract and contract.status.value == "APPROVED"
-        ):
-            can_post = True
-
+    can_post = (
+        current_user.role in (UserRole.RESIDENT, UserRole.USER, None)
+        and current_user.status == UserStatus.APPROVED
+        and is_verified_for_current_compound
+    )
     can_comment = is_verified_for_current_compound
     can_create_listing = is_verified_for_current_compound
     
@@ -508,7 +477,7 @@ async def update_current_user(
     await db.flush()
     await db.commit()
     await db.refresh(current_user)
-    return current_user
+    return await get_current_user_info(current_user=current_user, db=db)
 
 
 @router.post("/me/avatar/presign")

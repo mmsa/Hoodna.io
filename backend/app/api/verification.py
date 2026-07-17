@@ -11,7 +11,7 @@ from app.crud.verification import (
 )
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.models.enums import DocumentType, DocumentStatus, UserStatus
+from app.models.enums import DocumentType, DocumentStatus, UserRole, UserStatus
 import os
 
 router = APIRouter()
@@ -135,7 +135,6 @@ async def get_verification_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Get verification status for the user's current compound."""
-    from app.crud.verification import has_compound_name_in_document
     from app.crud.user_compound_membership import user_has_compound_membership
 
     if not current_user.compound_id:
@@ -152,15 +151,6 @@ async def get_verification_status(
 
     national_id = docs[DocumentType.NATIONAL_ID]
     contract = docs[DocumentType.CONTRACT]
-
-    def _has_compound_name(doc):
-        if not doc or not doc.llm_extracted_info:
-            return False
-        if isinstance(doc.llm_extracted_info, dict):
-            compound_found = doc.llm_extracted_info.get("compound_name_in_address", False)
-            address_match = doc.llm_extracted_info.get("address_match", "")
-            return compound_found or address_match == "MATCH"
-        return False
 
     is_verified_here = await user_has_compound_membership(
         db, current_user, current_user.compound_id
@@ -189,28 +179,11 @@ async def get_verification_status(
             except Exception:
                 pass
 
-    can_post = False
-    if is_verified_here:
-        if (
-            national_id
-            and national_id.status.value == "APPROVED"
-            and _has_compound_name(national_id)
-        ):
-            can_post = True
-        elif (
-            contract
-            and contract.status.value == "APPROVED"
-            and contract.llm_extracted_info
-            and isinstance(contract.llm_extracted_info, dict)
-        ):
-            name_match = contract.llm_extracted_info.get("name_match", "")
-            if name_match == "MATCH" and _has_compound_name(contract):
-                can_post = True
-        elif (
-            national_id and national_id.status.value == "APPROVED" and
-            contract and contract.status.value == "APPROVED"
-        ):
-            can_post = True
+    can_post = (
+        current_user.role in (UserRole.RESIDENT, UserRole.USER, None)
+        and current_user.status == UserStatus.APPROVED
+        and is_verified_here
+    )
 
     from app.crud.compound import get_compound_by_id
     compound = await get_compound_by_id(db, current_user.compound_id)

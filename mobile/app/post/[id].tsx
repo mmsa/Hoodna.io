@@ -83,7 +83,7 @@ export default function PostDetailScreen() {
       Alert.alert("Comments are paused", "Community posting is temporarily unavailable.");
       return;
     }
-    if (!commentText.trim() || !user?.can_post) {
+    if (!commentText.trim() || !(user?.can_comment ?? user?.can_post)) {
       Alert.alert("Error", "You need to be verified to comment");
       return;
     }
@@ -327,7 +327,7 @@ export default function PostDetailScreen() {
           );
         }}
         ListFooterComponent={
-          user?.can_post && postingEnabled ? (
+          (user?.can_comment ?? user?.can_post) && postingEnabled ? (
             <View style={{ padding: 16 }}>
               <TextInput
                 style={{

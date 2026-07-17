@@ -258,8 +258,8 @@ async def create_post_endpoint(
                 detail="You can only post announcements for your assigned compound"
             )
     else:
-        # For regular posts, only verified APPROVED residents can post
-        if current_user.role != UserRole.RESIDENT:
+        # USER is the legacy name for the resident role.
+        if current_user.role not in (UserRole.RESIDENT, UserRole.USER, None):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only verified residents can post in the feed. Moderators can only post official announcements."

@@ -43,35 +43,50 @@ export default function VerificationPendingScreen() {
   }, [apiClient, refreshUser]);
 
   const hasDocs = !!(status?.national_id || status?.contract);
+  const hasPendingDocument =
+    status?.national_id?.status === "PENDING" ||
+    status?.contract?.status === "PENDING";
+  const userId = user?.id;
+  const userRole = user?.role;
+  const compoundId = user?.compound_id;
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!userId) {
       router.replace("/auth");
       return;
     }
-    if (!isResidentRole(user.role)) {
+    if (!isResidentRole(userRole)) {
       router.replace("/");
       return;
     }
-    if (!user.compound_id) {
+    if (!compoundId) {
       router.replace("/onboarding/compound-select");
       return;
     }
     load();
-  }, [user, authLoading, router, load]);
+  }, [userId, userRole, compoundId, authLoading, router, load]);
 
   useEffect(() => {
-    if (authLoading || loading || !user) return;
+    if (authLoading || loading || !user || status === null) return;
     if (
       !hasDocs &&
+      !hasPendingDocument &&
       user.verification_status !== "PENDING" &&
       user.status !== "REJECTED" &&
       user.status !== "BANNED"
     ) {
       router.replace("/verification");
     }
-  }, [user, authLoading, loading, hasDocs, router]);
+  }, [
+    user,
+    authLoading,
+    loading,
+    status,
+    hasDocs,
+    hasPendingDocument,
+    router,
+  ]);
 
   useEffect(() => {
     if (!user || (user.status === "APPROVED" && isVerifiedForCurrentCompound(user))) return;
@@ -98,7 +113,9 @@ export default function VerificationPendingScreen() {
 
   const isRejected = isVerificationRejected(user!, status);
   const canReupload =
-    isRejected || verificationDocumentsNeedReupload(status) || !hasDocs;
+    isRejected ||
+    verificationDocumentsNeedReupload(status) ||
+    (status !== null && !hasDocs && !hasPendingDocument);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>

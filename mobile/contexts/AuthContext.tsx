@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useEffect,
+} from "react";
 import * as SecureStore from "expo-secure-store";
 import { ApiClient, User } from "@hoodna/shared";
 import { API_BASE_URL } from "@/lib/config";
@@ -77,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function login(accessToken: string, refreshToken: string) {
+  const login = useCallback(async (accessToken: string, refreshToken: string) => {
     await SecureStore.setItemAsync("accessToken", accessToken);
     await SecureStore.setItemAsync("refreshToken", refreshToken);
     apiClient.setAccessToken(accessToken);
@@ -91,23 +97,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       apiClient.setAccessToken(null);
       throw error;
     }
-  }
+  }, [apiClient]);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     await SecureStore.deleteItemAsync("accessToken");
     await SecureStore.deleteItemAsync("refreshToken");
     apiClient.setAccessToken(null);
     setUser(null);
-  }
+  }, [apiClient]);
 
-  async function refreshUser() {
+  const refreshUser = useCallback(async () => {
     try {
       const userData = await apiClient.getMe();
       setUser(userData);
     } catch (error) {
       console.error("Failed to refresh user:", error);
     }
-  }
+  }, [apiClient]);
 
   return (
     <AuthContext.Provider

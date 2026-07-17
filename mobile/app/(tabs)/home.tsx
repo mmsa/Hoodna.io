@@ -784,7 +784,7 @@ export default function HomeScreen() {
 
   async function handleCreateComment(postId: number) {
     const content = newComments[postId];
-    if (!content?.trim() || !user?.can_post) {
+    if (!content?.trim() || !(user?.can_comment ?? user?.can_post)) {
       return;
     }
 
