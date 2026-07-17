@@ -10,6 +10,11 @@ if ! python -m scripts.seed_compounds; then
   echo "⚠️  Compound seed failed; continuing API startup"
 fi
 
+# Keep provider onboarding reference categories available on every environment.
+if ! python -m scripts.create_service_categories; then
+  echo "⚠️  Service category seed failed; continuing API startup"
+fi
+
 # Ensure admin account exists (idempotent upsert)
 if ! python -m scripts.seed; then
   echo "⚠️  Admin seed failed; continuing API startup"

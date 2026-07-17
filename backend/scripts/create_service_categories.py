@@ -79,8 +79,10 @@ async def create_service_categories():
             for name, description, icon, order in categories:
                 await conn.execute(text("""
                     INSERT INTO service_categories (name, description, icon, display_order, is_active)
-                    VALUES (:name, :description, :icon, :order, TRUE)
-                    ON CONFLICT (name) DO NOTHING
+                    SELECT :name, :description, :icon, :order, TRUE
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM service_categories WHERE name = :name
+                    )
                 """), {"name": name, "description": description, "icon": icon, "order": order})
             
             print(f"✅ Seeded {len(categories)} service categories.")

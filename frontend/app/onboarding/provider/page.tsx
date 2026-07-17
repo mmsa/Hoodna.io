@@ -76,7 +76,12 @@ export default function ProviderOnboardingPage() {
   const compounds = compoundsData?.items || []
 
   // Fetch service categories
-  const { data: categories } = useQuery<ServiceCategory[]>({
+  const {
+    data: categories,
+    isLoading: isLoadingCategories,
+    isError: isCategoriesError,
+    refetch: refetchCategories,
+  } = useQuery<ServiceCategory[]>({
     queryKey: ['service-categories'],
     queryFn: async () => {
       const response = await api.get('/api/service-categories')
@@ -433,6 +438,14 @@ export default function ProviderOnboardingPage() {
                     emptyMessage="No categories found"
                     className="w-full"
                   />
+                  {!isLoadingCategories && (isCategoriesError || categoryOptions.length === 0) && (
+                    <div className="mt-2 flex items-center justify-between gap-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                      <span>Service categories are temporarily unavailable.</span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void refetchCategories()}>
+                        Retry
+                      </Button>
+                    </div>
+                  )}
                   {categories && categoryId && (
                     <p className="text-sm text-gray-500 mt-2">
                       {categories.find(c => c.id === categoryId)?.description}

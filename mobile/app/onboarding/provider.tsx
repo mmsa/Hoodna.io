@@ -63,6 +63,7 @@ export default function ProviderOnboardingScreen() {
   }, [user]);
 
   async function load() {
+    setLoading(true);
     try {
       const [categoryData, compoundData] = await Promise.all([
         apiClient.request<Category[]>("/api/service-categories"),
@@ -216,9 +217,24 @@ export default function ProviderOnboardingScreen() {
             <Field label="Business name" value={businessName} onChangeText={setBusinessName} placeholder="Your business name" />
             <Field label="Phone number" value={phone} onChangeText={setPhone} placeholder="+20..." keyboardType="phone-pad" />
             <Text style={labelStyle}>Service category</Text>
-            {categories.map((category) => (
-              <Option key={category.id} title={`${category.icon || ""} ${category.name}`.trim()} selected={categoryId === category.id} onPress={() => setCategoryId(category.id)} />
-            ))}
+            {categories.length ? (
+              categories.map((category) => (
+                <Option key={category.id} title={`${category.icon || ""} ${category.name}`.trim()} selected={categoryId === category.id} onPress={() => setCategoryId(category.id)} />
+              ))
+            ) : (
+              <View style={{ borderRadius: 12, backgroundColor: "#FEF3C7", padding: 14, marginBottom: 12 }}>
+                <Text style={{ color: "#92400E", lineHeight: 20, marginBottom: 10 }}>
+                  Service categories are temporarily unavailable. Retry before continuing.
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => void load()}
+                  style={{ alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#FFFFFF" }}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Retry categories</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
