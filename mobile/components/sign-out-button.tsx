@@ -6,10 +6,8 @@ import { spacing, typography } from "@hoodna/tokens";
 
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 import { Button } from "@/components/ui/button";
-
-const HELPER_COPY =
-  "Entered the wrong details? Sign out to start again or use another account.";
 
 interface SignOutButtonProps {
   style?: StyleProp<ViewStyle>;
@@ -18,6 +16,7 @@ interface SignOutButtonProps {
 export function SignOutButton({ style }: SignOutButtonProps) {
   const router = useRouter();
   const { logout } = useAuth();
+  const { t } = useTranslation();
   const signingOutRef = useRef(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -35,20 +34,20 @@ export function SignOutButton({ style }: SignOutButtonProps) {
 
   return (
     <View style={[styles.container, style]}>
-      <Text style={styles.helper}>{HELPER_COPY}</Text>
+      <Text style={styles.helper}>{t("common.wrongDetails")}</Text>
       <Text style={styles.sessionNote}>
-        Signing out only clears this session. It does not delete your account.
+        {t("common.signOutSessionNote")}
       </Text>
       <Button
-        accessibilityHint="Clears this session and returns to authentication"
-        accessibilityLabel="Sign out and start again"
+        accessibilityHint={t("common.signOutHint")}
+        accessibilityLabel={t("common.signOutStartAgain")}
         leading={<Ionicons name="log-out-outline" size={20} color={colors.text} />}
         loading={signingOut}
-        loadingLabel="Signing out..."
+        loadingLabel={t("common.signingOut")}
         onPress={handleSignOut}
         variant="outline"
       >
-        Sign out and start again
+        {t("common.signOutStartAgain")}
       </Button>
     </View>
   );

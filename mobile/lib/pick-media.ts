@@ -8,6 +8,18 @@ export type PickedImage = {
   fileSize?: number;
 };
 
+export type ImageSourceCopy = {
+  title?: string;
+  prompt?: string;
+  takePhoto?: string;
+  chooseLibrary?: string;
+  cancel?: string;
+  cameraPermissionTitle?: string;
+  cameraPermissionMessage?: string;
+  libraryPermissionTitle?: string;
+  libraryPermissionMessage?: string;
+};
+
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -31,10 +43,14 @@ async function launchCamera(options: {
   allowsEditing?: boolean;
   aspect?: [number, number];
   quality?: number;
+  copy?: ImageSourceCopy;
 }): Promise<PickedImage | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
-    Alert.alert("Camera access needed", "Allow camera access to take a photo.");
+    Alert.alert(
+      options.copy?.cameraPermissionTitle ?? "Camera access needed",
+      options.copy?.cameraPermissionMessage ?? "Allow camera access to take a photo.",
+    );
     return null;
   }
 
@@ -55,10 +71,14 @@ async function launchLibrary(options: {
   quality?: number;
   allowsMultipleSelection?: boolean;
   selectionLimit?: number;
+  copy?: ImageSourceCopy;
 }): Promise<PickedImage[]> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
-    Alert.alert("Photo access needed", "Allow photo access to choose a photo.");
+    Alert.alert(
+      options.copy?.libraryPermissionTitle ?? "Photo access needed",
+      options.copy?.libraryPermissionMessage ?? "Allow photo access to choose a photo.",
+    );
     return [];
   }
 
@@ -84,30 +104,32 @@ export function pickImageSource(options?: {
   aspect?: [number, number];
   quality?: number;
   title?: string;
+  copy?: ImageSourceCopy;
 }): Promise<PickedImage | null> {
-  const title = options?.title ?? "Add photo";
+  const title = options?.copy?.title ?? options?.title ?? "Add photo";
 
   return new Promise((resolve) => {
-    Alert.alert(title, "Choose a source", [
+    Alert.alert(title, options?.copy?.prompt ?? "Choose a source", [
       {
-        text: "Take photo",
+        text: options?.copy?.takePhoto ?? "Take photo",
         onPress: () => {
           void launchCamera({
             allowsEditing: options?.allowsEditing,
             aspect: options?.aspect,
             quality: options?.quality,
+            copy: options?.copy,
           }).then(resolve);
         },
       },
       {
-        text: "Choose from library",
+        text: options?.copy?.chooseLibrary ?? "Choose from library",
         onPress: () => {
-          void launchLibrary({ ...options, allowsMultipleSelection: false }).then((images) =>
+          void launchLibrary({ ...options, copy: options?.copy, allowsMultipleSelection: false }).then((images) =>
             resolve(images[0] ?? null)
           );
         },
       },
-      { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
+      { text: options?.copy?.cancel ?? "Cancel", style: "cancel", onPress: () => resolve(null) },
     ]);
   });
 }

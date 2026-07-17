@@ -1,6 +1,7 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as SecureStore from "expo-secure-store";
 import type { ApiClient } from "@hoodna/shared";
+import { pickImageSource, type ImageSourceCopy } from "@/lib/pick-media";
 import { uploadLocalFileToPresignedUrl } from "@/lib/upload";
 
 type OnboardingOwner = "providers" | "moderators";
@@ -9,18 +10,29 @@ export async function pickAndUploadOnboardingDocument(
   apiClient: ApiClient,
   owner: OnboardingOwner,
   documentType: string,
+  options?: {
+    imageOnly?: boolean;
+    imageSourceCopy?: ImageSourceCopy;
+  },
 ): Promise<string | null> {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: ["image/*", "application/pdf"],
-    copyToCacheDirectory: true,
-  });
+  const file = options?.imageOnly
+    ? await pickImageSource({
+        quality: 0.9,
+        copy: options.imageSourceCopy,
+      })
+    : await (async () => {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ["image/*", "application/pdf"],
+          copyToCacheDirectory: true,
+        });
+        return result.canceled ? null : result.assets[0];
+      })();
 
-  if (result.canceled) return null;
+  if (!file) return null;
 
-  const file = result.assets[0];
   const params = new URLSearchParams({
     document_type: documentType,
-    file_name: file.name,
+    file_name: "name" in file ? file.name : file.fileName,
     file_type: file.mimeType || "application/octet-stream",
   });
   const presign = await apiClient.request<{
@@ -36,7 +48,7 @@ export async function pickAndUploadOnboardingDocument(
     {
       uri: file.uri,
       mimeType: file.mimeType || "application/octet-stream",
-      fileName: file.name,
+      fileName: "name" in file ? file.name : file.fileName,
     },
     token ?? undefined,
   );
