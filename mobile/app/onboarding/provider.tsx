@@ -16,6 +16,7 @@ import type { Compound } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { pickAndUploadOnboardingDocument } from "@/lib/onboarding-upload";
+import { SignOutButton } from "@/components/sign-out-button";
 
 type ProviderType = "INDIVIDUAL" | "REGISTERED_BUSINESS";
 type VerificationMethod = "COMMERCIAL_REGISTER" | "NATIONAL_ID_OCCUPATION";
@@ -197,6 +198,7 @@ export default function ProviderOnboardingScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
       <Header title="Service Provider Onboarding" onBack={() => step ? setStep(step - 1) : router.back()} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <SignOutButton style={{ marginBottom: 8 }} />
         <Text style={{ color: colors.primary, fontWeight: "700", marginBottom: 6 }}>
           Step {step + 1} of {STEPS.length}
         </Text>

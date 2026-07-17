@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
 import { formatCompoundName } from "@/utils/formatCompound";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export default function CompoundSelectScreen() {
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -132,6 +133,8 @@ export default function CompoundSelectScreen() {
         <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 20 }}>
           Search and select your neighbourhood
         </Text>
+
+        <SignOutButton style={{ marginBottom: 12 }} />
 
         {/* Search Bar */}
         <View

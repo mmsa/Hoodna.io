@@ -156,8 +156,8 @@ export default function VerificationPendingScreen() {
           </Text>
           <Text style={{ fontSize: 15, color: "#6B7280", textAlign: "center", lineHeight: 22 }}>
             {isRejected
-              ? "Your documents were not approved. You can re-upload and submit again."
-              : "We've received your documents. Our team is reviewing them — you'll get full access once approved. You can't use the community until then."}
+              ? "Your document was not approved. You can re-upload one document and submit again."
+              : "We've received your document. Our team is reviewing it — you'll get full access once approved. You can't use the community until then."}
           </Text>
         </View>
 
@@ -172,25 +172,29 @@ export default function VerificationPendingScreen() {
           }}
         >
           <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 8 }}>
-            Your uploaded documents
+            Your uploaded document
           </Text>
           <Text style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
             These stay after you refresh or reopen the app
           </Text>
 
-          <UploadedDocumentCard
-            title="National ID"
-            status={status?.national_id?.status}
-            fileUrl={status?.national_id?.file_url}
-            apiClient={apiClient}
-          />
-          <View style={{ height: 12 }} />
-          <UploadedDocumentCard
-            title="Contract"
-            status={status?.contract?.status}
-            fileUrl={status?.contract?.file_url}
-            apiClient={apiClient}
-          />
+          {status?.national_id && (
+            <UploadedDocumentCard
+              title="National ID"
+              status={status.national_id.status}
+              fileUrl={status.national_id.file_url}
+              apiClient={apiClient}
+            />
+          )}
+          {status?.national_id && status?.contract && <View style={{ height: 12 }} />}
+          {status?.contract && (
+            <UploadedDocumentCard
+              title="Residency / Ownership contract"
+              status={status.contract.status}
+              fileUrl={status.contract.file_url}
+              apiClient={apiClient}
+            />
+          )}
         </View>
 
         <View
@@ -220,7 +224,7 @@ export default function VerificationPendingScreen() {
             onPress={() => router.replace("/verification")}
           >
             <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-              {hasDocs ? "Re-upload documents" : "Upload documents"}
+              {hasDocs ? "Re-upload document" : "Upload document"}
             </Text>
           </TouchableOpacity>
         )}

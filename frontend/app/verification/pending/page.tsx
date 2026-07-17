@@ -109,27 +109,31 @@ export default function VerificationPendingPage() {
           </h1>
           <p className="text-slate-600">
             {isRejected
-              ? 'Your documents were not approved. You can re-upload and submit again.'
-              : "We've received your documents. You can't access the community until a moderator approves your account."}
+              ? 'Your document was not approved. You can re-upload one document and submit again.'
+              : "We've received your document. You can't access the community until a moderator approves your account."}
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Your uploaded documents</CardTitle>
+            <CardTitle>Your uploaded document</CardTitle>
             <CardDescription>These remain after you refresh this page</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <UploadedDocumentCard
-              title="National ID"
-              status={status?.national_id?.status}
-              fileUrl={status?.national_id?.file_url}
-            />
-            <UploadedDocumentCard
-              title="Contract"
-              status={status?.contract?.status}
-              fileUrl={status?.contract?.file_url}
-            />
+            {status?.national_id && (
+              <UploadedDocumentCard
+                title="National ID"
+                status={status.national_id.status}
+                fileUrl={status.national_id.file_url}
+              />
+            )}
+            {status?.contract && (
+              <UploadedDocumentCard
+                title="Residency / Ownership contract"
+                status={status.contract.status}
+                fileUrl={status.contract.file_url}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -141,7 +145,7 @@ export default function VerificationPendingPage() {
           !hasDocs) && (
           <Button className="w-full" onClick={() => router.push('/verification')}>
             <Upload className="mr-2 h-4 w-4" />
-            {hasDocs ? 'Re-upload documents' : 'Upload documents'}
+            {hasDocs ? 'Re-upload document' : 'Upload document'}
           </Button>
         )}
 

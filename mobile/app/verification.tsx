@@ -25,6 +25,10 @@ export default function VerificationScreen() {
   const [pendingNationalId, setPendingNationalId] = useState<string | null>(null);
   const [pendingContract, setPendingContract] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedDocumentType, setSelectedDocumentType] = useState<
+    "NATIONAL_ID" | "CONTRACT" | null
+  >(null);
+  const [documentTypeSelectorOpen, setDocumentTypeSelectorOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.compound_id) {
@@ -52,6 +56,20 @@ export default function VerificationScreen() {
       if (data.contract?.status) {
         setPendingContract(null);
       }
+      const rejectedNationalId =
+        data.national_id?.status === "REJECTED" ||
+        data.national_id?.status === "REQUEST_MORE_DETAILS";
+      const rejectedContract =
+        data.contract?.status === "REJECTED" ||
+        data.contract?.status === "REQUEST_MORE_DETAILS";
+      setSelectedDocumentType((current) => {
+        if (current) return current;
+        if (rejectedNationalId) return "NATIONAL_ID";
+        if (rejectedContract) return "CONTRACT";
+        if (data.national_id) return "NATIONAL_ID";
+        if (data.contract) return "CONTRACT";
+        return null;
+      });
       const pendingReview =
         data.national_id?.status === "PENDING" || data.contract?.status === "PENDING";
       const needsReupload = verificationDocumentsNeedReupload(data);
@@ -149,7 +167,7 @@ export default function VerificationScreen() {
         Alert.alert(
           "Uploaded",
           submitError.message ||
-            "File uploaded. Tap Submit Documents for Review to finish."
+            "File uploaded. Tap Submit Document for Review to finish."
         );
       } finally {
         setSubmitting(false);
@@ -161,33 +179,18 @@ export default function VerificationScreen() {
     }
   }
 
-  async function submitDocuments() {
-    if (!pendingNationalId && !pendingContract) return;
+  async function submitDocument() {
+    if (!selectedDocumentType) return;
+    const fileUrl =
+      selectedDocumentType === "NATIONAL_ID" ? pendingNationalId : pendingContract;
+    if (!fileUrl) return;
 
     setSubmitting(true);
     try {
-      const submissions = [];
-      
-      if (pendingNationalId) {
-        submissions.push(
-          apiClient.submitDocument({
-            file_url: pendingNationalId,
-            document_type: "NATIONAL_ID",
-          })
-        );
-      }
-      
-      if (pendingContract) {
-        submissions.push(
-          apiClient.submitDocument({
-            file_url: pendingContract,
-            document_type: "CONTRACT",
-          })
-        );
-      }
-      
-      await Promise.all(submissions);
-      
+      await apiClient.submitDocument({
+        file_url: fileUrl,
+        document_type: selectedDocumentType,
+      });
       setPendingNationalId(null);
       setPendingContract(null);
       await refreshUser();
@@ -195,10 +198,10 @@ export default function VerificationScreen() {
 
       Alert.alert(
         "Submitted",
-        "Documents submitted for review. You'll get access once approved."
+        "Document submitted for review. You'll get access once approved."
       );
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to submit documents");
+      Alert.alert("Error", error.message || "Failed to submit document");
     } finally {
       setSubmitting(false);
     }
@@ -206,13 +209,13 @@ export default function VerificationScreen() {
 
   const nationalIdStatus = status?.national_id?.status;
   const contractStatus = status?.contract?.status;
-  const hasPendingUploads = pendingNationalId || pendingContract;
-  const canSubmit = hasPendingUploads && !submitting;
+  const selectedPendingUrl =
+    selectedDocumentType === "NATIONAL_ID" ? pendingNationalId : pendingContract;
+  const canSubmit = !!selectedPendingUrl && !submitting;
 
   function renderDocumentSection(
     type: "NATIONAL_ID" | "CONTRACT",
     title: string,
-    emoji: string,
     hint: string,
     docStatus: string | undefined,
     fileUrl: string | null | undefined,
@@ -235,7 +238,11 @@ export default function VerificationScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Text style={{ fontSize: 22 }}>{emoji}</Text>
+          <Ionicons
+            name={type === "NATIONAL_ID" ? "id-card-outline" : "document-text-outline"}
+            size={24}
+            color="#158074"
+          />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 17, fontWeight: "600", color: "#111827" }}>{title}</Text>
             <Text style={{ fontSize: 14, color: "#6B7280", marginTop: 2 }}>{hint}</Text>
@@ -331,34 +338,134 @@ export default function VerificationScreen() {
         <View style={{ paddingHorizontal: 20, paddingVertical: 24 }}>
           <VerificationCompoundBar
             currentCompoundName={status?.compound_name}
-            onCompoundChange={loadStatus}
+            onCompoundChange={() => {
+              setSelectedDocumentType(null);
+              loadStatus();
+            }}
           />
 
           <Text style={{ fontSize: 15, color: "#6B7280", marginBottom: 20, lineHeight: 22 }}>
-            Upload <Text style={{ fontWeight: "600", color: "#111827" }}>one document</Text> — National ID or contract showing your name and this neighbourhood.
+            <Text style={{ fontWeight: "700", color: "#111827" }}>Only one document is needed.</Text>{" "}
+            Choose either a National ID or residency / ownership contract, whichever clearly
+            shows your name and compound or neighbourhood.
           </Text>
 
-          {renderDocumentSection(
-            "NATIONAL_ID",
-            "National ID",
-            "🆔",
-            "Clear photo of your national ID",
-            nationalIdStatus,
-            status?.national_id?.file_url,
-            pendingNationalId,
-            () => pickImage("NATIONAL_ID"),
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#374151", marginBottom: 8 }}>
+            Document type
+          </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Choose document type"
+            accessibilityState={{ expanded: documentTypeSelectorOpen }}
+            onPress={() => setDocumentTypeSelectorOpen((open) => !open)}
+            style={{
+              minHeight: 52,
+              backgroundColor: "#FFFFFF",
+              borderWidth: 1,
+              borderColor: documentTypeSelectorOpen ? "#158074" : "#D1D5DB",
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: documentTypeSelectorOpen ? 8 : 16,
+            }}
+          >
+            <Text style={{ color: selectedDocumentType ? "#111827" : "#6B7280", fontSize: 15 }}>
+              {selectedDocumentType === "NATIONAL_ID"
+                ? "National ID"
+                : selectedDocumentType === "CONTRACT"
+                  ? "Residency / Ownership contract"
+                  : "Select a document type"}
+            </Text>
+            <Ionicons
+              name={documentTypeSelectorOpen ? "chevron-up" : "chevron-down"}
+              size={20}
+              color="#6B7280"
+            />
+          </TouchableOpacity>
+
+          {documentTypeSelectorOpen && (
+            <View
+              accessibilityRole="menu"
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+                borderRadius: 12,
+                overflow: "hidden",
+                marginBottom: 16,
+              }}
+            >
+              {(["NATIONAL_ID", "CONTRACT"] as const).map((type, index) => (
+                <TouchableOpacity
+                  key={type}
+                  accessibilityRole="menuitem"
+                  accessibilityState={{ selected: selectedDocumentType === type }}
+                  onPress={() => {
+                    setSelectedDocumentType(type);
+                    setDocumentTypeSelectorOpen(false);
+                  }}
+                  style={{
+                    minHeight: 52,
+                    paddingHorizontal: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderTopWidth: index === 0 ? 0 : 1,
+                    borderTopColor: "#E5E7EB",
+                    backgroundColor: selectedDocumentType === type ? "#E6F3F1" : "#FFFFFF",
+                  }}
+                >
+                  <Text style={{ color: "#111827", fontSize: 15 }}>
+                    {type === "NATIONAL_ID"
+                      ? "National ID"
+                      : "Residency / Ownership contract"}
+                  </Text>
+                  {selectedDocumentType === type && (
+                    <Ionicons name="checkmark" size={20} color="#158074" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
 
-          {renderDocumentSection(
-            "CONTRACT",
-            "Residency / Ownership Contract",
-            "📄",
-            "Contract showing your name and address",
-            contractStatus,
-            status?.contract?.file_url,
-            pendingContract,
-            () => pickDocument("CONTRACT"),
+          {!selectedDocumentType && (
+            <View
+              style={{
+                backgroundColor: "#E6F3F1",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              <Text style={{ color: "#106B60", textAlign: "center", lineHeight: 20 }}>
+                Select the one document you want to use for verification.
+              </Text>
+            </View>
           )}
+
+          {selectedDocumentType === "NATIONAL_ID" &&
+            renderDocumentSection(
+              "NATIONAL_ID",
+              "National ID",
+              "Take or choose a clear photo showing your name and address",
+              nationalIdStatus,
+              status?.national_id?.file_url,
+              pendingNationalId,
+              () => pickImage("NATIONAL_ID"),
+            )}
+
+          {selectedDocumentType === "CONTRACT" &&
+            renderDocumentSection(
+              "CONTRACT",
+              "Residency / Ownership contract",
+              "Choose an image or PDF showing your name and compound or neighbourhood",
+              contractStatus,
+              status?.contract?.file_url,
+              pendingContract,
+              () => pickDocument("CONTRACT"),
+            )}
 
           {canSubmit && (
             <TouchableOpacity
@@ -369,14 +476,14 @@ export default function VerificationScreen() {
                 alignItems: "center",
                 marginBottom: 24,
               }}
-              onPress={submitDocuments}
+              onPress={submitDocument}
               disabled={submitting}
             >
               {submitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                  Submit Documents for Review
+                  Submit Document for Review
                 </Text>
               )}
             </TouchableOpacity>

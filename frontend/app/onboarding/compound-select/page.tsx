@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import api from '@/lib/api'
 import { formatCompoundName } from '@/lib/format-compound'
 import { useAuth } from '@/hooks/use-auth'
+import { SignOutButton } from '@/components/sign-out-button'
 
 interface Compound {
   id: number
@@ -134,6 +135,8 @@ export default function CompoundSelectPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <SignOutButton />
+
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
                 {error}

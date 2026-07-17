@@ -14,6 +14,7 @@ import { uploadToPresignedUrl } from '@/lib/upload'
 import { SignedFileLink } from '@/components/signed-file'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
+import { SignOutButton } from '@/components/sign-out-button'
 
 interface Compound {
   id: number
@@ -325,6 +326,8 @@ export default function ModeratorOnboardingPage() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
+
+        <SignOutButton className="mb-6" />
 
         <Card>
           <CardHeader>

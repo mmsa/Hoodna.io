@@ -40,8 +40,13 @@ export function ListingFilters({
   includeServices?: boolean
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const set = (key: keyof ListingFilterValues, next: string) =>
+  const set = (key: keyof ListingFilterValues, next: string) => {
+    if (key === "category") {
+      onChange({ ...value, category: next, intent: next === "PROPERTY" ? value.intent : "" })
+      return
+    }
     onChange({ ...value, [key]: next })
+  }
 
   const categories = includeServices
     ? LISTING_CATEGORIES
@@ -93,21 +98,23 @@ export function ListingFilters({
       {showAdvanced ? (
         <div className="eljiran-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Select
-              value={value.intent || "all"}
-              onValueChange={(next) => set("intent", next === "all" ? "" : next)}
-            >
-              <SelectTrigger aria-label="Listing type" className="rounded-[16px]">
-                <SelectValue placeholder="Buy or rent" />
-              </SelectTrigger>
-              <SelectContent>
-                {LISTING_INTENTS.map((intent) => (
-                  <SelectItem key={intent.value || "all"} value={intent.value || "all"}>
-                    {intent.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {value.category === "PROPERTY" ? (
+              <Select
+                value={value.intent || "all"}
+                onValueChange={(next) => set("intent", next === "all" ? "" : next)}
+              >
+                <SelectTrigger aria-label="Property listing type" className="rounded-[16px]">
+                  <SelectValue placeholder="Sale or rent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LISTING_INTENTS.map((intent) => (
+                    <SelectItem key={intent.value || "all"} value={intent.value || "all"}>
+                      {intent.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : <div className="hidden sm:block" />}
             <Select value={value.sort} onValueChange={(next) => set("sort", next)}>
               <SelectTrigger aria-label="Sort listings" className="rounded-[16px]">
                 <SelectValue />

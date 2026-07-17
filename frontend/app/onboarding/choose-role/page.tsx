@@ -12,6 +12,7 @@ import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
+import { SignOutButton } from '@/components/sign-out-button'
 
 // Prevent SSR from crashing when global location is unavailable during prerender
 if (typeof globalThis.location === 'undefined') {
@@ -92,6 +93,8 @@ export default function ChooseRolePage() {
             Select the type of account that best describes you
           </p>
         </div>
+
+        <SignOutButton className="mx-auto mb-8 max-w-md" />
 
         <div className="grid md:grid-cols-3 gap-6">
           {/* Resident Card */}

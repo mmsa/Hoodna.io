@@ -44,13 +44,14 @@ export default function EditListingPage() {
   }, [listing, listingId, router, toast, user])
 
   const mutation = useMutation({
-    mutationFn: async (
-      values: ListingFormValues & { image_urls: string[] }
-    ) =>
+    mutationFn: async (values: ListingFormValues) =>
       (
         await api.patch(`/api/listings/${listingId}`, {
-          ...values,
-          price: values.price ? Number(values.price) : null,
+          title: values.title,
+          description: values.description ?? null,
+          price: values.price,
+          attributes: values.attributes,
+          image_urls: values.image_urls,
         })
       ).data,
     onSuccess: () => {
@@ -110,13 +111,14 @@ export default function EditListingPage() {
         />
         <ListingForm
           key={listing.id}
-          serviceOnly={service && user?.role === "SERVICE_PROVIDER"}
+          intentLocked
           initialValues={{
             category: listing.category,
             title: listing.title,
             description: listing.description ?? "",
-            price: listing.price?.toString() ?? "",
+            price: listing.price,
             intent: listing.intent,
+            attributes: listing.attributes,
             image_urls: listing.image_urls,
           }}
           submitting={mutation.isPending}

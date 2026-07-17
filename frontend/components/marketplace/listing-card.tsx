@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils"
 import {
   categoryMeta,
   formatListingPrice,
+  intentLabel,
+  listingAttributeSummary,
   type ListingView,
 } from "./listing-meta"
 
@@ -32,6 +34,7 @@ export function ListingCard({ listing, action, className }: ListingCardProps) {
   const isService = listing.category === "SERVICE"
   const sellerName = listing.owner_name || "Neighbour"
   const location = listing.compound_name || "Your compound"
+  const attributeSummary = listingAttributeSummary(listing)
 
   return (
     <article
@@ -78,9 +81,15 @@ export function ListingCard({ listing, action, className }: ListingCardProps) {
         </div>
 
         <div className="space-y-1 p-3.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            {category.label} · {intentLabel(listing.intent, listing.category)}
+          </p>
           <h2 className="line-clamp-2 text-base font-semibold leading-5 text-foreground">
             {listing.title}
           </h2>
+          {attributeSummary ? (
+            <p className="truncate text-sm text-muted-foreground">{attributeSummary}</p>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {sellerName} · {location}
             {listing.created_at ? ` · ${formatListedAgo(listing.created_at)}` : ""}

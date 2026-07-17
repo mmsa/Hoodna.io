@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
 import { getPostAuthRoute, getRoleOnboardingRoute } from "@/lib/resident-routing";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export default function ChooseRoleScreen() {
   const router = useRouter();
@@ -76,6 +77,8 @@ export default function ChooseRoleScreen() {
             Select the type of account that best describes you
           </Text>
         </View>
+
+        <SignOutButton style={{ marginBottom: 16 }} />
 
         {/* Resident Card */}
         <TouchableOpacity

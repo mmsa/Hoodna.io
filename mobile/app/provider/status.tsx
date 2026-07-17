@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
 import { formatProviderStatus, formatProviderType, formatVerificationMethod } from "@/utils/format-enums";
+import { SignOutButton } from "@/components/sign-out-button";
 
 interface ProviderProfile {
   id: number;
@@ -130,6 +131,8 @@ export default function ProviderStatusScreen() {
             Your verification status
           </Text>
         </View>
+
+        <SignOutButton style={{ marginBottom: 16 }} />
 
         {profile ? (
           <>

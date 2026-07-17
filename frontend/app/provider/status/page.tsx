@@ -9,6 +9,7 @@ import { CheckCircle, Clock, XCircle, AlertCircle, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import Link from 'next/link'
+import { SignOutButton } from '@/components/sign-out-button'
 
 const STATUS_CONFIG = {
   DRAFT: {
@@ -231,6 +232,8 @@ export default function ProviderStatusPage() {
                 </p>
               )}
             </div>
+
+            <SignOutButton />
           </CardContent>
         </Card>
       </div>

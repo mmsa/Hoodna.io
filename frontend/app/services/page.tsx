@@ -31,6 +31,7 @@ export default function ServicesPage() {
   const { user } = useAuth()
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState("date_desc")
+  const [intent, setIntent] = useState("")
   const provider = user?.role === "SERVICE_PROVIDER"
 
   const { data: providerProfile, isLoading: profileLoading } = useQuery({
@@ -65,10 +66,12 @@ export default function ServicesPage() {
       scope: provider ? "my" : "compound",
       category: "SERVICE",
       sort_by: sort,
+      limit: "100",
     })
     if (search.trim()) params.set("search", search.trim())
+    if (intent) params.set("intent", intent)
     return params.toString()
-  }, [provider, search, sort])
+  }, [intent, provider, search, sort])
 
   const enabled =
     !!user &&
@@ -97,8 +100,18 @@ export default function ServicesPage() {
 
   const canCreate =
     provider &&
+    user?.can_create_listing === true &&
     providerProfile?.provider_status?.toString().trim().toUpperCase() ===
       "APPROVED"
+  const atListingLimit =
+    canCreate && (services?.length ?? 0) >= (providerProfile?.max_listings || 3)
+  const createAction = canCreate ? (
+    atListingLimit ? (
+      <Button disabled title="Delete a service before adding another">Listing limit reached</Button>
+    ) : (
+      <Button asChild><Link href="/marketplace/new?category=SERVICE"><Plus className="h-4 w-4" />Add service</Link></Button>
+    )
+  ) : undefined
 
   return (
     <AppShell>
@@ -107,14 +120,22 @@ export default function ServicesPage() {
           eyebrow={provider ? "Provider workspace" : "Your community"}
           title={provider ? "My services" : "Services"}
           description={provider ? "Manage the services residents can discover." : `Find local service providers in ${compoundName}.`}
-          actions={canCreate ? <Button asChild><Link href="/marketplace/new?category=SERVICE"><Plus className="h-4 w-4" />Add service</Link></Button> : undefined}
+          actions={createAction}
         />
-        <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_200px]">
+        <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_180px_200px]">
           <label className="relative">
             <span className="sr-only">Search services</span>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search services" className="pl-9" />
           </label>
+          <Select value={intent || "all"} onValueChange={(value) => setIntent(value === "all" ? "" : value)}>
+            <SelectTrigger aria-label="Service pricing"><SelectValue placeholder="Any pricing" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any pricing</SelectItem>
+              <SelectItem value="SELL">One-time</SelectItem>
+              <SelectItem value="RENT">Hourly</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={sort} onValueChange={setSort}>
             <SelectTrigger aria-label="Sort services"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -133,7 +154,7 @@ export default function ServicesPage() {
             icon={<Wrench className="h-5 w-5" />}
             title={search ? "No matching services" : provider ? "No services yet" : "No services available"}
             description={search ? "Try a broader search." : provider ? "Publish your first service so residents can find you." : `No providers have listed a service in ${compoundName} yet.`}
-            action={canCreate ? <Button asChild><Link href="/marketplace/new?category=SERVICE">Add service</Link></Button> : undefined}
+            action={createAction}
           />
         )}
       </PageLayout>

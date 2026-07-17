@@ -16,6 +16,7 @@ import type { Compound } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { pickAndUploadOnboardingDocument } from "@/lib/onboarding-upload";
+import { SignOutButton } from "@/components/sign-out-button";
 
 type ModeratorProfile = {
   moderator_status?: string;
@@ -173,6 +174,7 @@ export default function ModeratorOnboardingScreen() {
         </Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <SignOutButton style={{ marginBottom: 8 }} />
         <Text style={{ color: "#158074", fontWeight: "700", marginBottom: 6 }}>
           Step {step + 1} of {STEPS.length}
         </Text>

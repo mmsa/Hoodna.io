@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
 import { formatModeratorStatus } from "@/utils/format-enums";
 import { formatCompoundName } from "@/utils/formatCompound";
+import { SignOutButton } from "@/components/sign-out-button";
 
 interface ModeratorProfile {
   id: number;
@@ -123,6 +124,8 @@ export default function ModeratorStatusScreen() {
             Your verification status
           </Text>
         </View>
+
+        <SignOutButton style={{ marginBottom: 16 }} />
 
         {profile ? (
           <>

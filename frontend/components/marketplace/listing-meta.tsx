@@ -39,9 +39,13 @@ export function categoryMeta(category: string) {
   )
 }
 
-export function intentLabel(intent?: string | null, service = false) {
-  if (service) return intent === "RENT" ? "Per hour / session" : "One-time service"
-  return intent === "RENT" ? "For rent" : "For sale"
+export function intentLabel(
+  intent?: string | null,
+  category?: ListingCategory | string | null
+) {
+  if (category === "SERVICE") return intent === "RENT" ? "Hourly" : "One-time"
+  if (category === "PROPERTY" && intent === "RENT") return "For rent"
+  return "For sale"
 }
 
 export function formatListingPrice(
@@ -54,4 +58,57 @@ export function formatListingPrice(
     maximumFractionDigits: 2,
   }).format(price)
   return service ? `From ${formatted} ${currency}` : `${formatted} ${currency}`
+}
+
+export function friendlyListingValue(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ")
+}
+
+export function listingAttributeSummary(listing: Pick<Listing, "category" | "attributes">) {
+  const attributes = listing.attributes
+  if (!attributes) return null
+
+  if (listing.category === "ITEM" && "condition" in attributes) {
+    return friendlyListingValue(attributes.condition)
+  }
+  if (listing.category === "CAR" && "make" in attributes) {
+    return `${attributes.year} · ${attributes.make} ${attributes.model} · ${attributes.mileage_km.toLocaleString()} km`
+  }
+  if (listing.category === "PROPERTY" && "property_type" in attributes) {
+    return `${friendlyListingValue(attributes.property_type)} · ${attributes.bedrooms} bd · ${attributes.bathrooms} ba · ${attributes.area_sqm.toLocaleString()} m²`
+  }
+  return null
+}
+
+export function listingAttributeDetails(
+  listing: Pick<Listing, "category" | "attributes">
+): Array<{ label: string; value: string }> {
+  const attributes = listing.attributes
+  if (!attributes) return []
+
+  if (listing.category === "ITEM" && "condition" in attributes) {
+    return [{ label: "Condition", value: friendlyListingValue(attributes.condition) }]
+  }
+  if (listing.category === "CAR" && "make" in attributes) {
+    return [
+      { label: "Make and model", value: `${attributes.make} ${attributes.model}` },
+      { label: "Year", value: String(attributes.year) },
+      { label: "Mileage", value: `${attributes.mileage_km.toLocaleString()} km` },
+      { label: "Transmission", value: friendlyListingValue(attributes.transmission) },
+      { label: "Fuel type", value: friendlyListingValue(attributes.fuel_type) },
+    ]
+  }
+  if (listing.category === "PROPERTY" && "property_type" in attributes) {
+    return [
+      { label: "Property type", value: friendlyListingValue(attributes.property_type) },
+      { label: "Bedrooms", value: String(attributes.bedrooms) },
+      { label: "Bathrooms", value: String(attributes.bathrooms) },
+      { label: "Area", value: `${attributes.area_sqm.toLocaleString()} m²` },
+      { label: "Furnishing", value: friendlyListingValue(attributes.furnishing) },
+    ]
+  }
+  return []
 }

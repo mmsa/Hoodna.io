@@ -35,6 +35,7 @@ export default function MarketplacePage() {
   const queryClient = useQueryClient()
   const router = useRouter()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const canCreateListing = user?.can_create_listing === true
 
   const { data: feedSummary } = useQuery({
     queryKey: ["feed-summary", user?.compound_id],
@@ -158,9 +159,11 @@ export default function MarketplacePage() {
             <Button variant="outline" size="sm" asChild>
               <Link href="/saved"><Bookmark className="h-4 w-4" />{t('marketplace.saved')}</Link>
             </Button>
-            <Button asChild>
-              <Link href="/marketplace/new"><Camera className="h-4 w-4" />{t('marketplace.postListing')}</Link>
-            </Button>
+            {canCreateListing ? (
+              <Button asChild>
+                <Link href="/marketplace/new"><Camera className="h-4 w-4" />{t('marketplace.postListing')}</Link>
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -203,14 +206,14 @@ export default function MarketplacePage() {
                 <Button variant="outline" onClick={() => setFilters(DEFAULT_FILTERS)}>
                   {t('marketplace.clearFilters')}
                 </Button>
-              ) : (
+              ) : canCreateListing ? (
                 <Button asChild size="lg">
                   <Link href="/marketplace/new">
                     <Plus className="h-4 w-4" />
                     {t('marketplace.postFirstListing')}
                   </Link>
                 </Button>
-              )
+              ) : undefined
             }
           />
         )}

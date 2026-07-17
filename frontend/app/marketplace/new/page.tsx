@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, AlertCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, Car, Home, Lock, Package } from "lucide-react"
+import type { ListingCategory } from "@hoodna/shared"
 
 import {
   ListingForm,
@@ -11,52 +12,66 @@ import {
 } from "@/components/marketplace/listing-form"
 import { Button } from "@/components/ui/button"
 import { AppShell, PageHeader, PageLayout } from "@/components/ui/page-layout"
+import { ErrorState, LoadingState } from "@/components/ui/states"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import api from "@/lib/api"
+import { isResidentRole } from "@/lib/resident-routing"
+
+const MARKET_CATEGORIES: Array<{
+  value: Exclude<ListingCategory, "SERVICE">
+  title: string
+  description: string
+  icon: typeof Package
+}> = [
+  { value: "ITEM", title: "Sell an item", description: "Furniture, electronics, home goods and more.", icon: Package },
+  { value: "CAR", title: "Sell a car", description: "Share the key vehicle details buyers need.", icon: Car },
+  { value: "PROPERTY", title: "List a property", description: "Offer a home for sale or rent.", icon: Home },
+]
 
 export default function NewListingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, isLoading: userLoading } = useAuth()
   const { toast } = useToast()
-  const serviceOnly = user?.role === "SERVICE_PROVIDER"
+  const requestedCategory = searchParams?.get("category")
+  const category =
+    requestedCategory === "ITEM" ||
+    requestedCategory === "CAR" ||
+    requestedCategory === "PROPERTY" ||
+    requestedCategory === "SERVICE"
+      ? requestedCategory
+      : null
+  const serviceRequest = category === "SERVICE"
+  const provider = user?.role === "SERVICE_PROVIDER"
 
-  const { data: providerProfile } = useQuery({
+  const { data: providerProfile, isLoading: providerProfileLoading } = useQuery({
     queryKey: ["provider-profile"],
     queryFn: async () => (await api.get("/api/providers/me")).data,
-    enabled: serviceOnly,
+    enabled: provider,
     retry: false,
   })
-  const { data: currentListings = [] } = useQuery<any[]>({
+  const { data: currentListings = [], isLoading: listingsLoading } = useQuery<any[]>({
     queryKey: ["my-services"],
     queryFn: async () =>
-      (await api.get("/api/listings?scope=my&category=SERVICE")).data || [],
-    enabled: serviceOnly && !!providerProfile,
+      (await api.get("/api/listings?scope=my&category=SERVICE&limit=100")).data || [],
+    enabled: provider && !!providerProfile,
     retry: false,
   })
 
   const maxListings = providerProfile?.max_listings || 3
-  const atLimit = serviceOnly && currentListings.length >= maxListings
-  const requestedCategory = searchParams?.get("category")
-  const category =
-    serviceOnly || requestedCategory === "SERVICE"
-      ? "SERVICE"
-      : requestedCategory === "CAR" || requestedCategory === "PROPERTY"
-        ? requestedCategory
-        : "ITEM"
+  const atLimit = serviceRequest && currentListings.length >= maxListings
+  const providerApproved =
+    providerProfile?.provider_status?.toString().trim().toUpperCase() === "APPROVED"
+  const canCreateService =
+    serviceRequest && provider && user?.can_create_listing === true && providerApproved
+  const canCreateMarketplace =
+    !serviceRequest && isResidentRole(user?.role) && user?.can_create_listing === true
 
   const mutation = useMutation({
-    mutationFn: async (
-      values: ListingFormValues & { image_urls: string[] }
-    ) =>
-      (
-        await api.post("/api/listings", {
-          ...values,
-          price: values.price ? Number(values.price) : null,
-        })
-      ).data,
+    mutationFn: async (values: ListingFormValues) =>
+      (await api.post("/api/listings", values)).data,
     onSuccess: (listing) => {
       queryClient.invalidateQueries({ queryKey: ["listings"] })
       queryClient.invalidateQueries({ queryKey: ["services"] })
@@ -66,7 +81,7 @@ export default function NewListingPage() {
         description: "Your listing is now live.",
         variant: "success",
       })
-      router.push(serviceOnly ? "/services" : `/listing/${listing.id}`)
+      router.push(serviceRequest ? "/services" : `/listing/${listing.id}`)
     },
     onError: (error: any) =>
       toast({
@@ -76,21 +91,82 @@ export default function NewListingPage() {
       }),
   })
 
+  if (userLoading || (provider && (providerProfileLoading || (providerProfile && listingsLoading)))) {
+    return <AppShell><PageLayout width="md"><LoadingState title="Checking listing access" /></PageLayout></AppShell>
+  }
+
+  if ((serviceRequest && !canCreateService) || (!serviceRequest && !canCreateMarketplace)) {
+    return (
+      <AppShell>
+        <PageLayout width="sm">
+          <ErrorState
+            icon={<Lock className="h-5 w-5" />}
+            title="You can’t create this listing"
+            description={
+              serviceRequest
+                ? "Only approved service providers with listing permission can publish services."
+                : "Marketplace posting is available to approved residents with listing permission."
+            }
+            action={<Button asChild><Link href={serviceRequest ? "/services" : "/marketplace"}>Go back</Link></Button>}
+          />
+        </PageLayout>
+      </AppShell>
+    )
+  }
+
+  if (!category) {
+    return (
+      <AppShell>
+        <PageLayout width="md" className="space-y-6">
+          <Button variant="ghost" asChild>
+            <Link href="/marketplace"><ArrowLeft aria-hidden="true" className="h-4 w-4" />Back to marketplace</Link>
+          </Button>
+          <PageHeader
+            eyebrow="Marketplace"
+            title="What are you listing?"
+            description="Choose a category to see the right details for your listing."
+          />
+          <div className="grid gap-3">
+            {MARKET_CATEGORIES.map((item) => {
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.value}
+                  href={`/marketplace/new?category=${item.value}`}
+                  aria-label={item.title}
+                  className="flex min-h-24 items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Icon aria-hidden="true" className="h-6 w-6" />
+                  </span>
+                  <span>
+                    <span className="block font-semibold">{item.title}</span>
+                    <span className="mt-1 block text-sm text-muted-foreground">{item.description}</span>
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </PageLayout>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
       <PageLayout width="md" className="space-y-6">
         <Button variant="ghost" asChild>
-          <Link href={serviceOnly ? "/services" : "/marketplace"}>
+          <Link href={serviceRequest ? "/services" : "/marketplace"}>
             <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-            {serviceOnly ? "Back to services" : "Back to marketplace"}
+            {serviceRequest ? "Back to services" : "Back to marketplace"}
           </Link>
         </Button>
         <PageHeader
-          eyebrow={serviceOnly ? "Services" : "Marketplace"}
-          title={serviceOnly ? "Add a service" : "Create a listing"}
+          eyebrow={serviceRequest ? "Services" : "Marketplace"}
+          title={serviceRequest ? "Add a service" : "Create a listing"}
           description="Provide the essentials first. You can update the listing later."
         />
-        {serviceOnly && providerProfile ? (
+        {serviceRequest && providerProfile ? (
           <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-sm">
             <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
@@ -101,11 +177,14 @@ export default function NewListingPage() {
           </div>
         ) : null}
         <ListingForm
+          key={category}
           initialValues={{ category }}
-          serviceOnly={serviceOnly}
           submitting={mutation.isPending}
           submitLabel="Publish listing"
-          onCancel={() => router.push(serviceOnly ? "/services" : "/marketplace")}
+          onCancel={() => router.push(serviceRequest ? "/services" : "/marketplace")}
+          onChangeCategory={
+            serviceRequest ? undefined : () => router.push("/marketplace/new")
+          }
           onSubmit={(values) => {
             if (atLimit) {
               toast({

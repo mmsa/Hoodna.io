@@ -19,6 +19,16 @@ import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import { uploadToPresignedUrl, resolveUploadContentType } from "@/lib/upload";
 import { isVerifiedForCurrentCompound } from "@/lib/resident-routing";
 import { VerificationCompoundBar } from "@/components/verification-compound-bar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SignOutButton } from "@/components/sign-out-button";
+
+type DocumentType = "national_id" | "contract";
 
 interface VerificationStatus {
   national_id: {
@@ -46,14 +56,13 @@ export default function VerificationPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, isLoading: userLoading } = useAuth();
-  const [uploading, setUploading] = useState<"national_id" | "contract" | null>(
-    null
-  );
+  const [uploading, setUploading] = useState<DocumentType | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   // Store uploaded file URLs before submission
   const [pendingNationalId, setPendingNationalId] = useState<string | null>(null);
   const [pendingContract, setPendingContract] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearProgressInterval = () => {
@@ -152,6 +161,20 @@ export default function VerificationPage() {
     if (status?.contract?.status) {
       setPendingContract(null);
     }
+    const rejectedNationalId =
+      status?.national_id?.status === "REJECTED" ||
+      status?.national_id?.status === "REQUEST_MORE_DETAILS";
+    const rejectedContract =
+      status?.contract?.status === "REJECTED" ||
+      status?.contract?.status === "REQUEST_MORE_DETAILS";
+    setSelectedDocumentType((current) => {
+      if (current) return current;
+      if (rejectedNationalId) return "national_id";
+      if (rejectedContract) return "contract";
+      if (status?.national_id) return "national_id";
+      if (status?.contract) return "contract";
+      return null;
+    });
     const pendingReview =
       status?.national_id?.status === "PENDING" || status?.contract?.status === "PENDING";
     const needsReupload =
@@ -170,7 +193,7 @@ export default function VerificationPage() {
   }, [status, router]);
 
   const uploadDocument = async (
-    type: "national_id" | "contract",
+    type: DocumentType,
     file: File
   ) => {
     setUploading(type);
@@ -319,42 +342,37 @@ export default function VerificationPage() {
     nationalIdStatus || (pendingNationalId ? "PENDING" : undefined);
   const contractDisplayStatus =
     contractStatus || (pendingContract ? "PENDING" : undefined);
-  const bothUploaded = nationalIdStatus && contractStatus;
-  const bothApproved = nationalIdStatus === "APPROVED" && contractStatus === "APPROVED";
-  
-  // Check if there are pending uploads ready to submit
-  const hasPendingUploads = pendingNationalId || pendingContract;
-  const canSubmit = hasPendingUploads && !submitting;
+  const selectedStatus =
+    selectedDocumentType === "national_id" ? nationalIdStatus : contractStatus;
+  const selectedDisplayStatus =
+    selectedDocumentType === "national_id"
+      ? nationalIdDisplayStatus
+      : selectedDocumentType === "contract"
+        ? contractDisplayStatus
+        : undefined;
+  const selectedDocument =
+    selectedDocumentType === "national_id"
+      ? status?.national_id
+      : selectedDocumentType === "contract"
+        ? status?.contract
+        : null;
+  const selectedPendingUrl =
+    selectedDocumentType === "national_id"
+      ? pendingNationalId
+      : selectedDocumentType === "contract"
+        ? pendingContract
+        : null;
+  const canSubmit = !!selectedPendingUrl && !submitting;
 
-  // Submit all pending documents
-  const submitDocuments = async () => {
-    if (!hasPendingUploads) return;
+  const submitDocument = async () => {
+    if (!selectedDocumentType || !selectedPendingUrl) return;
     
     setSubmitting(true);
     try {
-      const submissions = [];
-      
-      if (pendingNationalId) {
-        submissions.push(
-          api.post("/api/verification/submit", {
-            file_url: pendingNationalId,
-            document_type: "NATIONAL_ID",
-          })
-        );
-      }
-      
-      if (pendingContract) {
-        submissions.push(
-          api.post("/api/verification/submit", {
-            file_url: pendingContract,
-            document_type: "CONTRACT",
-          })
-        );
-      }
-      
-      await Promise.all(submissions);
-      
-      // Clear pending uploads
+      await api.post("/api/verification/submit", {
+        file_url: selectedPendingUrl,
+        document_type: selectedDocumentType === "national_id" ? "NATIONAL_ID" : "CONTRACT",
+      });
       setPendingNationalId(null);
       setPendingContract(null);
       
@@ -363,14 +381,14 @@ export default function VerificationPage() {
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       
       toast({
-        title: "Documents submitted",
-        description: "Your documents are under review. You'll get access once approved.",
+        title: "Document submitted",
+        description: "Your document is under review. You'll get access once approved.",
         variant: "success",
       });
 
       router.replace("/verification/pending");
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to submit documents. Please try again.";
+      const errorMessage = error?.response?.data?.detail || error?.message || "Failed to submit document. Please try again.";
       toast({
         title: "Submission failed",
         description: errorMessage,
@@ -390,12 +408,13 @@ export default function VerificationPage() {
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            Verification Documents
+            Resident Verification
           </h1>
           <VerificationCompoundBar
             currentCompoundName={status?.compound_name ?? compound?.name}
             currentCompoundArea={compound?.area}
             onCompoundChange={() => {
+              setSelectedDocumentType(null)
               refetch()
               queryClient.invalidateQueries({ queryKey: ['current-user'] })
             }}
@@ -419,26 +438,7 @@ export default function VerificationPage() {
           </div>
         </div>
 
-        {/* Progress indicator */}
-        {bothUploaded && !bothApproved && (
-          <Card className="border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50 shadow-lg animate-fade-in">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center animate-pulse">
-                    <Clock className="w-6 h-6 text-yellow-900" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-gray-900">Documents Under Review</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Your documents are being reviewed by our team. You'll be notified once verification is complete.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <SignOutButton className="mx-auto max-w-md" />
 
         <Card className="shadow-xl border-2 border-gray-200 hover:shadow-2xl transition-shadow duration-300">
           <CardHeader className="bg-primary text-white rounded-t-lg">
@@ -447,174 +447,87 @@ export default function VerificationPage() {
               Upload One Document
             </CardTitle>
             <CardDescription className="text-primary-foreground/80">
-              Choose either National ID or Contract - whichever shows your name and compound name clearly
+              Only one document is needed. Choose whichever clearly shows your name and compound or neighbourhood.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            {/* National ID */}
-            <div className={`border-2 rounded-xl p-6 transition-all duration-300 ${
-              uploading === "national_id" 
-                ? "border-primary/40 bg-secondary shadow-lg scale-[1.02]" 
-                : nationalIdStatus === "APPROVED"
-                ? "border-green-300 bg-green-50"
-                : "border-gray-200 bg-white hover:border-primary/30 hover:shadow-md"
-            }`}>
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      nationalIdDisplayStatus === "APPROVED" 
-                        ? "bg-green-500" 
-                        : nationalIdDisplayStatus === "PENDING"
-                        ? "bg-yellow-500"
-                        : "bg-gray-300"
-                    } transition-colors duration-300`}>
-                      <FileCheck className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">National ID</h3>
-                      <p className="text-sm text-gray-600">
-                        Upload your National ID if the address shows "{compound?.name || 'your compound'}"
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        ✓ Must show your name (matches account) • ✓ Must show compound name in address
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(nationalIdDisplayStatus)} transition-all duration-300`}>
-                  {getStatusIcon(nationalIdDisplayStatus)}
-                  <span className="text-sm font-medium">
-                    {getStatusText(nationalIdDisplayStatus)}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Upload progress bar */}
-              {uploading === "national_id" && (
-                <div className="mb-4">
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 text-center">
-                    Uploading... {uploadProgress}%
-                  </p>
-                </div>
-              )}
-
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    uploadDocument("national_id", file);
-                  }
-                }}
-                disabled={uploading === "national_id"}
-                className="hidden"
-                id="national-id-upload"
-              />
-              {/* Show persisted / pending upload */}
-              {(status?.national_id || pendingNationalId) && (
-                <div className="mb-4">
-                  <UploadedDocumentCard
-                    title="National ID"
-                    status={status?.national_id?.status || (pendingNationalId ? "PENDING" : undefined)}
-                    fileUrl={status?.national_id?.file_url || pendingNationalId}
-                  />
-                </div>
-              )}
-              
-              <label htmlFor="national-id-upload">
-                <Button
-                  variant={nationalIdStatus === "APPROVED" ? "outline" : "default"}
-                  disabled={uploading === "national_id" || nationalIdStatus === "APPROVED"}
-                  className={`w-full transition-all duration-200 ${
-                    uploading === "national_id" || nationalIdStatus === "APPROVED"
-                      ? "opacity-75 cursor-not-allowed"
-                      : "hover:scale-[1.02] hover:shadow-md"
-                  }`}
-                  asChild
-                >
-                  <span className="flex items-center justify-center">
-                    {uploading === "national_id" ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        {status?.national_id || pendingNationalId
-                          ? "Replace Document"
-                          : "Upload Document"}
-                      </>
-                    )}
-                  </span>
-                </Button>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-800" htmlFor="document-type">
+                Document type
               </label>
+              <Select
+                value={selectedDocumentType ?? undefined}
+                onValueChange={(value: DocumentType) => setSelectedDocumentType(value)}
+                disabled={!!uploading || submitting}
+              >
+                <SelectTrigger id="document-type" aria-label="Choose document type">
+                  <SelectValue placeholder="Select a document type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="national_id">National ID</SelectItem>
+                  <SelectItem value="contract">Residency / Ownership contract</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-gray-600">
+                Choose either National ID or residency / ownership contract—not both.
+              </p>
             </div>
 
-            {/* OR Separator */}
-            <div className="relative flex items-center justify-center my-2">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t-2 border-dashed border-gray-300"></div>
+            {!selectedDocumentType && (
+              <div className="rounded-xl border border-primary/20 bg-secondary p-4 text-center text-sm text-primary">
+                Select the one document you want to use for verification.
               </div>
-              <div className="relative bg-white px-4 py-2 rounded-full border-2 border-gray-300 shadow-sm">
-                <span className="text-sm font-bold text-gray-600">OR</span>
-              </div>
-            </div>
+            )}
 
-            {/* Contract */}
-            <div className={`border-2 rounded-xl p-6 transition-all duration-300 ${
-              uploading === "contract" 
-                ? "border-primary/40 bg-secondary shadow-lg scale-[1.02]" 
-                : contractStatus === "APPROVED"
-                ? "border-green-300 bg-green-50"
-                : "border-gray-200 bg-white hover:border-primary/30 hover:shadow-md"
-            }`}>
+            {selectedDocumentType && (
+              <div className={`border-2 rounded-xl p-6 transition-all duration-300 ${
+                uploading === selectedDocumentType
+                  ? "border-primary/40 bg-secondary shadow-lg scale-[1.02]"
+                  : selectedStatus === "APPROVED"
+                    ? "border-green-300 bg-green-50"
+                    : "border-gray-200 bg-white hover:border-primary/30 hover:shadow-md"
+              }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      contractDisplayStatus === "APPROVED" 
-                        ? "bg-green-500" 
-                        : contractDisplayStatus === "PENDING"
-                        ? "bg-yellow-500"
-                        : "bg-gray-300"
+                      selectedDisplayStatus === "APPROVED"
+                        ? "bg-green-500"
+                        : selectedDisplayStatus === "PENDING"
+                          ? "bg-yellow-500"
+                          : "bg-gray-300"
                     } transition-colors duration-300`}>
                       <FileCheck className="w-5 h-5 text-white" />
                     </div>
                     <div>
                       <h3 className="font-bold text-lg">
-                        Residency/Ownership Contract
+                        {selectedDocumentType === "national_id"
+                          ? "National ID"
+                          : "Residency / Ownership contract"}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        Upload your contract or proof of residency for "{compound?.name || 'your compound'}"
+                        {selectedDocumentType === "national_id"
+                          ? "Upload a clear image of your National ID."
+                          : "Upload an image or PDF of your residency or ownership contract."}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        ✓ Must show your name (matches account) • ✓ Must show compound name in document
+                        Must clearly show your name and "{compound?.name || "your compound or neighbourhood"}"
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(contractDisplayStatus)} transition-all duration-300`}>
-                  {getStatusIcon(contractDisplayStatus)}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getStatusBadgeClass(selectedDisplayStatus)} transition-all duration-300`}>
+                  {getStatusIcon(selectedDisplayStatus)}
                   <span className="text-sm font-medium">
-                    {getStatusText(contractDisplayStatus)}
+                    {getStatusText(selectedDisplayStatus)}
                   </span>
                 </div>
               </div>
 
-              {/* Upload progress bar */}
-              {uploading === "contract" && (
+              {uploading === selectedDocumentType && (
                 <div className="mb-4">
                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                    <div 
+                    <div
                       className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${uploadProgress}%` }}
                     />
@@ -631,37 +544,41 @@ export default function VerificationPage() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    uploadDocument("contract", file);
+                    uploadDocument(selectedDocumentType, file);
                   }
+                  e.target.value = "";
                 }}
-                disabled={uploading === "contract"}
+                disabled={uploading === selectedDocumentType || selectedStatus === "APPROVED"}
                 className="hidden"
-                id="contract-upload"
+                id="verification-document-upload"
               />
-              {/* Show persisted / pending upload */}
-              {(status?.contract || pendingContract) && (
+              {(selectedDocument || selectedPendingUrl) && (
                 <div className="mb-4">
                   <UploadedDocumentCard
-                    title="Contract"
-                    status={status?.contract?.status || (pendingContract ? "PENDING" : undefined)}
-                    fileUrl={status?.contract?.file_url || pendingContract}
+                    title={
+                      selectedDocumentType === "national_id"
+                        ? "National ID"
+                        : "Residency / Ownership contract"
+                    }
+                    status={selectedDocument?.status || (selectedPendingUrl ? "PENDING" : undefined)}
+                    fileUrl={selectedDocument?.file_url || selectedPendingUrl}
                   />
                 </div>
               )}
               
-              <label htmlFor="contract-upload">
+              <label htmlFor="verification-document-upload">
                 <Button
-                  variant={contractStatus === "APPROVED" ? "outline" : "default"}
-                  disabled={uploading === "contract" || contractStatus === "APPROVED"}
+                  variant={selectedStatus === "APPROVED" ? "outline" : "default"}
+                  disabled={uploading === selectedDocumentType || selectedStatus === "APPROVED"}
                   className={`w-full transition-all duration-200 ${
-                    uploading === "contract" || contractStatus === "APPROVED"
+                    uploading === selectedDocumentType || selectedStatus === "APPROVED"
                       ? "opacity-75 cursor-not-allowed"
                       : "hover:scale-[1.02] hover:shadow-md"
                   }`}
                   asChild
                 >
                   <span className="flex items-center justify-center">
-                    {uploading === "contract" ? (
+                    {uploading === selectedDocumentType ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         Uploading...
@@ -669,7 +586,7 @@ export default function VerificationPage() {
                     ) : (
                       <>
                         <Upload className="w-4 h-4 mr-2" />
-                        {status?.contract || pendingContract
+                        {selectedDocument || selectedPendingUrl
                           ? "Replace Document"
                           : "Upload Document"}
                       </>
@@ -677,13 +594,13 @@ export default function VerificationPage() {
                   </span>
                 </Button>
               </label>
-            </div>
+              </div>
+            )}
 
-            {/* Submit Documents Button */}
-            {hasPendingUploads && (
+            {selectedPendingUrl && (
               <div className="pt-4 border-t-2 border-gray-200">
                 <Button
-                  onClick={submitDocuments}
+                  onClick={submitDocument}
                   disabled={!canSubmit}
                   className="w-full bg-primary  text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                   size="lg"
@@ -701,9 +618,7 @@ export default function VerificationPage() {
                   )}
                 </Button>
                 <p className="text-xs text-gray-500 mt-2 text-center">
-                  {pendingNationalId && pendingContract
-                    ? "Both documents will be submitted (only one is required)"
-                    : pendingNationalId
+                  {selectedDocumentType === "national_id"
                     ? "National ID will be submitted for verification"
                     : "Contract will be submitted for verification"}
                 </p>

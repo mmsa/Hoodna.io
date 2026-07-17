@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import Cookies from 'js-cookie'
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 
 interface User {
   id: number
@@ -71,11 +71,29 @@ export function useAuth() {
     gcTime: 0, // Don't cache user data
   })
 
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/api/auth/logout')
+    } catch {
+      // Local session cleanup must still succeed if the server is unavailable.
+    }
+
+    Cookies.remove('access_token', { path: '/' })
+    Cookies.remove('refresh_token', { path: '/' })
+    await queryClient.cancelQueries({ queryKey: ['current-user'] })
+    queryClient.setQueriesData({ queryKey: ['current-user'] }, null)
+    await queryClient.invalidateQueries({
+      queryKey: ['current-user'],
+      refetchType: 'none',
+    })
+  }, [queryClient])
+
   return {
     user,
     isAuthenticated,
     isLoading,
     isAdmin: user?.role === 'ADMIN' || user?.role === 'MODERATOR',
+    logout,
     refreshUser: async () => {
       // Invalidate both generic and token-scoped keys, then refetch
       await queryClient.invalidateQueries({ queryKey: ['current-user'] })

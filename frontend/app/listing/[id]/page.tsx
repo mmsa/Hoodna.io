@@ -20,6 +20,7 @@ import {
   categoryMeta,
   formatListingPrice,
   intentLabel,
+  listingAttributeDetails,
   type ListingView,
 } from "@/components/marketplace/listing-meta"
 import { ReportListing } from "@/components/marketplace/report-listing"
@@ -99,6 +100,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
   const category = categoryMeta(listing.category)
   const CategoryIcon = category.icon
   const backUrl = isService && user?.role === "SERVICE_PROVIDER" ? "/services" : "/marketplace"
+  const attributeDetails = listingAttributeDetails(listing)
 
   async function shareListing() {
     shareViaWhatsApp({ title: listing!.title, url: window.location.href })
@@ -114,6 +116,20 @@ export default function ListingPage({ params }: { params: { id: string } }) {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-8">
             <ListingGallery images={listing.image_urls || []} title={listing.title} />
+            {attributeDetails.length ? (
+              <Section title="Listing details">
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  {attributeDetails.map((detail) => (
+                    <div key={detail.label} className="rounded-lg border border-border bg-card p-4">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {detail.label}
+                      </dt>
+                      <dd className="mt-1 font-medium text-foreground">{detail.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </Section>
+            ) : null}
             <Section title="Description">
               <p className="whitespace-pre-wrap text-sm leading-7 text-foreground">
                 {listing.description || "No description provided."}
@@ -132,7 +148,7 @@ export default function ListingPage({ params }: { params: { id: string } }) {
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <CategoryIcon className="h-4 w-4" />
                 <span>{category.label}</span><span>·</span>
-                <span>{intentLabel(listing.intent, isService)}</span>
+                <span>{intentLabel(listing.intent, listing.category)}</span>
               </div>
               <h1 className="mt-3 text-2xl font-semibold leading-8 tracking-tight">{listing.title}</h1>
               <p className="mt-3 text-[28px] font-extrabold leading-none text-primary">
