@@ -150,7 +150,7 @@ export default function FeaturesScreen() {
     },
     {
       title: "Create Listing",
-      description: "Publish a new marketplace or service listing.",
+      description: "Choose an item, car or property to publish in the marketplace.",
       route: "/create-listing",
       icon: "pricetag",
       color: colors.success,
@@ -222,7 +222,10 @@ export default function FeaturesScreen() {
           </Text>
           <View style={{ gap: 12 }}>
             {quickActions.map((action) => {
-              const disabled = !!action.requiresAuth && !isAuthenticated;
+              const disabled =
+                (!!action.requiresAuth && !isAuthenticated) ||
+                (action.title === "Create Listing" &&
+                  (!user?.can_create_listing || user.role === "SERVICE_PROVIDER"));
               return (
                 <FeatureCard
                   key={action.title}

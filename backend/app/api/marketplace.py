@@ -8,6 +8,7 @@ from app.schemas.marketplace import (
     ListingCreate,
     ListingUpdate,
     ListingResponse,
+    validate_attributes_for_category,
     PromotionCheckout,
     CheckoutSessionResponse,
 )
@@ -185,6 +186,7 @@ async def list_listings(
                 price=listing.price,
                 currency=listing.currency,
                 intent=listing.intent,
+                attributes=listing.attributes,
                 image_urls=sign_file_urls(
                     listing.image_urls or [],
                     user_id=current_user.id if current_user else None,
@@ -273,6 +275,7 @@ async def get_listing(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
+        attributes=listing.attributes,
         image_urls=sign_file_urls(
             listing.image_urls or [],
             user_id=current_user.id if current_user else None,
@@ -303,7 +306,17 @@ async def create_listing_endpoint(
     from sqlalchemy import select, func
     from app.models.listing import Listing
     from app.models.enums import ListingStatus
+    from app.models.compound import Compound
     
+    if (
+        listing_data.category == ListingCategory.SERVICE
+        and current_user.role != UserRole.SERVICE_PROVIDER
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only approved service providers can create SERVICE listings",
+        )
+
     # Service provider restrictions
     if current_user.role == UserRole.SERVICE_PROVIDER:
         # Service providers can only create SERVICE listings
@@ -370,8 +383,8 @@ async def create_listing_endpoint(
     
     # For marketplace items (non-SERVICE listings), only verified APPROVED residents can post
     if listing_data.category != ListingCategory.SERVICE:
-        # Only residents can post marketplace items (not moderators, admins, or service providers)
-        if current_user.role != UserRole.RESIDENT:
+        # Residents include the legacy USER role and users who have not selected a role.
+        if current_user.role not in (UserRole.RESIDENT, UserRole.USER, None):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only verified residents can post marketplace items. Service providers can only post services."
@@ -403,16 +416,16 @@ async def create_listing_endpoint(
         listing_data=listing_data,
     )
     
-    # Auto-activate listings for service providers (they're already approved)
-    if current_user.role == UserRole.SERVICE_PROVIDER:
-        listing.status = ListingStatus.ACTIVE
-        await db.commit()
-        await db.refresh(listing)
+    # Every listing that passes the authorization checks is immediately visible.
+    listing.status = ListingStatus.ACTIVE
+    await db.flush()
+    await db.refresh(listing)
+    compound = await db.get(Compound, listing.compound_id)
 
     return ListingResponse(
         id=listing.id,
         compound_id=listing.compound_id,
-        compound_name=current_user.compound.name if current_user.compound else "",
+        compound_name=compound.name if compound else "",
         owner_id=listing.owner_id,
         owner_name=current_user.name,
         category=listing.category,
@@ -421,6 +434,7 @@ async def create_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
+        attributes=listing.attributes,
         image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
         status=listing.status,
         created_at=listing.created_at,
@@ -456,6 +470,15 @@ async def update_listing_endpoint(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own listings"
         )
+
+    if "attributes" in listing_data.model_fields_set:
+        try:
+            validate_attributes_for_category(listing.category, listing_data.attributes)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
     
     # Service provider restrictions
     if current_user.role == UserRole.SERVICE_PROVIDER:
@@ -504,6 +527,7 @@ async def update_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
+        attributes=listing.attributes,
         image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
         status=listing.status,
         created_at=listing.created_at,

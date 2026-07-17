@@ -91,7 +91,10 @@ export default function ServicesScreen() {
     setMaxPrice("");
   }
 
-  const canCreate = isProvider && providerProfile?.provider_status === "APPROVED";
+  const canCreate =
+    isProvider &&
+    providerProfile?.provider_status === "APPROVED" &&
+    user?.can_create_listing === true;
 
   if (loading) {
     return (

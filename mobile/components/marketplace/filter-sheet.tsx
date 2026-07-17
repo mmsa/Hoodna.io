@@ -25,6 +25,7 @@ export function MarketplaceFilterSheet({
   setMaxPrice,
   onReset,
   service = false,
+  category = "",
 }: {
   visible: boolean;
   onClose: () => void;
@@ -38,6 +39,7 @@ export function MarketplaceFilterSheet({
   setMaxPrice: (value: string) => void;
   onReset: () => void;
   service?: boolean;
+  category?: string;
 }) {
   const intents = service
     ? [
@@ -75,17 +77,21 @@ export function MarketplaceFilterSheet({
           </AppPressable>
         </View>
 
-        <Text style={styles.label}>{service ? "Pricing" : "Listing type"}</Text>
-        <View style={styles.options}>
-          {intents.map((option) => (
-            <Chip
-              key={option.value}
-              label={option.label}
-              onPress={() => setIntent(option.value)}
-              selected={intent === option.value}
-            />
-          ))}
-        </View>
+        {service || category === "PROPERTY" ? (
+          <>
+            <Text style={styles.label}>{service ? "Pricing" : "Listing type"}</Text>
+            <View style={styles.options}>
+              {intents.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  onPress={() => setIntent(option.value)}
+                  selected={intent === option.value}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.label}>Sort by</Text>
         <View style={styles.options}>

@@ -11,7 +11,7 @@ import {
 import { User } from "./schemas/user";
 import { VerificationStatusResponse, PresignRequest, PresignResponse, DocumentSubmit } from "./schemas/verification";
 import { Post, PostCreate, CommentCreate } from "./schemas/post";
-import { Listing, ListingCreate } from "./schemas/listing";
+import { Listing, ListingCreate, ListingUpdate } from "./schemas/listing";
 import { Compound } from "./schemas/compound";
 import {
   ReferralCreate,
@@ -562,7 +562,7 @@ export class ApiClient {
   }
 
   // Update listing (for owners)
-  async updateListing(listingId: number, data: Partial<ListingCreate>): Promise<Listing> {
+  async updateListing(listingId: number, data: ListingUpdate): Promise<Listing> {
     return this.request<Listing>(`/api/listings/${listingId}`, {
       method: "PATCH",
       body: JSON.stringify(data),

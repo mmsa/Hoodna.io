@@ -139,7 +139,8 @@ export default function ListingDetailScreen() {
   const service = listing.category === "SERVICE";
   const intentLabel = service
     ? listing.intent === "RENT" ? "Hourly" : "One-time"
-    : listing.intent === "RENT" ? "For rent" : "For sale";
+    : listing.category === "PROPERTY" && listing.intent === "RENT" ? "For rent" : "For sale";
+  const attributeRows = getAttributeRows(listing);
 
   function updateImageIndex(event: NativeSyntheticEvent<NativeScrollEvent>) {
     setImageIndex(Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH));
@@ -250,6 +251,9 @@ export default function ListingDetailScreen() {
           <DetailRow icon="location-outline" label="Compound" value={listing.compound_name} />
           <DetailRow icon="person-outline" label={service ? "Provider" : "Listed by"} value={listing.owner_name} />
           <DetailRow icon="calendar-outline" label="Published" value={formatDate(listing.created_at)} />
+          {attributeRows.map((row) => (
+            <DetailRow icon={row.icon} key={row.label} label={row.label} value={row.value} />
+          ))}
 
           {listing.description ? (
             <>
@@ -321,6 +325,41 @@ function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMa
 
 function friendlyCategory(category: string) {
   return category.charAt(0) + category.slice(1).toLowerCase();
+}
+
+function friendlyAttribute(value: string) {
+  return value.split("_").map((part) => part.charAt(0) + part.slice(1).toLowerCase()).join(" ");
+}
+
+function getAttributeRows(listing: Listing): {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}[] {
+  const attributes = listing.attributes;
+  if (!attributes) return [];
+  if (listing.category === "ITEM" && "condition" in attributes) {
+    return [{ icon: "sparkles-outline", label: "Condition", value: friendlyAttribute(attributes.condition) }];
+  }
+  if (listing.category === "CAR" && "make" in attributes) {
+    return [
+      { icon: "car-sport-outline", label: "Make and model", value: `${attributes.make} ${attributes.model}` },
+      { icon: "calendar-number-outline", label: "Year", value: String(attributes.year) },
+      { icon: "speedometer-outline", label: "Mileage", value: `${attributes.mileage_km.toLocaleString()} km` },
+      { icon: "git-compare-outline", label: "Transmission", value: friendlyAttribute(attributes.transmission) },
+      { icon: "water-outline", label: "Fuel type", value: friendlyAttribute(attributes.fuel_type) },
+    ];
+  }
+  if (listing.category === "PROPERTY" && "property_type" in attributes) {
+    return [
+      { icon: "home-outline", label: "Property type", value: friendlyAttribute(attributes.property_type) },
+      { icon: "bed-outline", label: "Bedrooms", value: String(attributes.bedrooms) },
+      { icon: "water-outline", label: "Bathrooms", value: String(attributes.bathrooms) },
+      { icon: "resize-outline", label: "Area", value: `${attributes.area_sqm.toLocaleString()} m²` },
+      { icon: "color-palette-outline", label: "Furnishing", value: friendlyAttribute(attributes.furnishing) },
+    ];
+  }
+  return [];
 }
 
 function formatPrice(listing: Listing) {

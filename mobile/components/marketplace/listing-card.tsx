@@ -37,8 +37,9 @@ export function ListingCard({
     : `${listing.price.toLocaleString()} ${listing.currency || "EGP"}`;
   const intent = service
     ? listing.intent === "RENT" ? "Hourly" : "One-time"
-    : listing.intent === "RENT" ? "For rent" : "For sale";
+    : listing.category === "PROPERTY" && listing.intent === "RENT" ? "For rent" : "For sale";
   const sellerName = listing.owner_name || "Neighbour";
+  const attributeSummary = formatAttributeSummary(listing);
 
   return (
     <AppPressable
@@ -77,6 +78,7 @@ export function ListingCard({
 
       <View style={[styles.body, row && styles.rowBody]}>
         <Text numberOfLines={2} style={styles.title}>{listing.title}</Text>
+        {attributeSummary ? <Text numberOfLines={1} style={styles.attributes}>{attributeSummary}</Text> : null}
         <View style={styles.sellerRow}>
           <Avatar name={sellerName} size={28} />
           <View style={styles.sellerMeta}>
@@ -104,6 +106,22 @@ export function ListingCard({
       ) : null}
     </AppPressable>
   );
+}
+
+function formatAttributeSummary(listing: Listing) {
+  const attributes = listing.attributes;
+  if (!attributes) return null;
+  if (listing.category === "ITEM" && "condition" in attributes) {
+    return attributes.condition === "LIKE_NEW" ? "Like new" : attributes.condition.charAt(0) + attributes.condition.slice(1).toLowerCase();
+  }
+  if (listing.category === "CAR" && "make" in attributes) {
+    return `${attributes.year} · ${attributes.make} ${attributes.model} · ${attributes.mileage_km.toLocaleString()} km`;
+  }
+  if (listing.category === "PROPERTY" && "property_type" in attributes) {
+    const type = attributes.property_type.charAt(0) + attributes.property_type.slice(1).toLowerCase();
+    return `${type} · ${attributes.bedrooms} bd · ${attributes.bathrooms} ba · ${attributes.area_sqm.toLocaleString()} m²`;
+  }
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -174,6 +192,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.bodySmall,
     fontWeight: typography.weight.semibold,
   },
+  attributes: { marginTop: spacing[1], color: colors.textSecondary, fontSize: typography.size.caption },
   sellerRow: {
     marginTop: spacing[2],
     flexDirection: "row",

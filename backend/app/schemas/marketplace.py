@@ -1,8 +1,97 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from typing import Optional, List, Union
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from app.models.enums import ListingCategory, ListingIntent, ListingStatus
+
+
+class ItemCondition(str, Enum):
+    NEW = "NEW"
+    LIKE_NEW = "LIKE_NEW"
+    USED = "USED"
+    FAIR = "FAIR"
+
+
+class CarTransmission(str, Enum):
+    AUTOMATIC = "AUTOMATIC"
+    MANUAL = "MANUAL"
+
+
+class CarFuelType(str, Enum):
+    PETROL = "PETROL"
+    DIESEL = "DIESEL"
+    ELECTRIC = "ELECTRIC"
+    HYBRID = "HYBRID"
+
+
+class PropertyType(str, Enum):
+    APARTMENT = "APARTMENT"
+    VILLA = "VILLA"
+    TOWNHOUSE = "TOWNHOUSE"
+    STUDIO = "STUDIO"
+    DUPLEX = "DUPLEX"
+
+
+class Furnishing(str, Enum):
+    UNFURNISHED = "UNFURNISHED"
+    SEMI_FURNISHED = "SEMI_FURNISHED"
+    FURNISHED = "FURNISHED"
+
+
+class ListingAttributes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ItemAttributes(ListingAttributes):
+    condition: ItemCondition
+
+
+class CarAttributes(ListingAttributes):
+    make: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=100)
+    year: int
+    mileage_km: int = Field(ge=0)
+    transmission: CarTransmission
+    fuel_type: CarFuelType
+
+    @field_validator("year")
+    @classmethod
+    def validate_year(cls, value: int) -> int:
+        max_year = datetime.now().year + 1
+        if value < 1886 or value > max_year:
+            raise ValueError(f"year must be between 1886 and {max_year}")
+        return value
+
+
+class PropertyAttributes(ListingAttributes):
+    property_type: PropertyType
+    bedrooms: int = Field(ge=0, le=100)
+    bathrooms: int = Field(ge=0, le=100)
+    area_sqm: float = Field(gt=0)
+    furnishing: Furnishing
+
+
+CategoryAttributes = Union[ItemAttributes, CarAttributes, PropertyAttributes]
+
+
+def validate_attributes_for_category(
+    category: ListingCategory,
+    attributes: Optional[CategoryAttributes],
+) -> None:
+    expected_type = {
+        ListingCategory.ITEM: ItemAttributes,
+        ListingCategory.CAR: CarAttributes,
+        ListingCategory.PROPERTY: PropertyAttributes,
+    }.get(category)
+
+    if category == ListingCategory.SERVICE:
+        if attributes is not None:
+            raise ValueError("SERVICE listings do not accept attributes")
+        return
+
+    if attributes is not None and not isinstance(attributes, expected_type):
+        raise ValueError(f"attributes do not match {category.value} category")
 
 
 class ListingCreate(BaseModel):
@@ -13,14 +102,33 @@ class ListingCreate(BaseModel):
     currency: str = "EGP"
     intent: ListingIntent
     image_urls: List[str] = []
+    attributes: Optional[CategoryAttributes] = None
+
+    @model_validator(mode="after")
+    def validate_category_details(self):
+        allowed_intents = {
+            ListingCategory.PROPERTY: {ListingIntent.SELL, ListingIntent.RENT},
+            ListingCategory.CAR: {ListingIntent.SELL},
+            ListingCategory.ITEM: {ListingIntent.SELL},
+            ListingCategory.SERVICE: {ListingIntent.SELL, ListingIntent.RENT},
+        }
+        if self.intent not in allowed_intents[self.category]:
+            raise ValueError(
+                f"{self.category.value} listings do not support {self.intent.value} intent"
+            )
+        validate_attributes_for_category(self.category, self.attributes)
+        return self
 
 
 class ListingUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[Decimal] = None
     status: Optional[ListingStatus] = None
     image_urls: Optional[List[str]] = None
+    attributes: Optional[CategoryAttributes] = None
 
 
 class ListingResponse(BaseModel):
@@ -38,6 +146,7 @@ class ListingResponse(BaseModel):
     currency: str
     intent: ListingIntent
     image_urls: List[str]
+    attributes: Optional[CategoryAttributes] = None
     status: ListingStatus
     created_at: datetime
     average_rating: Optional[float] = None  # Average rating from reviews

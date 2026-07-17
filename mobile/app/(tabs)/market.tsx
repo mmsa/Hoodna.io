@@ -82,6 +82,15 @@ export default function MarketScreen() {
     setSortBy("date_desc");
   }
 
+  function selectCategory(value: string) {
+    setCategory(value);
+    if (value !== "PROPERTY") setIntent("");
+  }
+
+  function openCreateListing() {
+    router.push(category ? `/create-listing?category=${category}` : "/create-listing");
+  }
+
   if (user?.role === "SERVICE_PROVIDER") {
     return (
       <SafeAreaView edges={["top"]} style={styles.safe}>
@@ -132,11 +141,10 @@ export default function MarketScreen() {
         ListHeaderComponent={
           <View>
             <Header
-              rightAction={{
+              rightAction={user?.can_create_listing ? {
                 label: t("marketplace.newListing"),
-                disabled: !user?.can_create_listing,
-                onPress: () => router.push("/create-listing"),
-              }}
+                onPress: openCreateListing,
+              } : undefined}
               showLogo
             />
             <View style={styles.hero}>
@@ -150,14 +158,11 @@ export default function MarketScreen() {
               <Text style={styles.subheading}>
                 {t("marketplace.marketSubtitle")}
               </Text>
-              <Button
-                disabled={!user?.can_create_listing}
-                onPress={() => router.push("/create-listing")}
-                size="medium"
-                style={styles.heroCta}
-              >
-                {t("marketplace.postListing")}
-              </Button>
+              {user?.can_create_listing ? (
+                <Button onPress={openCreateListing} size="medium" style={styles.heroCta}>
+                  {t("marketplace.postListing")}
+                </Button>
+              ) : null}
             </View>
             <View style={styles.searchRow}>
               <TextField
@@ -187,7 +192,7 @@ export default function MarketScreen() {
                 <Chip
                   key={item.value}
                   label={t(item.labelKey)}
-                  onPress={() => setCategory(item.value)}
+                  onPress={() => selectCategory(item.value)}
                   selected={category === item.value}
                 />
               ))}
@@ -206,10 +211,10 @@ export default function MarketScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            actionLabel={t("marketplace.postFirstListing")}
+            actionLabel={user?.can_create_listing ? t("marketplace.postFirstListing") : undefined}
             description={t("marketplace.nothingListedDesc")}
             icon={<Ionicons color={colors.primary} name="camera-outline" size={36} />}
-            onAction={() => router.push("/create-listing")}
+            onAction={user?.can_create_listing ? openCreateListing : undefined}
             title={t("marketplace.nothingListedYet")}
           />
         }
@@ -235,6 +240,7 @@ export default function MarketScreen() {
         )}
       />
       <MarketplaceFilterSheet
+        category={category}
         intent={intent}
         maxPrice={maxPrice}
         minPrice={minPrice}
@@ -251,7 +257,7 @@ export default function MarketScreen() {
         <AppPressable
           accessibilityLabel="Post listing"
           accessibilityRole="button"
-          onPress={() => router.push("/create-listing")}
+          onPress={openCreateListing}
           style={styles.fab}
         >
           <Ionicons color={palette.onPrimary} name="add" size={28} />
