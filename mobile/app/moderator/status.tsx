@@ -9,6 +9,8 @@ import { formatModeratorStatus } from "@/utils/format-enums";
 import { formatCompoundName } from "@/utils/formatCompound";
 import { SignOutButton } from "@/components/sign-out-button";
 
+const SUPPORT_EMAIL = "hello@eljiran.io";
+
 interface ModeratorProfile {
   id: number;
   user_id: number;
@@ -283,7 +285,7 @@ export default function ModeratorStatusScreen() {
                 </Text>
               ) : profile.moderator_status === "SUSPENDED" ? (
                 <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 12 }}>
-                  Your moderator profile has been suspended. Please contact support for more information.
+                  Your moderator profile has been suspended. Email {SUPPORT_EMAIL} for more information.
                 </Text>
               ) : null}
             </View>

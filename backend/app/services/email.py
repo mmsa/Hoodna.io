@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def _password_reset_bodies(reset_link: str) -> tuple[str, str, str]:
-    subject = "Reset Your eljiran.com Password"
+    subject = "Reset Your eljiran.io Password"
     html_body = f"""
     <!DOCTYPE html>
     <html>
@@ -31,7 +31,7 @@ def _password_reset_bodies(reset_link: str) -> tuple[str, str, str]:
     </html>
     """
     text_body = (
-        "Reset Your eljiran.com Password\n\n"
+        "Reset Your eljiran.io Password\n\n"
         f"Open this link to reset your password:\n{reset_link}\n\n"
         "This link expires in 1 hour.\n"
     )
@@ -157,10 +157,13 @@ def send_password_reset_confirmation_email(email: str) -> bool:
     """Send password reset confirmation email."""
     subject = "Your Password Has Been Reset"
     html_body = (
-        "<p>Your eljiran.com password was reset successfully.</p>"
-        "<p>If you did not make this change, contact support immediately.</p>"
+        "<p>Your eljiran.io password was reset successfully.</p>"
+        "<p>If you did not make this change, contact hello@eljiran.io immediately.</p>"
     )
-    text_body = "Your eljiran.com password was reset successfully.\n"
+    text_body = (
+        "Your eljiran.io password was reset successfully.\n"
+        "If you did not make this change, contact hello@eljiran.io immediately.\n"
+    )
     return (
         _send_via_resend(email, subject, html_body, text_body)
         or _send_via_ses(email, subject, html_body, text_body)

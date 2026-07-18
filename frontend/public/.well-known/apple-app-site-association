@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "29QWSF7YZ8.com.eljiran.mobile"
+        ],
+        "components": [
+          {
+            "/": "/*",
+            "comment": "Open Eljiran web links in the mobile app"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -15,6 +15,12 @@ const nextConfig = {
     }
     return config
   },
+  headers: async () => [
+    {
+      source: '/.well-known/apple-app-site-association',
+      headers: [{ key: 'Content-Type', value: 'application/json' }],
+    },
+  ],
   // Enable standalone output for Docker optimization
   output: 'standalone',
 }

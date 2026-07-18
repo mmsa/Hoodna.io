@@ -12,7 +12,7 @@ import api from "@/lib/api"
 const OPTIONS = [
   {
     scope: "CROSS_COMPOUND" as const,
-    title: "Across Hoodna communities",
+    title: "Across Eljiran communities",
     description: "Show your listing to signed-in residents beyond your compound.",
     price: "50 EGP",
   },

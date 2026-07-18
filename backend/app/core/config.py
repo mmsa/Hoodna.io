@@ -59,8 +59,8 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""  # For frontend reference
     
     # AWS SES
-    SES_FROM_EMAIL: str = "noreply@eljiran.com"  # Must be verified in AWS SES
-    SES_FROM_NAME: str = "eljiran.com"
+    SES_FROM_EMAIL: str = "hello@eljiran.io"  # Must be verified in AWS SES
+    SES_FROM_NAME: str = "Eljiran"
     SES_REGION: str = ""  # Defaults to AWS_REGION when empty
 
     # Optional transactional email (used when SES unavailable)

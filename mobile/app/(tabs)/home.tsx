@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicat
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
-import { Post } from "@hoodna/shared";
+import { ELJIRAN_WEB_ORIGIN, Post } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
 import { CompoundHero } from "@/components/feed/compound-hero";
@@ -130,10 +130,11 @@ function PostCard({
 
   async function handleShare() {
     try {
+      const postUrl = `${ELJIRAN_WEB_ORIGIN}/feed#post-${post.id}`;
       await Share.share({
-        title: `${post.author_name} on eljiran.com`,
-        message: `${post.content}\n\nhttps://eljiran.vercel.app/feed#post-${post.id}`,
-        url: `https://eljiran.vercel.app/feed#post-${post.id}`,
+        title: `${post.author_name} on eljiran.io`,
+        message: `${post.content}\n\n${postUrl}`,
+        url: postUrl,
       });
     } catch {
       Alert.alert("Could not share", "Please try again.");

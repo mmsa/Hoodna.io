@@ -8,6 +8,8 @@ import { colors } from "@/constants/colors";
 import { formatProviderStatus, formatProviderType, formatVerificationMethod } from "@/utils/format-enums";
 import { SignOutButton } from "@/components/sign-out-button";
 
+const SUPPORT_EMAIL = "hello@eljiran.io";
+
 interface ProviderProfile {
   id: number;
   user_id: number;
@@ -309,7 +311,7 @@ export default function ProviderStatusScreen() {
                 </Text>
               ) : profile.provider_status === "SUSPENDED" ? (
                 <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 12 }}>
-                  Your provider profile has been suspended. Please contact support for more information.
+                  Your provider profile has been suspended. Email {SUPPORT_EMAIL} for more information.
                 </Text>
               ) : null}
             </View>

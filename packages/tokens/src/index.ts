@@ -102,5 +102,5 @@ export const brand = {
   nameLatin: "eljiran",
   nameLatinTitle: "Eljiran",
   nameArabic: "الجيران",
-  domain: ".com",
+  domain: ".io",
 } as const;

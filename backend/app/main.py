@@ -68,7 +68,7 @@ from app.services.storage import (
 )
 
 app = FastAPI(
-    title="eljiran.com API",
+    title="eljiran.io API",
     description="Verified neighborhood community + marketplace",
     version="1.0.0",
 )
@@ -456,7 +456,7 @@ async def get_upload_signed_url(
 
 @app.get("/")
 async def root():
-    return {"message": "eljiran.com API", "version": "1.0.0"}
+    return {"message": "eljiran.io API", "version": "1.0.0"}
 
 
 @app.get("/health")

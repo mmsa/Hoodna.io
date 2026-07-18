@@ -319,7 +319,7 @@ export default function ProfileScreen() {
       {
         icon: "apps" as const,
         title: "All Features",
-        description: "Browse every major capability available in Hoodna.",
+        description: "Browse every major capability available in Eljiran.",
         color: "#0EA5E9",
         route: "/features",
       },

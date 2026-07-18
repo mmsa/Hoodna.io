@@ -17,7 +17,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eljiran.mobile",
-      "buildNumber": "19",
+      "buildNumber": "20",
+      "associatedDomains": [
+        "applinks:eljiran.io",
+        "applinks:www.eljiran.io"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "eljiran needs photo access so you can upload verification documents and listing images.",
@@ -38,7 +42,12 @@
           "data": [
             {
               "scheme": "https",
-              "host": "eljiran.com",
+              "host": "eljiran.io",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.eljiran.io",
               "pathPrefix": "/"
             }
           ],

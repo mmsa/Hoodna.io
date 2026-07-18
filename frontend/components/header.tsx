@@ -157,7 +157,7 @@ export function Header() {
           <div className="brand-lock flex shrink-0 items-center gap-2">
             <Image
               src="/icon_light.jpg"
-              alt="eljiran.com"
+              alt="eljiran.io"
               width={32}
               height={32}
               className="h-8 w-8 shrink-0 rounded-full"
@@ -182,7 +182,7 @@ export function Header() {
             <Link href="/" className="brand-lock flex shrink-0 items-center gap-2">
               <Image
                 src="/icon_light.jpg"
-                alt="eljiran.com"
+                alt="eljiran.io"
                 width={40}
                 height={40}
                 className="h-10 w-10 shrink-0 rounded-full"

@@ -37,9 +37,9 @@ services:
       - key: BACKEND_URL
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://eljiran.io
       - key: CORS_ORIGINS
-        sync: false
+        value: '["https://eljiran.io","https://www.eljiran.io","https://eljiran.vercel.app"]'
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
@@ -49,9 +49,9 @@ services:
       - key: S3_BUCKET_NAME
         sync: false
       - key: SES_FROM_EMAIL
-        value: noreply@eljiran.com
+        value: hello@eljiran.io
       - key: SES_FROM_NAME
-        value: eljiran.com
+        value: Eljiran
       - key: OPENAI_API_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

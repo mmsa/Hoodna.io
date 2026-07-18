@@ -74,7 +74,7 @@ export function PostCard({
   const handleShare = async () => {
     const url = `${window.location.origin}/feed#post-${post.id}`
     const shareData = {
-      title: `${post.author_name} on eljiran.com`,
+      title: `${post.author_name} on eljiran.io`,
       text: post.content,
       url,
     }

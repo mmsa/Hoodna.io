@@ -33,7 +33,8 @@ const notoSansArabic = Noto_Sans_Arabic({
 })
 
 export const metadata: Metadata = {
-  title: 'eljiran.com - Verified Neighborhood Community',
+  metadataBase: new URL('https://eljiran.io'),
+  title: 'eljiran.io - Verified Neighborhood Community',
   description: 'Verified neighborhood community and marketplace',
   icons: {
     icon: '/icon_light.jpg',

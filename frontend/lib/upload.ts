@@ -81,7 +81,7 @@ export async function uploadToPresignedUrl(
     })
   } catch {
     throw new Error(
-      'Could not reach storage. Try again or contact support if this persists.'
+      'Could not reach storage. Try again or email hello@eljiran.io if this persists.'
     )
   }
 

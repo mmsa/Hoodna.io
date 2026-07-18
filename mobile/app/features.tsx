@@ -193,7 +193,7 @@ export default function FeaturesScreen() {
             }}
           >
             <Text style={{ fontSize: 28, fontWeight: "800", color: colors.textMain, marginBottom: 8 }}>
-              Everything in Hoodna
+              Everything in Eljiran
             </Text>
             <Text style={{ fontSize: 15, lineHeight: 22, color: colors.textMuted }}>
               This screen mirrors the web app’s feature directory so mobile users can discover the full product surface.

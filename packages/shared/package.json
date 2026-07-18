@@ -1,7 +1,7 @@
 {
   "name": "@hoodna/shared",
   "version": "1.0.0",
-  "description": "Shared types and API client for Hoodna.io",
+  "description": "Shared types and API client for Eljiran (eljiran.io)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
