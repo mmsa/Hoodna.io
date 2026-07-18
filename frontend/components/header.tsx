@@ -42,6 +42,7 @@ import api from '@/lib/api'
 import { formatCompoundName, formatCompoundWithArea } from '@/lib/format-compound'
 import { useFeatureConfig } from '@/components/feature-config-provider'
 import { Avatar } from '@/components/ui/avatar'
+import { LanguageToggle } from '@/components/language-picker'
 
 export function Header() {
   const router = useRouter()
@@ -224,6 +225,7 @@ export function Header() {
               <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
             ) : isAuthenticated && user ? (
               <>
+                <LanguageToggle />
                 {/* Messages Button */}
                 <Link href="/messages">
                   <Button
@@ -381,6 +383,7 @@ export function Header() {
               </>
             ) : (
               <div className="flex items-center gap-2">
+                <LanguageToggle />
                 <Link href="/auth/login">
                   <Button variant="ghost">{t('nav.signIn')}</Button>
                 </Link>

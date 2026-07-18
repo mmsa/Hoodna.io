@@ -15,102 +15,97 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
+import { useTranslation } from '@/components/locale-provider'
 import { formatCompoundName } from '@/lib/format-compound'
-
-const features = [
-  {
-    icon: Shield,
-    title: 'Verified community',
-    description:
-      'Residents are verified with ID and residency documents for a trusted neighbourhood.',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Neighbourhood marketplace',
-    description:
-      'Buy, sell, and rent within your compound — or promote listings to reach more people.',
-  },
-  {
-    icon: Users,
-    title: 'No agents',
-    description:
-      'Direct communication between verified neighbours. No middlemen, no hidden fees.',
-  },
-  {
-    icon: MessageCircle,
-    title: 'Community feed',
-    description:
-      'Share updates, ask for help, and stay connected with people who actually live nearby.',
-  },
-  {
-    icon: Lock,
-    title: 'Secure & private',
-    description:
-      'Your data stays protected. Only verified residents access your neighbourhood space.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Promote listings',
-    description:
-      'Reach beyond your compound with paid promotions to cross-compound or public feeds.',
-  },
-]
-
-const steps = [
-  {
-    number: '01',
-    title: 'Sign up & pick your compound',
-    description: 'Create your account and choose your neighbourhood.',
-  },
-  {
-    number: '02',
-    title: 'Get verified',
-    description: 'Upload your National ID and residency documents for review.',
-  },
-  {
-    number: '03',
-    title: 'Join the community',
-    description: 'Post updates, comment, and connect with verified neighbours.',
-  },
-  {
-    number: '04',
-    title: 'Buy & sell safely',
-    description: 'List items or browse the marketplace within your trusted community.',
-  },
-]
-
-const benefits = [
-  '100% verified residents',
-  'No agent fees',
-  'Secure transactions',
-  'Direct communication',
-  'Compound-specific content',
-  'AI-assisted verification',
-]
 
 export default function Home() {
   const { isAuthenticated } = useAuth()
+  const { t } = useTranslation()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  const features = [
+    {
+      icon: Shield,
+      title: t('landing.featureVerifiedTitle'),
+      description: t('landing.featureVerifiedDesc'),
+    },
+    {
+      icon: ShoppingBag,
+      title: t('landing.featureMarketTitle'),
+      description: t('landing.featureMarketDesc'),
+    },
+    {
+      icon: Users,
+      title: t('landing.featureNoAgentsTitle'),
+      description: t('landing.featureNoAgentsDesc'),
+    },
+    {
+      icon: MessageCircle,
+      title: t('landing.featureFeedTitle'),
+      description: t('landing.featureFeedDesc'),
+    },
+    {
+      icon: Lock,
+      title: t('landing.featureSecureTitle'),
+      description: t('landing.featureSecureDesc'),
+    },
+    {
+      icon: TrendingUp,
+      title: t('landing.featurePromoteTitle'),
+      description: t('landing.featurePromoteDesc'),
+    },
+  ]
+
+  const steps = [
+    {
+      number: '01',
+      title: t('landing.step1Title'),
+      description: t('landing.step1Desc'),
+    },
+    {
+      number: '02',
+      title: t('landing.step2Title'),
+      description: t('landing.step2Desc'),
+    },
+    {
+      number: '03',
+      title: t('landing.step3Title'),
+      description: t('landing.step3Desc'),
+    },
+    {
+      number: '04',
+      title: t('landing.step4Title'),
+      description: t('landing.step4Desc'),
+    },
+  ]
+
+  const benefits = [
+    t('landing.benefit1'),
+    t('landing.benefit2'),
+    t('landing.benefit3'),
+    t('landing.benefit4'),
+    t('landing.benefit5'),
+    t('landing.benefit6'),
+  ]
+
   return (
     <main className="min-h-screen bg-background">
       <section className="border-b border-border/70 px-4 py-20 md:py-28">
         <div className="container mx-auto max-w-4xl text-center">
           <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-primary">
-            Verified neighbourhood community
+            {t('landing.eyebrow')}
           </p>
           <h1 className="mb-6 text-4xl font-bold tracking-tight text-foreground md:text-6xl">
-            Your neighbourhood,
+            {t('landing.headlineLine1')}
             <br />
-            connected.
+            {t('landing.headlineLine2')}
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
-            Connect with verified neighbours, buy and sell safely, and keep community life organised —
-            like a WhatsApp group, but built for your compound.
+            {t('landing.subtitle')}
           </p>
 
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -118,13 +113,13 @@ export default function Home() {
               <>
                 <Link href="/feed">
                   <Button size="lg" className="min-w-[180px]">
-                    Go to feed
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    {t('landing.goToFeed')}
+                    <ArrowRight className="ms-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/marketplace">
                   <Button size="lg" variant="outline" className="min-w-[180px]">
-                    Browse marketplace
+                    {t('landing.browseMarketplace')}
                   </Button>
                 </Link>
               </>
@@ -132,13 +127,13 @@ export default function Home() {
               <>
                 <Link href="/auth/signup">
                   <Button size="lg" className="min-w-[180px]">
-                    Get started
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    {t('landing.getStarted')}
+                    <ArrowRight className="ms-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/auth/login">
                   <Button size="lg" variant="outline" className="min-w-[180px]">
-                    Sign in
+                    {t('landing.signIn')}
                   </Button>
                 </Link>
               </>
@@ -148,15 +143,15 @@ export default function Home() {
           <div className="mx-auto mt-14 grid max-w-2xl grid-cols-3 gap-6 border-t border-border pt-10">
             <div>
               <p className="text-3xl font-bold text-primary">100%</p>
-              <p className="mt-1 text-sm text-muted-foreground">Verified</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('landing.statVerified')}</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-primary">0</p>
-              <p className="mt-1 text-sm text-muted-foreground">Agent fees</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('landing.statAgentFees')}</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-primary">1</p>
-              <p className="mt-1 text-sm text-muted-foreground">Your compound</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('landing.statCompound')}</p>
             </div>
           </div>
         </div>
@@ -166,10 +161,10 @@ export default function Home() {
         <div className="container mx-auto max-w-6xl">
           <div className="mb-12 text-center">
             <h2 className="text-3xl font-bold text-foreground md:text-4xl">
-              Everything your neighbourhood needs
+              {t('landing.featuresTitle')}
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-              Feed, marketplace, services, and verification — in one calm place.
+              {t('landing.featuresSubtitle')}
             </p>
           </div>
 
@@ -195,9 +190,9 @@ export default function Home() {
       <section className="border-y border-border/70 bg-muted/40 px-4 py-20">
         <div className="container mx-auto max-w-6xl">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-foreground md:text-4xl">How it works</h2>
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">{t('landing.howTitle')}</h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Get started in a few simple steps.
+              {t('landing.howSubtitle')}
             </p>
           </div>
 
@@ -218,7 +213,7 @@ export default function Home() {
           <Card className="eljiran-card">
             <CardContent className="p-8">
               <h3 className="mb-6 text-center text-2xl font-bold text-foreground">
-                Why neighbours choose Eljiran
+                {t('landing.whyTitle')}
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 {benefits.map((text) => (
@@ -236,7 +231,7 @@ export default function Home() {
       <section className="px-4 py-20">
         <div className="container mx-auto max-w-6xl">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-foreground md:text-4xl">From real compounds</h2>
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">{t('landing.testimonialsTitle')}</h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {[
@@ -278,23 +273,23 @@ export default function Home() {
       <section className="bg-primary px-4 py-20">
         <div className="container mx-auto max-w-3xl text-center">
           <h2 className="mb-4 text-3xl font-bold text-primary-foreground md:text-4xl">
-            Ready to join your community?
+            {t('landing.ctaTitle')}
           </h2>
           <p className="mb-8 text-primary-foreground/90">
-            Free to join. Verified neighbours only.
+            {t('landing.ctaSubtitle')}
           </p>
           {mounted && isAuthenticated ? (
             <Link href="/feed">
               <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90">
-                Go to feed
-                <ArrowRight className="ml-2 h-4 w-4" />
+                {t('landing.goToFeed')}
+                <ArrowRight className="ms-2 h-4 w-4" />
               </Button>
             </Link>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link href="/auth/signup">
                 <Button size="lg" variant="secondary" className="bg-white text-primary hover:bg-white/90">
-                  Get started
+                  {t('landing.getStarted')}
                 </Button>
               </Link>
               <Link href="/auth/login">
@@ -303,7 +298,7 @@ export default function Home() {
                   variant="outline"
                   className="border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10"
                 >
-                  Sign in
+                  {t('landing.signIn')}
                 </Button>
               </Link>
             </div>
