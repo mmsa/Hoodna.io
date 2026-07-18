@@ -81,6 +81,10 @@ cors_origins = settings.cors_origin_list if settings.cors_origin_list else ["*"]
 # Add localhost:3001 if not already present (for Next.js port fallback)
 if cors_origins != ["*"] and "http://localhost:3001" not in cors_origins:
     cors_origins.append("http://localhost:3001")
+if cors_origins != ["*"]:
+    for public_origin in ("https://eljiran.io", "https://www.eljiran.io"):
+        if public_origin not in cors_origins:
+            cors_origins.append(public_origin)
 
 # Debug: Log CORS origins on startup
 logger = logging.getLogger(__name__)
