@@ -2,10 +2,10 @@
  * Eljiran design system — canvas visual specification (web + mobile).
  */
 export const palette = {
-  canvas: "#F9F8F1",
+  canvas: "#F7F7F5",
   surface: "#FFFFFF",
-  surfaceMuted: "#F0EFEA",
-  surfacePressed: "#E8E7E1",
+  surfaceMuted: "#F0F0EE",
+  surfacePressed: "#E8E8E6",
   ink: "#2D2D2A",
   inkMuted: "#707070",
   inkSubtle: "#A3A3A3",

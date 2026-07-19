@@ -31,6 +31,23 @@ ARCHIVE_PATH="$ROOT_DIR/dist/eljiran.xcarchive"
 EXPORT_PATH="$ROOT_DIR/dist"
 EXPORT_OPTIONS="$ROOT_DIR/scripts/ExportOptions.plist"
 IPA_PATH="$EXPORT_PATH/eljiran.ipa"
+PROFILE_PATH="${IOS_PROVISIONING_PROFILE_PATH:-$ROOT_DIR/credentials/ios/profile.mobileprovision}"
+
+SIGNING_ARGS=(
+  CODE_SIGN_STYLE=Manual
+  DEVELOPMENT_TEAM=29QWSF7YZ8
+)
+
+if [[ -f "$PROFILE_PATH" ]]; then
+  PROFILE_SPECIFIER="$(
+    security cms -D -i "$PROFILE_PATH" |
+      plutil -extract Name raw -o - -
+  )"
+  SIGNING_ARGS+=(
+    "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_SPECIFIER"
+    "CODE_SIGN_IDENTITY=iPhone Distribution"
+  )
+fi
 
 mkdir -p "$ROOT_DIR/dist"
 
@@ -41,8 +58,7 @@ xcodebuild \
   -configuration Release \
   -archivePath "$ARCHIVE_PATH" \
   -destination "generic/platform=iOS" \
-  CODE_SIGN_STYLE=Manual \
-  DEVELOPMENT_TEAM=29QWSF7YZ8 \
+  "${SIGNING_ARGS[@]}" \
   archive
 
 echo "==> Exporting IPA"

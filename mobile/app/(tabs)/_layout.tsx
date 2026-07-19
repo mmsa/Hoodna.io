@@ -44,7 +44,7 @@ export default function TabsLayout() {
           backgroundColor: palette.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          height: 68,
+          height: 72,
           paddingTop: spacing[2],
           paddingBottom: spacing[3],
         },
@@ -57,8 +57,8 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: t("nav.home"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -66,8 +66,8 @@ export default function TabsLayout() {
         name="market"
         options={{
           title: t("nav.market"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="storefront" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "bag-handle" : "bag-handle-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -75,8 +75,8 @@ export default function TabsLayout() {
         name="services"
         options={{
           title: t("nav.services"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="construct" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "construct" : "construct-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -84,8 +84,8 @@ export default function TabsLayout() {
         name="messages"
         options={{
           title: t("nav.messages"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "chatbubbles" : "chatbubbles-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -93,8 +93,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: t("nav.profile"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
           ),
         }}
       />

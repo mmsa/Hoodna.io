@@ -1,151 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
-import { Compound } from "@hoodna/shared";
-import { Header } from "@/components/Header";
+import type { Compound } from "@hoodna/shared";
+import { palette, radii, spacing, typography } from "@hoodna/tokens";
+
 import { Avatar } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { uploadLocalFileToPresignedUrl } from "@/lib/upload";
 import { isSupportedImageType, pickImageSource } from "@/lib/pick-media";
+import { formatCompoundName } from "@/utils/formatCompound";
 
 interface ProviderProfile {
   provider_status?: string;
-  provider_type?: string | null;
   business_name?: string | null;
-  service_area_compound_ids?: number[];
-  category?: {
-    id: number;
-    name: string;
-    icon?: string;
-  } | null;
 }
-
-function formatLabel(value?: string | null): string {
-  if (!value) return "Not available";
-  return value.toLowerCase().replace(/_/g, " ");
-}
-
-function formatRole(role?: string): string {
-  switch (role) {
-    case "SERVICE_PROVIDER":
-      return "Service Provider";
-    case "COMPOUND_MOD":
-      return "Compound Moderator";
-    case "ADMIN":
-      return "Administrator";
-    case "MODERATOR":
-      return "Moderator";
-    case "RESIDENT":
-    case "USER":
-      return "Resident";
-    default:
-      return role || "User";
-  }
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-  accentColor = "#9CA3AF",
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  accentColor?: string;
-}) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-      <Ionicons name={icon} size={20} color={accentColor} style={{ marginTop: 2 }} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 3 }}>{label}</Text>
-        <Text style={{ fontSize: 15, fontWeight: "600", color: colors.textMain, textTransform: "capitalize" }}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function ActionCard({
-  icon,
-  title,
-  description,
-  color,
-  onPress,
-  badge,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-  color: string;
-  onPress: () => void;
-  badge?: string;
-}) {
-  return (
-    <TouchableOpacity
-      style={{
-        backgroundColor: colors.backgroundCard,
-        borderRadius: 18,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: colors.border,
-        flexDirection: "row",
-        alignItems: "center",
-      }}
-      activeOpacity={0.82}
-      onPress={onPress}
-    >
-      <View
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 16,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: `${color}18`,
-          marginRight: 14,
-        }}
-      >
-        <Ionicons name={icon} size={24} color={color} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-          <Text style={{ fontSize: 17, fontWeight: "700", color: colors.textMain, flex: 1 }}>
-            {title}
-          </Text>
-          {!!badge && (
-            <View
-              style={{
-                backgroundColor: `${color}15`,
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: "700", color }}>{badge}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textMuted }}>{description}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={22} color={colors.textMuted} style={{ marginLeft: 12 }} />
-    </TouchableOpacity>
-  );
-}
-
-type ActionItem = {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-  color: string;
-  route: string;
-};
 
 export default function ProfileScreen() {
   const { user, logout, apiClient, refreshUser } = useAuth();
@@ -153,7 +34,6 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [compound, setCompound] = useState<Compound | null>(null);
   const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
-  const [serviceAreaCompounds, setServiceAreaCompounds] = useState<Compound[]>([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const invitationsEnabled = useFeature("invitations");
 
@@ -175,31 +55,19 @@ export default function ProfileScreen() {
           const profile = await apiClient.getProviderProfile().catch(() => null);
           if (cancelled) return;
           setProviderProfile(profile);
-
-          if (profile?.service_area_compound_ids?.length) {
-            const serviceAreas = profile.service_area_compound_ids
-              .map((compoundId: number) => allCompounds.find((item) => item.id === compoundId))
-              .filter(Boolean) as Compound[];
-            setServiceAreaCompounds(serviceAreas);
-          } else {
-            setServiceAreaCompounds([]);
-          }
           setCompound(null);
           return;
         }
 
         if (user.compound_id) {
-          const activeCompound = allCompounds.find((item) => item.id === user.compound_id) || null;
-          setCompound(activeCompound);
+          setCompound(allCompounds.find((item) => item.id === user.compound_id) || null);
         } else {
           setCompound(null);
         }
       } catch (error) {
         console.error("Failed to load profile details:", error);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -255,11 +123,10 @@ export default function ProfileScreen() {
           mimeType: image.mimeType,
           fileName: image.fileName,
         },
-        token ?? undefined
+        token ?? undefined,
       );
       await apiClient.updateAvatar(presign.file_url);
       await refreshUser();
-      Alert.alert("Profile updated", "Your new profile picture is now visible.");
     } catch (error: any) {
       Alert.alert("Upload failed", error?.message || "Could not update your profile picture.");
     } finally {
@@ -267,305 +134,263 @@ export default function ProfileScreen() {
     }
   }
 
-  const verificationStatus = user?.verification_status ? formatLabel(user.verification_status) : "unverified";
-  const accountStatus = user?.status ? formatLabel(user.status) : "unknown";
-  const accountType = formatRole(user?.role);
-  const providerStatus = providerProfile?.provider_status ? formatLabel(providerProfile.provider_status) : null;
-
-  const quickActions = useMemo(() => {
-    const actions: ActionItem[] = [
-      ...(invitationsEnabled ? [{
-        icon: "people-outline" as const,
-        title: "Invite neighbours",
-        description: "Share your personal invitation and see who joined.",
-        color: colors.success,
-        route: "/invite-neighbours",
-      }] : []),
-      {
-        icon: "business-outline" as const,
-        title: "Local businesses",
-        description: "Browse verified businesses and manage your claims.",
-        color: colors.accent,
-        route: "/businesses",
-      },
-      {
-        icon: "chatbubbles" as const,
-        title: "Messages",
-        description: "Open your conversations with neighbors, buyers, and providers.",
-        color: colors.primary,
-        route: "/(tabs)/messages",
-      },
-      {
-        icon: "notifications" as const,
-        title: "Notifications",
-        description: "Review unread activity and verification updates.",
-        color: colors.purple,
-        route: "/notifications",
-      },
-      {
-        icon: "bookmark" as const,
-        title: "Saved Listings",
-        description: "Jump back into the listings you bookmarked from any device.",
-        color: "#D97706",
-        route: "/saved-listings",
-      },
-      {
-        icon: "settings" as const,
-        title: "Settings",
-        description: "Update your account information and phone number.",
-        color: "#158074",
-        route: "/settings",
-      },
-      {
-        icon: "apps" as const,
-        title: "All Features",
-        description: "Browse every major capability available in Eljiran.",
-        color: "#0EA5E9",
-        route: "/features",
-      },
-    ];
-
-    if (user?.role === "SERVICE_PROVIDER") {
-      actions.unshift({
-        icon: "construct" as const,
-        title: "Provider Status",
-        description: "Track approval and service-provider verification details.",
-        color: colors.accent,
-        route: "/provider/status",
-      });
-    }
-
-    if (user?.role === "COMPOUND_MOD") {
-      actions.unshift({
-        icon: "shield-checkmark" as const,
-        title: "Moderator Status",
-        description: "Review your moderator approval state and any admin feedback.",
-        color: colors.purple,
-        route: "/moderator/status",
-      });
-    }
-
-    if (user?.role === "ADMIN") {
-      actions.unshift({
-        icon: "shield" as const,
-        title: "Admin Dashboard",
-        description: "Approve resident, provider, and moderator applications from mobile.",
-        color: colors.error,
-        route: "/admin/dashboard",
-      });
-    }
-
-    return actions;
-  }, [invitationsEnabled, user?.role]);
+  const verified = user?.verification_status === "APPROVED";
+  const subtitle =
+    user?.role === "SERVICE_PROVIDER"
+      ? providerProfile?.business_name || "Service provider"
+      : compound
+        ? `${formatCompoundName(compound.name)}${verified ? " · Verified neighbour" : ""}`
+        : verified
+          ? "Verified neighbour"
+          : "Neighbour";
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView style={[styles.safe, styles.centered]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
+  const shortcuts = [
+    {
+      key: "saved",
+      label: "Saved",
+      icon: "bookmark-outline" as const,
+      route: "/saved-listings",
+    },
+    ...(invitationsEnabled
+      ? [
+          {
+            key: "invites",
+            label: "Invites",
+            icon: "people-outline" as const,
+            route: "/invite-neighbours",
+          },
+        ]
+      : [
+          {
+            key: "businesses",
+            label: "Local",
+            icon: "business-outline" as const,
+            route: "/businesses",
+          },
+        ]),
+    {
+      key: "settings",
+      label: "Settings",
+      icon: "settings-outline" as const,
+      route: "/settings",
+    },
+  ];
+
+  const activityRows = [
+    ...(user?.role === "ADMIN"
+      ? [{ label: "Admin dashboard", icon: "shield-outline" as const, route: "/admin/dashboard" }]
+      : []),
+    ...(user?.role === "SERVICE_PROVIDER"
+      ? [{ label: "Provider status", icon: "construct-outline" as const, route: "/provider/status" }]
+      : []),
+    ...(user?.role === "COMPOUND_MOD"
+      ? [{ label: "Moderator status", icon: "shield-checkmark-outline" as const, route: "/moderator/status" }]
+      : []),
+    { label: "Notifications", icon: "notifications-outline" as const, route: "/notifications" },
+    { label: "Local businesses", icon: "storefront-outline" as const, route: "/businesses" },
+    { label: "All features", icon: "apps-outline" as const, route: "/features" },
+  ];
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      <Header showLogo={true} />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 40 }}>
-          <View style={{ alignItems: "center", marginBottom: 24 }}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Change profile picture"
-              disabled={uploadingAvatar}
-              onPress={pickAvatar}
-              style={{
-                width: 88,
-                height: 88,
-                borderRadius: 44,
-                backgroundColor: colors.primary,
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 14,
-              }}
-            >
-              <Avatar
-                name={user?.name || "Profile"}
-                fileUrl={user?.avatar_url}
-                apiClient={apiClient}
-                size={88}
-              />
-              <View
-                style={{
-                  position: "absolute",
-                  right: -2,
-                  bottom: -2,
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: colors.accent,
-                  borderWidth: 2,
-                  borderColor: colors.background,
-                }}
-              >
-                {uploadingAvatar ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Ionicons name="camera" size={15} color="#FFFFFF" />
-                )}
-              </View>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 30, fontWeight: "800", color: colors.textMain, marginBottom: 6 }}>
-              {user?.name || "Profile"}
-            </Text>
-            <Text style={{ fontSize: 15, color: colors.textMuted }}>{user?.email}</Text>
-          </View>
-
-          <View
-            style={{
-              backgroundColor: colors.backgroundCard,
-              borderRadius: 22,
-              padding: 20,
-              borderWidth: 1,
-              borderColor: colors.border,
-              marginBottom: 18,
-            }}
-          >
-            <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textMain, marginBottom: 18 }}>
-              Account Information
-            </Text>
-
-            <View style={{ gap: 16 }}>
-              <InfoRow icon="mail-outline" label="Email" value={user?.email || "Not available"} />
-              {user?.phone ? <InfoRow icon="call-outline" label="Phone" value={user.phone} /> : null}
-              <InfoRow icon="person-outline" label="Account Type" value={accountType} accentColor={colors.primary} />
-              <InfoRow icon="shield-checkmark-outline" label="Account Status" value={accountStatus} accentColor={colors.success} />
-              <InfoRow icon="checkmark-done-circle-outline" label="Verification" value={verificationStatus} accentColor={colors.purple} />
-
-              {compound && user?.role !== "SERVICE_PROVIDER" ? (
-                <InfoRow
-                  icon="home-outline"
-                  label="Compound"
-                  value={compound.area ? `${compound.name} • ${compound.area}` : compound.name}
-                  accentColor={colors.accent}
-                />
-              ) : null}
-
-              {providerProfile?.provider_type ? (
-                <InfoRow icon="briefcase-outline" label="Provider Type" value={formatLabel(providerProfile.provider_type)} accentColor={colors.accent} />
-              ) : null}
-
-              {providerProfile?.business_name ? (
-                <InfoRow icon="business-outline" label="Business Name" value={providerProfile.business_name} accentColor={colors.accent} />
-              ) : null}
-
-              {providerProfile?.category?.name ? (
-                <InfoRow icon="pricetags-outline" label="Service Category" value={providerProfile.category.name} accentColor={colors.accent} />
-              ) : null}
-
-              {providerStatus ? (
-                <InfoRow icon="construct-outline" label="Provider Status" value={providerStatus} accentColor={colors.accent} />
-              ) : null}
-
-              {serviceAreaCompounds.length > 0 ? (
-                <InfoRow
-                  icon="map-outline"
-                  label="Service Areas"
-                  value={serviceAreaCompounds.map((item) => item.name).join(", ")}
-                  accentColor={colors.accent}
-                />
-              ) : null}
-            </View>
-
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 20, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  borderRadius: 14,
-                  paddingVertical: 13,
-                  alignItems: "center",
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: "#FFFFFF",
-                }}
-                activeOpacity={0.82}
-                onPress={() => router.push(user?.role === "SERVICE_PROVIDER" ? "/provider/status" : "/verification")}
-              >
-                <Text style={{ color: colors.textMain, fontWeight: "700" }}>
-                  {user?.role === "SERVICE_PROVIDER" ? "Provider Status" : "Verification"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  borderRadius: 14,
-                  paddingVertical: 13,
-                  alignItems: "center",
-                  backgroundColor: colors.primary,
-                }}
-                activeOpacity={0.82}
-                onPress={() => router.push("/settings")}
-              >
-                <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>Edit Profile</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textMain, marginBottom: 14 }}>
-            Quick Access
-          </Text>
-          <View style={{ gap: 14, marginBottom: 18 }}>
-            {quickActions.map((action) => (
-              <ActionCard
-                key={action.title}
-                icon={action.icon}
-                title={action.title}
-                description={action.description}
-                color={action.color}
-                badge={action.title === "Admin Dashboard" ? "Admin" : providerStatus && action.title === "Provider Status" ? providerStatus : undefined}
-                onPress={() => router.push(action.route)}
-              />
-            ))}
-          </View>
-
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.hero}>
           <TouchableOpacity
-            style={{
-              backgroundColor: "#FEF2F2",
-              borderRadius: 18,
-              padding: 18,
-              borderWidth: 1,
-              borderColor: "#FECACA",
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-            activeOpacity={0.82}
-            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile picture"
+            disabled={uploadingAvatar}
+            onPress={pickAvatar}
+            style={styles.avatarWrap}
           >
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                backgroundColor: "#FEE2E2",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 14,
-              }}
-            >
-              <Ionicons name="log-out-outline" size={22} color={colors.error} />
+            <Avatar
+              name={user?.name || "Profile"}
+              fileUrl={user?.avatar_url}
+              apiClient={apiClient}
+              size={96}
+            />
+            <View style={styles.cameraBadge}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#FFFFFF" />
+              )}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 17, fontWeight: "700", color: colors.error, marginBottom: 4 }}>
-                Log out
-              </Text>
-              <Text style={{ fontSize: 14, lineHeight: 20, color: "#991B1B" }}>
-                Clear your current session on this device.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={colors.error} />
           </TouchableOpacity>
+          <Text style={styles.name}>{user?.name || "Profile"}</Text>
+          <View style={styles.subtitleRow}>
+            {verified ? (
+              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+            ) : null}
+            <Text style={styles.subtitle}>{subtitle}</Text>
+          </View>
         </View>
+
+        <View style={styles.shortcutRow}>
+          {shortcuts.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              activeOpacity={0.85}
+              onPress={() => router.push(item.route)}
+              style={styles.shortcut}
+            >
+              <View style={styles.shortcutIcon}>
+                <Ionicons name={item.icon} size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.shortcutLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle}>Your activity</Text>
+        <View style={styles.activityCard}>
+          {activityRows.map((row, index) => (
+            <TouchableOpacity
+              key={row.route + row.label}
+              activeOpacity={0.75}
+              onPress={() => router.push(row.route)}
+              style={[
+                styles.activityRow,
+                index < activityRows.length - 1 && styles.activityRowBorder,
+              ]}
+            >
+              <Ionicons name={row.icon} size={20} color={colors.primary} />
+              <Text style={styles.activityLabel}>{row.label}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity activeOpacity={0.8} onPress={handleLogout} style={styles.logout}>
+          <Text style={styles.logoutText}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: palette.surface },
+  centered: { alignItems: "center", justifyContent: "center" },
+  content: {
+    paddingBottom: spacing[12],
+  },
+  hero: {
+    alignItems: "center",
+    paddingTop: spacing[8],
+    paddingBottom: spacing[6],
+    paddingHorizontal: spacing[5],
+    backgroundColor: palette.primarySoft,
+  },
+  avatarWrap: {
+    marginBottom: spacing[4],
+  },
+  cameraBadge: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: palette.primarySoft,
+  },
+  name: {
+    fontSize: typography.size.title,
+    fontWeight: typography.weight.bold,
+    color: colors.textMain,
+    marginBottom: spacing[1],
+  },
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  subtitle: {
+    fontSize: typography.size.bodySmall,
+    color: colors.textMuted,
+  },
+  shortcutRow: {
+    flexDirection: "row",
+    gap: spacing[3],
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[6],
+    paddingBottom: spacing[5],
+  },
+  shortcut: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: palette.surfaceMuted,
+    borderRadius: radii.xl,
+    paddingVertical: spacing[5],
+    minHeight: 104,
+  },
+  shortcutIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: palette.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing[2],
+  },
+  shortcutLabel: {
+    fontSize: typography.size.bodySmall,
+    fontWeight: typography.weight.semibold,
+    color: colors.textMain,
+  },
+  sectionTitle: {
+    paddingHorizontal: spacing[5],
+    marginBottom: spacing[3],
+    fontSize: typography.size.titleSmall,
+    fontWeight: typography.weight.bold,
+    color: colors.textMain,
+  },
+  activityCard: {
+    marginHorizontal: spacing[5],
+    borderRadius: radii.xl,
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    overflow: "hidden",
+  },
+  activityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[3],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    minHeight: 56,
+  },
+  activityRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  activityLabel: {
+    flex: 1,
+    fontSize: typography.size.body,
+    fontWeight: typography.weight.medium,
+    color: colors.textMain,
+  },
+  logout: {
+    marginTop: spacing[6],
+    marginHorizontal: spacing[5],
+    alignItems: "center",
+    paddingVertical: spacing[4],
+  },
+  logoutText: {
+    color: colors.error,
+    fontSize: typography.size.body,
+    fontWeight: typography.weight.semibold,
+  },
+});

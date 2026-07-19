@@ -1,13 +1,23 @@
-import { useState, useEffect, useMemo } from "react";
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Modal } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { formatRelativeTime } from "@hoodna/i18n";
+import { palette, radii, spacing, typography } from "@hoodna/tokens";
+
+import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
-import { formatRelativeTime } from "@hoodna/i18n";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Header } from "@/components/Header";
-import { colors } from "@/constants/colors";
-import { Ionicons } from "@expo/vector-icons";
 
 interface Conversation {
   id: number;
@@ -25,54 +35,6 @@ interface Conversation {
   updated_at: string;
 }
 
-const TAB_KEYS = [
-  { value: "all", labelKey: "messages.filterAll" as const },
-  { value: "unread", labelKey: "messages.filterUnread" as const },
-];
-
-const SORT_KEYS = [
-  { value: "recent", labelKey: "messages.sortRecent" as const },
-  { value: "unread_first", labelKey: "messages.sortUnreadFirst" as const },
-  { value: "name", labelKey: "messages.sortName" as const },
-];
-
-function SheetOption({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.7}
-      style={{
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: selected ? colors.primary : colors.gray100,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 14,
-          fontWeight: selected ? "600" : "500",
-          color: selected ? "#FFFFFF" : colors.textMain,
-        }}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-function formatTime(dateString: string, locale: "en" | "ar"): string {
-  return formatRelativeTime(locale, dateString);
-}
-
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -82,60 +44,34 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-function getAvatarColor(name: string): string {
-  const colorList = [
-    colors.purple,
-    colors.primary,
-    colors.success,
-    colors.accent,
-    colors.error,
-    colors.pink,
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colorList[Math.abs(hash) % colorList.length];
-}
-
 export default function MessagesTab() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTab, setSelectedTab] = useState("all");
-  const [sortBy, setSortBy] = useState("recent");
-  const [listingOnly, setListingOnly] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const { apiClient, user } = useAuth();
   const router = useRouter();
   const { t, locale } = useTranslation();
 
   useEffect(() => {
-    // Only load if user is approved
     if (user?.status === "APPROVED") {
       loadConversations();
-      // Poll for new messages every 10 seconds (only if approved)
       const interval = setInterval(loadConversations, 10000);
       return () => clearInterval(interval);
-    } else {
-      setLoading(false);
     }
+    setLoading(false);
   }, [user?.status]);
 
   async function loadConversations() {
-    // Don't make API calls if user is not approved
     if (user?.status !== "APPROVED") {
       setLoading(false);
       setRefreshing(false);
       return;
     }
-
     try {
       const data = await apiClient.getConversations();
       setConversations(data);
     } catch (error: any) {
-      // Stop polling on 403 errors (user not approved)
       if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) return;
     } finally {
       setLoading(false);
@@ -143,463 +79,289 @@ export default function MessagesTab() {
     }
   }
 
-  function handleRefresh() {
-    setRefreshing(true);
-    loadConversations();
-  }
-
-  function clearFilters() {
-    setSearchQuery("");
-    setSelectedTab("all");
-    setSortBy("recent");
-    setListingOnly(false);
-  }
-
-  const unreadCount = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
-  const sheetFilterCount = [sortBy !== "recent" ? sortBy : "", listingOnly ? "listing" : ""].filter(Boolean).length;
-
   const filteredConversations = useMemo(() => {
     let list = [...conversations];
-
-    if (selectedTab === "unread") {
-      list = list.filter((c) => (c.unread_count || 0) > 0);
-    }
-
-    if (listingOnly) {
-      list = list.filter((c) => !!c.listing_id || !!c.listing_title);
-    }
-
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
         (c) =>
           c.other_user_name.toLowerCase().includes(q) ||
           c.listing_title?.toLowerCase().includes(q) ||
-          c.last_message?.content.toLowerCase().includes(q)
+          c.last_message?.content.toLowerCase().includes(q),
       );
     }
-
-    if (sortBy === "unread_first") {
-      list.sort((a, b) => (b.unread_count || 0) - (a.unread_count || 0) || new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-    } else if (sortBy === "name") {
-      list.sort((a, b) => a.other_user_name.localeCompare(b.other_user_name));
-    } else {
-      list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-    }
-
+    list.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
     return list;
-  }, [conversations, selectedTab, listingOnly, searchQuery, sortBy]);
+  }, [conversations, searchQuery]);
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <Header showLogo={true} />
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
-            Loading {t("messages.title").toLowerCase()}…
-          </Text>
+          <Text style={styles.loadingText}>Loading messages…</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      <Header showLogo={true} />
-
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <FlatList
         data={filteredConversations}
         keyExtractor={(item) => item.id.toString()}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadConversations();
+          }} tintColor={colors.primary} />
+        }
         ListHeaderComponent={
-          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-            {/* Search + filter */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <View
-                style={{
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: colors.backgroundWhite,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  paddingHorizontal: 12,
-                }}
-              >
-                <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-                <TextInput
-                  style={{
-                    flex: 1,
-                    paddingHorizontal: 8,
-                    paddingVertical: 11,
-                    fontSize: 15,
-                    color: colors.textMain,
-                  }}
-                  placeholder={t("messages.searchPlaceholder")}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  returnKeyType="search"
-                />
-                {searchQuery.trim() ? (
-                  <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
-                    <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setShowFilters(true)}
-                activeOpacity={0.7}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  backgroundColor: sheetFilterCount > 0 ? colors.primary : colors.backgroundWhite,
-                  borderWidth: 1,
-                  borderColor: sheetFilterCount > 0 ? colors.primary : colors.border,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name="options-outline"
-                  size={20}
-                  color={sheetFilterCount > 0 ? "#FFFFFF" : colors.textMain}
-                />
-                {sheetFilterCount > 0 ? (
-                  <View
-                    style={{
-                      position: "absolute",
-                      top: -4,
-                      right: -4,
-                      minWidth: 18,
-                      height: 18,
-                      borderRadius: 9,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      paddingHorizontal: 4,
-                    }}
-                  >
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: "#FFFFFF" }}>
-                      {sheetFilterCount}
-                    </Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <Text accessibilityRole="header" style={styles.title}>
+                Messages
+              </Text>
             </View>
-
-            {/* Tabs */}
-            <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              {TAB_KEYS.map((tab) => {
-                const selected = selectedTab === tab.value;
-                const label =
-                  tab.value === "unread" && unreadCount > 0
-                    ? `${t("messages.filterUnread")} (${unreadCount})`
-                    : t(tab.labelKey);
-                return (
-                  <TouchableOpacity
-                    key={tab.value}
-                    onPress={() => setSelectedTab(tab.value)}
-                    activeOpacity={0.7}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      alignItems: "center",
-                      borderBottomWidth: 2,
-                      borderBottomColor: selected ? colors.primary : "transparent",
-                      marginBottom: -1,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: selected ? "700" : "500",
-                        color: selected ? colors.primary : colors.textMuted,
-                      }}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Active filter summary */}
-            {sheetFilterCount > 0 ? (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingTop: 10,
-                }}
-              >
-                <Text style={{ fontSize: 12, color: colors.textMuted, flex: 1 }} numberOfLines={1}>
-                  {[
-                    sortBy !== "recent" ? t(SORT_KEYS.find((o) => o.value === sortBy)?.labelKey ?? "messages.sortRecent") : null,
-                    listingOnly ? "Listing chats" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </Text>
-                <TouchableOpacity onPress={clearFilters} hitSlop={8}>
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
-                    Reset
-                  </Text>
+            <View style={styles.search}>
+              <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t("messages.searchPlaceholder")}
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.trim() ? (
+                <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
-              </View>
-            ) : null}
-
-            {/* Filters sheet */}
-            <Modal visible={showFilters} transparent animationType="slide" onRequestClose={() => setShowFilters(false)}>
-              <View style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" }}>
-                <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFilters(false)} />
-                <View
-                  style={{
-                    backgroundColor: colors.backgroundWhite,
-                    borderTopLeftRadius: 24,
-                    borderTopRightRadius: 24,
-                    paddingHorizontal: 20,
-                    paddingTop: 12,
-                    paddingBottom: 28,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 36,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: colors.gray300,
-                      alignSelf: "center",
-                      marginBottom: 16,
-                    }}
-                  />
-
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                    <Text style={{ fontSize: 18, fontWeight: "700", color: colors.textMain }}>Filter & sort</Text>
-                    <TouchableOpacity onPress={clearFilters} hitSlop={8}>
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary }}>Reset</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                    Sort by
-                  </Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
-                    {SORT_KEYS.map((opt) => (
-                      <SheetOption
-                        key={opt.value}
-                        label={t(opt.labelKey)}
-                        selected={sortBy === opt.value}
-                        onPress={() => setSortBy(opt.value)}
-                      />
-                    ))}
-                  </View>
-
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                    Show
-                  </Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-                    <SheetOption
-                      label="All chats"
-                      selected={!listingOnly}
-                      onPress={() => setListingOnly(false)}
-                    />
-                    <SheetOption
-                      label="Listing chats"
-                      selected={listingOnly}
-                      onPress={() => setListingOnly(true)}
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: colors.primary,
-                      borderRadius: 14,
-                      paddingVertical: 15,
-                      alignItems: "center",
-                    }}
-                    onPress={() => setShowFilters(false)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>Show results</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
+              ) : null}
+            </View>
           </View>
         }
         renderItem={({ item }) => {
           const hasUnread = item.unread_count > 0;
-          const avatarColor = getAvatarColor(item.other_user_name);
-          const initials = getInitials(item.other_user_name);
-
           return (
             <TouchableOpacity
-              style={{
-                backgroundColor: colors.backgroundCard,
-                marginHorizontal: 16,
-                marginVertical: 6,
-                borderRadius: 16,
-                padding: 16,
-                borderWidth: hasUnread ? 2 : 1,
-                borderColor: hasUnread ? colors.primary : colors.border,
-              }}
-              onPress={() => router.push(`/messages/${item.id}`)}
               activeOpacity={0.7}
+              onPress={() => router.push(`/messages/${item.id}`)}
+              style={styles.row}
             >
-              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                <View style={{ position: "relative" }}>
-                  <View
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 26,
-                      backgroundColor: avatarColor,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}>
-                      {initials}
-                    </Text>
-                  </View>
-                  {hasUnread && (
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: -4,
-                        right: -4,
-                        backgroundColor: colors.error,
-                        borderRadius: 10,
-                        minWidth: 20,
-                        height: 20,
-                        paddingHorizontal: 6,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderWidth: 2,
-                        borderColor: colors.backgroundCard,
-                      }}
-                    >
-                      <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "700" }}>
-                        {item.unread_count > 9 ? "9+" : item.unread_count}
-                      </Text>
-                    </View>
-                  )}
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials(item.other_user_name)}</Text>
+              </View>
+              <View style={styles.rowBody}>
+                <View style={styles.rowTop}>
+                  <Text style={[styles.name, hasUnread && styles.nameUnread]} numberOfLines={1}>
+                    {item.other_user_name}
+                  </Text>
+                  <Text style={styles.time}>
+                    {formatRelativeTime(locale, item.updated_at)}
+                  </Text>
                 </View>
-
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: hasUnread ? "700" : "600",
-                        color: colors.textMain,
-                        flex: 1,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {item.other_user_name}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted, marginLeft: 8 }}>
-                      {formatTime(item.updated_at, locale)}
-                    </Text>
-                  </View>
-
-                  {item.listing_title && (
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginBottom: 6,
-                        gap: 6,
-                      }}
-                    >
-                      <Ionicons name="bag-outline" size={13} color={colors.purple} />
-                      <Text
-                        style={{ fontSize: 12, color: colors.textMuted, flex: 1 }}
-                        numberOfLines={1}
-                      >
-                        {item.listing_title}
-                      </Text>
-                    </View>
-                  )}
-
-                  {item.last_message && (
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: hasUnread ? colors.textMain : colors.textMuted,
-                        fontWeight: hasUnread ? "500" : "400",
-                      }}
-                      numberOfLines={2}
-                    >
-                      {item.last_message.content}
-                    </Text>
-                  )}
+                <View style={styles.rowBottom}>
+                  <Text
+                    style={[styles.preview, hasUnread && styles.previewUnread]}
+                    numberOfLines={1}
+                  >
+                    {item.listing_title
+                      ? `${item.listing_title} · ${item.last_message?.content || ""}`
+                      : item.last_message?.content || "No messages yet"}
+                  </Text>
+                  {hasUnread ? <View style={styles.unreadDot} /> : null}
                 </View>
               </View>
             </TouchableOpacity>
           );
         }}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80, paddingHorizontal: 32 }}>
-            <View
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: 50,
-                backgroundColor: colors.purpleLight + "20",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 20,
-              }}
-            >
-              <Ionicons name="chatbubbles-outline" size={48} color={colors.purple} />
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="chatbubbles-outline" size={36} color={colors.primary} />
             </View>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: 8, textAlign: "center" }}>
-              {searchQuery.trim() || selectedTab === "unread" || sheetFilterCount > 0
-                ? t("messages.noConversations")
-                : t("messages.emptyInbox")}
+            <Text style={styles.emptyTitle}>
+              {searchQuery.trim() ? t("messages.noConversations") : t("messages.emptyInbox")}
             </Text>
-            <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: "center", lineHeight: 22, marginBottom: 24 }}>
-              {searchQuery.trim() || selectedTab === "unread" || sheetFilterCount > 0
-                ? "Try adjusting your search or filters"
+            <Text style={styles.emptyBody}>
+              {searchQuery.trim()
+                ? "Try a different name or message"
                 : "Message a seller from a listing to start a conversation"}
             </Text>
-            {!searchQuery.trim() && selectedTab === "all" && sheetFilterCount === 0 ? (
+            {!searchQuery.trim() ? (
               <TouchableOpacity
-                style={{
-                  backgroundColor: colors.primary,
-                  paddingHorizontal: 20,
-                  paddingVertical: 14,
-                  borderRadius: 14,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                }}
+                style={styles.emptyCta}
                 onPress={() => router.push("/(tabs)/market")}
               >
-                <Ionicons name="bag-outline" size={18} color="#FFFFFF" />
-                <Text style={{ fontSize: 15, fontWeight: "600", color: "#FFFFFF" }}>
-                  Browse Marketplace
-                </Text>
+                <Text style={styles.emptyCtaText}>Browse Marketplace</Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={clearFilters} hitSlop={8}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary }}>
-                  Reset filters
-                </Text>
-              </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         }
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 20 }}
+        contentContainerStyle={styles.listContent}
       />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: palette.surface },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: spacing[4],
+    fontSize: typography.size.body,
+    color: colors.textMuted,
+  },
+  header: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[2],
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing[4],
+  },
+  title: {
+    color: colors.text,
+    fontSize: typography.size.display,
+    lineHeight: typography.lineHeight.display,
+    fontWeight: typography.weight.bold,
+    letterSpacing: -0.5,
+  },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    paddingHorizontal: spacing[4],
+    minHeight: 48,
+    marginBottom: spacing[3],
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: typography.size.bodySmall,
+    color: colors.textMain,
+    paddingVertical: spacing[3],
+  },
+  listContent: {
+    paddingBottom: spacing[10],
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    gap: spacing[3],
+    minHeight: 84,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: palette.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: colors.primary,
+    fontSize: typography.size.body,
+    fontWeight: typography.weight.bold,
+  },
+  rowBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rowTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  name: {
+    flex: 1,
+    fontSize: typography.size.body,
+    fontWeight: typography.weight.semibold,
+    color: colors.textMain,
+  },
+  nameUnread: {
+    fontWeight: typography.weight.bold,
+  },
+  time: {
+    marginLeft: spacing[2],
+    fontSize: typography.size.caption,
+    color: colors.textMuted,
+  },
+  rowBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+  },
+  preview: {
+    flex: 1,
+    fontSize: typography.size.bodySmall,
+    color: colors.textMuted,
+  },
+  previewUnread: {
+    color: colors.textMain,
+    fontWeight: typography.weight.medium,
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginLeft: spacing[5] + 56 + spacing[3],
+  },
+  empty: {
+    alignItems: "center",
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[12],
+  },
+  emptyIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: palette.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing[5],
+  },
+  emptyTitle: {
+    fontSize: typography.size.titleSmall,
+    fontWeight: typography.weight.bold,
+    color: colors.textMain,
+    textAlign: "center",
+    marginBottom: spacing[2],
+  },
+  emptyBody: {
+    fontSize: typography.size.bodySmall,
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: typography.lineHeight.bodySmall,
+    marginBottom: spacing[5],
+  },
+  emptyCta: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3],
+    borderRadius: radii.button,
+  },
+  emptyCtaText: {
+    color: "#FFFFFF",
+    fontSize: typography.size.bodySmall,
+    fontWeight: typography.weight.bold,
+  },
+});

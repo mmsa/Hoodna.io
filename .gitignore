@@ -48,3 +48,7 @@ Thumbs.db
 backend/uploads/
 uploads/
 .vercel
+
+# Local iOS signing credentials
+mobile/credentials.json
+mobile/credentials/

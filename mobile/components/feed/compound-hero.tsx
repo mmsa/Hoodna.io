@@ -1,7 +1,9 @@
-import { palette, radii, spacing, typography } from "@hoodna/tokens";
-import { StyleSheet, Text, View } from "react-native";
+import { palette, spacing, typography } from "@hoodna/tokens";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { ApiClient } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SignedImage } from "@/components/signed-image";
 import { formatCompoundName } from "@/utils/formatCompound";
@@ -11,6 +13,7 @@ interface CompoundHeroProps {
   compoundArea?: string | null;
   heroImageUrl?: string | null;
   apiClient?: ApiClient;
+  /** Kept for call-site compatibility; stats are intentionally not shown. */
   totalNeighbors?: number;
   recentPosts?: number;
   recentListings?: number;
@@ -21,55 +24,44 @@ export function CompoundHero({
   compoundArea,
   heroImageUrl,
   apiClient,
-  totalNeighbors = 0,
-  recentPosts = 0,
-  recentListings = 0,
 }: CompoundHeroProps) {
-  const stats = [
-    { icon: "people" as const, value: totalNeighbors, label: "Neighbours" },
-    { icon: "chatbubbles" as const, value: recentPosts, label: "Posts" },
-    { icon: "storefront" as const, value: recentListings, label: "Listings" },
-  ];
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.compoundRow}>
-        {heroImageUrl ? (
-          <SignedImage
-            apiClient={apiClient}
-            fileUrl={heroImageUrl}
-            resizeMode="cover"
-            style={styles.backgroundImage}
-          />
-        ) : (
-          <View style={styles.placeholder}>
-            <Ionicons name="business" size={36} color={palette.primary} />
-          </View>
-        )}
-        <View style={styles.fade} />
-
-        <View style={styles.content}>
-          <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
-            {formatCompoundName(compoundName)}
-          </Text>
-          <Text numberOfLines={1} style={styles.subtitle}>
-            {compoundArea || "Your verified neighbourhood"}
-          </Text>
-          <View style={styles.verified}>
-            <Ionicons name="shield-checkmark" size={13} color={palette.primary} />
-            <Text style={styles.verifiedText}>Verified community</Text>
-          </View>
+    <View style={[styles.wrap, { height: 200 + insets.top }]}>
+      {heroImageUrl ? (
+        <SignedImage
+          apiClient={apiClient}
+          fileUrl={heroImageUrl}
+          resizeMode="cover"
+          style={styles.image}
+        />
+      ) : (
+        <View style={styles.placeholder}>
+          <Ionicons name="leaf-outline" size={48} color="rgba(255,255,255,0.55)" />
         </View>
-      </View>
+      )}
 
-      <View style={styles.stats}>
-        {stats.map((stat) => (
-          <View key={stat.label} style={styles.stat}>
-            <Ionicons name={stat.icon} size={16} color={palette.primary} />
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </View>
-        ))}
+      <View style={styles.scrim} />
+
+      <TouchableOpacity
+        accessibilityLabel="Notifications"
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={() => router.push("/notifications")}
+        style={[styles.bell, { top: insets.top + spacing[2] }]}
+      >
+        <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      <View style={styles.content}>
+        <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
+          {formatCompoundName(compoundName)}
+        </Text>
+        <Text numberOfLines={1} style={styles.subtitle}>
+          {compoundArea?.trim() ? compoundArea : "Your neighbourhood"}
+        </Text>
       </View>
     </View>
   );
@@ -77,105 +69,54 @@ export function CompoundHero({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginHorizontal: spacing[4],
-    marginTop: spacing[2],
-    marginBottom: spacing[3],
-    borderRadius: radii.large,
     overflow: "hidden",
-    backgroundColor: palette.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    shadowColor: palette.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
+    backgroundColor: palette.primary,
   },
-  compoundRow: {
-    position: "relative",
-    minHeight: 136,
-    borderRadius: radii.medium,
-    overflow: "hidden",
-    backgroundColor: palette.primarySoft,
-  },
-  backgroundImage: {
+  image: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
   },
   placeholder: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: palette.primarySoft,
-    alignItems: "flex-end",
+    backgroundColor: palette.primary,
+    alignItems: "center",
     justifyContent: "center",
-    paddingRight: spacing[6],
   },
-  fade: {
+  scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.44)",
+    backgroundColor: "rgba(0,0,0,0.38)",
+  },
+  bell: {
+    position: "absolute",
+    top: spacing[3],
+    right: spacing[4],
+    zIndex: 2,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
-    position: "relative",
-    width: "78%",
-    minHeight: 136,
-    justifyContent: "center",
-    padding: spacing[4],
+    position: "absolute",
+    left: spacing[5],
+    right: spacing[5],
+    bottom: spacing[6],
+    alignItems: "center",
   },
   title: {
     color: "#FFFFFF",
-    fontSize: typography.size.titleSmall,
-    lineHeight: typography.lineHeight.titleSmall,
+    fontSize: typography.size.display,
+    lineHeight: typography.lineHeight.display,
     fontWeight: typography.weight.bold,
-    textShadowColor: "rgba(0,0,0,0.8)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 8,
+    textAlign: "center",
+    letterSpacing: -0.5,
   },
   subtitle: {
-    marginTop: 2,
-    color: "rgba(255,255,255,0.88)",
-    fontSize: typography.size.caption,
-    textShadowColor: "rgba(0,0,0,0.8)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-  verified: {
-    marginTop: spacing[2],
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: radii.full,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    paddingHorizontal: spacing[2],
-    paddingVertical: 4,
-  },
-  verifiedText: {
-    color: palette.primary,
-    fontSize: 10,
-    fontWeight: typography.weight.semibold,
-  },
-  stats: {
-    flexDirection: "row",
-    gap: spacing[2],
-    paddingHorizontal: spacing[3],
-    paddingBottom: spacing[3],
-  },
-  stat: {
-    flex: 1,
-    alignItems: "center",
-    borderRadius: radii.medium,
-    backgroundColor: palette.canvas,
-    paddingVertical: spacing[2],
-  },
-  statValue: {
-    marginTop: 3,
-    color: palette.ink,
+    marginTop: spacing[1],
+    color: "rgba(255,255,255,0.9)",
     fontSize: typography.size.bodySmall,
-    fontWeight: typography.weight.bold,
-  },
-  statLabel: {
-    marginTop: 1,
-    color: palette.inkMuted,
-    fontSize: 9,
+    fontWeight: typography.weight.medium,
+    textAlign: "center",
   },
 });

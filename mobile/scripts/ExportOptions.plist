@@ -10,6 +10,13 @@
   <string>manual</string>
   <key>teamID</key>
   <string>29QWSF7YZ8</string>
+  <key>signingCertificate</key>
+  <string>iPhone Distribution</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>com.eljiran.mobile</key>
+    <string>*[expo] com.eljiran.mobile AppStore 2026-07-11T09:41:44.871Z</string>
+  </dict>
   <key>uploadSymbols</key>
   <true/>
   <key>compileBitcode</key>
