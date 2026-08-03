@@ -72,3 +72,14 @@ class CompoundListResponse(BaseModel):
     limit: int
     offset: int
 
+
+class SampleContentStatusResponse(BaseModel):
+    loaded: bool
+    can_load: bool
+    reason: Optional[str] = None
+
+
+class SampleContentActionResponse(BaseModel):
+    message: str
+    loaded: bool
+

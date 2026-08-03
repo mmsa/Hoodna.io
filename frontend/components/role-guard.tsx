@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'
 import { Loader2 } from 'lucide-react'
@@ -30,6 +30,11 @@ export function RoleGuard({ children }: RoleGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isLoading } = useAuth()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (isLoading) return
@@ -123,7 +128,8 @@ export function RoleGuard({ children }: RoleGuardProps) {
     }
   }, [user, isLoading, pathname, router])
 
-  if (isLoading) {
+  // Defer loading UI until after hydration so SSR markup matches the first client render.
+  if (mounted && isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

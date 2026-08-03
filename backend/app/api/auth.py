@@ -14,6 +14,7 @@ from app.schemas.user import (
     UserResponse,
     UserUpdate,
 )
+from app.schemas.compound import SampleContentActionResponse, SampleContentStatusResponse
 from app.schemas.account import (
     AccountDeletionRequestCreate,
     AccountDeletionRequestResponse,
@@ -750,6 +751,129 @@ async def request_compound_access(
         "compound_id": compound_id,
         "compound_name": compound.name,
     }
+
+
+@router.get("/me/compound/sample-content", response_model=SampleContentStatusResponse)
+async def get_my_compound_sample_content(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Whether sample posts/listings are loaded for the admin's current compound."""
+    from app.crud.compound import get_compound_by_id
+    from app.models.enums import UserRole
+    from app.services.compound_demo import get_compound_demo_status
+
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    if not current_user.compound_id:
+        return SampleContentStatusResponse(
+            loaded=False,
+            can_load=False,
+            reason="Select a neighbourhood before loading sample content.",
+        )
+
+    compound = await get_compound_by_id(db, current_user.compound_id)
+    if not compound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compound not found")
+
+    status_data = await get_compound_demo_status(db, compound)
+    return SampleContentStatusResponse(
+        loaded=status_data["active"],
+        can_load=status_data["can_seed"],
+        reason=status_data["reason"],
+    )
+
+
+@router.post("/me/compound/sample-content", response_model=SampleContentActionResponse)
+async def load_my_compound_sample_content(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Load sample posts and listings into the admin's current compound."""
+    from app.crud.compound import get_compound_by_id
+    from app.models.enums import UserRole
+    from app.models.moderation import AuditLog
+    from app.services.compound_demo import seed_compound_demo_for_compound
+
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    if not current_user.compound_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Select a neighbourhood before loading sample content.",
+        )
+
+    compound = await get_compound_by_id(db, current_user.compound_id)
+    if not compound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compound not found")
+
+    try:
+        await seed_compound_demo_for_compound(db, compound)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    db.add(
+        AuditLog(
+            actor_id=current_user.id,
+            event_type="compound.sample_content_load",
+            entity_type="COMPOUND",
+            entity_id=str(compound.id),
+            data={"compound_slug": compound.compound_id},
+        )
+    )
+    await db.commit()
+
+    return SampleContentActionResponse(
+        message=f"Sample content loaded for {compound.name}.",
+        loaded=True,
+    )
+
+
+@router.delete("/me/compound/sample-content", response_model=SampleContentActionResponse)
+async def unload_my_compound_sample_content(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove sample posts and listings from the admin's current compound."""
+    from app.crud.compound import get_compound_by_id
+    from app.models.enums import UserRole
+    from app.models.moderation import AuditLog
+    from app.services.compound_demo import cleanup_compound_demo_for_compound
+
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    if not current_user.compound_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Select a neighbourhood before unloading sample content.",
+        )
+
+    compound = await get_compound_by_id(db, current_user.compound_id)
+    if not compound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compound not found")
+
+    result = await cleanup_compound_demo_for_compound(db, compound)
+
+    db.add(
+        AuditLog(
+            actor_id=current_user.id,
+            event_type="compound.sample_content_unload",
+            entity_type="COMPOUND",
+            entity_id=str(compound.id),
+            data={
+                "compound_slug": compound.compound_id,
+                "removed_users": result["removed_users"],
+            },
+        )
+    )
+    await db.commit()
+
+    if result["removed_users"]:
+        message = f"Sample content removed from {compound.name}."
+    else:
+        message = f"No sample content was loaded for {compound.name}."
+
+    return SampleContentActionResponse(message=message, loaded=False)
 
 
 @router.post("/forgot-password")

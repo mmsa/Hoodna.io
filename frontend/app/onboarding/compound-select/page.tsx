@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +22,8 @@ interface Compound {
 
 export default function CompoundSelectPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get('returnTo') || '/feed'
   const { user, isLoading: userLoading, refreshUser } = useAuth()
   const [selectedCompoundId, setSelectedCompoundId] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -84,7 +86,11 @@ export default function CompoundSelectPage() {
     onSuccess: async (data) => {
       await refreshUser()
       if (data.userData?.compound_id || data.compoundId) {
-        router.push('/verification')
+        if (user?.role === 'ADMIN' || user?.role === 'MODERATOR') {
+          router.push(returnTo.startsWith('/') ? returnTo : '/settings')
+        } else {
+          router.push('/verification')
+        }
       } else {
         setError('Neighbourhood selection failed. Please try again.')
       }
@@ -102,6 +108,10 @@ export default function CompoundSelectPage() {
       return
     }
     setError('')
+    if (user?.role === 'ADMIN' || user?.role === 'MODERATOR') {
+      updateUserMutation.mutate(selectedCompoundId)
+      return
+    }
     // Request access first, then update compound
     api.post('/api/auth/me/request-compound-access', { compound_id: selectedCompoundId })
       .then(() => {
