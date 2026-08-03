@@ -23,7 +23,7 @@ interface Compound {
 export default function CompoundSelectPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const returnTo = searchParams.get('returnTo') || '/feed'
+  const returnTo = searchParams?.get?.('returnTo') || '/feed'
   const { user, isLoading: userLoading, refreshUser } = useAuth()
   const [selectedCompoundId, setSelectedCompoundId] = useState<number | null>(null)
   const [error, setError] = useState('')
