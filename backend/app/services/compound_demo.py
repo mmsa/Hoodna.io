@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_password_hash
@@ -23,10 +23,14 @@ from app.models.enums import (
     UserRole,
     UserStatus,
 )
-from app.models.listing import Listing
+from app.models.listing import Listing, Promotion
 from app.models.post import Comment, Post, PostReaction
 from app.models.user import User
 from app.models.user_compound_membership import UserCompoundMembership
+from app.models.saved_listing import SavedListing
+from app.models.saved_post import SavedPost
+from app.models.message import Conversation, Message
+from app.models.review import Review
 
 DEMO_EMAIL_DOMAIN = "demo.hoodna.io"
 DEFAULT_COMPOUND_SLUG = "palm-hills-katameya"
@@ -584,12 +588,77 @@ async def cleanup_compound_demo(
         await session.commit()
         return {"removed_users": 0, "emails": []}
 
+    post_ids_result = await session.execute(
+        select(Post.id).where(Post.author_id.in_(demo_user_ids))
+    )
+    demo_post_ids = [row[0] for row in post_ids_result.all()]
+
+    listing_ids_result = await session.execute(
+        select(Listing.id).where(Listing.owner_id.in_(demo_user_ids))
+    )
+    demo_listing_ids = [row[0] for row in listing_ids_result.all()]
+
+    if demo_post_ids:
+        await session.execute(
+            delete(SavedPost).where(SavedPost.post_id.in_(demo_post_ids))
+        )
+    await session.execute(
+        delete(SavedPost).where(SavedPost.user_id.in_(demo_user_ids))
+    )
+
+    if demo_listing_ids:
+        await session.execute(
+            delete(SavedListing).where(SavedListing.listing_id.in_(demo_listing_ids))
+        )
+        await session.execute(
+            delete(Review).where(Review.listing_id.in_(demo_listing_ids))
+        )
+        await session.execute(
+            delete(Promotion).where(Promotion.listing_id.in_(demo_listing_ids))
+        )
+    await session.execute(
+        delete(SavedListing).where(SavedListing.user_id.in_(demo_user_ids))
+    )
+    await session.execute(delete(Review).where(Review.reviewer_id.in_(demo_user_ids)))
+
+    conversation_filters = [
+        Conversation.user1_id.in_(demo_user_ids),
+        Conversation.user2_id.in_(demo_user_ids),
+    ]
+    if demo_listing_ids:
+        conversation_filters.append(Conversation.listing_id.in_(demo_listing_ids))
+
+    conversation_ids_result = await session.execute(
+        select(Conversation.id).where(or_(*conversation_filters))
+    )
+    demo_conversation_ids = [row[0] for row in conversation_ids_result.all()]
+    if demo_conversation_ids:
+        await session.execute(
+            delete(Message).where(Message.conversation_id.in_(demo_conversation_ids))
+        )
+        await session.execute(
+            delete(Conversation).where(Conversation.id.in_(demo_conversation_ids))
+        )
+    await session.execute(delete(Message).where(Message.sender_id.in_(demo_user_ids)))
+
+    if demo_post_ids:
+        await session.execute(
+            delete(PostReaction).where(PostReaction.post_id.in_(demo_post_ids))
+        )
+        await session.execute(
+            delete(Comment).where(Comment.post_id.in_(demo_post_ids))
+        )
     await session.execute(
         delete(PostReaction).where(PostReaction.user_id.in_(demo_user_ids))
     )
     await session.execute(
         delete(Comment).where(Comment.author_id.in_(demo_user_ids))
     )
+    await session.execute(delete(Post).where(Post.author_id.in_(demo_user_ids)))
+
+    if demo_listing_ids:
+        await session.execute(delete(Listing).where(Listing.id.in_(demo_listing_ids)))
+
     await session.execute(
         delete(UserCompoundMembership).where(
             UserCompoundMembership.user_id.in_(demo_user_ids)
