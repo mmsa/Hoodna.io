@@ -116,7 +116,15 @@ export function SignedFileImage({
   }
 
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt || 'Uploaded file'} className={className} />
+  return (
+    <img
+      src={src}
+      alt={alt || 'Uploaded file'}
+      className={className}
+      referrerPolicy="no-referrer"
+      onError={() => setSrc('')}
+    />
+  )
 }
 
 export function SignedDocumentPreview({

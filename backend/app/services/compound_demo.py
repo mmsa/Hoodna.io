@@ -59,8 +59,39 @@ _DEMO_AVATAR_OMAR = (
 )
 
 
-def _demo_image(photo_id: str, *, width: int = 800) -> str:
-    return f"https://images.unsplash.com/{photo_id}?w={width}&q=80&auto=format&fit=crop"
+def _unsplash(photo_id: str, *, width: int = 800) -> str:
+    """Build an Unsplash CDN URL (photo IDs must be verified — many IDs 404)."""
+    return (
+        f"https://images.unsplash.com/{photo_id}"
+        f"?w={width}&q=80&auto=format&fit=crop"
+    )
+
+
+# Verified listing photos (HTTP 200 on Unsplash CDN).
+_IMG_TV = _unsplash("photo-1593359677879-a4bb92f829d1")
+_IMG_TV_2 = _unsplash("photo-1461151304267-38535e780c79")
+_IMG_DINING = _unsplash("photo-1484154218962-a197022b5858")
+_IMG_DINING_2 = _unsplash("photo-1503387762-592deb58ef4e")
+_IMG_CAR = _unsplash("photo-1492144534655-ae79c964c9d7")
+# Second angle — same photo, different crop (verified 200; avoids house/interior mismatches).
+_IMG_CAR_2 = (
+    "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7"
+    "?w=800&q=80&auto=format&fit=crop&crop=top"
+)
+_IMG_APARTMENT = _unsplash("photo-1560448204-e02f11c3d0e2")
+_IMG_APARTMENT_2 = _unsplash("photo-1522708323590-d24dbb6b0267")
+_IMG_APARTMENT_3 = _unsplash("photo-1558618666-fcd25c85cd64")
+_IMG_CLEANING = _unsplash("photo-1560518883-ce09059eeffa")
+_IMG_CLEANING_2 = _unsplash("photo-1558618666-fcd25c85cd64")
+_IMG_LAPTOP = _unsplash("photo-1517336714731-489689fd1ca8")
+_IMG_LAPTOP_2 = _unsplash("photo-1496181133206-80ce9b88a853")
+_IMG_SOFA = _unsplash("photo-1586023492125-27b2c045efd7")
+_IMG_SOFA_2 = _unsplash("photo-1503387762-592deb58ef4e")
+_IMG_ELECTRICIAN = _unsplash("photo-1621905252507-b35492cc74b4")
+_IMG_ELECTRICIAN_2 = _unsplash("photo-1461151304267-38535e780c79")
+_IMG_VILLA = _unsplash("photo-1600596542815-ffad4c1539a9")
+_IMG_VILLA_2 = _unsplash("photo-1600585154340-be6161a56a0c")
+_IMG_VILLA_3 = _unsplash("photo-1600607687939-ce8a6c25118c")
 
 
 @dataclass(frozen=True)
@@ -206,8 +237,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             8500,
             (
-                _demo_image("photo-1593359677879-a4bb92f829d1"),
-                _demo_image("photo-1461151304267-38535e780c79", width=800),
+                _IMG_TV,
+                _IMG_TV_2,
             ),
         ),
         DemoListingSpec(
@@ -218,8 +249,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             4500,
             (
-                _demo_image("photo-1615874959491-62676636887a"),
-                _demo_image("photo-1615529328331-f8917599671a", width=800),
+                _IMG_DINING,
+                _IMG_DINING_2,
             ),
         ),
         DemoListingSpec(
@@ -230,8 +261,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             450000,
             (
-                _demo_image("photo-1621007947412-a8d3ee2d989f"),
-                _demo_image("photo-1494976388531-d10584929864", width=800),
+                _IMG_CAR,
+                _IMG_CAR_2,
             ),
         ),
         DemoListingSpec(
@@ -242,9 +273,9 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.RENT,
             12000,
             (
-                _demo_image("photo-1560448204-e02f11c3d0e2"),
-                _demo_image("photo-1502672260266-1c1ef2cd9361", width=800),
-                _demo_image("photo-1522708323590-d24dbb6b0267", width=800),
+                _IMG_APARTMENT,
+                _IMG_APARTMENT_2,
+                _IMG_APARTMENT_3,
             ),
         ),
         DemoListingSpec(
@@ -255,8 +286,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             300,
             (
-                _demo_image("photo-1581578731546-8600f0a2d2e0"),
-                _demo_image("photo-1558618666-fcd25c85cd64", width=800),
+                _IMG_CLEANING,
+                _IMG_CLEANING_2,
             ),
         ),
         DemoListingSpec(
@@ -267,8 +298,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             25000,
             (
-                _demo_image("photo-1517336714731-489689fd1ca8"),
-                _demo_image("photo-1496181133206-80ce9b88a853", width=800),
+                _IMG_LAPTOP,
+                _IMG_LAPTOP_2,
             ),
         ),
         DemoListingSpec(
@@ -279,8 +310,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             6000,
             (
-                _demo_image("photo-1555041469-a586c4073bc9"),
-                _demo_image("photo-1493666434317-0a11e3b44e3b", width=800),
+                _IMG_SOFA,
+                _IMG_SOFA_2,
             ),
         ),
         DemoListingSpec(
@@ -291,8 +322,8 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             200,
             (
-                _demo_image("photo-1621905252507-b35492cc74b4"),
-                _demo_image("photo-1504328345606-322bb0778771", width=800),
+                _IMG_ELECTRICIAN,
+                _IMG_ELECTRICIAN_2,
             ),
         ),
         DemoListingSpec(
@@ -303,9 +334,9 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingIntent.SELL,
             8500000,
             (
-                _demo_image("photo-1600596542815-ffad4c1539a9"),
-                _demo_image("photo-1600585154340-be6161a56a0c", width=800),
-                _demo_image("photo-1600607687939-ce8a6c25118c", width=800),
+                _IMG_VILLA,
+                _IMG_VILLA_2,
+                _IMG_VILLA_3,
             ),
         ),
     ]
