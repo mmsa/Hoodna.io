@@ -27,7 +27,7 @@ export default function DigestScreen() {
 
   return (
     <Screen padded={false}>
-      <Header title="Weekly digest" showBackButton showLogo={false} />
+      <Header title="Weekly digest" showBackButton />
       {!enabled ? <EmptyState title="Weekly digest is unavailable" /> : loading ? <LoadingState label="Loading digest" /> : error ? <ErrorState onRetry={load} /> : !digest ? (
         <EmptyState title="No digest yet" description="Your first neighbourhood summary will appear here." />
       ) : (

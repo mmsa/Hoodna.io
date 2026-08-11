@@ -38,7 +38,7 @@ export default function BusinessDirectoryScreen() {
 
   return (
     <Screen padded={false} edges={["top", "bottom"]}>
-      <Header title="Local businesses" showLogo={false} showBackButton />
+      <Header title="Local businesses" showBackButton />
       <View style={styles.search}>
         <Ionicons name="search" size={20} color={colors.textMuted} />
         <TextInput

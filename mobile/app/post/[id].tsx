@@ -6,6 +6,7 @@ import { Post, Comment } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ReportModal } from "@/components/ReportModal";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
@@ -114,6 +115,7 @@ export default function PostDetailScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
+      <AppBrandBar compact style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }} />
       {/* Header with Back Button */}
       <View
         style={{

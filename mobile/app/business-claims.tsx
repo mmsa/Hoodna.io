@@ -29,7 +29,7 @@ export default function BusinessClaimsScreen() {
 
   return (
     <Screen padded={false} edges={["top", "bottom"]}>
-      <Header title="Business claim status" showBackButton showLogo={false} />
+      <Header title="Business claim status" showBackButton />
       {loading ? <LoadingState label="Loading claims" /> : error ? <ErrorState onRetry={load} /> : (
         <FlatList
           data={claims}

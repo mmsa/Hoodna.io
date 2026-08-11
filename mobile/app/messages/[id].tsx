@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "@/components/Header";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -114,7 +115,7 @@ export default function ConversationScreen() {
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <Header showLogo={false} showBackButton={true} title="Loading..." />
+        <Header showBackButton={true} title="Loading..." />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ marginTop: 16, fontSize: 16, color: colors.textMuted, fontWeight: "500" }}>
@@ -128,7 +129,7 @@ export default function ConversationScreen() {
   if (!conversation) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <Header showLogo={false} showBackButton={true} title="Not Found" />
+        <Header showBackButton={true} title="Not Found" />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 }}>
           <Text style={{ fontSize: 20, fontWeight: "700", color: colors.textMain, marginBottom: 8 }}>
             Conversation not found
@@ -160,6 +161,7 @@ export default function ConversationScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+      <AppBrandBar compact style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }} />
       {/* Header */}
       <View
         style={{

@@ -40,14 +40,14 @@ export default function BusinessDetailScreen() {
 
   useEffect(() => { void load(); }, [load]);
 
-  if (loading) return <Screen padded={false}><Header title="Business" showBackButton showLogo={false} /><LoadingState label="Loading business" /></Screen>;
-  if (!business) return <Screen padded={false}><Header title="Business" showBackButton showLogo={false} /><ErrorState description="This business could not be loaded." onRetry={load} /></Screen>;
+  if (loading) return <Screen padded={false}><Header title="Business" showBackButton /><LoadingState label="Loading business" /></Screen>;
+  if (!business) return <Screen padded={false}><Header title="Business" showBackButton /><ErrorState description="This business could not be loaded." onRetry={load} /></Screen>;
 
   const claimLabel = business.current_user_claim_status === "PENDING" ? "Claim pending" : "Claim this business";
 
   return (
     <Screen padded={false} edges={["top", "bottom"]}>
-      <Header title="Business" showBackButton showLogo={false} />
+      <Header title="Business" showBackButton />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <View style={styles.businessIcon}><Ionicons name="business" size={36} color={colors.primary} /></View>

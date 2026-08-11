@@ -29,8 +29,8 @@ export default function ClaimBusinessScreen() {
     if (slug) void apiClient.getBusiness(slug).then(setBusiness).catch(() => setBusiness(null));
   }, [apiClient, slug]);
 
-  if (!enabled) return <KeyboardScreen><Header title="Claim business" showBackButton showLogo={false} /><EmptyState title="Business claiming is unavailable" /></KeyboardScreen>;
-  if (!business) return <KeyboardScreen><Header title="Claim business" showBackButton showLogo={false} /><LoadingState label="Loading business" /></KeyboardScreen>;
+  if (!enabled) return <KeyboardScreen><Header title="Claim business" showBackButton /><EmptyState title="Business claiming is unavailable" /></KeyboardScreen>;
+  if (!business) return <KeyboardScreen><Header title="Claim business" showBackButton /><LoadingState label="Loading business" /></KeyboardScreen>;
 
   async function submit() {
     if (!fullName.trim() || role.trim().length < 2 || phone.trim().length < 5 || !email.includes("@")) {
@@ -60,7 +60,7 @@ export default function ClaimBusinessScreen() {
 
   return (
     <KeyboardScreen contentContainerStyle={styles.content}>
-      <Header title="Claim business" showBackButton showLogo={false} />
+      <Header title="Claim business" showBackButton />
       <Text accessibilityRole="header" style={styles.title}>Claim {business.name}</Text>
       <Text style={styles.help}>Tell us how you are connected to this business. Claims are reviewed before access is granted.</Text>
       <Field label="Full name" value={fullName} onChangeText={setFullName} />

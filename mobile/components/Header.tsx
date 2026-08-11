@@ -183,6 +183,22 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         {/* Title Section */}
         {useTitleLayout && (
           <View style={styles.titleContainer}>
+            {showLogo ? (
+              <TouchableOpacity
+                accessibilityLabel="Go to home"
+                accessibilityRole="button"
+                activeOpacity={0.7}
+                onPress={() => router.push("/(tabs)/home")}
+                style={styles.titleBrand}
+              >
+                <Image
+                  resizeMode="cover"
+                  source={require("@/assets/icon.png")}
+                  style={styles.logoIconCompact}
+                />
+                <BrandWordmark compact />
+              </TouchableOpacity>
+            ) : null}
             <Text style={styles.title}>{title}</Text>
             {compound && (
               <TouchableOpacity 
@@ -429,6 +445,14 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     gap: 4,
     minWidth: 0,
+  },
+  titleBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+    alignSelf: "flex-start",
+    direction: "ltr",
   },
   title: {
     fontSize: typography.size.title,

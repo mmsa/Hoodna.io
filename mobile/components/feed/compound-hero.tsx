@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SignedImage } from "@/components/signed-image";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { formatCompoundName } from "@/utils/formatCompound";
 
 interface CompoundHeroProps {
@@ -45,15 +46,24 @@ export function CompoundHero({
 
       <View style={styles.scrim} />
 
-      <TouchableOpacity
-        accessibilityLabel="Notifications"
-        accessibilityRole="button"
-        hitSlop={12}
-        onPress={() => router.push("/notifications")}
-        style={[styles.bell, { top: insets.top + spacing[2] }]}
-      >
-        <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-      </TouchableOpacity>
+      <View style={[styles.topBar, { top: insets.top + spacing[1], paddingHorizontal: spacing[4] }]}>
+        <AppBrandBar
+          compact
+          style={styles.topBrand}
+          tone="light"
+          trailing={
+            <TouchableOpacity
+              accessibilityLabel="Notifications"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={() => router.push("/notifications")}
+              style={styles.bell}
+            >
+              <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          }
+        />
+      </View>
 
       <View style={styles.content}>
         <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
@@ -87,11 +97,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.38)",
   },
-  bell: {
+  topBar: {
     position: "absolute",
-    top: spacing[3],
-    right: spacing[4],
+    left: 0,
+    right: 0,
     zIndex: 2,
+  },
+  topBrand: {
+    flex: 1,
+  },
+  bell: {
     width: 40,
     height: 40,
     alignItems: "center",

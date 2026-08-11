@@ -59,7 +59,7 @@ export default function InviteNeighboursScreen() {
 
   return (
     <Screen padded={false} edges={["top", "bottom"]}>
-      <Header title="Invite neighbours" showBackButton showLogo={false} />
+      <Header title="Invite neighbours" showBackButton />
       {!enabled ? (
         <EmptyState title="Invitations are not available" description="This feature will return when invitations reopen." />
       ) : loading ? (

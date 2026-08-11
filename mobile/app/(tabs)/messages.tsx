@@ -16,6 +16,7 @@ import { formatRelativeTime } from "@hoodna/i18n";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 
 import { colors } from "@/constants/colors";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 
@@ -118,6 +119,7 @@ export default function MessagesTab() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
+            <AppBrandBar compact style={styles.brandBar} />
             <View style={styles.titleRow}>
               <Text accessibilityRole="header" style={styles.title}>
                 Messages
@@ -222,6 +224,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],
     paddingBottom: spacing[2],
+  },
+  brandBar: {
+    marginBottom: spacing[3],
   },
   titleRow: {
     flexDirection: "row",

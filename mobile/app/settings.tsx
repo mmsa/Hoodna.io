@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { AccountDeletionRequest, UserPreferences } from "@hoodna/shared";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { LanguagePicker } from "@/components/LanguagePicker";
+import { Header } from "@/components/Header";
 
 export default function SettingsScreen() {
   const { user, apiClient, refreshUser } = useAuth();
@@ -152,27 +153,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }} edges={["top"]}>
-      {/* Header with Back Button */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: "#FFFFFF",
-          borderBottomWidth: 1,
-          borderBottomColor: "#E5E7EB",
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginRight: 16 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>{t("settings.title")}</Text>
-      </View>
+      <Header showBackButton title={t("settings.title")} />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={{ padding: 16 }}>
 

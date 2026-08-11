@@ -311,7 +311,7 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      <Header title="Search" showLogo={false} showBackButton={true} />
+      <Header title="Search" showBackButton={true} />
 
       <View style={{ flex: 1, paddingHorizontal: 16 }}>
         {/* Search Input */}

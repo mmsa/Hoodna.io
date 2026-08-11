@@ -4,9 +4,15 @@ import { brand, palette, typography } from "@hoodna/tokens"
 type BrandWordmarkProps = {
   variant?: "header" | "auth"
   compact?: boolean
+  /** White text on dark backgrounds; dark text on light backgrounds. */
+  tone?: "light" | "dark"
 }
 
-export function BrandWordmark({ variant = "header", compact = false }: BrandWordmarkProps) {
+export function BrandWordmark({
+  variant = "header",
+  compact = false,
+  tone = "light",
+}: BrandWordmarkProps) {
   if (variant === "auth") {
     return (
       <View style={styles.authStack}>
@@ -18,13 +24,38 @@ export function BrandWordmark({ variant = "header", compact = false }: BrandWord
     )
   }
 
+  const isDarkTone = tone === "dark"
+
   return (
     <View style={styles.headerStack}>
       <View style={styles.latinRow}>
-        <Text style={[styles.latin, compact && styles.latinCompact]}>{brand.nameLatin}</Text>
-        <Text style={[styles.domain, compact && styles.domainCompact]}>{brand.domain}</Text>
+        <Text
+          style={[
+            styles.latin,
+            compact && styles.latinCompact,
+            isDarkTone && styles.latinDark,
+          ]}
+        >
+          {brand.nameLatin}
+        </Text>
+        <Text
+          style={[
+            styles.domain,
+            compact && styles.domainCompact,
+            isDarkTone && styles.domainDark,
+          ]}
+        >
+          {brand.domain}
+        </Text>
       </View>
-      <Text style={[styles.arabic, compact && styles.arabicCompact]} accessibilityLabel={brand.nameArabic}>
+      <Text
+        style={[
+          styles.arabic,
+          compact && styles.arabicCompact,
+          isDarkTone && styles.arabicDark,
+        ]}
+        accessibilityLabel={brand.nameArabic}
+      >
         {brand.nameArabic}
       </Text>
     </View>
@@ -70,6 +101,16 @@ const styles = StyleSheet.create({
   arabicCompact: {
     fontSize: 10,
     lineHeight: 12,
+  },
+  latinDark: {
+    color: palette.primary,
+  },
+  domainDark: {
+    color: palette.primary,
+  },
+  arabicDark: {
+    color: palette.primary,
+    opacity: 0.82,
   },
   authStack: {
     gap: 4,

@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { ListingCard } from "@/components/marketplace/listing-card";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { EmptyState, LoadingState } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -106,6 +107,7 @@ export default function MarketScreen() {
   if (loading && listings.length === 0) {
     return (
       <SafeAreaView edges={["top"]} style={styles.safe}>
+        <AppBrandBar compact style={styles.loadingBrand} />
         <LoadingState label={t("marketplace.loadingMarketplace")} />
       </SafeAreaView>
     );
@@ -122,6 +124,7 @@ export default function MarketScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={styles.header}>
+            <AppBrandBar compact style={styles.brandBar} />
             <Text accessibilityRole="header" style={styles.title}>
               Marketplace
             </Text>
@@ -209,6 +212,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],
     paddingBottom: spacing[4],
+  },
+  brandBar: {
+    marginBottom: spacing[3],
+  },
+  loadingBrand: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[2],
   },
   title: {
     color: colors.text,

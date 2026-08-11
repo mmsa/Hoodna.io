@@ -16,6 +16,7 @@ import type { Compound } from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 
 import { Avatar } from "@/components/ui";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
@@ -146,8 +147,11 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safe, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppBrandBar compact style={styles.loadingBrand} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -202,6 +206,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <AppBrandBar compact style={styles.brandBar} />
         <View style={styles.hero}>
           <TouchableOpacity
             accessibilityRole="button"
@@ -281,6 +286,17 @@ const styles = StyleSheet.create({
   centered: { alignItems: "center", justifyContent: "center" },
   content: {
     paddingBottom: spacing[12],
+  },
+  brandBar: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[2],
+  },
+  loadingBrand: {
+    alignSelf: "stretch",
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    marginBottom: spacing[6],
   },
   hero: {
     alignItems: "center",

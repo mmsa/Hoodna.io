@@ -17,6 +17,7 @@ import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { CompoundHero } from "@/components/feed/compound-hero";
 import { HomeShortcuts } from "@/components/home/home-shortcuts";
 import { NeighbourPostCard } from "@/components/home/neighbour-post-card";
+import { AppBrandBar } from "@/components/AppBrandBar";
 import { AppPressable, Button } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,6 +109,7 @@ export default function HomeScreen() {
   if (user && user.role === "SERVICE_PROVIDER") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppBrandBar compact style={styles.emptyBrand} />
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
             <Ionicons name="construct-outline" size={36} color={colors.primary} />
@@ -127,6 +129,7 @@ export default function HomeScreen() {
   if (verificationStatus === "REJECTED") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppBrandBar compact style={styles.emptyBrand} />
         <View style={styles.centered}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.errorLight }]}>
             <Ionicons name="document-text-outline" size={36} color={colors.error} />
@@ -145,7 +148,8 @@ export default function HomeScreen() {
 
   if (loading && posts.length === 0) {
     return (
-      <SafeAreaView style={[styles.safe, styles.centered]}>
+      <SafeAreaView style={[styles.safe, styles.centered]} edges={["top"]}>
+        <AppBrandBar compact style={styles.emptyBrand} />
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading your neighbourhood…</Text>
       </SafeAreaView>
@@ -155,6 +159,7 @@ export default function HomeScreen() {
   if (!activeCompoundId && !user?.compound_id && !loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AppBrandBar compact style={styles.emptyBrand} />
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
             <Ionicons name="home-outline" size={36} color={colors.primary} />
@@ -220,7 +225,9 @@ export default function HomeScreen() {
                 heroImageUrl={compoundHeroUrl}
               />
             ) : (
-              <View style={styles.heroFallback} />
+              <View style={styles.heroFallback}>
+                <AppBrandBar compact style={styles.fallbackBrand} tone="light" />
+              </View>
             )}
 
             <HomeShortcuts />
@@ -326,6 +333,18 @@ const styles = StyleSheet.create({
   heroFallback: {
     height: 160,
     backgroundColor: palette.primary,
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[3],
+  },
+  fallbackBrand: {
+    alignSelf: "flex-start",
+  },
+  emptyBrand: {
+    alignSelf: "flex-start",
+    marginBottom: spacing[6],
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    width: "100%",
   },
   shareStrip: {
     marginHorizontal: spacing[5],
