@@ -33,3 +33,18 @@ def test_demo_content_counts():
     assert len(get_demo_users()) == 5
     assert len(get_demo_listings("Palm Hills Katameya")) == 9
     assert len(get_demo_posts("Palm Hills Katameya")) == 8
+
+
+def test_demo_users_have_avatar_urls():
+    for user in get_demo_users():
+        assert user.avatar_url.startswith("https://")
+
+
+def test_demo_listings_have_image_urls():
+    listings = get_demo_listings("Palm Hills Katameya")
+    assert all(listing.image_urls for listing in listings)
+    service_listings = [
+        listing for listing in listings if listing.category.value == "SERVICE"
+    ]
+    assert len(service_listings) == 2
+    assert all(len(listing.image_urls) >= 2 for listing in service_listings)

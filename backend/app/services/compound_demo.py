@@ -32,12 +32,39 @@ DEMO_EMAIL_DOMAIN = "demo.hoodna.io"
 DEFAULT_COMPOUND_SLUG = "palm-hills-katameya"
 DEFAULT_DEMO_PASSWORD = "demo123"
 
+# Public HTTPS images for screenshots (Unsplash CDN — no auth required).
+_DEMO_AVATAR_SARA = (
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330"
+    "?w=400&h=400&fit=crop&crop=face&q=80"
+)
+_DEMO_AVATAR_AHMED = (
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d"
+    "?w=400&h=400&fit=crop&crop=face&q=80"
+)
+_DEMO_AVATAR_NOUR = (
+    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e"
+    "?w=400&h=400&fit=crop&crop=face&q=80"
+)
+_DEMO_AVATAR_YASMINE = (
+    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80"
+    "?w=400&h=400&fit=crop&crop=face&q=80"
+)
+_DEMO_AVATAR_OMAR = (
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e"
+    "?w=400&h=400&fit=crop&crop=face&q=80"
+)
+
+
+def _demo_image(photo_id: str, *, width: int = 800) -> str:
+    return f"https://images.unsplash.com/{photo_id}?w={width}&q=80&auto=format&fit=crop"
+
 
 @dataclass(frozen=True)
 class DemoUserSpec:
     local_part: str
     name: str
     phone: str
+    avatar_url: str
 
 
 @dataclass(frozen=True)
@@ -63,6 +90,7 @@ class DemoListingSpec:
     category: ListingCategory
     intent: ListingIntent
     price: float
+    image_urls: tuple[str, ...] = ()
 
 
 def demo_email(compound_slug: str, local_part: str) -> str:
@@ -81,11 +109,11 @@ def demo_email_pattern(compound_slug: str | None = None) -> str:
 
 def get_demo_users() -> list[DemoUserSpec]:
     return [
-        DemoUserSpec("sara", "Sara Hassan", "+201012345678"),
-        DemoUserSpec("ahmed", "Ahmed Mohamed", "+201023456789"),
-        DemoUserSpec("nour", "Nour El-Din", "+201034567890"),
-        DemoUserSpec("yasmine", "Yasmine Farouk", "+201045678901"),
-        DemoUserSpec("omar", "Omar Khaled", "+201056789012"),
+        DemoUserSpec("sara", "Sara Hassan", "+201012345678", _DEMO_AVATAR_SARA),
+        DemoUserSpec("ahmed", "Ahmed Mohamed", "+201023456789", _DEMO_AVATAR_AHMED),
+        DemoUserSpec("nour", "Nour El-Din", "+201034567890", _DEMO_AVATAR_NOUR),
+        DemoUserSpec("yasmine", "Yasmine Farouk", "+201045678901", _DEMO_AVATAR_YASMINE),
+        DemoUserSpec("omar", "Omar Khaled", "+201056789012", _DEMO_AVATAR_OMAR),
     ]
 
 
@@ -173,6 +201,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.ITEM,
             ListingIntent.SELL,
             8500,
+            (
+                _demo_image("photo-1593359677879-a4bb92f829d1"),
+                _demo_image("photo-1461151304267-38535e780c79", width=800),
+            ),
         ),
         DemoListingSpec(
             "ahmed",
@@ -181,6 +213,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.ITEM,
             ListingIntent.SELL,
             4500,
+            (
+                _demo_image("photo-1615874959491-62676636887a"),
+                _demo_image("photo-1615529328331-f8917599671a", width=800),
+            ),
         ),
         DemoListingSpec(
             "omar",
@@ -189,6 +225,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.CAR,
             ListingIntent.SELL,
             450000,
+            (
+                _demo_image("photo-1621007947412-a8d3ee2d989f"),
+                _demo_image("photo-1494976388531-d10584929864", width=800),
+            ),
         ),
         DemoListingSpec(
             "nour",
@@ -197,6 +237,11 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.PROPERTY,
             ListingIntent.RENT,
             12000,
+            (
+                _demo_image("photo-1560448204-e02f11c3d0e2"),
+                _demo_image("photo-1502672260266-1c1ef2cd9361", width=800),
+                _demo_image("photo-1522708323590-d24dbb6b0267", width=800),
+            ),
         ),
         DemoListingSpec(
             "yasmine",
@@ -205,6 +250,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.SERVICE,
             ListingIntent.SELL,
             300,
+            (
+                _demo_image("photo-1581578731546-8600f0a2d2e0"),
+                _demo_image("photo-1558618666-fcd25c85cd64", width=800),
+            ),
         ),
         DemoListingSpec(
             "sara",
@@ -213,6 +262,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.ITEM,
             ListingIntent.SELL,
             25000,
+            (
+                _demo_image("photo-1517336714731-489689fd1ca8"),
+                _demo_image("photo-1496181133206-80ce9b88a853", width=800),
+            ),
         ),
         DemoListingSpec(
             "ahmed",
@@ -221,6 +274,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.ITEM,
             ListingIntent.SELL,
             6000,
+            (
+                _demo_image("photo-1555041469-a586c4073bc9"),
+                _demo_image("photo-1493666434317-0a11e3b44e3b", width=800),
+            ),
         ),
         DemoListingSpec(
             "omar",
@@ -229,6 +286,10 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.SERVICE,
             ListingIntent.SELL,
             200,
+            (
+                _demo_image("photo-1621905252507-b35492cc74b4"),
+                _demo_image("photo-1504328345606-322bb0778771", width=800),
+            ),
         ),
         DemoListingSpec(
             "nour",
@@ -237,6 +298,11 @@ def get_demo_listings(compound_name: str) -> list[DemoListingSpec]:
             ListingCategory.PROPERTY,
             ListingIntent.SELL,
             8500000,
+            (
+                _demo_image("photo-1600596542815-ffad4c1539a9"),
+                _demo_image("photo-1600585154340-be6161a56a0c", width=800),
+                _demo_image("photo-1600607687939-ce8a6c25118c", width=800),
+            ),
         ),
     ]
 
@@ -335,6 +401,7 @@ async def seed_compound_demo(
                 email=email,
                 password_hash=get_password_hash(password),
                 phone=spec.phone,
+                avatar_url=spec.avatar_url,
                 role=UserRole.USER,
                 status=UserStatus.APPROVED,
                 compound_id=compound.id,
@@ -345,6 +412,7 @@ async def seed_compound_demo(
         else:
             user.name = spec.name
             user.phone = spec.phone
+            user.avatar_url = spec.avatar_url
             user.compound_id = compound.id
             user.status = UserStatus.APPROVED
             user.password_hash = get_password_hash(password)
@@ -379,6 +447,7 @@ async def seed_compound_demo(
                     intent=spec.intent,
                     price=spec.price,
                     currency="EGP",
+                    image_urls=list(spec.image_urls),
                 )
             )
             created_listings += 1
@@ -388,6 +457,7 @@ async def seed_compound_demo(
             listing.intent = spec.intent
             listing.price = spec.price
             listing.status = ListingStatus.ACTIVE
+            listing.image_urls = list(spec.image_urls)
             updated_listings += 1
 
     await session.flush()
