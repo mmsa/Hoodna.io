@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useTranslation } from '@/components/locale-provider'
+import { SiteFooter } from '@/components/site-footer'
 import { formatCompoundName } from '@/lib/format-compound'
 
 export default function Home() {
@@ -305,6 +306,12 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      <div className="border-t border-border bg-background px-4 py-8">
+        <div className="container mx-auto max-w-6xl">
+          <SiteFooter />
+        </div>
+      </div>
     </main>
   )
 }

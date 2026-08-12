@@ -2,6 +2,9 @@ export const ELJIRAN_WEB_ORIGIN = "https://eljiran.io";
 export const ELJIRAN_DEEP_LINK_SCHEME = "eljiran";
 export const ELJIRAN_SUPPORT_EMAIL = "hello@eljiran.io";
 export const ELJIRAN_SUPPORT_MAILTO = `mailto:${ELJIRAN_SUPPORT_EMAIL}`;
+export const ELJIRAN_PRIVACY_URL = `${ELJIRAN_WEB_ORIGIN}/privacy`;
+export const ELJIRAN_TERMS_URL = `${ELJIRAN_WEB_ORIGIN}/terms`;
+export const ELJIRAN_SUPPORT_URL = `${ELJIRAN_WEB_ORIGIN}/support`;
 
 export type EljiranRoute =
   | { type: "home" }
