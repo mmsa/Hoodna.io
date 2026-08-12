@@ -1,32 +1,16 @@
 import Constants from "expo-constants";
-import { Platform } from "react-native";
+
+const RENDER_API_URL = "https://eljiran-api.onrender.com";
 
 function resolveApiBaseUrl(): string {
-  // Explicit env always wins (set in EAS profiles / .env).
+  // Explicit env always wins (EAS profiles / .env). Use a local URL here
+  // only when you intentionally want a local backend.
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  // Release / TestFlight builds: use production API.
-  if (!__DEV__) {
-    return (
-      Constants.expoConfig?.extra?.apiUrl ||
-      "https://eljiran-api.onrender.com"
-    );
-  }
-
-  // Simulator/emulator in development.
-  if (!Constants.isDevice) {
-    return Platform.OS === "android"
-      ? "http://10.0.2.2:8000"
-      : "http://localhost:8000";
-  }
-
-  // Physical device in development: LAN IP from app.json / .env.
-  return (
-    Constants.expoConfig?.extra?.apiUrl ||
-    "http://localhost:8000"
-  );
+  // Default to Render for local simulator/device and release builds.
+  return Constants.expoConfig?.extra?.apiUrl || RENDER_API_URL;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
