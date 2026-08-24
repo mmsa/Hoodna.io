@@ -18,7 +18,12 @@ from app.schemas.admin import (
 )
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
-from app.schemas.compound import CompoundResponse, CompoundUpdate, CompoundListResponse
+from app.schemas.compound import (
+    CompoundResponse,
+    CompoundUpdate,
+    CompoundCreate,
+    CompoundListResponse,
+)
 from app.crud.verification import (
     get_pending_documents,
     approve_document,
@@ -33,7 +38,14 @@ from datetime import datetime
 from app.crud.user import update_user_status
 from app.crud.listing import archive_listing
 from app.crud.post import delete_post
-from app.crud.compound import get_all_compounds, update_compound, get_compound_by_id
+from app.crud.compound import (
+    get_all_compounds,
+    update_compound,
+    get_compound_by_id,
+    create_compound,
+    delete_compound,
+    get_compound_by_slug,
+)
 from app.core.dependencies import get_current_admin
 from app.models.user import User
 from app.models.enums import UserStatus, DocumentStatus, DocumentType, ProviderStatus, ModeratorStatus, UserRole
@@ -1139,6 +1151,75 @@ async def admin_list_compounds(
     """List all compounds for admin management (including incomplete)."""
     compounds, total = await get_all_compounds(db, skip=skip, limit=limit, q=q)
     return CompoundListResponse(items=compounds, total=total, limit=limit, offset=skip)
+
+
+@router.post("/compounds", response_model=CompoundResponse, status_code=201)
+async def admin_create_compound(
+    body: CompoundCreate,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new compound."""
+    payload = body.model_dump()
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name is required")
+    payload["name"] = name
+
+    if not payload.get("compound_id"):
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "compound"
+        # Ensure uniqueness
+        base = slug
+        suffix = 2
+        while await get_compound_by_slug(db, slug):
+            slug = f"{base}-{suffix}"
+            suffix += 1
+        payload["compound_id"] = slug
+
+    if not payload.get("country"):
+        payload["country"] = "Egypt"
+
+    compound = await create_compound(db, CompoundCreate(**payload))
+    db.add(
+        AuditLog(
+            actor_id=current_user.id,
+            event_type="compound.create",
+            entity_type="COMPOUND",
+            entity_id=str(compound.id),
+            data={"name": compound.name, "compound_id": compound.compound_id},
+        )
+    )
+    await db.commit()
+    await db.refresh(compound)
+    return compound
+
+
+@router.delete("/compounds/{compound_id}")
+async def admin_delete_compound(
+    compound_id: int,
+    force: bool = Query(False, description="Delete even if users/posts/listings exist"),
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a compound. Use force=true to remove compounds that still have linked data."""
+    try:
+        stats = await delete_compound(db, compound_id, force=force)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    db.add(
+        AuditLog(
+            actor_id=current_user.id,
+            event_type="compound.delete",
+            entity_type="COMPOUND",
+            entity_id=str(compound_id),
+            data={"force": force, "stats": stats},
+        )
+    )
+    await db.commit()
+    return {"message": "Compound deleted", "stats": stats}
 
 
 class CompoundHeroPresignRequest(BaseModel):

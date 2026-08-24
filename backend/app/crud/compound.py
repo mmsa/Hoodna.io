@@ -138,3 +138,81 @@ async def update_compound(
     await db.refresh(compound)
     return compound
 
+
+async def delete_compound(
+    db: AsyncSession,
+    compound_id: int,
+    *,
+    force: bool = False,
+) -> dict:
+    """
+    Delete a compound.
+
+    By default refuses when users, posts, or listings still reference it.
+    With force=True, clears user.compound_id pointers and deletes the compound
+    (related posts/listings cascade via ORM relationships).
+    """
+    from sqlalchemy import delete, func, select, update
+    from app.models.user import User
+    from app.models.post import Post
+    from app.models.listing import Listing
+    from app.models.user_compound_membership import UserCompoundMembership
+
+    compound = await get_compound_by_id(db, compound_id)
+    if not compound:
+        raise ValueError("Compound not found")
+
+    users_count = (
+        await db.execute(
+            select(func.count()).select_from(User).where(User.compound_id == compound_id)
+        )
+    ).scalar() or 0
+    memberships_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(UserCompoundMembership)
+            .where(UserCompoundMembership.compound_id == compound_id)
+        )
+    ).scalar() or 0
+    posts_count = (
+        await db.execute(
+            select(func.count()).select_from(Post).where(Post.compound_id == compound_id)
+        )
+    ).scalar() or 0
+    listings_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Listing)
+            .where(Listing.compound_id == compound_id)
+        )
+    ).scalar() or 0
+
+    stats = {
+        "users": users_count,
+        "memberships": memberships_count,
+        "posts": posts_count,
+        "listings": listings_count,
+    }
+    has_content = any(stats.values())
+    if has_content and not force:
+        raise PermissionError(
+            "Compound still has linked data. Pass force=true to delete anyway. "
+            f"users={users_count}, memberships={memberships_count}, "
+            f"posts={posts_count}, listings={listings_count}"
+        )
+
+    if users_count:
+        await db.execute(
+            update(User).where(User.compound_id == compound_id).values(compound_id=None)
+        )
+    if memberships_count:
+        await db.execute(
+            delete(UserCompoundMembership).where(
+                UserCompoundMembership.compound_id == compound_id
+            )
+        )
+
+    await db.delete(compound)
+    await db.flush()
+    return stats
+

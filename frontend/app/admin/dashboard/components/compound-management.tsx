@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Camera, Loader2, Search } from 'lucide-react'
+import { Building2, Camera, Loader2, Plus, Search, Trash2 } from 'lucide-react'
 
 import { SignedFileImage } from '@/components/signed-file'
 import { Button } from '@/components/ui/button'
@@ -44,8 +44,21 @@ const STATUS_OPTIONS = [
   'Mixed/Phased',
 ]
 
+const EMPTY_FORM = {
+  name: '',
+  area: '',
+  developer: '',
+  status_2025: '',
+  hero_image_url: '',
+}
+
 function isPending(compound: CompoundRow) {
   return !compound.compound_id || !compound.area || !compound.status_2025
+}
+
+function errorDetail(error: unknown): string {
+  const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+  return typeof detail === 'string' ? detail : 'Please try again.'
 }
 
 export default function CompoundManagement() {
@@ -54,15 +67,14 @@ export default function CompoundManagement() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [editing, setEditing] = useState<CompoundRow | null>(null)
-  const [form, setForm] = useState({
-    name: '',
-    area: '',
-    developer: '',
-    status_2025: '',
-    hero_image_url: '',
-  })
+  const [creating, setCreating] = useState(false)
+  const [deleting, setDeleting] = useState<CompoundRow | null>(null)
+  const [forceDelete, setForceDelete] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
   const [uploading, setUploading] = useState(false)
   const pageSize = 25
+
+  const dialogOpen = creating || !!editing
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-compounds', search, page],
@@ -79,25 +91,66 @@ export default function CompoundManagement() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!editing) return
-      await api.patch(`/api/admin/compounds/${editing.id}`, {
-        name: form.name || undefined,
-        area: form.area || undefined,
-        developer: form.developer || undefined,
+      const payload = {
+        name: form.name.trim(),
+        area: form.area.trim() || undefined,
+        developer: form.developer.trim() || undefined,
         status_2025: form.status_2025 || undefined,
         hero_image_url: form.hero_image_url || undefined,
+      }
+      if (!payload.name) {
+        throw new Error('Name is required')
+      }
+      if (creating) {
+        const response = await api.post('/api/admin/compounds', payload)
+        return response.data as CompoundRow
+      }
+      if (!editing) return null
+      await api.patch(`/api/admin/compounds/${editing.id}`, payload)
+      return editing
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-compounds'] })
+      queryClient.invalidateQueries({ queryKey: ['feed-summary'] })
+      toast({
+        title: creating ? 'Compound created' : 'Compound updated',
+        variant: 'success',
+      })
+      closeEditor()
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: creating ? 'Could not create compound' : 'Could not save compound',
+        description: error instanceof Error && !('response' in error)
+          ? error.message
+          : errorDetail(error),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!deleting) return
+      await api.delete(`/api/admin/compounds/${deleting.id}`, {
+        params: forceDelete ? { force: true } : undefined,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-compounds'] })
       queryClient.invalidateQueries({ queryKey: ['feed-summary'] })
-      toast({ title: 'Compound updated', variant: 'success' })
-      setEditing(null)
+      toast({ title: 'Compound deleted', variant: 'success' })
+      setDeleting(null)
+      setForceDelete(false)
     },
-    onError: (error: { response?: { data?: { detail?: string } } }) => {
+    onError: (error: unknown) => {
+      const detail = errorDetail(error)
+      if (/force=true/i.test(detail)) {
+        setForceDelete(true)
+      }
       toast({
-        title: 'Could not save compound',
-        description: error?.response?.data?.detail || 'Please try again.',
+        title: 'Could not delete compound',
+        description: detail,
         variant: 'destructive',
       })
     },
@@ -112,7 +165,20 @@ export default function CompoundManagement() {
     [compounds]
   )
 
+  function closeEditor() {
+    setCreating(false)
+    setEditing(null)
+    setForm(EMPTY_FORM)
+  }
+
+  function openCreate() {
+    setEditing(null)
+    setCreating(true)
+    setForm(EMPTY_FORM)
+  }
+
   function openEditor(compound: CompoundRow) {
+    setCreating(false)
     setEditing(compound)
     setForm({
       name: compound.name || '',
@@ -124,7 +190,14 @@ export default function CompoundManagement() {
   }
 
   async function handleHeroUpload(file: File) {
-    if (!editing) return
+    if (!editing) {
+      toast({
+        title: 'Save the compound first',
+        description: 'Create the compound, then edit it to upload a hero image.',
+        variant: 'destructive',
+      })
+      return
+    }
     setUploading(true)
     try {
       const contentType = resolveUploadContentType(file)
@@ -146,14 +219,22 @@ export default function CompoundManagement() {
     <div className="space-y-6">
       <Card className="eljiran-card border-0">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <Building2 className="h-5 w-5 text-primary" />
-            Compound management
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Add hero photos for each compound — they appear on the community feed for residents.
-            {pendingCount > 0 ? ` ${pendingCount} on this page need completion.` : ''}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Building2 className="h-5 w-5 text-primary" />
+                Compound management
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Add, edit, or delete compounds. Hero photos appear on the community feed for residents.
+                {pendingCount > 0 ? ` ${pendingCount} on this page need completion.` : ''}
+              </p>
+            </div>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Add compound
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative max-w-md">
@@ -216,9 +297,23 @@ export default function CompoundManagement() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Button size="sm" variant="outline" onClick={() => openEditor(compound)}>
-                          Edit
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openEditor(compound)}>
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              setDeleting(compound)
+                              setForceDelete(false)
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -253,11 +348,15 @@ export default function CompoundManagement() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editing ? formatCompoundWithArea(editing.name, editing.area) : 'Edit compound'}
+              {creating
+                ? 'Add compound'
+                : editing
+                  ? formatCompoundWithArea(editing.name, editing.area)
+                  : 'Edit compound'}
             </DialogTitle>
           </DialogHeader>
 
@@ -268,6 +367,7 @@ export default function CompoundManagement() {
                 id="compound-name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Madinaty"
               />
             </div>
             <div className="space-y-2">
@@ -276,6 +376,7 @@ export default function CompoundManagement() {
                 id="compound-area"
                 value={form.area}
                 onChange={(e) => setForm((f) => ({ ...f, area: e.target.value }))}
+                placeholder="e.g. New Cairo"
               />
             </div>
             <div className="space-y-2">
@@ -308,52 +409,111 @@ export default function CompoundManagement() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Feed hero image</Label>
-              <p className="text-xs text-muted-foreground">
-                Shown at the top of the community feed for residents in this compound.
-              </p>
-              {form.hero_image_url ? (
-                <div className="relative aspect-[21/9] overflow-hidden rounded-[16px] border border-border">
-                  <SignedFileImage
-                    fileUrl={form.hero_image_url}
-                    alt="Compound hero preview"
-                    className="h-full w-full object-cover"
+            {!creating ? (
+              <div className="space-y-2">
+                <Label>Feed hero image</Label>
+                <p className="text-xs text-muted-foreground">
+                  Shown at the top of the community feed for residents in this compound.
+                </p>
+                {form.hero_image_url ? (
+                  <div className="relative aspect-[21/9] overflow-hidden rounded-[16px] border border-border">
+                    <SignedFileImage
+                      fileUrl={form.hero_image_url}
+                      alt="Compound hero preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : null}
+                <label className="inline-flex cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file) void handleHeroUpload(file)
+                      event.target.value = ''
+                    }}
                   />
-                </div>
-              ) : null}
-              <label className="inline-flex cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0]
-                    if (file) void handleHeroUpload(file)
-                    event.target.value = ''
-                  }}
-                />
-                <Button type="button" variant="outline" disabled={uploading} asChild>
-                  <span>
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Camera className="h-4 w-4" />
-                    )}
-                    {form.hero_image_url ? 'Replace hero image' : 'Upload hero image'}
-                  </span>
-                </Button>
-              </label>
-            </div>
+                  <Button type="button" variant="outline" disabled={uploading} asChild>
+                    <span>
+                      {uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                      {form.hero_image_url ? 'Replace hero image' : 'Upload hero image'}
+                    </span>
+                  </Button>
+                </label>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                After creating, edit the compound to upload a feed hero image.
+              </p>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>
+            <Button variant="ghost" onClick={closeEditor}>
               Cancel
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !form.name.trim()}
+            >
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save compound
+              {creating ? 'Create compound' : 'Save compound'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleting(null)
+            setForceDelete(false)
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete compound?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              This will permanently remove{' '}
+              <span className="font-semibold text-foreground">{deleting?.name}</span>
+              {deleting?.area ? ` (${deleting.area})` : ''}.
+            </p>
+            {forceDelete ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive">
+                This compound still has linked users, posts, or listings. Confirming will clear
+                user links and delete related content.
+              </p>
+            ) : (
+              <p>Deletion is blocked if the compound still has linked data, unless you force it.</p>
+            )}
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleting(null)
+                setForceDelete(false)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {forceDelete ? 'Force delete' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
