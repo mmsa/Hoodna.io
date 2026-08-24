@@ -84,6 +84,7 @@ export default function FeedPage() {
   });
 
   const isModerator = user?.role === "COMPOUND_MOD";
+  const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
   const isModeratorProfileLoaded =
     !isModerator || moderatorProfile !== undefined;
   const isModeratorApproved =
@@ -99,7 +100,7 @@ export default function FeedPage() {
     !userLoading &&
     isModeratorProfileLoaded &&
     effectiveCompoundId &&
-    (isModeratorApproved || (isResidentApproved && !isModerator))
+    (isStaff || isModeratorApproved || (isResidentApproved && !isModerator))
   );
 
   const { data: feedSummary } = useQuery<FeedSummary>({
@@ -284,6 +285,9 @@ export default function FeedPage() {
         errorResponse?.status === 403 &&
         (errorDetail.includes("verified") || errorDetail.includes("approved"))
       ) {
+        if (user?.role === "ADMIN" || user?.role === "MODERATOR") {
+          return;
+        }
         if (isModerator) {
           router.push("/moderator/status");
           return;

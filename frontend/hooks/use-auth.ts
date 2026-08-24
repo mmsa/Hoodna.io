@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
+import api, { persistUserRole } from '@/lib/api'
 import Cookies from 'js-cookie'
 import { useCallback, useEffect } from 'react'
 
@@ -35,6 +35,7 @@ export function useAuth() {
       queryClient.invalidateQueries({ queryKey: ['current-user'] })
     } else {
       // Clear cache if no token
+      persistUserRole(null)
       queryClient.setQueryData(['current-user'], null)
     }
   }, [token, queryClient])
@@ -53,6 +54,7 @@ export function useAuth() {
             // Token changed, return null to force re-fetch
             return null
           }
+          persistUserRole(userData.role)
         }
         return userData
       } catch (error) {
@@ -60,6 +62,7 @@ export function useAuth() {
         if ((error as any).response?.status === 401) {
           Cookies.remove('access_token', { path: '/' })
           Cookies.remove('refresh_token', { path: '/' })
+          persistUserRole(null)
           queryClient.setQueryData(['current-user'], null)
           return null
         }
@@ -81,6 +84,7 @@ export function useAuth() {
 
     Cookies.remove('access_token', { path: '/' })
     Cookies.remove('refresh_token', { path: '/' })
+    persistUserRole(null)
     await queryClient.cancelQueries({ queryKey: ['current-user'] })
     queryClient.setQueriesData({ queryKey: ['current-user'] }, null)
     await queryClient.invalidateQueries({

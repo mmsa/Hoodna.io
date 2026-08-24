@@ -4,6 +4,32 @@ import Cookies from 'js-cookie'
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://eljiran-api.onrender.com'
 
+export const USER_ROLE_STORAGE_KEY = 'eljiran_user_role'
+
+export function persistUserRole(role: string | null | undefined) {
+  if (typeof window === 'undefined') return
+  if (role) {
+    window.sessionStorage.setItem(USER_ROLE_STORAGE_KEY, role)
+    Cookies.set(USER_ROLE_STORAGE_KEY, role, { path: '/', sameSite: 'lax' })
+  } else {
+    window.sessionStorage.removeItem(USER_ROLE_STORAGE_KEY)
+    Cookies.remove(USER_ROLE_STORAGE_KEY, { path: '/' })
+  }
+}
+
+function readStoredUserRole(): string | null {
+  if (typeof window === 'undefined') return null
+  return (
+    window.sessionStorage.getItem(USER_ROLE_STORAGE_KEY) ||
+    Cookies.get(USER_ROLE_STORAGE_KEY) ||
+    null
+  )
+}
+
+function isPlatformStaffRole(role: string | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'MODERATOR'
+}
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -36,42 +62,55 @@ api.interceptors.response.use(
       })
     }
 
+    const pathname =
+      typeof window !== 'undefined' ? window.location.pathname : ''
+    const storedRole = readStoredUserRole()
+    const isStaff = isPlatformStaffRole(storedRole)
+
     // Handle compound selection requirement
-    // BUT: Don't redirect service providers or moderators (they don't need compound_id)
+    // BUT: Don't redirect service providers, compound mods, or platform staff
     if (error.response?.status === 400 && error.response?.data?.detail?.includes('compound')) {
-      // Only redirect if we're not already on the compound selection page
-      // AND if user is not on service provider or moderator pages
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/onboarding/compound-select')) {
-        const pathname = window.location.pathname
-        // Don't redirect if user is on service provider or moderator pages
-        const isServiceProviderPage = pathname.startsWith('/provider') || 
-                                      pathname.startsWith('/services') ||
-                                      pathname.startsWith('/onboarding/provider')
-        const isModeratorPage = pathname.startsWith('/moderator') ||
-                                pathname.startsWith('/onboarding/moderator')
-        
-        if (!isServiceProviderPage && !isModeratorPage) {
-          window.location.href = '/onboarding/compound-select'
+      if (
+        typeof window !== 'undefined' &&
+        !pathname.includes('/onboarding/compound-select') &&
+        !isStaff
+      ) {
+        const isServiceProviderPage =
+          pathname.startsWith('/provider') ||
+          pathname.startsWith('/services') ||
+          pathname.startsWith('/onboarding/provider')
+        const isModeratorPage =
+          pathname.startsWith('/moderator') ||
+          pathname.startsWith('/onboarding/moderator')
+        const isAdminPage = pathname.startsWith('/admin')
+
+        if (!isServiceProviderPage && !isModeratorPage && !isAdminPage) {
+          window.location.href = '/onboarding/compound-select?returnTo=/feed'
         }
         return Promise.reject(error)
       }
     }
 
-    // Handle verification requirement
-    // BUT: Don't redirect if user is on compound-select page (they need to select compound first)
-    // AND: Don't redirect service providers or moderators (they have their own status pages)
-    if (error.response?.status === 403 && (error.response?.data?.detail?.includes('verified') || error.response?.data?.detail?.includes('approved'))) {
-      // Only redirect if we're not already on the verification page AND not on compound-select page
-      if (typeof window !== 'undefined' && 
-          !window.location.pathname.includes('/verification') &&
-          !window.location.pathname.includes('/onboarding/compound-select') &&
-          !window.location.pathname.includes('/onboarding/choose-role') &&
-          !window.location.pathname.includes('/onboarding/provider') &&
-          !window.location.pathname.includes('/onboarding/moderator') &&
-          !window.location.pathname.includes('/provider/status') &&
-          !window.location.pathname.includes('/moderator/status') &&
-          !window.location.pathname.includes('/services') &&
-          !window.location.pathname.includes('/provider')) {
+    // Handle verification requirement — never bounce platform staff to /verification
+    if (
+      error.response?.status === 403 &&
+      (error.response?.data?.detail?.includes('verified') ||
+        error.response?.data?.detail?.includes('approved'))
+    ) {
+      if (
+        typeof window !== 'undefined' &&
+        !isStaff &&
+        !pathname.includes('/verification') &&
+        !pathname.includes('/onboarding/compound-select') &&
+        !pathname.includes('/onboarding/choose-role') &&
+        !pathname.includes('/onboarding/provider') &&
+        !pathname.includes('/onboarding/moderator') &&
+        !pathname.includes('/provider/status') &&
+        !pathname.includes('/moderator/status') &&
+        !pathname.includes('/services') &&
+        !pathname.includes('/provider') &&
+        !pathname.includes('/admin')
+      ) {
         window.location.href = '/verification'
         return Promise.reject(error)
       }
@@ -83,13 +122,17 @@ api.interceptors.response.use(
       try {
         const refreshToken = Cookies.get('refresh_token')
         if (refreshToken) {
-          const response = await axios.post(`${API_URL}/api/auth/refresh`, {
-            refresh_token: refreshToken,
-          }, {
-            headers: {
-              'Content-Type': 'application/json',
+          const response = await axios.post(
+            `${API_URL}/api/auth/refresh`,
+            {
+              refresh_token: refreshToken,
             },
-          })
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          )
           const { access_token, refresh_token } = response.data
           Cookies.set('access_token', access_token)
           Cookies.set('refresh_token', refresh_token)
@@ -99,6 +142,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         Cookies.remove('access_token')
         Cookies.remove('refresh_token')
+        persistUserRole(null)
         window.location.href = '/auth/login'
         return Promise.reject(refreshError)
       }
@@ -109,4 +153,3 @@ api.interceptors.response.use(
 )
 
 export default api
-

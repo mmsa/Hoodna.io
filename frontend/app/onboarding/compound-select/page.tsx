@@ -87,7 +87,7 @@ export default function CompoundSelectPage() {
       await refreshUser()
       if (data.userData?.compound_id || data.compoundId) {
         if (user?.role === 'ADMIN' || user?.role === 'MODERATOR') {
-          router.push(returnTo.startsWith('/') ? returnTo : '/settings')
+          router.push(returnTo.startsWith('/') ? returnTo : '/feed')
         } else {
           router.push('/verification')
         }

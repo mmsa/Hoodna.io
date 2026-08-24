@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import { uploadToPresignedUrl, resolveUploadContentType } from "@/lib/upload";
-import { isVerifiedForCurrentCompound } from "@/lib/resident-routing";
+import { isPlatformStaff, isVerifiedForCurrentCompound } from "@/lib/resident-routing";
 import { VerificationCompoundBar } from "@/components/verification-compound-bar";
 import {
   Select,
@@ -83,7 +83,7 @@ export default function VerificationPage() {
   useEffect(() => () => clearProgressInterval(), []);
 
   // Check if compound is selected first - redirect if not
-  // BUT: Service providers and moderators don't need compound_id and shouldn't be on this page
+  // BUT: Service providers, moderators, and platform staff don't use resident verification
   useEffect(() => {
     if (userLoading) return; // Wait for user data to load
     if (!user) return; // Wait for user to load
@@ -96,6 +96,12 @@ export default function VerificationPage() {
     
     if (user.role === 'COMPOUND_MOD') {
       router.replace('/moderator/status');
+      return;
+    }
+
+    // Admins never need resident document verification
+    if (isPlatformStaff(user.role)) {
+      router.replace(user.compound_id ? '/feed' : '/admin/dashboard');
       return;
     }
 
@@ -116,7 +122,13 @@ export default function VerificationPage() {
 
   // Only fetch verification status if compound is selected
   // BUT: Service providers and moderators don't need compound_id, so skip verification status fetch for them
-  const shouldFetchStatus = !!(user && user.compound_id && user.role !== 'SERVICE_PROVIDER' && user.role !== 'COMPOUND_MOD');
+  const shouldFetchStatus = !!(
+    user &&
+    user.compound_id &&
+    user.role !== 'SERVICE_PROVIDER' &&
+    user.role !== 'COMPOUND_MOD' &&
+    !isPlatformStaff(user.role)
+  );
 
   // Fetch compound details to display name
   const { data: compound } = useQuery<{ id: number; name: string; area?: string }>({

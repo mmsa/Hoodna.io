@@ -9,7 +9,7 @@ import { Clock, XCircle, Loader2, LogOut, Upload } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import Cookies from 'js-cookie'
-import { getResidentWebRoute, isResidentRole, isVerifiedForCurrentCompound } from '@/lib/resident-routing'
+import { getResidentWebRoute, isPlatformStaff, isResidentRole, isVerifiedForCurrentCompound } from '@/lib/resident-routing'
 import { UploadedDocumentCard } from '@/components/uploaded-document-card'
 
 interface VerificationStatus {
@@ -37,6 +37,10 @@ export default function VerificationPendingPage() {
 
   useEffect(() => {
     if (userLoading || !user) return
+    if (isPlatformStaff(user.role)) {
+      router.replace(user.compound_id ? '/feed' : '/admin/dashboard')
+      return
+    }
     if (!isResidentRole(user.role)) {
       router.replace('/')
       return

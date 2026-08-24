@@ -122,10 +122,11 @@ export default function ServicesPage() {
 
   useEffect(() => {
     if (!error) return
+    if (user?.role === 'ADMIN' || user?.role === 'MODERATOR') return
     const status = (error as any)?.response?.status
     if (status === 403) router.push("/verification")
     if (status === 400 && provider) router.push("/provider/status")
-  }, [error, provider, router])
+  }, [error, provider, router, user?.role])
 
   if (isLoading || (provider && profileLoading)) {
     return <AppShell><PageLayout width="xl"><LoadingState title="Loading services" /></PageLayout></AppShell>

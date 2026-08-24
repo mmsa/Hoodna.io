@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import api from '@/lib/api'
+import api, { persistUserRole } from '@/lib/api'
 import Cookies from 'js-cookie'
 import Link from 'next/link'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
@@ -97,6 +97,7 @@ export default function LoginPage() {
       // Force a hard refresh to clear all React Query caches and state
       // This ensures we don't show stale user data from a previous session
       const me = await api.get('/api/auth/me')
+      persistUserRole(me.data?.role)
       const dest = getPostAuthWebRoute(me.data)
       if (typeof window !== 'undefined') {
         window.location.href = dest
