@@ -9,6 +9,7 @@ import {
   isResidentRole,
   canAccessVerificationUpload,
   isVerifiedForCurrentCompound,
+  isPlatformStaff,
 } from '@/lib/resident-routing'
 
 interface RoleGuardProps {
@@ -56,7 +57,7 @@ export function RoleGuard({ children }: RoleGuardProps) {
     }
 
     // Platform admins/moderators: full app access, no verification gates
-    if (user.role === 'ADMIN' || user.role === 'MODERATOR') {
+    if (isPlatformStaff(user.role)) {
       return
     }
 

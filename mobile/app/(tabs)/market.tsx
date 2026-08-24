@@ -60,7 +60,11 @@ export default function MarketScreen() {
       setListings(items);
     } catch (error: any) {
       console.error("Failed to load listings:", error);
-      if (error?.message?.includes("403") || error?.response?.status === 403) {
+      const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
+      if (
+        !isStaff &&
+        (error?.message?.includes("403") || error?.response?.status === 403)
+      ) {
         router.push("/verification");
       }
     } finally {

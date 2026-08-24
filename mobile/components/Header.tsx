@@ -109,13 +109,14 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
 
   async function handleSwitchCompound(compoundId: number, isVerified: boolean) {
     if (isSwitching) return;
+    const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
 
     try {
       setShowCompoundSwitcher(false);
       await switchCompound(compoundId);
       await refreshUser();
       loadCompound(compoundId);
-      if (isVerified) {
+      if (isStaff || isVerified) {
         router.replace("/(tabs)/home");
       } else {
         router.replace("/verification");

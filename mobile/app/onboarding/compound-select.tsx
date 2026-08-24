@@ -15,7 +15,7 @@ export default function CompoundSelectScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { apiClient, refreshUser } = useAuth();
+  const { apiClient, refreshUser, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -62,6 +62,23 @@ export default function CompoundSelectScreen() {
 
     setSubmitting(true);
     try {
+      const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
+
+      if (isStaff) {
+        // Admins switch context without verification / access request (synced with web)
+        try {
+          await apiClient.switchCompound(selectedId);
+        } catch {
+          await apiClient.request("/api/auth/me", {
+            method: "PATCH",
+            body: JSON.stringify({ compound_id: selectedId }),
+          });
+        }
+        await refreshUser();
+        router.replace("/(tabs)/home");
+        return;
+      }
+
       // First, request access to the compound
       await apiClient.requestCompoundAccess(selectedId);
       

@@ -18,8 +18,9 @@ import { colors } from "@/constants/colors";
 import { openFileUrl } from "@/lib/file-url";
 import { UserManagement } from "@/components/admin/user-management";
 import { EljiranOperations } from "@/components/admin/eljiran-operations";
+import { AdminCompoundManagement } from "@/components/admin/compound-management";
 
-type AdminTab = "users" | "residents" | "providers" | "moderators" | "operations";
+type AdminTab = "users" | "compounds" | "residents" | "providers" | "moderators" | "operations";
 type ReasonAction =
   | "resident-reject"
   | "resident-request-more"
@@ -219,13 +220,13 @@ export default function AdminDashboardScreen() {
   const staffFilters = ["SUBMITTED", "IN_REVIEW", "APPROVED", "REJECTED", "SUSPENDED"];
 
   useEffect(() => {
-    if (activeTab === "users" || activeTab === "operations") return;
+    if (activeTab === "users" || activeTab === "operations" || activeTab === "compounds") return;
     setStatusFilter(activeTab === "residents" ? "PENDING" : "SUBMITTED");
     setSearchQuery("");
   }, [activeTab]);
 
   const loadData = useCallback(async () => {
-    if (activeTab === "users" || activeTab === "operations") {
+    if (activeTab === "users" || activeTab === "operations" || activeTab === "compounds") {
       setLoading(false);
       setRefreshing(false);
       return;
@@ -425,6 +426,9 @@ export default function AdminDashboardScreen() {
               <TabButton label="Users" active={activeTab === "users"} onPress={() => setActiveTab("users")} />
             </View>
             <View style={{ width: "48%" }}>
+              <TabButton label="Compounds" active={activeTab === "compounds"} onPress={() => setActiveTab("compounds")} />
+            </View>
+            <View style={{ width: "48%" }}>
               <TabButton label="Verifications" active={activeTab === "residents"} onPress={() => setActiveTab("residents")} />
             </View>
             <View style={{ width: "48%" }}>
@@ -440,6 +444,8 @@ export default function AdminDashboardScreen() {
 
           {activeTab === "users" ? (
             <UserManagement />
+          ) : activeTab === "compounds" ? (
+            <AdminCompoundManagement />
           ) : activeTab === "operations" ? (
             <EljiranOperations />
           ) : (

@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
-import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 import { AppPressable } from "@/components/ui";
 import { colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/AuthContext";
+import { isPlatformStaff } from "@/lib/resident-routing";
 
-const SHORTCUTS = [
+const BASE_SHORTCUTS = [
   {
     key: "market",
     label: "Marketplace",
@@ -29,17 +32,31 @@ const SHORTCUTS = [
 
 export function HomeShortcuts() {
   const router = useRouter();
+  const { user } = useAuth();
+
+  const shortcuts = useMemo(() => {
+    if (!isPlatformStaff(user?.role)) return [...BASE_SHORTCUTS];
+    return [
+      {
+        key: "admin",
+        label: "Admin",
+        icon: "shield-outline" as const,
+        href: "/admin/dashboard",
+      },
+      ...BASE_SHORTCUTS,
+    ];
+  }, [user?.role]);
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.heading}>What do you need?</Text>
       <View style={styles.row}>
-        {SHORTCUTS.map((item) => (
+        {shortcuts.map((item) => (
           <AppPressable
             key={item.key}
             accessibilityLabel={item.label}
             accessibilityRole="button"
-            onPress={() => router.push(item.href)}
+            onPress={() => router.push(item.href as any)}
             pressedStyle={styles.pressed}
             style={styles.tile}
           >
@@ -70,10 +87,13 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing[3],
   },
   tile: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "22%",
+    minWidth: 72,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: palette.surfaceMuted,

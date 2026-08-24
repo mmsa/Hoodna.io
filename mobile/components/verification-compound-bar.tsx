@@ -86,11 +86,12 @@ export function VerificationCompoundBar({
   async function handleSwitch(compoundId: number) {
     const target = compounds.find((c) => c.id === compoundId);
     if (!target || compoundId === user?.compound_id || switching) return;
+    const isStaff = user?.role === "ADMIN" || user?.role === "MODERATOR";
 
     setMenuOpen(false);
     setSwitching(compoundId);
     try {
-      if (target.is_verified) {
+      if (isStaff || target.is_verified) {
         await apiClient.switchCompound(compoundId);
         await refreshUser();
         router.replace("/(tabs)/home");

@@ -190,7 +190,7 @@ export default function ProfileScreen() {
   ];
 
   const activityRows = [
-    ...(user?.role === "ADMIN"
+    ...(user?.role === "ADMIN" || user?.role === "MODERATOR"
       ? [{ label: "Admin dashboard", icon: "shield-outline" as const, route: "/admin/dashboard" }]
       : []),
     ...(user?.role === "SERVICE_PROVIDER"

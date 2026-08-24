@@ -1,12 +1,20 @@
+export function isPlatformStaff(role: string | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'MODERATOR'
+}
+
 /**
  * Where a resident/USER should land based on compound + verification.
  * verification_status from /me: UNVERIFIED | PENDING | APPROVED | REJECTED
  */
 export function isVerifiedForCurrentCompound(user: {
+  role?: string | null
   compound_id?: number | null
   verified_compound_ids?: number[] | null
   is_verified_for_current_compound?: boolean | null
 }): boolean {
+  if (isPlatformStaff(user.role)) {
+    return user.compound_id != null
+  }
   if (user.is_verified_for_current_compound != null) {
     return user.is_verified_for_current_compound
   }
@@ -87,6 +95,9 @@ export function getPostAuthWebRoute(user: {
   if (!user.role) {
     return '/onboarding/choose-role'
   }
+  if (isPlatformStaff(user.role)) {
+    return '/admin/dashboard'
+  }
   if (isResidentRole(user.role)) {
     return getResidentWebRoute(user)
   }
@@ -95,12 +106,6 @@ export function getPostAuthWebRoute(user: {
   }
   if (user.role === 'COMPOUND_MOD') {
     return '/moderator/status'
-  }
-  if (user.role === 'ADMIN') {
-    return '/admin/dashboard'
-  }
-  if (user.role === 'MODERATOR') {
-    return '/admin/dashboard'
   }
   return '/feed'
 }

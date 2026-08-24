@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   canAccessVerificationUpload,
   getResidentRoute,
+  isPlatformStaff,
   isResidentRole,
   isVerifiedForCurrentCompound,
 } from "@/lib/resident-routing";
@@ -27,6 +28,8 @@ export function ResidentVerificationGuard() {
 
   useEffect(() => {
     if (loading || !user || !pathname) return;
+    // Platform staff browse freely (synced with web RoleGuard)
+    if (isPlatformStaff(user.role)) return;
     if (!isResidentRole(user.role)) return;
     if (user.status === "APPROVED" && isVerifiedForCurrentCompound(user)) return;
 
