@@ -27,6 +27,7 @@ from app.schemas.chat_import import (
     ChatImportPublishResponse,
 )
 from app.services.chat_import_parser import detect_and_parse_bytes, summarize_parsed
+from app.services.chat_import_classify import enrich_import_items_with_llm
 from app.services.chat_import_publish import (
     get_job_with_items,
     publish_chat_import_job,
@@ -139,7 +140,12 @@ async def parse_chat_import(
     try:
         content = Path(job.storage_path).read_bytes()
         parsed = detect_and_parse_bytes(content, job.original_filename, job.source)
+        # Cheap LLM refine (Arabic/English listing vs post); regex used if no API key
+        llm_stats = await enrich_import_items_with_llm(parsed.items)
+        # If LLM was not used, threading already applied in build_import_payload;
+        # enrich always rethreads at the end.
         stats = summarize_parsed(parsed)
+        stats.update(llm_stats)
         await replace_job_items_from_parse(
             db, job, parsed.users, parsed.items, stats
         )
@@ -226,6 +232,7 @@ async def publish_chat_import(
         in (
             ChatImportItemKind.USER,
             ChatImportItemKind.POST,
+            ChatImportItemKind.COMMENT,
             ChatImportItemKind.LISTING,
         )
     ]

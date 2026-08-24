@@ -22,9 +22,15 @@ Admin Dashboard → **Chat import** seeds a compound from a group export.
 
 1. Export the compound WhatsApp group (`Export chat` → Without media or With media `.zip`) or Telegram Desktop (`Export chat history` → JSON).
 2. Upload in Admin → Chat import for the target compound.
-3. **Parse**, review users/posts/listings (approve/reject or flip post↔listing), then **Publish approved**.
-4. Publish creates invited phone users with **PENDING** `CHAT_IMPORT` membership, `profile_setup_required=true`, and ACTIVE posts/listings.
-5. Residents OTP-login with their phone → app redirects to **Profile** to set **name + password** (email not required). Completing profile confirms compound invites and marks them VERIFIED/APPROVED.
+3. **Parse**, review users / parent posts / nested comments / listings (approve/reject or flip kinds), then **Publish approved**.
+4. Parsing:
+   - Threads short follow-ups under a parent post (Telegram uses `reply_to`; WhatsApp uses time-window heuristics).
+   - Classifies listings with **gpt-4o-mini** when `OPENAI_API_KEY` is set (Arabic + English); regex fallback otherwise.
+   - Author display uses the WhatsApp/Telegram **contact/profile name** when present. Phone numbers stay private (login only) and are redacted from published text — never shown as the public author name.
+5. Publish creates invited phone users with **PENDING** `CHAT_IMPORT` membership, `profile_setup_required=true`, posts + comments + ACTIVE listings.
+6. Residents OTP-login with their phone → app redirects to **Profile** to set **name + password** (email not required). Completing profile confirms compound invites and marks them VERIFIED/APPROVED.
+
+Run migration `036` for the `COMMENT` import kind. Ensure `OPENAI_API_KEY` is set in production for better Arabic listing detection.
 
 APIs: `/api/admin/chat-imports*`, `/api/auth/me/complete-profile`, `/api/auth/me/compound-invites*`.
 

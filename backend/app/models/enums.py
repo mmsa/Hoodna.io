@@ -239,6 +239,7 @@ class ChatImportJobStatus(str, Enum):
 class ChatImportItemKind(str, Enum):
     USER = "USER"
     POST = "POST"
+    COMMENT = "COMMENT"
     LISTING = "LISTING"
     SKIP = "SKIP"
 

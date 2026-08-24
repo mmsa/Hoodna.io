@@ -1,4 +1,4 @@
-"""Publish approved chat-import items into users, posts, and listings."""
+"""Publish approved chat-import items into users, posts, comments, and listings."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -25,15 +25,27 @@ from app.models.enums import (
 )
 from app.models.listing import Listing
 from app.models.moderation import AuditLog
-from app.models.post import Post
+from app.models.post import Comment, Post
 from app.models.user import User
 from app.models.user_compound_membership import UserCompoundMembership
-from app.services.chat_import_parser import normalize_phone
+from app.services.chat_import_parser import (
+    _sender_display,
+    is_phone_like_sender,
+    normalize_phone,
+    redact_phones,
+)
 
 
 def _synthetic_phone(name: str) -> str:
     digest = abs(hash(name.strip().lower() or "neighbour")) % (10**9)
     return f"900{digest:09d}"
+
+
+def _safe_public_name(name: str | None, phone: str | None = None) -> str:
+    display = _sender_display(name or "", phone)
+    if is_phone_like_sender(display):
+        return "Neighbour"
+    return display
 
 
 async def resolve_or_create_invited_user(
@@ -43,7 +55,7 @@ async def resolve_or_create_invited_user(
     phone: str | None,
     name: str | None,
 ) -> User:
-    display_name = (name or "Neighbour").strip() or "Neighbour"
+    display_name = _safe_public_name(name, phone)
     normalized = normalize_phone(phone) if phone else None
     if not normalized:
         normalized = _synthetic_phone(display_name)
@@ -53,8 +65,17 @@ async def resolve_or_create_invited_user(
         user = await create_user_by_phone(db, normalized, display_name)
         user.profile_setup_required = True
     else:
-        if display_name and (not user.name or user.name.startswith("phone_")):
-            user.name = display_name
+        # Never overwrite a real name with a phone-like string
+        if display_name and display_name != "Neighbour":
+            if (
+                not user.name
+                or user.name.startswith("phone_")
+                or is_phone_like_sender(user.name)
+                or user.name == "Neighbour"
+            ):
+                user.name = display_name
+        elif user.name and is_phone_like_sender(user.name):
+            user.name = "Neighbour"
         # Existing password-less invited accounts still need setup.
         if not user.password_hash:
             user.profile_setup_required = True
@@ -68,6 +89,30 @@ async def resolve_or_create_invited_user(
 def listing_fallback_title(normalized: dict[str, Any]) -> str:
     content = (normalized.get("content") or "Imported listing").strip()
     return content.splitlines()[0][:120]
+
+
+async def _resolve_author(
+    db: AsyncSession,
+    *,
+    job: ChatImportJob,
+    item: ChatImportItem,
+    phone_to_user: dict[str, User],
+) -> User:
+    normalized = dict(item.normalized or {})
+    phone = normalize_phone(normalized.get("phone")) if normalized.get("phone") else None
+    if phone and phone in phone_to_user:
+        author = phone_to_user[phone]
+    else:
+        author = await resolve_or_create_invited_user(
+            db,
+            compound_id=job.compound_id,
+            phone=phone,
+            name=normalized.get("name"),
+        )
+        if author.phone:
+            phone_to_user[author.phone] = author
+    item.matched_user_id = author.id
+    return author
 
 
 async def publish_chat_import_job(
@@ -92,11 +137,14 @@ async def publish_chat_import_job(
     stats = {
         "users_created_or_matched": 0,
         "posts_published": 0,
+        "comments_published": 0,
         "listings_published": 0,
         "skipped_already_published": 0,
         "errors": 0,
     }
     phone_to_user: dict[str, User] = {}
+    # message_index → published Post.id
+    message_index_to_post_id: dict[int, int] = {}
 
     for item in items:
         if item.kind != ChatImportItemKind.USER:
@@ -118,6 +166,7 @@ async def publish_chat_import_job(
         item.published_entity_id = user.id
         stats["users_created_or_matched"] += 1
 
+    # Pass 1: posts + listings (roots)
     for item in items:
         if item.kind not in (ChatImportItemKind.POST, ChatImportItemKind.LISTING):
             continue
@@ -125,23 +174,13 @@ async def publish_chat_import_job(
             stats["skipped_already_published"] += 1
             continue
         normalized = dict(item.normalized or {})
-        phone = normalize_phone(normalized.get("phone")) if normalized.get("phone") else None
-        if phone and phone in phone_to_user:
-            author = phone_to_user[phone]
-        else:
-            author = await resolve_or_create_invited_user(
-                db,
-                compound_id=job.compound_id,
-                phone=phone,
-                name=normalized.get("name"),
-            )
-            if author.phone:
-                phone_to_user[author.phone] = author
-        item.matched_user_id = author.id
+        author = await _resolve_author(
+            db, job=job, item=item, phone_to_user=phone_to_user
+        )
 
         try:
             if item.kind == ChatImportItemKind.POST:
-                content = (normalized.get("content") or "").strip()
+                content = redact_phones((normalized.get("content") or "").strip())
                 if not content:
                     item.decision = ChatImportItemDecision.REJECTED
                     item.reject_reason = "Empty content"
@@ -158,12 +197,19 @@ async def publish_chat_import_job(
                 await db.flush()
                 item.published_entity_type = "POST"
                 item.published_entity_id = post.id
+                msg_index = normalized.get("message_index")
+                if isinstance(msg_index, int):
+                    message_index_to_post_id[msg_index] = post.id
                 stats["posts_published"] += 1
             else:
-                title = (normalized.get("title") or listing_fallback_title(normalized)).strip()
-                description = (
-                    normalized.get("description") or normalized.get("content") or ""
-                ).strip()
+                title = redact_phones(
+                    (normalized.get("title") or listing_fallback_title(normalized)).strip()
+                )
+                description = redact_phones(
+                    (
+                        normalized.get("description") or normalized.get("content") or ""
+                    ).strip()
+                )
                 intent_raw = (normalized.get("intent") or "SELL").upper()
                 intent = ListingIntent.RENT if intent_raw == "RENT" else ListingIntent.SELL
                 category_raw = (normalized.get("category") or "ITEM").upper()
@@ -199,6 +245,63 @@ async def publish_chat_import_job(
                 item.published_entity_type = "LISTING"
                 item.published_entity_id = listing.id
                 stats["listings_published"] += 1
+        except Exception as exc:  # noqa: BLE001
+            stats["errors"] += 1
+            item.reject_reason = str(exc)[:500]
+
+    # Pass 2: comments under parent posts
+    for item in items:
+        if item.kind != ChatImportItemKind.COMMENT:
+            continue
+        if item.published_entity_id:
+            stats["skipped_already_published"] += 1
+            continue
+        normalized = dict(item.normalized or {})
+        author = await _resolve_author(
+            db, job=job, item=item, phone_to_user=phone_to_user
+        )
+        content = redact_phones((normalized.get("content") or "").strip())
+        if not content:
+            item.decision = ChatImportItemDecision.REJECTED
+            item.reject_reason = "Empty content"
+            continue
+
+        parent_index = normalized.get("parent_message_index")
+        post_id = (
+            message_index_to_post_id.get(parent_index)
+            if isinstance(parent_index, int)
+            else None
+        )
+
+        try:
+            if post_id is None:
+                # Orphan comment → publish as its own post
+                provenance = f"\n\n— imported from group chat (job #{job.id})"
+                post = Post(
+                    compound_id=job.compound_id,
+                    author_id=author.id,
+                    content=content + provenance,
+                    category=PostCategory.GENERAL,
+                    is_urgent=False,
+                )
+                db.add(post)
+                await db.flush()
+                item.published_entity_type = "POST"
+                item.published_entity_id = post.id
+                item.kind = ChatImportItemKind.POST
+                stats["posts_published"] += 1
+                continue
+
+            comment = Comment(
+                post_id=post_id,
+                author_id=author.id,
+                content=content,
+            )
+            db.add(comment)
+            await db.flush()
+            item.published_entity_type = "COMMENT"
+            item.published_entity_id = comment.id
+            stats["comments_published"] += 1
         except Exception as exc:  # noqa: BLE001
             stats["errors"] += 1
             item.reject_reason = str(exc)[:500]

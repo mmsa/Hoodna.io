@@ -21,7 +21,7 @@ import { formatCompoundWithArea } from '@/lib/format-compound'
 import { cn } from '@/lib/utils'
 
 type Source = 'WHATSAPP' | 'TELEGRAM'
-type ItemKind = 'USER' | 'POST' | 'LISTING' | 'SKIP'
+type ItemKind = 'USER' | 'POST' | 'COMMENT' | 'LISTING' | 'SKIP'
 type Decision = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 interface CompoundRow {
@@ -188,17 +188,63 @@ export default function ChatImportPanel() {
   })
 
   const compounds = compoundsData?.items || []
+
+  const maskPhone = (phone: unknown) => {
+    const raw = String(phone || '')
+    if (!raw) return 'no phone'
+    if (raw.length <= 4) return '••••'
+    return `••••${raw.slice(-4)}`
+  }
+
   const visibleItems = useMemo(() => {
     const items = job?.items || []
-    if (kindFilter === 'ALL') return items
-    return items.filter((item) => item.kind === kindFilter)
+    const filtered =
+      kindFilter === 'ALL' ? items : items.filter((item) => item.kind === kindFilter)
+
+    // Parent post first, then its comments; other kinds keep relative order
+    const users = filtered.filter((i) => i.kind === 'USER')
+    const roots = filtered.filter((i) => i.kind === 'POST' || i.kind === 'LISTING')
+    const comments = filtered.filter((i) => i.kind === 'COMMENT')
+    const skips = filtered.filter((i) => i.kind === 'SKIP')
+    const other = filtered.filter(
+      (i) => !['USER', 'POST', 'LISTING', 'COMMENT', 'SKIP'].includes(i.kind),
+    )
+
+    const ordered: ImportItem[] = [...users]
+    for (const root of roots) {
+      ordered.push(root)
+      const parentIdx = root.normalized?.message_index
+      if (root.kind === 'POST' && parentIdx !== undefined) {
+        const children = comments.filter(
+          (c) => c.normalized?.parent_message_index === parentIdx,
+        )
+        ordered.push(...children)
+      }
+    }
+    // Orphan comments (parent filtered out)
+    const attached = new Set(
+      ordered.filter((i) => i.kind === 'COMMENT').map((i) => i.id),
+    )
+    for (const comment of comments) {
+      if (!attached.has(comment.id)) ordered.push(comment)
+    }
+    ordered.push(...skips, ...other)
+    return ordered
   }, [job?.items, kindFilter])
 
   const previewText = (item: ImportItem) => {
     const n = item.normalized || {}
-    if (item.kind === 'USER') return `${n.name || 'Neighbour'} · ${n.phone || 'no phone'}`
-    if (item.kind === 'LISTING') return String(n.title || n.content || '')
-    return String(n.content || '')
+    const author = String(n.name || 'Neighbour')
+    if (item.kind === 'USER') {
+      return `${author} · ${maskPhone(n.phone)} (private)`
+    }
+    if (item.kind === 'LISTING') {
+      return `${author}: ${String(n.title || n.content || '')}`
+    }
+    if (item.kind === 'COMMENT') {
+      return `${author}: ${String(n.content || '')}`
+    }
+    return `${author}: ${String(n.content || '')}`
   }
 
   return (
@@ -210,8 +256,9 @@ export default function ChatImportPanel() {
             Chat import
           </CardTitle>
           <CardDescription>
-            Upload a WhatsApp (.txt/.zip) or Telegram (result.json) group export, review parsed
-            content, then publish invited accounts and compound posts/listings.
+            Upload a WhatsApp (.txt/.zip) or Telegram (result.json) group export. Parse builds
+            parent posts with nested comments, classifies Arabic/English listings (cheap LLM when
+            configured), and keeps phone numbers private — contact/profile names are used instead.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -352,6 +399,7 @@ export default function ChatImportPanel() {
                       <SelectItem value="ALL">All kinds</SelectItem>
                       <SelectItem value="USER">Users</SelectItem>
                       <SelectItem value="POST">Posts</SelectItem>
+                      <SelectItem value="COMMENT">Comments</SelectItem>
                       <SelectItem value="LISTING">Listings</SelectItem>
                       <SelectItem value="SKIP">Skipped</SelectItem>
                     </SelectContent>
@@ -373,6 +421,9 @@ export default function ChatImportPanel() {
                         <tr key={item.id} className="border-t border-border align-top">
                           <td className="px-3 py-2">
                             <div className="font-medium">{item.kind}</div>
+                            {item.kind === 'COMMENT' ? (
+                              <div className="text-xs text-muted-foreground">↳ under post</div>
+                            ) : null}
                             {item.published_entity_id ? (
                               <div className="text-xs text-muted-foreground">
                                 published {item.published_entity_type} #{item.published_entity_id}
@@ -380,13 +431,18 @@ export default function ChatImportPanel() {
                             ) : null}
                           </td>
                           <td className="px-3 py-2 max-w-md">
-                            <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                            <p
+                              className={cn(
+                                'whitespace-pre-wrap break-words text-muted-foreground',
+                                item.kind === 'COMMENT' && 'pl-4 border-l-2 border-border',
+                              )}
+                            >
                               {previewText(item)}
                             </p>
                           </td>
                           <td className="px-3 py-2">{item.decision}</td>
                           <td className="px-3 py-2">
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap gap-1">
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -423,6 +479,24 @@ export default function ChatImportPanel() {
                                   }
                                 >
                                   → {item.kind === 'POST' ? 'Listing' : 'Post'}
+                                </Button>
+                              ) : null}
+                              {item.kind === 'COMMENT' ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!!item.published_entity_id || patchMutation.isPending}
+                                  onClick={() =>
+                                    patchMutation.mutate([
+                                      {
+                                        id: item.id,
+                                        decision: 'APPROVED',
+                                        kind: 'POST',
+                                      },
+                                    ])
+                                  }
+                                >
+                                  → Post
                                 </Button>
                               ) : null}
                             </div>

@@ -15,11 +15,23 @@ from app.models.enums import ChatImportItemKind, ChatImportSource
 PHONE_RE = re.compile(
     r"(?:\+|00)?(?:20)?0?1[0125]\d{8}|\+\d{8,15}|\d{10,15}"
 )
+# Full-string phone / mostly-phone sender (WhatsApp shows number when contact not saved)
+PHONE_LIKE_SENDER_RE = re.compile(
+    r"^\s*(?:\+|00)?[\d\s\-().]{8,}\s*$"
+)
 WHATSAPP_LINE_RE = re.compile(
     r"^\[?(\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APMapm]{2})?)\]?\s*[-–]?\s*([^:]+):\s*(.*)$"
 )
+# Expanded bilingual commercial signals (fallback when LLM unavailable)
 LISTING_HINT_RE = re.compile(
-    r"\b(for\s+sale|sell(?:ing)?|buy|rent(?:ing)?|للبيع|ايجار|إيجار|سعر|price|egp|le\b|جنيه)\b",
+    r"("
+    r"for\s+sale|sell(?:ing)?|buy(?:ing)?|rent(?:ing|al)?|"
+    r"للبيع|للبيع|مطلوب\s*بيع|معروض|للتأجير|للتاجير|للايجار|للإيجار|للايجار|"
+    r"ايجار|إيجار|سعر(?:ه|ها)?|جنيه|كاش|قسط|"
+    r"هبيع|هابيع|بتباع|بتبيع|هشتري|اشتري|"
+    r"available\s+for|looking\s+to\s+(?:sell|buy|rent)|"
+    r"egp|\ble\b"
+    r")",
     re.IGNORECASE,
 )
 PRICE_RE = re.compile(
@@ -33,6 +45,20 @@ SKIP_RE = re.compile(
     r"messages and calls are end-to-end encrypted.*)$",
     re.IGNORECASE,
 )
+# Likely starts a new community thread rather than a reply
+NEW_ROOT_RE = re.compile(
+    r"[?؟]"
+    r"|^(?:anyone|any\s+one|does\s+anyone|has\s+anyone|looking\s+for|need(?:s|ed)?|"
+    r"recommendation|recommend|"
+    r"مين|حد\s*يعرف|فيه\s+حد|لو\s*سمحت|ممكن|عايز|عاوز|محتاج|فقدت|ضاعت|لقينا)",
+    re.IGNORECASE | re.MULTILINE,
+)
+PHONE_IN_TEXT_RE = re.compile(
+    r"(?:\+|00)?(?:20)?0?1[0125][\d\s\-()]{7,12}|\+\d{8,15}"
+)
+
+REPLY_MAX_CHARS = 240
+THREAD_GAP_SECONDS = 45 * 60
 
 
 def normalize_phone(raw: str | None) -> str | None:
@@ -62,14 +88,34 @@ def extract_phone_from_sender(sender: str) -> str | None:
     return normalize_phone(match.group(0))
 
 
+def is_phone_like_sender(sender: str) -> bool:
+    cleaned = (sender or "").strip()
+    if not cleaned:
+        return True
+    if PHONE_LIKE_SENDER_RE.match(cleaned):
+        return True
+    phone = extract_phone_from_sender(cleaned)
+    if not phone:
+        return False
+    # Sender is phone-only if removing digits/phone punctuation leaves almost nothing
+    residual = re.sub(r"[\d\s+\-().]", "", cleaned)
+    return len(residual) < 2
+
+
+def redact_phones(text: str) -> str:
+    """Remove phone numbers from public-facing content."""
+    if not text:
+        return text
+    return PHONE_IN_TEXT_RE.sub("[phone hidden]", text)
+
+
 def classify_message(text: str) -> ChatImportItemKind:
+    """Regex fallback classifier (used when LLM is unavailable)."""
     cleaned = (text or "").strip()
     if not cleaned or SKIP_RE.match(cleaned):
         return ChatImportItemKind.SKIP
-    if LISTING_HINT_RE.search(cleaned) or PRICE_RE.search(cleaned):
-        # Prefer listing when commercial signals are present.
-        if LISTING_HINT_RE.search(cleaned):
-            return ChatImportItemKind.LISTING
+    if LISTING_HINT_RE.search(cleaned):
+        return ChatImportItemKind.LISTING
     if len(cleaned) < 2:
         return ChatImportItemKind.SKIP
     return ChatImportItemKind.POST
@@ -87,7 +133,20 @@ def extract_price(text: str) -> float | None:
 
 def listing_intent(text: str) -> str:
     lower = (text or "").lower()
-    if any(token in lower for token in ("rent", "ايجار", "إيجار", "monthly", "hourly")):
+    if any(
+        token in lower
+        for token in (
+            "rent",
+            "ايجار",
+            "إيجار",
+            "للإيجار",
+            "للايجار",
+            "للتأجير",
+            "monthly",
+            "hourly",
+            "شهري",
+        )
+    ):
         return "RENT"
     return "SELL"
 
@@ -103,6 +162,7 @@ class ParsedMessage:
     phone: str | None
     text: str
     timestamp: str | None = None
+    reply_to_id: Any = None
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -115,30 +175,164 @@ class ParsedImport:
 
 
 def _sender_display(name: str, phone: str | None) -> str:
-    cleaned = (name or "").strip() or "Neighbour"
-    if phone and cleaned.replace(" ", "").endswith(phone[-4:]):
-        return cleaned
-    return cleaned
+    """
+    Public display name. Never use a phone number as the name.
+    Prefer WhatsApp/Telegram contact/profile name when present in the export.
+    """
+    cleaned = (name or "").strip()
+    if not cleaned or is_phone_like_sender(cleaned):
+        return "Neighbour"
+
+    # "Sara Ali +20100..." or "Sara ~ 0100..." → keep leading name
+    stripped = re.sub(
+        r"[\s~\-]*(?:\+|00)?(?:20)?0?1[0125][\d\s\-()]{7,}.*$",
+        "",
+        cleaned,
+    ).strip(" -~")
+    if stripped and not is_phone_like_sender(stripped):
+        return stripped[:80]
+    if is_phone_like_sender(cleaned):
+        return "Neighbour"
+    return cleaned[:80]
+
+
+def _parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    text = value.strip()
+    formats = (
+        "%m/%d/%y %I:%M:%S %p",
+        "%m/%d/%y %I:%M %p",
+        "%d/%m/%y %H:%M:%S",
+        "%d/%m/%y %H:%M",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S",
+    )
+    for fmt in formats:
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _looks_like_new_root(text: str) -> bool:
+    cleaned = (text or "").strip()
+    if len(cleaned) > REPLY_MAX_CHARS:
+        return True
+    return bool(NEW_ROOT_RE.search(cleaned))
+
+
+def _assign_threads(content_items: list[dict[str, Any]]) -> None:
+    """
+    Convert some POSTs into COMMENTs under a parent POST.
+
+    - Telegram: honor reply_to_message_id when parent is a POST
+    - WhatsApp / fallback: short follow-ups within a time window attach to the
+      active parent post (parent post → comments)
+    """
+    # message_index → item index in content_items
+    by_msg_index: dict[int, int] = {}
+    telegram_id_to_index: dict[Any, int] = {}
+    for idx, item in enumerate(content_items):
+        mid = (item.get("normalized") or {}).get("message_index")
+        if isinstance(mid, int):
+            by_msg_index[mid] = idx
+            raw = item.get("raw_payload") or {}
+            if raw.get("format") == "telegram" and raw.get("id") is not None:
+                telegram_id_to_index[raw["id"]] = mid
+
+    active_parent: int | None = None
+    active_ts: datetime | None = None
+
+    for item in content_items:
+        kind = item.get("kind")
+        normalized = dict(item.get("normalized") or {})
+        msg_index = normalized.get("message_index")
+        text = str(normalized.get("content") or "")
+        ts = _parse_timestamp(normalized.get("timestamp"))
+        raw = item.get("raw_payload") or {}
+
+        if kind == ChatImportItemKind.SKIP.value:
+            continue
+
+        if kind == ChatImportItemKind.LISTING.value:
+            active_parent = None
+            active_ts = ts
+            continue
+
+        if kind != ChatImportItemKind.POST.value:
+            continue
+
+        parent_index: int | None = None
+        reply_to = raw.get("reply_to_message_id")
+        if reply_to is not None and reply_to in telegram_id_to_index:
+            candidate = telegram_id_to_index[reply_to]
+            parent_item = content_items[by_msg_index[candidate]]
+            if parent_item.get("kind") == ChatImportItemKind.POST.value:
+                parent_index = candidate
+
+        if parent_index is None and active_parent is not None:
+            gap_ok = True
+            if ts and active_ts:
+                gap_ok = abs((ts - active_ts).total_seconds()) <= THREAD_GAP_SECONDS
+            if (
+                gap_ok
+                and len(text.strip()) <= REPLY_MAX_CHARS
+                and not _looks_like_new_root(text)
+            ):
+                parent_index = active_parent
+
+        if parent_index is not None and parent_index != msg_index:
+            item["kind"] = ChatImportItemKind.COMMENT.value
+            normalized["parent_message_index"] = parent_index
+            item["normalized"] = normalized
+            if ts:
+                active_ts = ts
+            continue
+
+        # New root post
+        active_parent = msg_index if isinstance(msg_index, int) else None
+        active_ts = ts
+        normalized.pop("parent_message_index", None)
+        item["normalized"] = normalized
 
 
 def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]) -> ParsedImport:
     users_by_phone: dict[str, dict[str, Any]] = {}
     content_items: list[dict[str, Any]] = []
 
-    for message in messages:
+    for message_index, message in enumerate(messages):
         phone = message.phone
         name = _sender_display(message.sender_name, phone)
         if phone and phone not in users_by_phone:
             users_by_phone[phone] = {
                 "kind": ChatImportItemKind.USER.value,
                 "decision": "APPROVED",
-                "raw_payload": message.raw or {"sender": message.sender_name},
+                "raw_payload": {
+                    "sender": message.sender_name,
+                    # Admin-only: phone lives here / normalized.phone, never as display name
+                },
                 "normalized": {
                     "phone": phone,
                     "name": name,
                     "source": source.value,
+                    "phone_private": True,
                 },
             }
+        elif phone and phone in users_by_phone:
+            # Prefer a real contact/profile name over Neighbour when we later see one
+            existing_name = users_by_phone[phone]["normalized"].get("name")
+            if name != "Neighbour" and (
+                not existing_name or existing_name == "Neighbour"
+            ):
+                users_by_phone[phone]["normalized"]["name"] = name
 
         kind = classify_message(message.text)
         normalized: dict[str, Any] = {
@@ -147,6 +341,8 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
             "content": message.text.strip(),
             "timestamp": message.timestamp,
             "source": source.value,
+            "message_index": message_index,
+            "phone_private": True,
         }
         if kind == ChatImportItemKind.LISTING:
             normalized.update(
@@ -159,20 +355,27 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
                     "currency": "EGP",
                 }
             )
+        raw_payload = {
+            "sender": message.sender_name,
+            "text": message.text,
+            "timestamp": message.timestamp,
+            **(message.raw or {}),
+        }
+        if message.reply_to_id is not None:
+            raw_payload["reply_to_message_id"] = message.reply_to_id
         content_items.append(
             {
                 "kind": kind.value,
                 "decision": "APPROVED" if kind != ChatImportItemKind.SKIP else "REJECTED",
-                "raw_payload": {
-                    "sender": message.sender_name,
-                    "text": message.text,
-                    "timestamp": message.timestamp,
-                    **(message.raw or {}),
-                },
+                "raw_payload": raw_payload,
                 "normalized": normalized,
-                "reject_reason": "Empty or media-only message" if kind == ChatImportItemKind.SKIP else None,
+                "reject_reason": "Empty or media-only message"
+                if kind == ChatImportItemKind.SKIP
+                else None,
             }
         )
+
+    _assign_threads(content_items)
 
     return ParsedImport(
         source=source,
@@ -237,7 +440,6 @@ def parse_telegram_json(data: dict[str, Any] | list[Any]) -> list[ParsedMessage]
                 phone = extract_phone_from_sender(value) or normalize_phone(value)
                 if phone:
                     break
-        # Telegram exports rarely include phones; keep name-based identity key fallback later.
         timestamp = None
         if entry.get("date"):
             timestamp = str(entry["date"])
@@ -247,7 +449,13 @@ def parse_telegram_json(data: dict[str, Any] | list[Any]) -> list[ParsedMessage]
                 phone=phone,
                 text=str(text),
                 timestamp=timestamp,
-                raw={"format": "telegram", "id": entry.get("id"), "from_id": entry.get("from_id")},
+                reply_to_id=entry.get("reply_to_message_id"),
+                raw={
+                    "format": "telegram",
+                    "id": entry.get("id"),
+                    "from_id": entry.get("from_id"),
+                    "reply_to_message_id": entry.get("reply_to_message_id"),
+                },
             )
         )
     return messages
@@ -308,10 +516,25 @@ def parse_file_path(path: str | Path, source: ChatImportSource | None = None) ->
     return detect_and_parse_bytes(file_path.read_bytes(), file_path.name, source)
 
 
+def rethread_items(items: list[dict[str, Any]]) -> None:
+    """Re-run thread assignment after LLM reclassified kinds (POST/LISTING/SKIP)."""
+    # Reset comments back to posts before re-threading
+    for item in items:
+        if item.get("kind") == ChatImportItemKind.COMMENT.value:
+            item["kind"] = ChatImportItemKind.POST.value
+            normalized = dict(item.get("normalized") or {})
+            normalized.pop("parent_message_index", None)
+            item["normalized"] = normalized
+            item["decision"] = "APPROVED"
+            item["reject_reason"] = None
+    _assign_threads(items)
+
+
 def summarize_parsed(parsed: ParsedImport) -> dict[str, int]:
     kind_counts = {
         "users": len(parsed.users),
         "posts": 0,
+        "comments": 0,
         "listings": 0,
         "skipped": 0,
         "messages": len(parsed.messages),
@@ -320,6 +543,8 @@ def summarize_parsed(parsed: ParsedImport) -> dict[str, int]:
         kind = item["kind"]
         if kind == ChatImportItemKind.POST.value:
             kind_counts["posts"] += 1
+        elif kind == ChatImportItemKind.COMMENT.value:
+            kind_counts["comments"] += 1
         elif kind == ChatImportItemKind.LISTING.value:
             kind_counts["listings"] += 1
         elif kind == ChatImportItemKind.SKIP.value:
