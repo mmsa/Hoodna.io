@@ -14,7 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { Compound } from "@hoodna/shared";
+import type { Compound, ServiceCategory } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { colors } from "@/constants/colors";
@@ -23,7 +23,6 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 type ProviderType = "INDIVIDUAL" | "REGISTERED_BUSINESS";
 type VerificationMethod = "COMMERCIAL_REGISTER" | "NATIONAL_ID_OCCUPATION";
-type Category = { id: number; name: string; description?: string; icon?: string };
 type ProviderProfile = {
   provider_status?: string;
   provider_type?: ProviderType;
@@ -51,7 +50,7 @@ export default function ProviderOnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(0);
   const [profileExists, setProfileExists] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [compounds, setCompounds] = useState<Compound[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
@@ -75,7 +74,7 @@ export default function ProviderOnboardingScreen() {
     setLoading(true);
     try {
       const [categoryData, compoundData] = await Promise.all([
-        apiClient.request<Category[]>("/api/service-categories"),
+        apiClient.getServiceCategories(),
         apiClient.getCompounds({ limit: 200 }),
       ]);
       setCategories(categoryData || []);

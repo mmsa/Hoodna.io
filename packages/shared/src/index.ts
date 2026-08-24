@@ -15,6 +15,7 @@ export {
 export * from "./schemas/verification";
 export * from "./schemas/post";
 export * from "./schemas/listing";
+export * from "./schemas/service-category";
 export * from "./schemas/compound";
 export * from "./schemas/message";
 export * from "./schemas/notification";

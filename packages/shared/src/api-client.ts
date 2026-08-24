@@ -12,6 +12,7 @@ import { User } from "./schemas/user";
 import { VerificationStatusResponse, PresignRequest, PresignResponse, DocumentSubmit } from "./schemas/verification";
 import { Post, PostCreate, CommentCreate } from "./schemas/post";
 import { Listing, ListingCreate, ListingUpdate } from "./schemas/listing";
+import { ServiceCategory } from "./schemas/service-category";
 import { Compound } from "./schemas/compound";
 import {
   ReferralCreate,
@@ -592,6 +593,11 @@ export class ApiClient {
 
   async getFeed(limit = 15): Promise<Post[]> {
     return this.request<Post[]>(`/api/feed?limit=${limit}`);
+  }
+
+  // Service categories
+  async getServiceCategories(): Promise<ServiceCategory[]> {
+    return this.request<ServiceCategory[]>("/api/service-categories");
   }
 
   // Provider endpoints

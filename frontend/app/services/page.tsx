@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { Plus, Search, Wrench } from "lucide-react"
+import type { ServiceCategory } from "@hoodna/shared"
 
 import { ListingCard } from "@/components/marketplace/listing-card"
 import {
@@ -25,6 +26,18 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states"
 import { useAuth } from "@/hooks/use-auth"
 import api from "@/lib/api"
 import { formatCompoundName } from "@/lib/format-compound"
+import { cn } from "@/lib/utils"
+
+function listingMatchesCategory(listing: ListingView, category: ServiceCategory): boolean {
+  const haystack = `${listing.title} ${listing.description || ""}`.toLowerCase()
+  const name = category.name.toLowerCase()
+  if (haystack.includes(name)) return true
+  const tokens = name
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length > 2 && token !== "and" && token !== "the")
+  return tokens.some((token) => haystack.includes(token))
+}
 
 export default function ServicesPage() {
   const router = useRouter()
@@ -32,6 +45,7 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState("date_desc")
   const [intent, setIntent] = useState("")
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
   const provider = user?.role === "SERVICE_PROVIDER"
 
   const { data: providerProfile, isLoading: profileLoading } = useQuery({
@@ -61,6 +75,14 @@ export default function ServicesPage() {
   const compoundName = feedSummary?.compound_name
     ? formatCompoundName(feedSummary.compound_name)
     : "your compound"
+
+  const { data: categories = [] } = useQuery<ServiceCategory[]>({
+    queryKey: ["service-categories"],
+    queryFn: async () => (await api.get("/api/service-categories")).data || [],
+    enabled: !!user && !provider,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const queryParams = useMemo(() => {
     const params = new URLSearchParams({
       scope: provider ? "my" : "compound",
@@ -86,6 +108,17 @@ export default function ServicesPage() {
     refetchOnMount: true,
     refetchOnWindowFocus: false,
   })
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId) || null,
+    [categories, selectedCategoryId],
+  )
+
+  const visibleServices = useMemo(() => {
+    if (!services) return []
+    if (!selectedCategory || search.trim()) return services
+    return services.filter((service) => listingMatchesCategory(service, selectedCategory))
+  }, [services, selectedCategory, search])
 
   useEffect(() => {
     if (!error) return
@@ -122,11 +155,64 @@ export default function ServicesPage() {
           description={provider ? "Manage the services residents can discover." : `Find local service providers in ${compoundName}.`}
           actions={createAction}
         />
+
+        {!provider && categories.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-foreground">Categories</h2>
+              {selectedCategoryId ? (
+                <button
+                  type="button"
+                  className="text-sm font-medium text-primary hover:underline"
+                  onClick={() => setSelectedCategoryId(null)}
+                >
+                  Clear filter
+                </button>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+              {categories.map((category) => {
+                const active = selectedCategoryId === category.id
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setSearch("")
+                      setSelectedCategoryId(active ? null : category.id)
+                    }}
+                    className={cn(
+                      "flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-center transition-colors",
+                      active
+                        ? "border-primary bg-secondary text-primary"
+                        : "border-border bg-card text-foreground hover:border-primary/40",
+                    )}
+                  >
+                    <span className="text-xl" aria-hidden>
+                      {category.icon || "🔧"}
+                    </span>
+                    <span className="text-xs font-semibold leading-tight">{category.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
+
         <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_180px_200px]">
           <label className="relative">
             <span className="sr-only">Search services</span>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search services" className="pl-9" />
+            <Input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                if (event.target.value.trim()) setSelectedCategoryId(null)
+              }}
+              placeholder="Search services"
+              className="pl-9"
+            />
           </label>
           <Select value={intent || "all"} onValueChange={(value) => setIntent(value === "all" ? "" : value)}>
             <SelectTrigger aria-label="Service pricing"><SelectValue placeholder="Any pricing" /></SelectTrigger>
@@ -143,17 +229,30 @@ export default function ServicesPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {selectedCategory ? (
+          <p className="text-sm font-medium text-foreground">
+            Showing: {selectedCategory.name}
+          </p>
+        ) : null}
+
         {error ? (
           <ErrorState title="Services could not be loaded" description="Check your connection and try again." action={<Button onClick={() => refetch()}>Try again</Button>} />
-        ) : services?.length ? (
+        ) : visibleServices.length ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {services.map((service) => <ListingCard key={service.id} listing={service} />)}
+            {visibleServices.map((service) => <ListingCard key={service.id} listing={service} />)}
           </div>
         ) : (
           <EmptyState
             icon={<Wrench className="h-5 w-5" />}
-            title={search ? "No matching services" : provider ? "No services yet" : "No services available"}
-            description={search ? "Try a broader search." : provider ? "Publish your first service so residents can find you." : `No providers have listed a service in ${compoundName} yet.`}
+            title={search || selectedCategory ? "No matching services" : provider ? "No services yet" : "No services available"}
+            description={
+              search || selectedCategory
+                ? "Try another search or category."
+                : provider
+                  ? "Publish your first service so residents can find you."
+                  : `No providers have listed a service in ${compoundName} yet.`
+            }
             action={createAction}
           />
         )}

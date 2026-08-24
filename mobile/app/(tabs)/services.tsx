@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { Listing } from "@hoodna/shared";
+import type { Listing, ServiceCategory } from "@hoodna/shared";
 import { spacing, typography, palette, radii } from "@hoodna/tokens";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
-  ImageBackground,
   RefreshControl,
   StyleSheet,
   Text,
@@ -26,43 +25,32 @@ interface ProviderProfile {
   provider_status: string;
 }
 
-const CATEGORY_CARDS = [
-  {
-    key: "cleaning",
-    label: "Home cleaning",
-    search: "clean",
-    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80",
-  },
-  {
-    key: "handyman",
-    label: "Handyman",
-    search: "repair",
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80",
-  },
-  {
-    key: "tutoring",
-    label: "Tutoring",
-    search: "tutor",
-    image: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80",
-  },
-] as const;
-
-type BrowseFilter = "categories" | "all" | (typeof CATEGORY_CARDS)[number]["key"];
+function listingMatchesCategory(listing: Listing, category: ServiceCategory): boolean {
+  const haystack = `${listing.title} ${listing.description || ""}`.toLowerCase();
+  const name = category.name.toLowerCase();
+  if (haystack.includes(name)) return true;
+  const tokens = name
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim().toLowerCase())
+    .filter((token) => token.length > 2 && token !== "and" && token !== "the");
+  return tokens.some((token) => haystack.includes(token));
+}
 
 export default function ServicesScreen() {
   const { apiClient, user } = useAuth();
   const router = useRouter();
   const [services, setServices] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const [browse, setBrowse] = useState<BrowseFilter>("categories");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [compoundName, setCompoundName] = useState<string | null>(null);
   const [providerProfile, setProviderProfile] = useState<ProviderProfile | null>(null);
 
   const isProvider = user?.role === "SERVICE_PROVIDER";
 
-  async function loadServices() {
+  const loadServices = useCallback(async () => {
     if (!isProvider && !user?.compound_id) {
       setLoading(false);
       setRefreshing(false);
@@ -85,11 +73,24 @@ export default function ServicesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, [apiClient, isProvider, router, search, user?.compound_id]);
+
+  const loadCategories = useCallback(async () => {
+    if (isProvider) return;
+    try {
+      setCategories((await apiClient.getServiceCategories()) || []);
+    } catch (error) {
+      console.error("Failed to load service categories:", error);
+    }
+  }, [apiClient, isProvider]);
 
   useEffect(() => {
-    loadServices();
-  }, [user?.compound_id, user?.role, search]);
+    void loadServices();
+  }, [loadServices]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     if (isProvider) {
@@ -114,16 +115,15 @@ export default function ServicesScreen() {
     providerProfile?.provider_status === "APPROVED" &&
     user?.can_create_listing === true;
 
-  const showList = isProvider || browse !== "categories" || !!search.trim();
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId) || null,
+    [categories, selectedCategoryId],
+  );
 
   const visibleServices = useMemo(() => {
-    if (!showList) return [];
-    if (browse === "all" || browse === "categories" || search.trim()) return services;
-    const card = CATEGORY_CARDS.find((c) => c.key === browse);
-    if (!card) return services;
-    const q = card.search.toLowerCase();
-    return services.filter((item) => item.title.toLowerCase().includes(q));
-  }, [services, browse, search, showList]);
+    if (!selectedCategory || search.trim()) return services;
+    return services.filter((item) => listingMatchesCategory(item, selectedCategory));
+  }, [services, selectedCategory, search]);
 
   if (loading) {
     return (
@@ -171,7 +171,7 @@ export default function ServicesScreen() {
                 accessibilityLabel="Search services"
                 onChangeText={(value) => {
                   setSearch(value);
-                  if (value.trim()) setBrowse("all");
+                  if (value.trim()) setSelectedCategoryId(null);
                 }}
                 placeholder="Search services"
                 placeholderTextColor={colors.textMuted}
@@ -181,87 +181,67 @@ export default function ServicesScreen() {
               />
             </View>
 
-            {!isProvider ? (
-              <View style={styles.cards}>
-                {CATEGORY_CARDS.map((card) => {
-                  const active = browse === card.key;
-                  return (
-                    <TouchableOpacity
-                      key={card.key}
-                      activeOpacity={0.9}
-                      onPress={() => {
-                        setSearch("");
-                        setBrowse(active ? "categories" : card.key);
-                      }}
-                      style={[styles.categoryCard, active && styles.categoryCardActive]}
-                    >
-                      <ImageBackground
-                        source={{ uri: card.image }}
-                        style={styles.categoryImage}
-                        imageStyle={styles.categoryImageInner}
+            {!isProvider && categories.length > 0 ? (
+              <View style={styles.categoriesSection}>
+                <Text style={styles.sectionLabel}>Categories</Text>
+                <View style={styles.categoryGrid}>
+                  {categories.map((category) => {
+                    const active = selectedCategoryId === category.id;
+                    return (
+                      <TouchableOpacity
+                        key={category.id}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          setSearch("");
+                          setSelectedCategoryId(active ? null : category.id);
+                        }}
+                        style={[styles.categoryChip, active && styles.categoryChipActive]}
                       >
-                        <View style={styles.categoryScrim} />
-                        <Text style={styles.categoryLabel}>{card.label}</Text>
-                      </ImageBackground>
-                    </TouchableOpacity>
-                  );
-                })}
+                        <Text style={styles.categoryIcon}>{category.icon || "🔧"}</Text>
+                        <Text
+                          numberOfLines={2}
+                          style={[styles.categoryName, active && styles.categoryNameActive]}
+                        >
+                          {category.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             ) : null}
 
-            {!isProvider ? (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearch("");
-                  setBrowse(browse === "all" ? "categories" : "all");
-                }}
-                style={styles.seeAllLink}
-              >
-                <Text style={styles.seeAllText}>
-                  {browse === "all" ? "Show categories only" : "See all services"}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {showList && visibleServices.length > 0 ? (
-              <Text style={styles.listHeading}>
-                {browse !== "all" && browse !== "categories"
-                  ? CATEGORY_CARDS.find((c) => c.key === browse)?.label
-                  : search.trim()
-                    ? "Results"
-                    : "All services"}
-              </Text>
-            ) : null}
+            <Text style={styles.listHeading}>
+              {selectedCategory
+                ? selectedCategory.name
+                : search.trim()
+                  ? "Results"
+                  : "All services"}
+            </Text>
           </View>
         }
         ListEmptyComponent={
-          showList ? (
-            <EmptyState
-              actionLabel={canCreate && !search ? "Create a service" : undefined}
-              description={
-                search || (browse !== "all" && browse !== "categories")
-                  ? "Try another search or category."
-                  : isProvider
-                    ? "Your published services will appear here."
-                    : "No approved providers have published a service yet."
-              }
-              icon={<Ionicons color={colors.textMuted} name="construct-outline" size={36} />}
-              onAction={canCreate ? () => router.push("/create-listing?category=SERVICE") : undefined}
-              title={search || browse !== "all" ? "No services found" : "No services yet"}
-            />
-          ) : (
-            <View style={styles.browseHint}>
-              <Text style={styles.browseHintText}>
-                Tap a category above, or search for the help you need.
-              </Text>
-            </View>
-          )
+          <EmptyState
+            actionLabel={canCreate && !search ? "Create a service" : undefined}
+            description={
+              search || selectedCategory
+                ? "Try another search or category."
+                : isProvider
+                  ? "Your published services will appear here."
+                  : "No approved providers have published a service yet."
+            }
+            icon={<Ionicons color={colors.textMuted} name="construct-outline" size={36} />}
+            onAction={canCreate ? () => router.push("/create-listing?category=SERVICE") : undefined}
+            title={search || selectedCategory ? "No services found" : "No services yet"}
+          />
         }
         refreshControl={
           <RefreshControl
             onRefresh={() => {
               setRefreshing(true);
-              loadServices();
+              void Promise.all([loadServices(), loadCategories()]);
             }}
             refreshing={refreshing}
             tintColor={colors.primary}
@@ -336,48 +316,52 @@ const styles = StyleSheet.create({
     color: colors.textMain,
     paddingVertical: spacing[3],
   },
-  cards: {
-    gap: spacing[4],
+  categoriesSection: {
+    marginBottom: spacing[4],
+  },
+  sectionLabel: {
     marginBottom: spacing[3],
-  },
-  categoryCard: {
-    height: 140,
-    borderRadius: radii.xl,
-    overflow: "hidden",
-  },
-  categoryCardActive: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  categoryImage: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  categoryImageInner: {
-    borderRadius: radii.xl,
-  },
-  categoryScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
-  },
-  categoryLabel: {
-    color: "#FFFFFF",
+    color: colors.textMain,
     fontSize: typography.size.titleSmall,
     fontWeight: typography.weight.bold,
-    padding: spacing[4],
   },
-  seeAllLink: {
-    alignSelf: "flex-start",
-    paddingVertical: spacing[2],
-    marginBottom: spacing[2],
+  categoryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing[2],
   },
-  seeAllText: {
+  categoryChip: {
+    width: "31%",
+    minHeight: 88,
+    borderRadius: radii.large,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: palette.surfaceMuted,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[3],
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[1],
+  },
+  categoryChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: palette.primarySoft,
+  },
+  categoryIcon: {
+    fontSize: 22,
+  },
+  categoryName: {
+    textAlign: "center",
+    color: colors.textMain,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: typography.weight.semibold,
+  },
+  categoryNameActive: {
     color: colors.primary,
-    fontSize: typography.size.bodySmall,
-    fontWeight: typography.weight.bold,
   },
   listHeading: {
-    marginTop: spacing[2],
+    marginTop: spacing[1],
     marginBottom: spacing[3],
     color: colors.textMain,
     fontSize: typography.size.titleSmall,
@@ -386,16 +370,6 @@ const styles = StyleSheet.create({
   card: {
     paddingHorizontal: spacing[5],
     marginBottom: spacing[3],
-  },
-  browseHint: {
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[4],
-  },
-  browseHintText: {
-    textAlign: "center",
-    color: colors.textMuted,
-    fontSize: typography.size.bodySmall,
-    lineHeight: typography.lineHeight.bodySmall,
   },
   offerFab: {
     position: "absolute",
