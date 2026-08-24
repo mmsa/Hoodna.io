@@ -9,8 +9,12 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from app.models.enums import ChatImportItemKind, ChatImportSource
+
+# WhatsApp exports are local wall-clock; Egyptian compounds default to Cairo.
+IMPORT_LOCAL_TZ = ZoneInfo("Africa/Cairo")
 
 PHONE_RE = re.compile(
     r"(?:\+|00)?(?:20)?0?1[0125]\d{8}|\+\d{8,15}|\d{10,15}"
@@ -196,30 +200,56 @@ def _sender_display(name: str, phone: str | None) -> str:
     return cleaned[:80]
 
 
-def _parse_timestamp(value: str | None) -> datetime | None:
+def parse_import_timestamp(value: str | None) -> datetime | None:
+    """
+    Parse a WhatsApp/Telegram export timestamp into timezone-aware UTC-compatible datetime.
+
+    Naive WhatsApp times are interpreted as Africa/Cairo wall clock.
+    """
     if not value:
         return None
-    text = value.strip()
+    text = str(value).strip()
     formats = (
         "%m/%d/%y %I:%M:%S %p",
         "%m/%d/%y %I:%M %p",
+        "%d/%m/%y %I:%M:%S %p",
+        "%d/%m/%y %I:%M %p",
+        "%d/%m/%Y %I:%M:%S %p",
+        "%d/%m/%Y %I:%M %p",
+        "%m/%d/%Y %I:%M:%S %p",
+        "%m/%d/%Y %I:%M %p",
         "%d/%m/%y %H:%M:%S",
         "%d/%m/%y %H:%M",
         "%d/%m/%Y %H:%M:%S",
         "%d/%m/%Y %H:%M",
+        "%m/%d/%y %H:%M:%S",
+        "%m/%d/%y %H:%M",
+        "%m/%d/%Y %H:%M:%S",
+        "%m/%d/%Y %H:%M",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%dT%H:%M:%S%z",
         "%Y-%m-%d %H:%M:%S",
     )
+    parsed: datetime | None = None
     for fmt in formats:
         try:
-            return datetime.strptime(text, fmt)
+            parsed = datetime.strptime(text, fmt)
+            break
         except ValueError:
             continue
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    if parsed is None:
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=IMPORT_LOCAL_TZ)
+    return parsed
+
+
+# Keep private alias used by threading heuristics
+_parse_timestamp = parse_import_timestamp
 
 
 def _looks_like_new_root(text: str) -> bool:
@@ -335,11 +365,13 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
                 users_by_phone[phone]["normalized"]["name"] = name
 
         kind = classify_message(message.text)
+        parsed_ts = parse_import_timestamp(message.timestamp)
         normalized: dict[str, Any] = {
             "phone": phone,
             "name": name,
             "content": message.text.strip(),
             "timestamp": message.timestamp,
+            "created_at": parsed_ts.isoformat() if parsed_ts else None,
             "source": source.value,
             "message_index": message_index,
             "phone_private": True,

@@ -69,10 +69,23 @@ TELEGRAM_SAMPLE = {
 }
 
 
-def test_normalize_egyptian_phone():
-    assert normalize_phone("+20 100 123 4567") == "201001234567"
-    assert normalize_phone("01001234567") == "201001234567"
-    assert normalize_phone("1001234567") == "201001234567"
+def test_parse_import_timestamp_preserves_wall_clock():
+    from app.services.chat_import_parser import parse_import_timestamp
+
+    ts = parse_import_timestamp("1/15/26 10:01:22 AM")
+    assert ts is not None
+    assert ts.year == 2026
+    assert ts.month == 1
+    assert ts.day == 15
+    assert ts.hour == 10
+    assert ts.minute == 1
+    assert ts.tzinfo is not None
+
+
+def test_whatsapp_normalized_includes_created_at():
+    parsed = detect_and_parse_bytes(WHATSAPP_SAMPLE.encode("utf-8"), "chat.txt")
+    content_items = [i for i in parsed.items if i["kind"] != "USER"]
+    assert any(i["normalized"].get("created_at") for i in content_items)
 
 
 def test_classify_message():

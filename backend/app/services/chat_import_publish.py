@@ -32,6 +32,7 @@ from app.services.chat_import_parser import (
     _sender_display,
     is_phone_like_sender,
     normalize_phone,
+    parse_import_timestamp,
     redact_phones,
 )
 
@@ -39,6 +40,12 @@ from app.services.chat_import_parser import (
 def _synthetic_phone(name: str) -> str:
     digest = abs(hash(name.strip().lower() or "neighbour")) % (10**9)
     return f"900{digest:09d}"
+
+
+def _original_created_at(normalized: dict[str, Any]):
+    """Prefer original chat timestamp so feed shows historical times."""
+    raw = normalized.get("created_at") or normalized.get("timestamp")
+    return parse_import_timestamp(raw if isinstance(raw, str) else None)
 
 
 def _safe_public_name(name: str | None, phone: str | None = None) -> str:
@@ -186,13 +193,17 @@ async def publish_chat_import_job(
                     item.reject_reason = "Empty content"
                     continue
                 provenance = f"\n\n— imported from group chat (job #{job.id})"
-                post = Post(
+                created_at = _original_created_at(normalized)
+                post_kwargs = dict(
                     compound_id=job.compound_id,
                     author_id=author.id,
                     content=content + provenance,
                     category=PostCategory.GENERAL,
                     is_urgent=False,
                 )
+                if created_at is not None:
+                    post_kwargs["created_at"] = created_at
+                post = Post(**post_kwargs)
                 db.add(post)
                 await db.flush()
                 item.published_entity_type = "POST"
@@ -224,7 +235,8 @@ async def publish_chat_import_job(
                         price = Decimal(str(price_val))
                     except Exception:
                         price = None
-                listing = Listing(
+                created_at = _original_created_at(normalized)
+                listing_kwargs = dict(
                     compound_id=job.compound_id,
                     owner_id=author.id,
                     category=category,
@@ -237,9 +249,13 @@ async def publish_chat_import_job(
                     attributes={
                         "imported_from": "chat_import",
                         "chat_import_job_id": job.id,
+                        "original_timestamp": normalized.get("timestamp"),
                     },
                     status=ListingStatus.ACTIVE,
                 )
+                if created_at is not None:
+                    listing_kwargs["created_at"] = created_at
+                listing = Listing(**listing_kwargs)
                 db.add(listing)
                 await db.flush()
                 item.published_entity_type = "LISTING"
@@ -274,16 +290,20 @@ async def publish_chat_import_job(
         )
 
         try:
+            created_at = _original_created_at(normalized)
             if post_id is None:
                 # Orphan comment → publish as its own post
                 provenance = f"\n\n— imported from group chat (job #{job.id})"
-                post = Post(
+                post_kwargs = dict(
                     compound_id=job.compound_id,
                     author_id=author.id,
                     content=content + provenance,
                     category=PostCategory.GENERAL,
                     is_urgent=False,
                 )
+                if created_at is not None:
+                    post_kwargs["created_at"] = created_at
+                post = Post(**post_kwargs)
                 db.add(post)
                 await db.flush()
                 item.published_entity_type = "POST"
@@ -292,11 +312,14 @@ async def publish_chat_import_job(
                 stats["posts_published"] += 1
                 continue
 
-            comment = Comment(
+            comment_kwargs = dict(
                 post_id=post_id,
                 author_id=author.id,
                 content=content,
             )
+            if created_at is not None:
+                comment_kwargs["created_at"] = created_at
+            comment = Comment(**comment_kwargs)
             db.add(comment)
             await db.flush()
             item.published_entity_type = "COMMENT"
