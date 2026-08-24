@@ -10,6 +10,7 @@ export type PostCategory =
 
 export interface Comment {
   id: number
+  author_id?: number
   author_name: string
   author_avatar_url?: string | null
   author_status?: string

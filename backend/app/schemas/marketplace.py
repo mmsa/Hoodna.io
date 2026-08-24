@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Optional, List, Union
+from typing import Any, Optional, List, Union
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
@@ -74,6 +74,49 @@ class PropertyAttributes(ListingAttributes):
 
 CategoryAttributes = Union[ItemAttributes, CarAttributes, PropertyAttributes]
 
+# Provenance / import keys that are not part of category attribute schemas
+_IMPORT_ATTRIBUTE_KEYS = frozenset(
+    {"imported_from", "chat_import_job_id", "original_timestamp"}
+)
+
+
+def sanitize_listing_attributes(
+    category: ListingCategory | str | None,
+    attributes: Any,
+) -> Optional[dict[str, Any]]:
+    """
+    Return attributes safe for API responses.
+
+    Invalid / incomplete payloads (e.g. chat-import provenance) become None
+    instead of raising ValidationError on ListingResponse.
+    """
+    if not attributes or not isinstance(attributes, dict):
+        return None
+
+    cleaned = {
+        key: value
+        for key, value in attributes.items()
+        if key not in _IMPORT_ATTRIBUTE_KEYS
+    }
+    if not cleaned:
+        return None
+
+    category_value = (
+        category.value if isinstance(category, ListingCategory) else str(category or "")
+    ).upper()
+    schema = {
+        "ITEM": ItemAttributes,
+        "CAR": CarAttributes,
+        "PROPERTY": PropertyAttributes,
+    }.get(category_value)
+    if schema is None:
+        return None
+
+    try:
+        return schema.model_validate(cleaned).model_dump(mode="json")
+    except Exception:
+        return None
+
 
 def validate_attributes_for_category(
     category: ListingCategory,
@@ -146,7 +189,8 @@ class ListingResponse(BaseModel):
     currency: str
     intent: ListingIntent
     image_urls: List[str]
-    attributes: Optional[CategoryAttributes] = None
+    # Loose on read so legacy/import rows never 500 the marketplace
+    attributes: Optional[dict[str, Any]] = None
     status: ListingStatus
     created_at: datetime
     average_rating: Optional[float] = None  # Average rating from reviews
@@ -179,4 +223,3 @@ class PromotionResponse(BaseModel):
 class CheckoutSessionResponse(BaseModel):
     session_id: str
     url: str
-

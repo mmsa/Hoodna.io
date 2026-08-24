@@ -120,18 +120,28 @@ export function NeighbourPostCard({
         </Text>
 
         <View style={styles.meta}>
-          <Avatar
-            name={post.author_name}
-            fileUrl={post.author_avatar_url}
-            apiClient={apiClient}
-            size={28}
-          />
-          <View style={styles.metaText}>
-            <Text style={styles.author} numberOfLines={1}>
-              {post.author_name}
-            </Text>
-            <Text style={styles.time}>{timeAgo}</Text>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            hitSlop={8}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              router.push(`/neighbours/${post.author_id}`);
+            }}
+            style={styles.authorPress}
+          >
+            <Avatar
+              name={post.author_name}
+              fileUrl={post.author_avatar_url}
+              apiClient={apiClient}
+              size={28}
+            />
+            <View style={styles.metaText}>
+              <Text style={styles.author} numberOfLines={1}>
+                {post.author_name}
+              </Text>
+              <Text style={styles.time}>{timeAgo}</Text>
+            </View>
+          </TouchableOpacity>
           {isMod ? (
             <TouchableOpacity
               hitSlop={10}
@@ -249,6 +259,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing[2],
     marginBottom: spacing[3],
+  },
+  authorPress: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    minWidth: 0,
   },
   metaText: {
     flex: 1,

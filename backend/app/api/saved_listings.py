@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.schemas.marketplace import ListingResponse
+from app.schemas.marketplace import ListingResponse, sanitize_listing_attributes
 from app.crud.saved_listing import (
     save_listing,
     unsave_listing,
@@ -95,7 +95,7 @@ async def get_saved_listings_endpoint(
             price=listing.price,
             currency=listing.currency,
             intent=listing.intent,
-            attributes=listing.attributes,
+            attributes=sanitize_listing_attributes(listing.category, listing.attributes),
             image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
             status=listing.status,
             created_at=listing.created_at,

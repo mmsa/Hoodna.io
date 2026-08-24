@@ -1,15 +1,19 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.enums import AccountDeletionStatus
 from app.models.launch_accounts import AccountDeletionRequest, UserPreference
 from app.schemas.account import (
     AccountDeletionRequestResponse,
+    ProfileVisibility,
     UserPreferencesResponse,
     UserPreferencesUpdate,
 )
 
 SUPPORTED_LOCALES = {"en", "ar"}
+
+DEFAULT_PROFILE_VISIBILITY = ProfileVisibility()
 
 
 def _get_locale(preference: UserPreference) -> str:
@@ -22,6 +26,31 @@ def _set_locale(preference: UserPreference, locale: str) -> None:
     values = dict(preference.preferences or {})
     values["locale"] = locale
     preference.preferences = values
+    flag_modified(preference, "preferences")
+
+
+def get_profile_visibility(preference: UserPreference | None) -> ProfileVisibility:
+    if preference is None:
+        return DEFAULT_PROFILE_VISIBILITY.model_copy()
+    values = preference.preferences if preference.preferences else {}
+    raw = values.get("profile_visibility") or {}
+    if not isinstance(raw, dict):
+        return DEFAULT_PROFILE_VISIBILITY.model_copy()
+    try:
+        return ProfileVisibility.model_validate(
+            {**DEFAULT_PROFILE_VISIBILITY.model_dump(), **raw}
+        )
+    except Exception:
+        return DEFAULT_PROFILE_VISIBILITY.model_copy()
+
+
+def _set_profile_visibility(
+    preference: UserPreference, visibility: ProfileVisibility
+) -> None:
+    values = dict(preference.preferences or {})
+    values["profile_visibility"] = visibility.model_dump()
+    preference.preferences = values
+    flag_modified(preference, "preferences")
 
 
 async def get_or_create_preferences(
@@ -56,6 +85,12 @@ async def update_preferences(
             if value is not None:
                 _set_locale(preference, value)
             continue
+        if field == "profile_visibility":
+            if value is not None:
+                _set_profile_visibility(
+                    preference, ProfileVisibility.model_validate(value)
+                )
+            continue
         if value is not None:
             setattr(preference, field_map[field], value)
     await db.flush()
@@ -70,6 +105,7 @@ def preferences_response(preference: UserPreference) -> UserPreferencesResponse:
         community_announcements=preference.community_notifications,
         business_recommendations=preference.marketplace_notifications,
         locale=_get_locale(preference),
+        profile_visibility=get_profile_visibility(preference),
         updated_at=preference.updated_at,
     )
 

@@ -253,6 +253,86 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#111827", marginBottom: 4 }}>
+              Public profile
+            </Text>
+            <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 12 }}>
+              Choose what neighbours see when they open your profile. Your name is always visible.
+            </Text>
+            {preferencesLoading || !preferences ? (
+              <ActivityIndicator color="#158074" />
+            ) : (
+              (
+                [
+                  ["show_avatar", "Profile photo"],
+                  ["show_compound", "Neighbourhood"],
+                  ["show_joined_at", "Member since"],
+                  ["show_phone", "Phone number"],
+                  ["show_email", "Email address"],
+                ] as const
+              ).map(([key, label]) => {
+                const visibility = preferences.profile_visibility ?? {
+                  show_avatar: true,
+                  show_compound: true,
+                  show_joined_at: true,
+                  show_phone: false,
+                  show_email: false,
+                };
+                return (
+                  <View
+                    key={key}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: 10,
+                      borderTopWidth: 1,
+                      borderTopColor: "#F3F4F6",
+                    }}
+                  >
+                    <Text style={{ fontSize: 15, color: "#111827", flex: 1, paddingRight: 12 }}>
+                      {label}
+                    </Text>
+                    <Switch
+                      value={Boolean(visibility[key])}
+                      onValueChange={async (value) => {
+                        const previous = preferences;
+                        const nextVisibility = { ...visibility, [key]: value };
+                        setPreferences({
+                          ...preferences,
+                          profile_visibility: nextVisibility,
+                        });
+                        try {
+                          setPreferences(
+                            await apiClient.updateUserPreferences({
+                              profile_visibility: nextVisibility,
+                            })
+                          );
+                        } catch {
+                          setPreferences(previous);
+                          Alert.alert(
+                            t("settings.couldNotSave"),
+                            t("settings.notificationNotChanged")
+                          );
+                        }
+                      }}
+                    />
+                  </View>
+                );
+              })
+            )}
+          </View>
+
           {invitationsEnabled ? (
             <TouchableOpacity
               accessibilityRole="button"

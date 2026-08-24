@@ -119,6 +119,14 @@ export default function ProfilePage() {
   return (
     <AccountShell title="Profile" description="Your account details and neighbourhood info.">
       <ProfileSetupForm />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/neighbours/${user.id}`}>View public profile</Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/settings">Public profile privacy</Link>
+        </Button>
+      </div>
       <Card className="eljiran-card">
         <CardHeader>
           <CardTitle>Account information</CardTitle>

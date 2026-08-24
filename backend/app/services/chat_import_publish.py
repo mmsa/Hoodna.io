@@ -252,11 +252,8 @@ async def publish_chat_import_job(
                     currency=normalized.get("currency") or "EGP",
                     intent=intent,
                     image_urls=[],
-                    attributes={
-                        "imported_from": "chat_import",
-                        "chat_import_job_id": job.id,
-                        "original_timestamp": normalized.get("timestamp"),
-                    },
+                    # Category attribute schemas are strict; leave null for imports
+                    attributes=None,
                     status=ListingStatus.ACTIVE,
                 )
                 if created_at is not None:

@@ -247,6 +247,11 @@ export default function PostDetailScreen() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 12 }}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push(`/neighbours/${post.author_id}`)}
+              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+            >
               <View
                 style={{
                   width: 48,
@@ -266,6 +271,7 @@ export default function PostDetailScreen() {
                 </Text>
                 <Text style={{ fontSize: 12, color: "#6B7280" }}>{formatTimeAgo(post.created_at)}</Text>
               </View>
+            </TouchableOpacity>
               {post.author_id !== user?.id ? (
                 <TouchableOpacity
                   accessibilityLabel={`Report ${post.author_name}'s profile`}

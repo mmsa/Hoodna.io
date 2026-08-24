@@ -249,7 +249,20 @@ export default function ListingDetailScreen() {
           <View style={styles.rule} />
           <Text style={styles.sectionTitle}>Details</Text>
           <DetailRow icon="location-outline" label="Compound" value={listing.compound_name} />
-          <DetailRow icon="person-outline" label={service ? "Provider" : "Listed by"} value={listing.owner_name} />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() =>
+              listing.owner_id
+                ? router.push(`/neighbours/${listing.owner_id}`)
+                : undefined
+            }
+          >
+            <DetailRow
+              icon="person-outline"
+              label={service ? "Provider" : "Listed by"}
+              value={listing.owner_name}
+            />
+          </TouchableOpacity>
           <DetailRow icon="calendar-outline" label="Published" value={formatDate(listing.created_at)} />
           {attributeRows.map((row) => (
             <DetailRow icon={row.icon} key={row.label} label={row.label} value={row.value} />

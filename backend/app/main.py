@@ -48,6 +48,7 @@ from app.api import (
     notifications,
     search,
     reviews,
+    users,
     providers,
     referrals,
     moderators,
@@ -104,6 +105,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(compounds.router, prefix="/api/compounds", tags=["compounds"])
 app.include_router(
     verification.router, prefix="/api/verification", tags=["verification"]

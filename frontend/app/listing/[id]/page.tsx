@@ -24,6 +24,7 @@ import {
   type ListingView,
 } from "@/components/marketplace/listing-meta"
 import { ReportListing } from "@/components/marketplace/report-listing"
+import { NeighbourProfileLink } from "@/components/neighbour-profile-link"
 import { ReviewForm } from "@/components/review-form"
 import { ReviewsList } from "@/components/reviews-list"
 import { Button } from "@/components/ui/button"
@@ -165,7 +166,20 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                 {listing.compound_name ? (
                   <div className="flex gap-3"><MapPin className="h-4 w-4 text-muted-foreground" /><div><dt className="sr-only">Location</dt><dd>{listing.compound_name}</dd></div></div>
                 ) : null}
-                <div className="flex gap-3"><User className="h-4 w-4 text-muted-foreground" /><div><dt className="sr-only">Listed by</dt><dd>{listing.owner_name}</dd></div></div>
+                <div className="flex gap-3">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <dt className="sr-only">Listed by</dt>
+                    <dd>
+                      <NeighbourProfileLink
+                        userId={listing.owner_id}
+                        name={listing.owner_name || "Neighbour"}
+                        showAvatar={false}
+                        nameClassName="text-sm font-medium"
+                      />
+                    </dd>
+                  </div>
+                </div>
                 <div className="flex gap-3"><Calendar className="h-4 w-4 text-muted-foreground" /><div><dt className="sr-only">Listed on</dt><dd>{new Date(listing.created_at).toLocaleDateString(undefined, { dateStyle: "long" })}</dd></div></div>
               </dl>
 

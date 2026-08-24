@@ -14,8 +14,8 @@ import {
 } from "lucide-react"
 
 import { ReportDialog } from "@/components/report-dialog"
+import { NeighbourProfileLink } from "@/components/neighbour-profile-link"
 import { VerifiedNeighbourBadge } from "@/components/verified-neighbour-badge"
-import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -161,7 +161,13 @@ export function PostCard({
       <CardContent className="p-5">
         <div className="mb-3 flex items-start gap-3">
           <div className="relative">
-            <Avatar name={post.author_name} src={post.author_avatar_url} size="lg" />
+            <NeighbourProfileLink
+              userId={post.author_id}
+              name={post.author_name}
+              avatarUrl={post.author_avatar_url}
+              size="lg"
+              showName={false}
+            />
             {isMounted && isNew && (
               <span
                 className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-destructive"
@@ -180,9 +186,12 @@ export function PostCard({
             )}
             <div className="mb-1 flex items-start justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-base font-semibold text-foreground">
-                  {post.author_name}
-                </span>
+                <NeighbourProfileLink
+                  userId={post.author_id}
+                  name={post.author_name}
+                  showAvatar={false}
+                  nameClassName="text-base"
+                />
                 {isMounted && post.author_status === "APPROVED" && (
                   <VerifiedNeighbourBadge compact />
                 )}
@@ -380,14 +389,13 @@ export function PostCard({
                   className="rounded-md border-l-2 border-border bg-muted/40 p-2.5 pl-3"
                 >
                   <div className="mb-1 flex items-center gap-2">
-                    <Avatar
+                    <NeighbourProfileLink
+                      userId={comment.author_id}
                       name={comment.author_name}
-                      src={comment.author_avatar_url}
+                      avatarUrl={comment.author_avatar_url}
                       size="sm"
+                      nameClassName="text-sm font-medium"
                     />
-                    <span className="text-sm font-medium text-foreground">
-                      {comment.author_name}
-                    </span>
                     {comment.author_status === "APPROVED" && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                         <CheckCircle className="h-2.5 w-2.5" />

@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AccountShell } from '@/components/account-shell'
 import { AppShell, PageLayout } from '@/components/ui/page-layout'
 import { LaunchAccountSettings } from '@/components/launch-account-settings'
+import { ProfileVisibilitySettings } from '@/components/profile-visibility-settings'
 import { SampleContentSettings } from '@/components/sample-content-settings'
 
 export default function SettingsPage() {
@@ -140,6 +141,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       {user.role === 'ADMIN' ? <SampleContentSettings /> : null}
+      <ProfileVisibilitySettings />
       <LaunchAccountSettings />
     </AccountShell>
   )

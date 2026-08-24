@@ -9,6 +9,7 @@ from app.schemas.marketplace import (
     ListingUpdate,
     ListingResponse,
     validate_attributes_for_category,
+    sanitize_listing_attributes,
     PromotionCheckout,
     CheckoutSessionResponse,
 )
@@ -187,7 +188,9 @@ async def list_listings(
                 price=listing.price,
                 currency=listing.currency,
                 intent=listing.intent,
-                attributes=listing.attributes,
+                attributes=sanitize_listing_attributes(
+                    listing.category, listing.attributes
+                ),
                 image_urls=sign_file_urls(
                     listing.image_urls or [],
                     user_id=current_user.id if current_user else None,
@@ -277,7 +280,7 @@ async def get_listing(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        attributes=listing.attributes,
+        attributes=sanitize_listing_attributes(listing.category, listing.attributes),
         image_urls=sign_file_urls(
             listing.image_urls or [],
             user_id=current_user.id if current_user else None,
@@ -442,7 +445,7 @@ async def create_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        attributes=listing.attributes,
+        attributes=sanitize_listing_attributes(listing.category, listing.attributes),
         image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
         status=listing.status,
         created_at=listing.created_at,
@@ -535,7 +538,7 @@ async def update_listing_endpoint(
         price=listing.price,
         currency=listing.currency,
         intent=listing.intent,
-        attributes=listing.attributes,
+        attributes=sanitize_listing_attributes(listing.category, listing.attributes),
         image_urls=sign_file_urls(listing.image_urls or [], user_id=current_user.id),
         status=listing.status,
         created_at=listing.created_at,

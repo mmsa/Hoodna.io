@@ -36,6 +36,7 @@ import { ReportCreate, ReportEntityType, ReportResponse, ReportUpdate } from "./
 import {
   AccountDeletionRequest,
   AccountDeletionRequestCreate,
+  PublicUserProfile,
   UserPreferences,
   UserPreferencesUpdate,
 } from "./schemas/preferences";
@@ -1046,6 +1047,10 @@ export class ApiClient {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+  }
+
+  async getPublicUserProfile(userId: number): Promise<PublicUserProfile> {
+    return this.request<PublicUserProfile>(`/api/users/${userId}/profile`);
   }
 
   async requestAccountDeletion(
