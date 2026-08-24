@@ -196,8 +196,15 @@ class ListingResponse(BaseModel):
     average_rating: Optional[float] = None  # Average rating from reviews
     review_count: int = 0  # Number of reviews
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("attributes", mode="before")
+    @classmethod
+    def coerce_attributes(cls, value: Any, info) -> Optional[dict[str, Any]]:
+        category = None
+        if info.data:
+            category = info.data.get("category")
+        return sanitize_listing_attributes(category, value)
 
 
 class PromotionCheckout(BaseModel):
