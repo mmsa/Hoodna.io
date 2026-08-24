@@ -135,17 +135,27 @@ async def parse_chat_import(
     if not job.storage_path or not Path(job.storage_path).exists():
         raise HTTPException(status_code=400, detail="Uploaded file missing")
 
+    storage_path = Path(job.storage_path)
+    original_filename = job.original_filename
+    source = job.source
+
+    # Commit PARSING immediately so the UI can show progress and we don't hold
+    # a DB transaction open during ZIP parse + optional LLM calls.
     job.status = ChatImportJobStatus.PARSING
-    await db.flush()
+    job.error_message = None
+    await db.commit()
+
     try:
-        content = Path(job.storage_path).read_bytes()
-        parsed = detect_and_parse_bytes(content, job.original_filename, job.source)
-        # Cheap LLM refine (Arabic/English listing vs post); regex used if no API key
+        content = storage_path.read_bytes()
+        parsed = detect_and_parse_bytes(content, original_filename, source)
+        # Cheap LLM refine on ambiguous/commercial messages only (soft-fails)
         llm_stats = await enrich_import_items_with_llm(parsed.items)
-        # If LLM was not used, threading already applied in build_import_payload;
-        # enrich always rethreads at the end.
         stats = summarize_parsed(parsed)
         stats.update(llm_stats)
+
+        job = await get_job_with_items(db, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Import job not found")
         await replace_job_items_from_parse(
             db, job, parsed.users, parsed.items, stats
         )

@@ -388,7 +388,16 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
 def parse_whatsapp_text(text: str) -> list[ParsedMessage]:
     messages: list[ParsedMessage] = []
     current: ParsedMessage | None = None
-    for raw_line in text.splitlines():
+    # Strip BOM / bidi marks common in Arabic WhatsApp exports
+    cleaned_text = (
+        text.replace("\ufeff", "")
+        .replace("\u200e", "")
+        .replace("\u200f", "")
+        .replace("\u202a", "")
+        .replace("\u202b", "")
+        .replace("\u202c", "")
+    )
+    for raw_line in cleaned_text.splitlines():
         line = raw_line.rstrip("\n")
         match = WHATSAPP_LINE_RE.match(line)
         if match:
@@ -401,7 +410,7 @@ def parse_whatsapp_text(text: str) -> list[ParsedMessage]:
                 phone=phone,
                 text=body,
                 timestamp=f"{date_part} {time_part}",
-                raw={"format": "whatsapp", "line": line},
+                raw={"format": "whatsapp", "line": line[:500]},
             )
         elif current is not None:
             current.text = f"{current.text}\n{line}".strip()
@@ -475,6 +484,14 @@ def detect_and_parse_bytes(
                 for n in zf.namelist()
                 if n.lower().endswith(".txt") and not n.startswith("__MACOSX")
             ]
+            # Prefer the actual WhatsApp chat transcript over readme/other txt files
+            chat_names.sort(
+                key=lambda n: (
+                    0 if "whatsapp" in n.lower() or "chat" in n.lower() else 1,
+                    0 if n.lower().endswith("_chat.txt") else 1,
+                    len(n),
+                )
+            )
             json_names = [
                 n
                 for n in zf.namelist()

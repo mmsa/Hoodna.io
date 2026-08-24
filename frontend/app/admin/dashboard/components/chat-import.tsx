@@ -95,6 +95,10 @@ export default function ChatImportPanel() {
       return response.data as ImportJob
     },
     enabled: !!activeJobId,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'PARSING' || query.state.data?.status === 'PUBLISHING'
+        ? 2000
+        : false,
   })
 
   const uploadMutation = useMutation({
@@ -126,7 +130,10 @@ export default function ChatImportPanel() {
 
   const parseMutation = useMutation({
     mutationFn: async (jobId: number) => {
-      const response = await api.post(`/api/admin/chat-imports/${jobId}/parse`)
+      const response = await api.post(`/api/admin/chat-imports/${jobId}/parse`, null, {
+        // Large WhatsApp exports + optional LLM can take a while
+        timeout: 180_000,
+      })
       return response.data as ImportJob
     },
     onSuccess: () => {
@@ -135,6 +142,8 @@ export default function ChatImportPanel() {
       toast({ title: 'Parsed', description: 'Review items before publishing.' })
     },
     onError: (error: any) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
       toast({
         title: 'Parse failed',
         description: error?.response?.data?.detail || error.message,
@@ -371,11 +380,13 @@ export default function ChatImportPanel() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
-                    disabled={parseMutation.isPending}
+                    disabled={parseMutation.isPending || job.status === 'PARSING'}
                     onClick={() => parseMutation.mutate(job.id)}
                   >
-                    {parseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Parse
+                    {parseMutation.isPending || job.status === 'PARSING' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    {job.status === 'PARSING' ? 'Parsing…' : 'Parse'}
                   </Button>
                   <Button
                     disabled={publishMutation.isPending || job.status === 'PUBLISHING'}

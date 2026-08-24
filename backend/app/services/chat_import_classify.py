@@ -15,11 +15,28 @@ from app.models.enums import ChatImportItemKind
 logger = logging.getLogger(__name__)
 
 CLASSIFY_MODEL = "gpt-4o-mini"
-BATCH_SIZE = 35
+BATCH_SIZE = 25
+# Keep parse responsive on large WhatsApp groups
+MAX_LLM_CANDIDATES = 60
+BATCH_TIMEOUT_SECONDS = 35.0
+
+# Commercial / listing-ish signals worth sending to the LLM
+AMBIGUOUS_RE = re.compile(
+    r"("
+    r"for\s+sale|sell(?:ing)?|buy(?:ing)?|rent(?:ing|al)?|price|egp|\ble\b|"
+    r"للبيع|مطلوب|معروض|للتأجير|للتاجير|للايجار|للإيجار|"
+    r"ايجار|إيجار|سعر|جنيه|كاش|قسط|هبيع|هابيع|بتباع|هشتري|"
+    r"شقة|فيلا|عربيه|عربية|موتوسيكل|توك توك|ايفون|iphone|"
+    r"\d{3,}"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def _api_key() -> str | None:
-    key = (settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY") or "").strip()
+    key = (
+        settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY") or ""
+    ).strip()
     return key or None
 
 
@@ -32,6 +49,17 @@ def _parse_json_object(content: str) -> dict[str, Any]:
     if not match:
         raise ValueError("No JSON object in LLM response")
     return json.loads(match.group())
+
+
+def _should_llm_classify(kind: str, content: str) -> bool:
+    """Only spend LLM tokens on likely listings / ambiguous commercial chat."""
+    if kind == ChatImportItemKind.LISTING.value:
+        return True
+    if kind == ChatImportItemKind.SKIP.value:
+        return False
+    if len(content) < 12:
+        return False
+    return bool(AMBIGUOUS_RE.search(content))
 
 
 async def classify_messages_with_llm(
@@ -51,24 +79,22 @@ async def classify_messages_with_llm(
         return [{} for _ in texts]
 
     results: list[dict[str, Any]] = [{} for _ in texts]
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    timeout = httpx.Timeout(BATCH_TIMEOUT_SECONDS, connect=10.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         for start in range(0, len(texts), BATCH_SIZE):
             batch = texts[start : start + BATCH_SIZE]
             numbered = "\n".join(
-                f"{i}. {text[:800].replace(chr(10), ' ')}"
+                f"{i}. {text[:500].replace(chr(10), ' ')}"
                 for i, text in enumerate(batch)
             )
-            prompt = f"""You classify compound WhatsApp/Telegram group messages for an Egyptian community app (eljiran).
-Most messages are Arabic (Egyptian dialect) or English.
+            prompt = f"""Classify Egyptian compound WhatsApp messages (Arabic dialect + English).
 
-For each numbered message, return kind:
-- LISTING: buying/selling/renting something (furniture, appliances, cars, apartments, services for pay, etc.)
-- POST: community chat, questions, announcements, lost & found, recommendations (not a sale)
-- SKIP: empty, media-only, deleted, or useless system noise
+For each numbered message return kind:
+- LISTING: selling/buying/renting goods, homes, cars, paid services
+- POST: chat, questions, recommendations, lost&found (not a sale)
+- SKIP: empty/media/deleted noise
 
-Also for LISTING only:
-- intent: SELL or RENT
-- title: short title max 80 chars (Arabic or English ok)
+For LISTING also: intent SELL or RENT, title max 80 chars.
 
 Return ONLY JSON:
 {{"results":[{{"i":0,"kind":"POST|LISTING|SKIP","intent":"SELL|RENT|null","title":"..."}}]}}
@@ -86,11 +112,11 @@ Messages:
                     json={
                         "model": CLASSIFY_MODEL,
                         "temperature": 0,
-                        "max_tokens": 2500,
+                        "max_tokens": 1800,
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a precise bilingual (Arabic/English) message classifier. Reply with JSON only.",
+                                "content": "Bilingual Arabic/English classifier. JSON only.",
                             },
                             {"role": "user", "content": prompt},
                         ],
@@ -131,13 +157,17 @@ Messages:
                     results[start + idx] = entry
             except Exception as exc:  # noqa: BLE001
                 logger.warning("chat_import classify batch failed: %s", exc)
+                # Continue other batches; soft-fail overall
+                continue
     return results
 
 
 async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str, int]:
     """
-    Mutate content items in-place: refine POST/LISTING/SKIP via cheap LLM,
+    Mutate content items in-place: refine ambiguous POST/LISTING via cheap LLM,
     then re-assign post→comment threads.
+
+    Soft-fails: regex classifications are kept if LLM is slow/unavailable.
     """
     from app.services.chat_import_parser import rethread_items
 
@@ -159,14 +189,29 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
         content = str((item.get("normalized") or {}).get("content") or "").strip()
         if not content:
             continue
-        if kind == ChatImportItemKind.SKIP.value and len(content) < 8:
+        if not _should_llm_classify(str(kind), content):
             continue
         candidates.append((idx, content))
+        if len(candidates) >= MAX_LLM_CANDIDATES:
+            break
 
-    stats = {"llm_classified": 0, "llm_listings": 0, "llm_used": 0}
+    stats: dict[str, Any] = {
+        "llm_classified": 0,
+        "llm_listings": 0,
+        "llm_used": 0,
+        "llm_candidates": len(candidates),
+        "llm_capped": 1 if len(candidates) >= MAX_LLM_CANDIDATES else 0,
+    }
+
     if candidates and llm_classification_available():
         stats["llm_used"] = 1
-        classifications = await classify_messages_with_llm([c[1] for c in candidates])
+        try:
+            classifications = await classify_messages_with_llm([c[1] for c in candidates])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("chat_import LLM enrich aborted: %s", exc)
+            stats["llm_error"] = str(exc)[:200]
+            classifications = []
+
         for (item_idx, _), classification in zip(candidates, classifications):
             if not classification:
                 continue
@@ -201,6 +246,8 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
                 normalized.setdefault("currency", "EGP")
             item["normalized"] = normalized
             stats["llm_classified"] += 1
+    elif candidates and not llm_classification_available():
+        stats["llm_skipped_reason"] = "OPENAI_API_KEY not set"
 
     rethread_items(items)
     return stats
