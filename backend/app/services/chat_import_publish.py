@@ -213,6 +213,9 @@ async def publish_chat_import_job(
                     message_index_to_post_id[msg_index] = post.id
                 stats["posts_published"] += 1
             else:
+                from app.services.chat_import_parser import ensure_listing_normalized
+
+                normalized = ensure_listing_normalized(normalized)
                 title = redact_phones(
                     (normalized.get("title") or listing_fallback_title(normalized)).strip()
                 )
@@ -227,6 +230,9 @@ async def publish_chat_import_job(
                 try:
                     category = ListingCategory(category_raw)
                 except ValueError:
+                    category = ListingCategory.ITEM
+                # Chat import cannot create SERVICE marketplace rows without a provider profile
+                if category == ListingCategory.SERVICE:
                     category = ListingCategory.ITEM
                 price_val = normalized.get("price")
                 price = None

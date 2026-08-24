@@ -39,8 +39,7 @@ LISTING_HINT_RE = re.compile(
     re.IGNORECASE,
 )
 PRICE_RE = re.compile(
-    r"(?:egp|le|جنيه|£|\$)?\s*([0-9]{1,3}(?:[, ]?[0-9]{3})*(?:\.[0-9]+)?)\s*(?:egp|le|جنيه)?",
-    re.IGNORECASE,
+    r"(?<!\d)(\d{1,3}(?:[, ]\d{3})+|\d{4,7})(?:\.\d+)?(?!\d)",
 )
 SKIP_RE = re.compile(
     r"^(?:\s*|null|none|<media omitted>|image omitted|video omitted|audio omitted|"
@@ -155,9 +154,109 @@ def listing_intent(text: str) -> str:
     return "SELL"
 
 
+def listing_category(text: str) -> str:
+    """Infer marketplace category from bilingual listing text."""
+    lower = (text or "").lower()
+    if any(
+        token in lower
+        for token in (
+            "apartment",
+            "flat",
+            "villa",
+            "duplex",
+            "penthouse",
+            "studio",
+            "townhouse",
+            "شقة",
+            "شقه",
+            "فيلا",
+            "دوبلكس",
+            "بنتهاوس",
+            "استوديو",
+            "تاون هاوس",
+            "غرفة",
+            "غرف",
+            "bedroom",
+            "compound unit",
+            "وحدة",
+        )
+    ):
+        return "PROPERTY"
+    if any(
+        token in lower
+        for token in (
+            "car",
+            "auto",
+            "vehicle",
+            "sedan",
+            "suv",
+            "bmw",
+            "mercedes",
+            "toyota",
+            "hyundai",
+            "kia",
+            "nissan",
+            "عربيه",
+            "عربية",
+            "سيارة",
+            "سياره",
+            "موتوسيكل",
+            "موتور",
+            "توك توك",
+            "scooter",
+        )
+    ):
+        return "CAR"
+    if any(
+        token in lower
+        for token in (
+            "service",
+            "cleaning",
+            "plumber",
+            "electrician",
+            "maintenance",
+            "نضافة",
+            "نظافة",
+            "سباك",
+            "كهربائي",
+            "صيانه",
+            "صيانة",
+            "خدمة",
+            "خدمه",
+        )
+    ):
+        return "SERVICE"
+    return "ITEM"
+
+
 def listing_title(text: str) -> str:
     line = (text or "").strip().splitlines()[0].strip()
     return line[:120] if line else "Imported listing"
+
+
+def ensure_listing_normalized(normalized: dict[str, Any] | None) -> dict[str, Any]:
+    """Fill listing fields when an item is (re)classified as LISTING."""
+    data = dict(normalized or {})
+    content = str(data.get("content") or data.get("description") or "").strip()
+    if not data.get("title"):
+        data["title"] = listing_title(content) if content else "Imported listing"
+    if not data.get("description"):
+        data["description"] = content or data.get("title")
+    if data.get("price") is None and content:
+        data["price"] = extract_price(content)
+    if not data.get("intent"):
+        data["intent"] = listing_intent(content)
+    # Re-infer when missing or still the generic default with stronger signals
+    existing_category = str(data.get("category") or "").upper()
+    inferred = listing_category(content)
+    if not existing_category or (
+        existing_category == "ITEM" and inferred != "ITEM"
+    ):
+        data["category"] = inferred
+    else:
+        data["category"] = existing_category
+    data.setdefault("currency", "EGP")
+    return data
 
 
 @dataclass
@@ -377,16 +476,7 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
             "phone_private": True,
         }
         if kind == ChatImportItemKind.LISTING:
-            normalized.update(
-                {
-                    "title": listing_title(message.text),
-                    "description": message.text.strip(),
-                    "price": extract_price(message.text),
-                    "intent": listing_intent(message.text),
-                    "category": "ITEM",
-                    "currency": "EGP",
-                }
-            )
+            normalized = ensure_listing_normalized(normalized)
         raw_payload = {
             "sender": message.sender_name,
             "text": message.text,

@@ -72,6 +72,11 @@ export default function MarketplacePage() {
       return data.filter((listing: ListingView) => listing.category !== "SERVICE")
     },
     enabled: !!user && user.role !== "COMPOUND_MOD" && user.role !== "SERVICE_PROVIDER",
+    retry: (failureCount, err) => {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 403 || status === 401) return false
+      return failureCount < 2
+    },
   })
 
   useEffect(() => {
@@ -102,7 +107,7 @@ export default function MarketplacePage() {
     ([key, value]) => (key === "sort" ? value !== "date_desc" : Boolean(value))
   )
 
-  if (userLoading || isLoading) {
+  if ((userLoading || isLoading) && !error) {
     return (
       <AppShell>
         <PageLayout width="xl">

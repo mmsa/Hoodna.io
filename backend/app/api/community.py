@@ -72,13 +72,38 @@ async def get_feed_summary(
         limit=10
     )
     
-    # Get total neighbors count (users in same compound)
-    from sqlalchemy import select, func
+    # Neighbours = people linked to this compound via membership (verified or
+    # invited/pending, e.g. chat import) plus legacy primary-compound APPROVED users.
+    from sqlalchemy import select, func, or_, and_
     from app.models.user import User as UserModel
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.models.enums import UserStatus, UserRole
+
+    membership_user_ids = (
+        select(UserCompoundMembership.user_id)
+        .where(
+            UserCompoundMembership.compound_id == current_user.compound_id,
+            UserCompoundMembership.verification_status.in_(("VERIFIED", "PENDING")),
+        )
+    )
     neighbors_result = await db.execute(
-        select(func.count(UserModel.id)).where(
-            UserModel.compound_id == current_user.compound_id,
-            UserModel.status == "APPROVED"
+        select(func.count(func.distinct(UserModel.id))).where(
+            UserModel.status != UserStatus.BANNED,
+            or_(
+                UserModel.role.is_(None),
+                UserModel.role.notin_([UserRole.ADMIN, UserRole.MODERATOR]),
+            ),
+            or_(
+                UserModel.id.in_(membership_user_ids),
+                and_(
+                    UserModel.compound_id == current_user.compound_id,
+                    UserModel.status == UserStatus.APPROVED,
+                    or_(
+                        UserModel.role.is_(None),
+                        UserModel.role.in_([UserRole.RESIDENT, UserRole.USER]),
+                    ),
+                ),
+            ),
         )
     )
     total_neighbors = neighbors_result.scalar_one() or 0

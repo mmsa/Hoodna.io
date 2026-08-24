@@ -1,7 +1,7 @@
 """Helper functions for checking user verification status for compounds."""
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
-from app.models.enums import DocumentStatus, DocumentType, UserStatus
+from app.models.enums import DocumentStatus, DocumentType, UserRole, UserStatus
 from app.crud.verification import get_user_documents
 from app.crud.user_compound_membership import (
     ensure_user_compound_membership,
@@ -16,11 +16,17 @@ async def is_user_verified_for_compound(
 ) -> bool:
     """
     Check if a user is verified for a specific compound via approved documents.
+
+    Platform admins/moderators bypass resident verification so they can browse
+    any compound they switch into.
     """
     import logging
     logger = logging.getLogger(__name__)
 
     try:
+        if user.role in (UserRole.ADMIN, UserRole.MODERATOR):
+            return True
+
         await db.refresh(user)
 
         if user.status != UserStatus.APPROVED and user.compound_id:

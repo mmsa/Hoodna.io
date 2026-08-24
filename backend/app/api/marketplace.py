@@ -105,7 +105,8 @@ async def list_listings(
                 detail="User must select a compound first"
             )
         
-        # Check if user is verified for this compound (skip for moderators as they're already checked)
+        # Skip resident verification for compound mods (profile already checked)
+        # and platform staff (handled inside is_user_verified_for_compound).
         if current_user.role != UserRole.COMPOUND_MOD:
             is_verified = await is_user_verified_for_compound(
                 db=db,
@@ -233,7 +234,8 @@ async def get_listing(
             if provider_profile and provider_profile.provider_status == ProviderStatus.APPROVED:
                 is_approved_provider = True
         
-        if not is_owner and not is_approved_provider:
+        is_platform_staff = current_user.role in (UserRole.ADMIN, UserRole.MODERATOR)
+        if not is_owner and not is_approved_provider and not is_platform_staff:
             is_verified = await is_user_verified_for_compound(
                 db=db,
                 user=current_user,
@@ -381,33 +383,39 @@ async def create_listing_endpoint(
     else:
         compound_id_to_use = current_user.compound_id
     
-    # For marketplace items (non-SERVICE listings), only verified APPROVED residents can post
+    # For marketplace items (non-SERVICE listings), verified residents or platform staff
     if listing_data.category != ListingCategory.SERVICE:
+        is_platform_staff = current_user.role in (UserRole.ADMIN, UserRole.MODERATOR)
         # Residents include the legacy USER role and users who have not selected a role.
-        if current_user.role not in (UserRole.RESIDENT, UserRole.USER, None):
+        if not is_platform_staff and current_user.role not in (
+            UserRole.RESIDENT,
+            UserRole.USER,
+            None,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only verified residents can post marketplace items. Service providers can only post services."
             )
         
-        # Check if user is verified and approved for their compound
-        if current_user.status != UserStatus.APPROVED:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You must be approved to create marketplace listings. Please complete verification first."
+        if not is_platform_staff:
+            # Check if user is verified and approved for their compound
+            if current_user.status != UserStatus.APPROVED:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You must be approved to create marketplace listings. Please complete verification first."
+                )
+            
+            is_verified = await is_user_verified_for_compound(
+                db=db,
+                user=current_user,
+                compound_id=compound_id_to_use
             )
-        
-        is_verified = await is_user_verified_for_compound(
-            db=db,
-            user=current_user,
-            compound_id=compound_id_to_use
-        )
-        
-        if not is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You must be verified for this compound to create marketplace listings. Please complete verification first."
-            )
+            
+            if not is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You must be verified for this compound to create marketplace listings. Please complete verification first."
+                )
 
     listing = await create_listing(
         db=db,

@@ -94,10 +94,10 @@ For each numbered message return kind:
 - POST: chat, questions, recommendations, lost&found (not a sale)
 - SKIP: empty/media/deleted noise
 
-For LISTING also: intent SELL or RENT, title max 80 chars.
+For LISTING also: intent SELL or RENT, category PROPERTY|CAR|ITEM|SERVICE, title max 80 chars.
 
 Return ONLY JSON:
-{{"results":[{{"i":0,"kind":"POST|LISTING|SKIP","intent":"SELL|RENT|null","title":"..."}}]}}
+{{"results":[{{"i":0,"kind":"POST|LISTING|SKIP","intent":"SELL|RENT|null","category":"PROPERTY|CAR|ITEM|SERVICE|null","title":"..."}}]}}
 
 Messages:
 {numbered}
@@ -151,6 +151,9 @@ Messages:
                     intent = row.get("intent")
                     if intent:
                         entry["intent"] = str(intent).upper()
+                    category = str(row.get("category") or "").upper()
+                    if category in {"PROPERTY", "CAR", "ITEM", "SERVICE"}:
+                        entry["category"] = category
                     title = row.get("title")
                     if title:
                         entry["title"] = str(title).strip()[:120]
@@ -227,23 +230,20 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
                 item["reject_reason"] = None
             if kind == ChatImportItemKind.LISTING.value:
                 stats["llm_listings"] += 1
+                from app.services.chat_import_parser import ensure_listing_normalized
+
                 if classification.get("title"):
                     normalized["title"] = classification["title"]
-                elif not normalized.get("title"):
-                    normalized["title"] = content_title(normalized.get("content") or "")
                 if classification.get("intent") in ("SELL", "RENT"):
                     normalized["intent"] = classification["intent"]
-                if normalized.get("price") is None:
-                    from app.services.chat_import_parser import extract_price
-
-                    normalized["price"] = extract_price(str(normalized.get("content") or ""))
-                if not normalized.get("intent"):
-                    from app.services.chat_import_parser import listing_intent
-
-                    normalized["intent"] = listing_intent(str(normalized.get("content") or ""))
-                normalized.setdefault("description", normalized.get("content"))
-                normalized.setdefault("category", "ITEM")
-                normalized.setdefault("currency", "EGP")
+                if classification.get("category") in {
+                    "PROPERTY",
+                    "CAR",
+                    "ITEM",
+                    "SERVICE",
+                }:
+                    normalized["category"] = classification["category"]
+                normalized = ensure_listing_normalized(normalized)
             item["normalized"] = normalized
             stats["llm_classified"] += 1
     elif candidates and not llm_classification_available():

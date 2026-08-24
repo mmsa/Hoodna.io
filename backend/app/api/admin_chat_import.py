@@ -216,6 +216,11 @@ async def patch_chat_import_items(
             item.reject_reason = update.reject_reason
         if item.decision == ChatImportItemDecision.REJECTED and not item.reject_reason:
             item.reject_reason = "Rejected by admin"
+        # When admin flips POST → LISTING, fill title/price/intent/category
+        if item.kind == ChatImportItemKind.LISTING:
+            from app.services.chat_import_parser import ensure_listing_normalized
+
+            item.normalized = ensure_listing_normalized(item.normalized)
 
     await db.commit()
     job = await get_job_with_items(db, job_id)
