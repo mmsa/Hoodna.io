@@ -243,6 +243,44 @@ export class ApiClient {
     });
   }
 
+  async completeProfile(data: {
+    name: string;
+    password: string;
+  }): Promise<User> {
+    return this.request<User>("/api/auth/me/complete-profile", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCompoundInvites(): Promise<
+    Array<{
+      compound_id: number;
+      compound_name: string;
+      compound_area?: string | null;
+      verification_source: string;
+      created_at?: string | null;
+    }>
+  > {
+    return this.request("/api/auth/me/compound-invites");
+  }
+
+  async confirmCompoundInvite(compoundId: number): Promise<{
+    compound_id: number;
+    verification_status: string;
+    user_status: string;
+  }> {
+    return this.request(`/api/auth/me/compound-invites/${compoundId}/confirm`, {
+      method: "POST",
+    });
+  }
+
+  async declineCompoundInvite(compoundId: number): Promise<void> {
+    await this.request(`/api/auth/me/compound-invites/${compoundId}/decline`, {
+      method: "POST",
+    });
+  }
+
   async globalSearch(query: string): Promise<{
     query: string;
     posts: Array<{

@@ -11,6 +11,7 @@ from app.schemas.auth import (
 from app.schemas.user import (
     AvatarPresignRequest,
     AvatarUpdate,
+    CompleteProfileRequest,
     UserResponse,
     UserUpdate,
 )
@@ -434,7 +435,64 @@ async def get_current_user_info(
         can_create_listing=can_create_listing,
         verified_compound_ids=verified_compound_ids,
         is_verified_for_current_compound=is_verified_for_current_compound,
+        needs_profile_setup=bool(getattr(current_user, "profile_setup_required", False)),
     )
+
+
+@router.post("/me/complete-profile", response_model=UserResponse)
+async def complete_profile(
+    body: CompleteProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Finish invited-account setup: set display name + password.
+    Email is not required. Pending CHAT_IMPORT compound invites are confirmed.
+    """
+    from sqlalchemy import select
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.models.enums import UserRole, UserStatus
+    from app.services.chat_import_publish import confirm_chat_import_membership
+
+    name = body.name.strip()
+    if len(name) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name must be at least 2 characters",
+        )
+    if len(body.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+
+    current_user.name = name
+    current_user.password_hash = get_password_hash(body.password)
+    current_user.profile_setup_required = False
+    if current_user.role is None:
+        current_user.role = UserRole.USER
+
+    # Confirm any pending chat-import invites (admin already reviewed the import).
+    result = await db.execute(
+        select(UserCompoundMembership.compound_id).where(
+            UserCompoundMembership.user_id == current_user.id,
+            UserCompoundMembership.verification_status == "PENDING",
+            UserCompoundMembership.verification_source == "CHAT_IMPORT",
+        )
+    )
+    invite_compound_ids = list(result.scalars().all())
+    for compound_id in invite_compound_ids:
+        try:
+            await confirm_chat_import_membership(db, current_user, compound_id)
+        except ValueError:
+            continue
+
+    if current_user.status == UserStatus.PENDING_VERIFICATION and invite_compound_ids:
+        current_user.status = UserStatus.APPROVED
+
+    await db.commit()
+    await db.refresh(current_user)
+    return await get_current_user_info(current_user, db)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -642,6 +700,94 @@ async def get_user_compounds(
     from app.crud.user_compound_membership import get_user_switchable_compounds
 
     return await get_user_switchable_compounds(db, current_user)
+
+
+@router.get("/me/compound-invites")
+async def list_compound_invites(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pending CHAT_IMPORT compound invites for the current user."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.schemas.chat_import import CompoundInviteResponse
+
+    result = await db.execute(
+        select(UserCompoundMembership)
+        .options(selectinload(UserCompoundMembership.compound))
+        .where(
+            UserCompoundMembership.user_id == current_user.id,
+            UserCompoundMembership.verification_status == "PENDING",
+            UserCompoundMembership.verification_source == "CHAT_IMPORT",
+        )
+        .order_by(UserCompoundMembership.created_at.desc())
+    )
+    memberships = list(result.scalars().all())
+    return [
+        CompoundInviteResponse(
+            compound_id=m.compound_id,
+            compound_name=m.compound.name if m.compound else f"Compound {m.compound_id}",
+            compound_area=getattr(m.compound, "area", None) if m.compound else None,
+            verification_source=m.verification_source or "CHAT_IMPORT",
+            created_at=m.created_at,
+        )
+        for m in memberships
+    ]
+
+
+@router.post("/me/compound-invites/{compound_id}/confirm")
+async def confirm_compound_invite(
+    compound_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Confirm a pending chat-import compound invite after OTP login."""
+    from app.services.chat_import_publish import confirm_chat_import_membership
+    from app.schemas.chat_import import CompoundInviteConfirmResponse
+
+    try:
+        payload = await confirm_chat_import_membership(db, current_user, compound_id)
+        await db.commit()
+        await db.refresh(current_user)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    return CompoundInviteConfirmResponse(**payload)
+
+
+@router.post("/me/compound-invites/{compound_id}/decline", status_code=204)
+async def decline_compound_invite(
+    compound_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Decline a pending chat-import invite (removes the pending membership)."""
+    from sqlalchemy import select, delete
+    from app.models.user_compound_membership import UserCompoundMembership
+
+    result = await db.execute(
+        select(UserCompoundMembership).where(
+            UserCompoundMembership.user_id == current_user.id,
+            UserCompoundMembership.compound_id == compound_id,
+            UserCompoundMembership.verification_status == "PENDING",
+            UserCompoundMembership.verification_source == "CHAT_IMPORT",
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No pending chat-import invite for this compound",
+        )
+    await db.execute(
+        delete(UserCompoundMembership).where(UserCompoundMembership.id == membership.id)
+    )
+    await db.commit()
+    return None
 
 
 @router.post("/me/switch-compound", response_model=UserResponse)

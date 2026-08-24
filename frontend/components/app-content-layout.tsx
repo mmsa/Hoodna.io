@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 
+import { CompoundInviteBanner } from "@/components/compound-invite-banner"
 import { DesktopNavSidebar } from "@/components/desktop-nav-sidebar"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -25,7 +26,10 @@ export function AppContentLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-56 shrink-0 xl:block">
         <DesktopNavSidebar />
       </aside>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        <CompoundInviteBanner />
+        {children}
+      </div>
     </div>
   )
 }

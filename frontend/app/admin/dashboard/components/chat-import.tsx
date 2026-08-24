@@ -1,0 +1,445 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, Loader2, MessageSquareText, Upload, X } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useToast } from '@/hooks/use-toast'
+import api from '@/lib/api'
+import { formatCompoundWithArea } from '@/lib/format-compound'
+import { cn } from '@/lib/utils'
+
+type Source = 'WHATSAPP' | 'TELEGRAM'
+type ItemKind = 'USER' | 'POST' | 'LISTING' | 'SKIP'
+type Decision = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+interface CompoundRow {
+  id: number
+  name: string
+  area?: string | null
+}
+
+interface ImportItem {
+  id: number
+  kind: ItemKind
+  decision: Decision
+  normalized: Record<string, unknown>
+  reject_reason?: string | null
+  published_entity_type?: string | null
+  published_entity_id?: number | null
+}
+
+interface ImportJob {
+  id: number
+  compound_id: number
+  source: Source
+  status: string
+  original_filename?: string | null
+  stats?: Record<string, unknown>
+  error_message?: string | null
+  items: ImportItem[]
+  created_at: string
+}
+
+interface JobListItem {
+  id: number
+  compound_id: number
+  source: Source
+  status: string
+  original_filename?: string | null
+  stats?: Record<string, unknown>
+  created_at: string
+}
+
+export default function ChatImportPanel() {
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
+  const [compoundId, setCompoundId] = useState<string>('')
+  const [source, setSource] = useState<Source>('WHATSAPP')
+  const [file, setFile] = useState<File | null>(null)
+  const [activeJobId, setActiveJobId] = useState<number | null>(null)
+  const [kindFilter, setKindFilter] = useState<'ALL' | ItemKind>('ALL')
+
+  const { data: compoundsData } = useQuery({
+    queryKey: ['admin-compounds-chat-import'],
+    queryFn: async () => {
+      const response = await api.get('/api/admin/compounds?limit=200&skip=0')
+      return response.data as { items: CompoundRow[]; total: number }
+    },
+  })
+
+  const { data: jobs = [] } = useQuery({
+    queryKey: ['admin-chat-imports', compoundId],
+    queryFn: async () => {
+      const params = compoundId ? `?compound_id=${compoundId}` : ''
+      const response = await api.get(`/api/admin/chat-imports${params}`)
+      return response.data as JobListItem[]
+    },
+  })
+
+  const { data: job, isLoading: jobLoading } = useQuery({
+    queryKey: ['admin-chat-import', activeJobId],
+    queryFn: async () => {
+      const response = await api.get(`/api/admin/chat-imports/${activeJobId}`)
+      return response.data as ImportJob
+    },
+    enabled: !!activeJobId,
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      if (!compoundId || !file) throw new Error('Pick a compound and file')
+      const form = new FormData()
+      form.append('compound_id', compoundId)
+      form.append('source', source)
+      form.append('file', file)
+      const response = await api.post('/api/admin/chat-imports', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data as ImportJob
+    },
+    onSuccess: (created) => {
+      setActiveJobId(created.id)
+      setFile(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
+      toast({ title: 'Upload saved', description: `Job #${created.id} ready to parse.` })
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Upload failed',
+        description: error?.response?.data?.detail || error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const parseMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      const response = await api.post(`/api/admin/chat-imports/${jobId}/parse`)
+      return response.data as ImportJob
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
+      toast({ title: 'Parsed', description: 'Review items before publishing.' })
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Parse failed',
+        description: error?.response?.data?.detail || error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const patchMutation = useMutation({
+    mutationFn: async (items: Array<{ id: number; decision: Decision; kind?: ItemKind }>) => {
+      if (!activeJobId) throw new Error('No job')
+      const response = await api.patch(`/api/admin/chat-imports/${activeJobId}/items`, { items })
+      return response.data as ImportJob
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
+    },
+  })
+
+  const publishMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      const response = await api.post(`/api/admin/chat-imports/${jobId}/publish`)
+      return response.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
+      toast({
+        title: 'Published',
+        description: JSON.stringify(data.stats?.publish || data.stats || {}),
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Publish failed',
+        description: error?.response?.data?.detail || error.message,
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      await api.delete(`/api/admin/chat-imports/${jobId}`)
+    },
+    onSuccess: () => {
+      setActiveJobId(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
+      toast({ title: 'Import discarded' })
+    },
+  })
+
+  const compounds = compoundsData?.items || []
+  const visibleItems = useMemo(() => {
+    const items = job?.items || []
+    if (kindFilter === 'ALL') return items
+    return items.filter((item) => item.kind === kindFilter)
+  }, [job?.items, kindFilter])
+
+  const previewText = (item: ImportItem) => {
+    const n = item.normalized || {}
+    if (item.kind === 'USER') return `${n.name || 'Neighbour'} · ${n.phone || 'no phone'}`
+    if (item.kind === 'LISTING') return String(n.title || n.content || '')
+    return String(n.content || '')
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="eljiran-card border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquareText className="h-5 w-5" />
+            Chat import
+          </CardTitle>
+          <CardDescription>
+            Upload a WhatsApp (.txt/.zip) or Telegram (result.json) group export, review parsed
+            content, then publish invited accounts and compound posts/listings.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Compound</Label>
+              <Select value={compoundId} onValueChange={setCompoundId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select compound" />
+                </SelectTrigger>
+                <SelectContent>
+                  {compounds.map((compound) => (
+                    <SelectItem key={compound.id} value={String(compound.id)}>
+                      {formatCompoundWithArea(compound.name, compound.area)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Source</Label>
+              <Select value={source} onValueChange={(value) => setSource(value as Source)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
+                  <SelectItem value="TELEGRAM">Telegram</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Export file</Label>
+              <Input
+                type="file"
+                accept=".txt,.zip,.json"
+                onChange={(event) => setFile(event.target.files?.[0] || null)}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={!compoundId || !file || uploadMutation.isPending}
+              onClick={() => uploadMutation.mutate()}
+            >
+              {uploadMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              Upload
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+        <Card className="eljiran-card border-0 h-fit">
+          <CardHeader>
+            <CardTitle className="text-base">Recent jobs</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {jobs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No imports yet.</p>
+            ) : (
+              jobs.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => setActiveJobId(row.id)}
+                  className={cn(
+                    'w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                    activeJobId === row.id
+                      ? 'border-primary bg-secondary'
+                      : 'border-border hover:border-primary/40',
+                  )}
+                >
+                  <div className="font-medium">#{row.id} · {row.source}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {row.status} · {row.original_filename || 'file'}
+                  </div>
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="eljiran-card border-0">
+          <CardHeader>
+            <CardTitle className="text-base">
+              {activeJobId ? `Job #${activeJobId}` : 'Select a job'}
+            </CardTitle>
+            {job ? (
+              <CardDescription>
+                Status: {job.status}
+                {job.error_message ? ` · ${job.error_message}` : ''}
+                {job.stats ? ` · ${JSON.stringify(job.stats)}` : ''}
+              </CardDescription>
+            ) : null}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!activeJobId ? (
+              <p className="text-sm text-muted-foreground">Upload or pick a job to continue.</p>
+            ) : jobLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : job ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={parseMutation.isPending}
+                    onClick={() => parseMutation.mutate(job.id)}
+                  >
+                    {parseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Parse
+                  </Button>
+                  <Button
+                    disabled={publishMutation.isPending || job.status === 'PUBLISHING'}
+                    onClick={() => publishMutation.mutate(job.id)}
+                  >
+                    {publishMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Publish approved
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => deleteMutation.mutate(job.id)}
+                  >
+                    Discard
+                  </Button>
+                  <Select value={kindFilter} onValueChange={(value) => setKindFilter(value as any)}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All kinds</SelectItem>
+                      <SelectItem value="USER">Users</SelectItem>
+                      <SelectItem value="POST">Posts</SelectItem>
+                      <SelectItem value="LISTING">Listings</SelectItem>
+                      <SelectItem value="SKIP">Skipped</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-muted/40 text-left">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Kind</th>
+                        <th className="px-3 py-2 font-medium">Preview</th>
+                        <th className="px-3 py-2 font-medium">Decision</th>
+                        <th className="px-3 py-2 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleItems.map((item) => (
+                        <tr key={item.id} className="border-t border-border align-top">
+                          <td className="px-3 py-2">
+                            <div className="font-medium">{item.kind}</div>
+                            {item.published_entity_id ? (
+                              <div className="text-xs text-muted-foreground">
+                                published {item.published_entity_type} #{item.published_entity_id}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2 max-w-md">
+                            <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                              {previewText(item)}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2">{item.decision}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={!!item.published_entity_id || patchMutation.isPending}
+                                onClick={() =>
+                                  patchMutation.mutate([{ id: item.id, decision: 'APPROVED' }])
+                                }
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={!!item.published_entity_id || patchMutation.isPending}
+                                onClick={() =>
+                                  patchMutation.mutate([{ id: item.id, decision: 'REJECTED' }])
+                                }
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              {item.kind === 'POST' || item.kind === 'LISTING' ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!!item.published_entity_id || patchMutation.isPending}
+                                  onClick={() =>
+                                    patchMutation.mutate([
+                                      {
+                                        id: item.id,
+                                        decision: 'APPROVED',
+                                        kind: item.kind === 'POST' ? 'LISTING' : 'POST',
+                                      },
+                                    ])
+                                  }
+                                >
+                                  → {item.kind === 'POST' ? 'Listing' : 'Post'}
+                                </Button>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {visibleItems.length === 0 ? (
+                    <p className="p-4 text-sm text-muted-foreground">No items. Run Parse first.</p>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

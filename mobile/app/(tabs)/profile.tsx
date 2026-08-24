@@ -17,6 +17,7 @@ import { palette, radii, spacing, typography } from "@hoodna/tokens";
 
 import { Avatar } from "@/components/ui";
 import { AppBrandBar } from "@/components/AppBrandBar";
+import { ProfileSetupCard } from "@/components/profile-setup-card";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
@@ -207,6 +208,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <AppBrandBar compact style={styles.brandBar} />
+        <ProfileSetupCard />
         <View style={styles.hero}>
           <TouchableOpacity
             accessibilityRole="button"

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Wrench, Shield, Contact, SlidersHorizontal, Building2 } from 'lucide-react'
+import { Users, Wrench, Shield, Contact, SlidersHorizontal, Building2, MessageSquareText } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 
 import ResidentVerifications from './components/resident-verifications'
@@ -12,6 +12,7 @@ import ModeratorReviews from './components/moderator-reviews'
 import UserManagement from './components/user-management'
 import EljiranOperations from './components/eljiran-operations'
 import CompoundManagement from './components/compound-management'
+import ChatImportPanel from './components/chat-import'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -63,6 +64,10 @@ export default function AdminDashboardPage() {
               <SlidersHorizontal className="w-4 h-4" />
               Operations
             </TabsTrigger>
+            <TabsTrigger value="chat-import" className="flex items-center gap-2">
+              <MessageSquareText className="w-4 h-4" />
+              Chat import
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="mt-0">
@@ -87,6 +92,10 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="operations" className="mt-0">
             <EljiranOperations />
+          </TabsContent>
+
+          <TabsContent value="chat-import" className="mt-0">
+            <ChatImportPanel />
           </TabsContent>
         </Tabs>
       </div>

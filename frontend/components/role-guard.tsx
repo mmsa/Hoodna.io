@@ -55,6 +55,19 @@ export function RoleGuard({ children }: RoleGuardProps) {
       return
     }
 
+    // Chat-import / invited accounts must finish name + password on profile first.
+    if (user.needs_profile_setup) {
+      if (
+        pathname.startsWith('/profile') ||
+        pathname.startsWith('/settings') ||
+        pathname.startsWith('/auth')
+      ) {
+        return
+      }
+      router.replace('/profile')
+      return
+    }
+
     if (!user.role) {
       if (
         pathname.startsWith('/onboarding/choose-role') ||

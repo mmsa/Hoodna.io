@@ -20,13 +20,23 @@ export default function TabsLayout() {
       router.replace("/auth");
       return;
     }
+    if (user.needs_profile_setup) {
+      router.replace("/(tabs)/profile");
+      return;
+    }
     // Block unapproved residents from all tabs
     if (isResidentRole(user.role) && user.status !== "APPROVED") {
       router.replace(getPostAuthRoute(user) as any);
     }
   }, [user, loading, router]);
 
-  if (loading || !user || (isResidentRole(user.role) && user.status !== "APPROVED")) {
+  if (
+    loading ||
+    !user ||
+    (isResidentRole(user.role) &&
+      user.status !== "APPROVED" &&
+      !user.needs_profile_setup)
+  ) {
     return (
       <View style={styles.loading}>
         <LoadingState label={t("common.loadingCommunity")} />

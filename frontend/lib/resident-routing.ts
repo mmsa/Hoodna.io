@@ -23,7 +23,12 @@ export function getResidentWebRoute(user: {
   verification_status?: string | null
   verified_compound_ids?: number[] | null
   is_verified_for_current_compound?: boolean | null
+  needs_profile_setup?: boolean | null
 }): string {
+  if (user.needs_profile_setup) {
+    return '/profile'
+  }
+
   if (!user.compound_id) {
     return '/onboarding/compound-select'
   }
@@ -74,7 +79,11 @@ export function getPostAuthWebRoute(user: {
   verification_status?: string | null
   verified_compound_ids?: number[] | null
   is_verified_for_current_compound?: boolean | null
+  needs_profile_setup?: boolean | null
 }): string {
+  if (user.needs_profile_setup) {
+    return '/profile'
+  }
   if (!user.role) {
     return '/onboarding/choose-role'
   }

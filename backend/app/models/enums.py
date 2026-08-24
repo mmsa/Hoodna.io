@@ -221,3 +221,30 @@ class DigestChannel(str, Enum):
     PUSH = "PUSH"
     IN_APP = "IN_APP"
 
+
+class ChatImportSource(str, Enum):
+    WHATSAPP = "WHATSAPP"
+    TELEGRAM = "TELEGRAM"
+
+
+class ChatImportJobStatus(str, Enum):
+    UPLOADED = "UPLOADED"
+    PARSING = "PARSING"
+    PREVIEW = "PREVIEW"
+    PUBLISHING = "PUBLISHING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ChatImportItemKind(str, Enum):
+    USER = "USER"
+    POST = "POST"
+    LISTING = "LISTING"
+    SKIP = "SKIP"
+
+
+class ChatImportItemDecision(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+

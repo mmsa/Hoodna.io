@@ -26,9 +26,11 @@ from app.models import moderation  # noqa: F401
 from app.models import feature_flag  # noqa: F401
 from app.models import telemetry  # noqa: F401
 from app.models import digest  # noqa: F401
+from app.models import chat_import  # noqa: F401
 
 from app.api import (
     admin_businesses,
+    admin_chat_import,
     auth,
     beta_metrics,
     businesses,
@@ -122,6 +124,9 @@ app.include_router(admin_reviews.router, prefix="/api/admin", tags=["admin-revie
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(moderator.router, prefix="/api/moderator", tags=["moderator"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(
+    admin_chat_import.router, prefix="/api/admin", tags=["admin-chat-import"]
+)
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(referrals.router, prefix="/api/referrals", tags=["referrals"])
 app.include_router(businesses.router, prefix="/api")

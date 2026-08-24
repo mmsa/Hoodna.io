@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SQLEnum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -14,6 +14,7 @@ class User(Base):
     phone = Column(String, nullable=True)
     avatar_url = Column(String(512), nullable=True)
     password_hash = Column(String, nullable=False)
+    profile_setup_required = Column(Boolean, nullable=False, default=False, server_default="false")
     role = Column(SQLEnum(UserRole), nullable=True)  # Can be null until user selects role
     status = Column(SQLEnum(UserStatus), default=UserStatus.PENDING_VERIFICATION, nullable=False)
     compound_id = Column(Integer, ForeignKey("compounds.id"), nullable=True)

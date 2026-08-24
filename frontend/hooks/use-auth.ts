@@ -20,6 +20,7 @@ interface User {
   can_post?: boolean
   can_comment?: boolean
   can_create_listing?: boolean
+  needs_profile_setup?: boolean | null
 }
 
 export function useAuth() {

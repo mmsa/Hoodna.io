@@ -15,6 +15,10 @@ export function isVerifiedForCurrentCompound(user: User): boolean {
  * verification_status from /me: UNVERIFIED | PENDING | APPROVED | REJECTED
  */
 export function getResidentRoute(user: User): string {
+  if (user.needs_profile_setup) {
+    return "/(tabs)/profile";
+  }
+
   if (!user.compound_id) {
     return "/onboarding/compound-select";
   }
@@ -87,6 +91,9 @@ export function isVerificationRejected(
 
 /** Post-auth destination for any logged-in user. */
 export function getPostAuthRoute(user: User): string {
+  if (user.needs_profile_setup) {
+    return "/(tabs)/profile";
+  }
   if (!user.role) {
     return "/onboarding/choose-role";
   }

@@ -42,7 +42,11 @@ async def ensure_user_compound_membership(
 
 
 async def ensure_pending_compound_membership(
-    db: AsyncSession, user_id: int, compound_id: int
+    db: AsyncSession,
+    user_id: int,
+    compound_id: int,
+    *,
+    source: str = "REQUEST",
 ) -> None:
     """Track requested access without granting community permissions."""
     if not compound_id:
@@ -53,14 +57,20 @@ async def ensure_pending_compound_membership(
             UserCompoundMembership.compound_id == compound_id,
         )
     )
-    if existing.scalar_one_or_none():
+    membership = existing.scalar_one_or_none()
+    if membership:
+        # Keep VERIFIED as-is; only fill source on still-pending rows.
+        if membership.verification_status != "VERIFIED":
+            membership.verification_status = "PENDING"
+            membership.verification_source = source
+            await db.flush()
         return
     db.add(
         UserCompoundMembership(
             user_id=user_id,
             compound_id=compound_id,
             verification_status="PENDING",
-            verification_source="REQUEST",
+            verification_source=source,
         )
     )
     await db.flush()

@@ -15,7 +15,7 @@ interface AuthContextType {
   apiClient: ApiClient;
   login: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -110,8 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await apiClient.getMe();
       setUser(userData);
+      return userData;
     } catch (error) {
       console.error("Failed to refresh user:", error);
+      return null;
     }
   }, [apiClient]);
 

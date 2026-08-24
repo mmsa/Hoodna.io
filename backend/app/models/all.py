@@ -6,6 +6,7 @@ Alembic autogeneration and metadata-focused tests.
 
 from app.models import (  # noqa: F401
     business,
+    chat_import,
     compound,
     compound_moderator,
     digest,

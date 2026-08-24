@@ -16,6 +16,18 @@ Authenticate as a full `ADMIN` for admin routes.
 - `POST /api/internal/jobs/weekly-digest[?dry_run=true]` accepts `X-Cron-Secret` or a Bearer secret.
 - `GET /api/digests/me/latest` returns the authenticated user's latest sent digest or null.
 
+## Chat import (WhatsApp / Telegram)
+
+Admin Dashboard → **Chat import** seeds a compound from a group export.
+
+1. Export the compound WhatsApp group (`Export chat` → Without media or With media `.zip`) or Telegram Desktop (`Export chat history` → JSON).
+2. Upload in Admin → Chat import for the target compound.
+3. **Parse**, review users/posts/listings (approve/reject or flip post↔listing), then **Publish approved**.
+4. Publish creates invited phone users with **PENDING** `CHAT_IMPORT` membership, `profile_setup_required=true`, and ACTIVE posts/listings.
+5. Residents OTP-login with their phone → app redirects to **Profile** to set **name + password** (email not required). Completing profile confirms compound invites and marks them VERIFIED/APPROVED.
+
+APIs: `/api/admin/chat-imports*`, `/api/auth/me/complete-profile`, `/api/auth/me/compound-invites*`.
+
 Quick production checks:
 
 ```sh

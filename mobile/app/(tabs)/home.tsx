@@ -18,6 +18,7 @@ import { CompoundHero } from "@/components/feed/compound-hero";
 import { HomeShortcuts } from "@/components/home/home-shortcuts";
 import { NeighbourPostCard } from "@/components/home/neighbour-post-card";
 import { AppBrandBar } from "@/components/AppBrandBar";
+import { CompoundInviteCard } from "@/components/compound-invite-card";
 import { AppPressable, Button } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -160,6 +161,9 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <AppBrandBar compact style={styles.emptyBrand} />
+        <View style={{ paddingHorizontal: spacing[5], paddingTop: spacing[4] }}>
+          <CompoundInviteCard />
+        </View>
         <View style={styles.centered}>
           <View style={styles.emptyIcon}>
             <Ionicons name="home-outline" size={36} color={colors.primary} />
@@ -231,6 +235,10 @@ export default function HomeScreen() {
             )}
 
             <HomeShortcuts />
+
+            <View style={{ paddingHorizontal: spacing[5] }}>
+              <CompoundInviteCard />
+            </View>
 
             {canPost ? (
               <AppPressable

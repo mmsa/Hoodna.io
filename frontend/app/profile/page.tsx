@@ -13,6 +13,7 @@ import { AppShell, PageLayout } from '@/components/ui/page-layout'
 import { resolveUploadContentType, uploadToPresignedUrl } from '@/lib/upload'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { ProfileSetupForm } from '@/components/profile-setup-form'
 
 export default function ProfilePage() {
   const { user, isLoading, refreshUser } = useAuth()
@@ -117,6 +118,7 @@ export default function ProfilePage() {
 
   return (
     <AccountShell title="Profile" description="Your account details and neighbourhood info.">
+      <ProfileSetupForm />
       <Card className="eljiran-card">
         <CardHeader>
           <CardTitle>Account information</CardTitle>

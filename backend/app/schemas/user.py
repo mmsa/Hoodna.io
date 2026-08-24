@@ -33,9 +33,15 @@ class UserResponse(UserBase):
     can_create_listing: Optional[bool] = None
     verified_compound_ids: Optional[List[int]] = None
     is_verified_for_current_compound: Optional[bool] = None
+    needs_profile_setup: Optional[bool] = None
 
     class Config:
         from_attributes = True
+
+
+class CompleteProfileRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=8, max_length=128)
 
 
 class AvatarPresignRequest(BaseModel):
