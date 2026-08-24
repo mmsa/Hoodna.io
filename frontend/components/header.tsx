@@ -535,6 +535,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
 
   const handleSwitch = async (compoundId: number, isVerified: boolean) => {
     if (compoundId === user?.compound_id) return
+    const isStaff = user?.role === 'ADMIN' || user?.role === 'MODERATOR'
     
     try {
       await api.post('/api/auth/me/switch-compound', { compound_id: compoundId })
@@ -553,7 +554,7 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
       ]) {
         queryClient.invalidateQueries({ queryKey: [key] })
       }
-      if (isVerified) {
+      if (isStaff || isVerified) {
         toast({
           title: t('compound.switchedTitle'),
           description: t('compound.switchedDesc'),
@@ -638,8 +639,11 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
             </div>
           </DropdownMenuItem>
         )}
-        {/* Only show compound switcher for residents, not service providers or moderators */}
-        {(user?.role === 'RESIDENT' || user?.role === 'USER') && (
+        {/* Residents request access; admins can jump to any neighbourhood */}
+        {(user?.role === 'RESIDENT' ||
+          user?.role === 'USER' ||
+          user?.role === 'ADMIN' ||
+          user?.role === 'MODERATOR') && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -649,7 +653,9 @@ function CompoundSwitcher({ currentCompound }: { currentCompound: { id: number; 
               className="font-medium text-primary"
             >
               <Building2 className="w-4 h-4 me-2" />
-              {t('compound.requestNewNeighbourhood')}
+              {user?.role === 'ADMIN' || user?.role === 'MODERATOR'
+                ? 'Browse any neighbourhood'
+                : t('compound.requestNewNeighbourhood')}
             </DropdownMenuItem>
           </>
         )}

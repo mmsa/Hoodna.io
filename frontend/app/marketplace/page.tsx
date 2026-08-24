@@ -76,6 +76,7 @@ export default function MarketplacePage() {
 
   useEffect(() => {
     if (!error) return
+    if (user?.role === 'ADMIN' || user?.role === 'MODERATOR') return
     const status = (error as { response?: { status?: number } })?.response?.status
     if (status !== 403) return
 
@@ -95,7 +96,7 @@ export default function MarketplacePage() {
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [error, queryClient, router])
+  }, [error, queryClient, router, user?.role])
 
   const hasActiveFilters = Object.entries(filters).some(
     ([key, value]) => (key === "sort" ? value !== "date_desc" : Boolean(value))

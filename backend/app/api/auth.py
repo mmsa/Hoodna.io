@@ -374,28 +374,42 @@ async def get_current_user_info(
 
     from app.crud.user_compound_membership import get_verified_compound_ids
 
+    # Platform admins/moderators browse any compound without resident verification
+    is_platform_staff = current_user.role in (UserRole.ADMIN, UserRole.MODERATOR)
+
     verified_compound_ids = sorted(
         await get_verified_compound_ids(db, current_user, persist_inferred=True)
     )
     is_verified_for_current_compound = (
-        current_user.compound_id is not None
-        and current_user.compound_id in verified_compound_ids
+        True
+        if is_platform_staff and current_user.compound_id is not None
+        else (
+            current_user.compound_id is not None
+            and current_user.compound_id in verified_compound_ids
+        )
     )
 
-    verification_status = compute_verification_status(
-        current_user,
-        national_id,
-        contract,
-        is_verified_for_current_compound=is_verified_for_current_compound,
+    verification_status = (
+        "APPROVED"
+        if is_platform_staff
+        else compute_verification_status(
+            current_user,
+            national_id,
+            contract,
+            is_verified_for_current_compound=is_verified_for_current_compound,
+        )
     )
 
     can_post = (
-        current_user.role in (UserRole.RESIDENT, UserRole.USER, None)
-        and current_user.status == UserStatus.APPROVED
-        and is_verified_for_current_compound
+        is_platform_staff
+        or (
+            current_user.role in (UserRole.RESIDENT, UserRole.USER, None)
+            and current_user.status == UserStatus.APPROVED
+            and is_verified_for_current_compound
+        )
     )
-    can_comment = is_verified_for_current_compound
-    can_create_listing = is_verified_for_current_compound
+    can_comment = is_platform_staff or is_verified_for_current_compound
+    can_create_listing = is_platform_staff or is_verified_for_current_compound
     
     # For service providers and moderators, check their profile status instead
     if current_user.role == UserRole.SERVICE_PROVIDER:
@@ -507,6 +521,7 @@ async def update_current_user(
         from app.crud.user_compound_membership import (
             ensure_pending_compound_membership,
         )
+        from app.models.enums import UserRole
 
         compound = await get_compound_by_id(db, user_update.compound_id)
         if not compound:
@@ -517,11 +532,13 @@ async def update_current_user(
 
         new_compound_id = user_update.compound_id
 
-        # Selecting a compound records a request only. It must never grant
-        # verified access until a document is approved or an admin grants it.
-        await ensure_pending_compound_membership(
-            db, current_user.id, new_compound_id
-        )
+        # Admins/staff just switch context — no pending verification membership.
+        if current_user.role not in (UserRole.ADMIN, UserRole.MODERATOR):
+            # Selecting a compound records a request only. It must never grant
+            # verified access until a document is approved or an admin grants it.
+            await ensure_pending_compound_membership(
+                db, current_user.id, new_compound_id
+            )
         current_user.compound_id = new_compound_id
     
     if user_update.role is not None:
@@ -696,8 +713,28 @@ async def get_user_compounds(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Compounds the user can switch between (verified + in-progress verification)."""
+    """Compounds the user can switch between (verified + in-progress verification).
+
+    Platform admins/moderators receive all compounds and may switch freely.
+    """
     from app.crud.user_compound_membership import get_user_switchable_compounds
+    from app.models.enums import UserRole
+
+    if current_user.role in (UserRole.ADMIN, UserRole.MODERATOR):
+        from app.crud.compound import get_all_compounds
+
+        compounds, _total = await get_all_compounds(db, skip=0, limit=200)
+        return [
+            {
+                "id": c.id,
+                "name": c.name,
+                "area": c.area,
+                "is_current": c.id == current_user.compound_id,
+                "is_verified": True,
+                "verification_status": "VERIFIED",
+            }
+            for c in compounds
+        ]
 
     return await get_user_switchable_compounds(db, current_user)
 
@@ -796,7 +833,10 @@ async def switch_compound(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Switch active compound — verified neighbourhoods or in-progress verification."""
+    """Switch active compound — verified neighbourhoods or in-progress verification.
+
+    Platform admins/moderators may switch to any compound without verification.
+    """
     from app.crud.compound import get_compound_by_id
     from app.crud.user_compound_membership import user_can_switch_to_compound
     from app.models.enums import UserStatus, UserRole
@@ -815,19 +855,23 @@ async def switch_compound(
             detail="Compound not found"
         )
 
-    if current_user.role not in (UserRole.RESIDENT, UserRole.USER, None):
+    is_platform_staff = current_user.role in (UserRole.ADMIN, UserRole.MODERATOR)
+
+    if not is_platform_staff and current_user.role not in (UserRole.RESIDENT, UserRole.USER, None):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only residents can switch neighbourhoods",
         )
 
-    if current_user.status != UserStatus.APPROVED:
+    if not is_platform_staff and current_user.status != UserStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Complete account verification before switching neighbourhoods.",
         )
 
-    if not await user_can_switch_to_compound(db, current_user, compound_id):
+    if not is_platform_staff and not await user_can_switch_to_compound(
+        db, current_user, compound_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Request access to this neighbourhood before switching to it.",

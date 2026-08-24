@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Camera, Loader2, Plus, Search, Trash2 } from 'lucide-react'
+import { Building2, Camera, ExternalLink, Loader2, Plus, Search, Trash2 } from 'lucide-react'
 
 import { SignedFileImage } from '@/components/signed-file'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import api from '@/lib/api'
 import { formatCompoundWithArea } from '@/lib/format-compound'
@@ -63,6 +65,8 @@ function errorDetail(error: unknown): string {
 
 export default function CompoundManagement() {
   const { toast } = useToast()
+  const router = useRouter()
+  const { refreshUser } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -72,6 +76,7 @@ export default function CompoundManagement() {
   const [forceDelete, setForceDelete] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [uploading, setUploading] = useState(false)
+  const [openingId, setOpeningId] = useState<number | null>(null)
   const pageSize = 25
 
   const dialogOpen = creating || !!editing
@@ -215,6 +220,42 @@ export default function CompoundManagement() {
     }
   }
 
+  async function goToCompound(compound: CompoundRow) {
+    setOpeningId(compound.id)
+    try {
+      await api.post('/api/auth/me/switch-compound', { compound_id: compound.id })
+      await refreshUser()
+      queryClient.invalidateQueries({ queryKey: ['compound'] })
+      queryClient.invalidateQueries({ queryKey: ['user-compounds'] })
+      for (const key of [
+        'feed',
+        'feed-summary',
+        'announcements',
+        'recent-listings',
+        'latest-for-sale',
+        'latest-for-rent',
+        'latest-services',
+        'user-stats',
+      ]) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
+      toast({
+        title: 'Switched neighbourhood',
+        description: `Browsing ${formatCompoundWithArea(compound.name, compound.area)}`,
+        variant: 'success',
+      })
+      router.push('/feed')
+    } catch (error: unknown) {
+      toast({
+        title: 'Could not open compound',
+        description: errorDetail(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setOpeningId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="eljiran-card border-0">
@@ -226,7 +267,7 @@ export default function CompoundManagement() {
                 Compound management
               </CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                Add, edit, or delete compounds. Hero photos appear on the community feed for residents.
+                Add, edit, or delete compounds. Use Open to browse that neighbourhood as admin.
                 {pendingCount > 0 ? ` ${pendingCount} on this page need completion.` : ''}
               </p>
             </div>
@@ -298,6 +339,18 @@ export default function CompoundManagement() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => void goToCompound(compound)}
+                            disabled={openingId === compound.id}
+                          >
+                            {openingId === compound.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            )}
+                            Open
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => openEditor(compound)}>
                             Edit
                           </Button>

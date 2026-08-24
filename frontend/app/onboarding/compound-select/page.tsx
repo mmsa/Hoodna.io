@@ -141,7 +141,9 @@ export default function CompoundSelectPage() {
           <CardHeader>
             <CardTitle>Select Your Neighbourhood</CardTitle>
             <CardDescription>
-              Search and select the compound or neighbourhood where you live
+              {user?.role === 'ADMIN' || user?.role === 'MODERATOR'
+                ? 'Pick any neighbourhood to browse as admin — no verification required.'
+                : 'Search and select the compound or neighbourhood where you live'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

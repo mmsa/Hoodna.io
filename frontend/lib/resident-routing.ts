@@ -96,5 +96,11 @@ export function getPostAuthWebRoute(user: {
   if (user.role === 'COMPOUND_MOD') {
     return '/moderator/status'
   }
+  if (user.role === 'ADMIN') {
+    return '/admin/dashboard'
+  }
+  if (user.role === 'MODERATOR') {
+    return '/admin/dashboard'
+  }
   return '/feed'
 }

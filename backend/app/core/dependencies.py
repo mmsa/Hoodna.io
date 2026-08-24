@@ -203,7 +203,12 @@ async def get_current_approved_user(
     """Get the current user, ensuring they are approved.
     
     For service providers and moderators, checks their profile status instead of user status.
+    Platform admins bypass verification entirely.
     """
+    # Platform staff: full access without resident verification
+    if current_user.role in (UserRole.ADMIN, UserRole.MODERATOR):
+        return current_user
+
     # Service providers: check provider profile status
     if current_user.role == UserRole.SERVICE_PROVIDER:
         from app.crud.provider import get_provider_profile
@@ -272,7 +277,17 @@ async def get_current_verified_user(
     """Get the current user, ensuring they are verified (approved status).
     
     For moderators, checks their moderator profile status and compound_id.
+    Platform admins bypass resident verification and may browse any compound.
     """
+    # Platform staff: no document verification; compound optional until they pick one
+    if current_user.role in (UserRole.ADMIN, UserRole.MODERATOR):
+        if current_user.compound_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Select a neighbourhood to browse the community.",
+            )
+        return current_user
+
     # Moderators: check moderator profile status and compound_id
     if current_user.role == UserRole.COMPOUND_MOD:
         from app.crud.moderator import get_moderator_profile

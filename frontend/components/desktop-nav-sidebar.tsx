@@ -10,6 +10,7 @@ import {
   Home,
   MessageCircle,
   Settings,
+  Shield,
   ShoppingBag,
   Wrench,
 } from "lucide-react"
@@ -64,6 +65,8 @@ export function DesktopNavSidebar() {
   const pathname = usePathname() ?? ""
   const { user } = useAuth()
   const { t } = useTranslation()
+  const isAdmin = user?.role === "ADMIN" || user?.role === "MODERATOR"
+  const adminActive = pathname.startsWith("/admin")
 
   return (
     <nav
@@ -100,6 +103,21 @@ export function DesktopNavSidebar() {
             </Link>
           )
         })}
+        {isAdmin ? (
+          <Link
+            href="/admin/dashboard"
+            aria-current={adminActive ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150",
+              adminActive
+                ? "bg-white/16 text-white shadow-sm"
+                : "text-white/72 hover:bg-white/10 hover:text-white"
+            )}
+          >
+            <Shield className="h-[18px] w-[18px]" aria-hidden="true" />
+            {t("nav.adminDashboard")}
+          </Link>
+        ) : null}
       </div>
 
       <div className="my-4 h-px bg-white/10" />

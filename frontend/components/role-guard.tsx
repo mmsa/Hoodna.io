@@ -55,6 +55,11 @@ export function RoleGuard({ children }: RoleGuardProps) {
       return
     }
 
+    // Platform admins/moderators: full app access, no verification gates
+    if (user.role === 'ADMIN' || user.role === 'MODERATOR') {
+      return
+    }
+
     // Chat-import / invited accounts must finish name + password on profile first.
     if (user.needs_profile_setup) {
       if (
@@ -132,11 +137,6 @@ export function RoleGuard({ children }: RoleGuardProps) {
       }
 
       router.replace(getResidentWebRoute(user))
-      return
-    }
-
-    // Admins etc.
-    if (user.role === 'ADMIN' || user.role === 'MODERATOR') {
       return
     }
   }, [user, isLoading, pathname, router])

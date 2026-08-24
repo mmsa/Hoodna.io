@@ -1,6 +1,13 @@
 import type { User } from "@hoodna/shared";
 
+export function isPlatformStaff(role: string | null | undefined): boolean {
+  return role === "ADMIN" || role === "MODERATOR";
+}
+
 export function isVerifiedForCurrentCompound(user: User): boolean {
+  if (isPlatformStaff(user.role)) {
+    return user.compound_id != null;
+  }
   if (user.is_verified_for_current_compound != null) {
     return user.is_verified_for_current_compound;
   }
@@ -44,6 +51,7 @@ export function getResidentRoute(user: User): string {
 }
 
 export function canAccessVerificationUpload(user: User): boolean {
+  if (isPlatformStaff(user.role)) return false;
   if (user.status === "APPROVED" && !isVerifiedForCurrentCompound(user)) return true;
   if (user.status === "APPROVED") return false;
   if (user.verification_status === "REJECTED") return true;
@@ -81,6 +89,7 @@ export function isVerificationRejected(
     contract?: { status?: string } | null;
   } | null
 ): boolean {
+  if (isPlatformStaff(user.role)) return false;
   return (
     user.status === "REJECTED" ||
     user.status === "BANNED" ||
@@ -96,6 +105,9 @@ export function getPostAuthRoute(user: User): string {
   }
   if (!user.role) {
     return "/onboarding/choose-role";
+  }
+  if (isPlatformStaff(user.role)) {
+    return "/admin/dashboard";
   }
   if (isResidentRole(user.role)) {
     return getResidentRoute(user);
