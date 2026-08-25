@@ -115,9 +115,12 @@ async def fetch_link_preview(url: str) -> dict[str, Any]:
     preview = _fallback(normalized, kind)
 
     # Platforms that usually block server-side scrapers — keep branded fallback.
+    # (Facebook/IG oEmbed require Meta app tokens; share links often can't embed.)
     if kind in ("facebook", "tiktok", "instagram"):
-        preview["title"] = f"Shared from {_site_label(kind, host)}"
-        preview["description"] = "Tap to open"
+        label = _site_label(kind, host)
+        preview["title"] = f"Watch on {label}" if kind in ("facebook", "tiktok") else f"Open on {label}"
+        preview["description"] = "Opens in the app or browser"
+        preview["site_name"] = label
         _CACHE[normalized] = preview
         return preview
 

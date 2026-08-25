@@ -94,6 +94,58 @@ export function linkKindLabel(kind: LinkHostKind): string {
   }
 }
 
+/** True when the post/comment body is only URL(s) (+ whitespace). */
+export function isUrlOnlyContent(text: string): boolean {
+  if (!text?.trim()) return false;
+  const urls = extractUrls(text);
+  if (!urls.length) return false;
+  let rest = text;
+  for (const url of urls) {
+    rest = rest.split(url).join(" ");
+  }
+  return rest.trim().length === 0;
+}
+
+export function socialWatchLabel(kind: LinkHostKind): string {
+  switch (kind) {
+    case "facebook":
+      return "Watch on Facebook";
+    case "tiktok":
+      return "Watch on TikTok";
+    case "instagram":
+      return "Open on Instagram";
+    case "twitter":
+      return "Open on X";
+    case "youtube":
+      return "Watch on YouTube";
+    default:
+      return "Open link";
+  }
+}
+
+/** Brand colors for social fallback cards (no OG image available). */
+export function socialBrandTheme(kind: LinkHostKind): {
+  bg: string;
+  bgEnd: string;
+  accent: string;
+  label: string;
+} {
+  switch (kind) {
+    case "facebook":
+      return { bg: "#1877F2", bgEnd: "#0D5FBF", accent: "#FFFFFF", label: "Facebook" };
+    case "tiktok":
+      return { bg: "#121212", bgEnd: "#25F4EE", accent: "#FE2C55", label: "TikTok" };
+    case "instagram":
+      return { bg: "#833AB4", bgEnd: "#FD1D1D", accent: "#F77737", label: "Instagram" };
+    case "twitter":
+      return { bg: "#0F1419", bgEnd: "#1D9BF0", accent: "#FFFFFF", label: "X" };
+    case "youtube":
+      return { bg: "#FF0000", bgEnd: "#CC0000", accent: "#FFFFFF", label: "YouTube" };
+    default:
+      return { bg: "#0F766E", bgEnd: "#115E59", accent: "#FFFFFF", label: "Link" };
+  }
+}
+
 export interface LinkPreviewData {
   url: string;
   title?: string | null;
