@@ -243,3 +243,90 @@ async def get_user_activity_counts(db: AsyncSession, user_id: int) -> dict[str, 
         "conversations": conversations,
     }
 
+
+async def delete_user(db: AsyncSession, user_id: int) -> dict:
+    """Permanently delete a user and their owned content.
+
+    Raises ValueError if missing, PermissionError if the user is an admin.
+    """
+    from sqlalchemy import delete, or_, update
+    from app.models.post import Post, Comment, PostReaction
+    from app.models.listing import Listing, Promotion
+
+    user = await db.get(User, user_id)
+    if not user:
+        raise ValueError("User not found")
+    if user.role == UserRole.ADMIN:
+        raise PermissionError("Cannot delete admin accounts")
+
+    email = user.email
+    user.creation_job_id = None
+
+    post_ids = list(
+        (
+            await db.execute(select(Post.id).where(Post.author_id == user_id))
+        ).scalars().all()
+    )
+    listing_ids = list(
+        (
+            await db.execute(select(Listing.id).where(Listing.owner_id == user_id))
+        ).scalars().all()
+    )
+
+    if post_ids:
+        await db.execute(delete(SavedPost).where(SavedPost.post_id.in_(post_ids)))
+        await db.execute(delete(PostReaction).where(PostReaction.post_id.in_(post_ids)))
+        await db.execute(delete(Comment).where(Comment.post_id.in_(post_ids)))
+    await db.execute(delete(SavedPost).where(SavedPost.user_id == user_id))
+    await db.execute(delete(PostReaction).where(PostReaction.user_id == user_id))
+    await db.execute(delete(Comment).where(Comment.author_id == user_id))
+    await db.execute(delete(Post).where(Post.author_id == user_id))
+
+    if listing_ids:
+        await db.execute(delete(SavedListing).where(SavedListing.listing_id.in_(listing_ids)))
+        await db.execute(delete(Review).where(Review.listing_id.in_(listing_ids)))
+        await db.execute(delete(Promotion).where(Promotion.listing_id.in_(listing_ids)))
+    await db.execute(delete(SavedListing).where(SavedListing.user_id == user_id))
+    await db.execute(delete(Review).where(Review.reviewer_id == user_id))
+
+    conversation_filters = [
+        Conversation.user1_id == user_id,
+        Conversation.user2_id == user_id,
+    ]
+    if listing_ids:
+        conversation_filters.append(Conversation.listing_id.in_(listing_ids))
+    conversation_ids = list(
+        (
+            await db.execute(select(Conversation.id).where(or_(*conversation_filters)))
+        ).scalars().all()
+    )
+    if conversation_ids:
+        await db.execute(delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+        await db.execute(delete(Conversation).where(Conversation.id.in_(conversation_ids)))
+    await db.execute(delete(Message).where(Message.sender_id == user_id))
+
+    if listing_ids:
+        await db.execute(delete(Listing).where(Listing.id.in_(listing_ids)))
+
+    await db.execute(
+        delete(UserCompoundMembership).where(UserCompoundMembership.user_id == user_id)
+    )
+    await db.execute(delete(Notification).where(Notification.user_id == user_id))
+    await db.execute(delete(Report).where(Report.reporter_id == user_id))
+    await db.execute(
+        update(Report).where(Report.reviewed_by_id == user_id).values(reviewed_by_id=None)
+    )
+    await db.execute(delete(VerificationDocument).where(VerificationDocument.user_id == user_id))
+    await db.execute(
+        update(VerificationDocument)
+        .where(VerificationDocument.reviewer_id == user_id)
+        .values(reviewer_id=None)
+    )
+    await db.execute(
+        update(Compound).where(Compound.moderator_id == user_id).values(moderator_id=None)
+    )
+
+    await db.delete(user)
+    await db.flush()
+    return {"id": user_id, "email": email}
+

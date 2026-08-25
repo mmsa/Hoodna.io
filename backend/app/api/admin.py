@@ -1116,6 +1116,42 @@ async def ban_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
+@router.delete("/users/{user_id}")
+async def admin_delete_user(
+    user_id: int,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete a user and their posts/listings/messages."""
+    from app.crud.user import delete_user
+    from app.models.moderation import AuditLog
+
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account",
+        )
+
+    try:
+        result = await delete_user(db, user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    db.add(
+        AuditLog(
+            actor_id=current_user.id,
+            event_type="user.delete",
+            entity_type="USER",
+            entity_id=str(user_id),
+            data={"email": result.get("email")},
+        )
+    )
+    await db.commit()
+    return {"message": "User deleted", **result}
+
+
 @router.post("/listings/{listing_id}/archive")
 async def archive_listing_endpoint(
     listing_id: int,

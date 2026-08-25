@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -26,6 +27,7 @@ import {
   KeyRound,
   Loader2,
   Search,
+  Trash2,
   X,
   XCircle,
 } from 'lucide-react'
@@ -99,6 +101,7 @@ export default function UserManagement() {
 
   const [detailUserId, setDetailUserId] = useState<number | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
@@ -115,6 +118,10 @@ export default function UserManagement() {
   const compoundId = compoundFilter.trim() && /^\d+$/.test(compoundFilter.trim())
     ? parseInt(compoundFilter.trim(), 10)
     : undefined
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [debouncedSearch, roleFilter, statusFilter, compoundId, sortBy, page, pageSize])
 
   const { data, isLoading, isFetching, refetch } = useQuery<AdminUserListResponse>({
     queryKey: ['admin-users', debouncedSearch, roleFilter, statusFilter, compoundId, sortBy, page, pageSize],
@@ -137,6 +144,31 @@ export default function UserManagement() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const pageNumbers = useMemo(() => buildPageNumbers(page, totalPages), [page, totalPages])
+  const pageIds = useMemo(() => users.map((u) => u.id), [users])
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
+  const somePageSelected = pageIds.some((id) => selectedIds.has(id))
+  const selectedCount = selectedIds.size
+
+  const toggleSelectAllPage = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        pageIds.forEach((id) => next.add(id))
+      } else {
+        pageIds.forEach((id) => next.delete(id))
+      }
+      return next
+    })
+  }
+
+  const toggleSelectOne = (userId: number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(userId)
+      else next.delete(userId)
+      return next
+    })
+  }
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-users'] })
@@ -174,6 +206,82 @@ export default function UserManagement() {
     },
   })
 
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({
+      userIds,
+      action,
+    }: {
+      userIds: number[]
+      action: 'approve' | 'reject' | 'ban' | 'delete'
+    }) => {
+      const results = await Promise.allSettled(
+        userIds.map((userId) =>
+          action === 'delete'
+            ? api.delete(`/api/admin/users/${userId}`)
+            : api.post(`/api/admin/users/${userId}/${action}`, {})
+        )
+      )
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.length - succeeded
+      return { succeeded, failed, action, total: results.length }
+    },
+    onSuccess: ({ succeeded, failed, action }) => {
+      const verb =
+        action === 'approve'
+          ? 'approved'
+          : action === 'reject'
+            ? 'rejected'
+            : action === 'ban'
+              ? 'banned'
+              : 'deleted'
+      if (failed === 0) {
+        toast.success(`${succeeded} user${succeeded === 1 ? '' : 's'} ${verb}`)
+      } else {
+        toast.error(`${succeeded} ${verb}, ${failed} failed`)
+      }
+      setSelectedIds(new Set())
+      invalidate()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Bulk action failed')
+    },
+  })
+
+  const runBulkAction = (action: 'approve' | 'reject' | 'ban' | 'delete') => {
+    const userIds = Array.from(selectedIds)
+    if (userIds.length === 0) return
+    const label =
+      action === 'approve'
+        ? 'Approve'
+        : action === 'reject'
+          ? 'Reject'
+          : action === 'ban'
+            ? 'Ban'
+            : 'Permanently delete'
+    const confirmMsg =
+      action === 'delete'
+        ? `Permanently delete ${userIds.length} selected user${userIds.length === 1 ? '' : 's'} and their content? This cannot be undone.`
+        : `${label} ${userIds.length} selected user${userIds.length === 1 ? '' : 's'}?`
+    if (!window.confirm(confirmMsg)) {
+      return
+    }
+    bulkStatusMutation.mutate({ userIds, action })
+  }
+
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const response = await api.delete(`/api/admin/users/${userId}`)
+      return response.data
+    },
+    onSuccess: () => {
+      toast.success('User deleted')
+      invalidate()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to delete user')
+    },
+  })
+
   const openDetail = (user: AdminUser) => {
     setDetailUserId(user.id)
     setDetailOpen(true)
@@ -201,6 +309,7 @@ export default function UserManagement() {
     setCompoundFilter('')
     setSortBy('created_at_desc')
     setPage(0)
+    setSelectedIds(new Set())
   }
 
   const hasActiveFilters =
@@ -284,14 +393,72 @@ export default function UserManagement() {
               </Select>
             </div>
           </div>
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-600">
             <span>
               {total} user{total !== 1 ? 's' : ''}
+              {selectedCount > 0 ? ` · ${selectedCount} selected` : ''}
               {isFetching && !isLoading && ' · Updating…'}
             </span>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={resetFilters}>Clear filters</Button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedCount > 0 ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-green-700"
+                    disabled={bulkStatusMutation.isPending}
+                    onClick={() => runBulkAction('approve')}
+                  >
+                    {bulkStatusMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4" />
+                    )}
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-700"
+                    disabled={bulkStatusMutation.isPending}
+                    onClick={() => runBulkAction('reject')}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={bulkStatusMutation.isPending}
+                    onClick={() => runBulkAction('ban')}
+                  >
+                    <Ban className="h-4 w-4" />
+                    Ban
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive"
+                    disabled={bulkStatusMutation.isPending}
+                    onClick={() => runBulkAction('delete')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={bulkStatusMutation.isPending}
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    Clear selection
+                  </Button>
+                </>
+              ) : null}
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={resetFilters}>Clear filters</Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -310,6 +477,13 @@ export default function UserManagement() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-gray-50 text-left text-gray-600">
+                    <th className="px-3 py-3 w-10">
+                      <Checkbox
+                        checked={allPageSelected ? true : somePageSelected ? 'indeterminate' : false}
+                        onCheckedChange={(value) => toggleSelectAllPage(value === true)}
+                        aria-label="Select all on this page"
+                      />
+                    </th>
                     <th className="px-4 py-3 font-medium">ID</th>
                     <th className="px-4 py-3 font-medium">Name</th>
                     <th className="px-4 py-3 font-medium">Email</th>
@@ -324,7 +498,19 @@ export default function UserManagement() {
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className="border-b last:border-0 hover:bg-gray-50/80">
+                    <tr
+                      key={user.id}
+                      className={`border-b last:border-0 hover:bg-gray-50/80 ${
+                        selectedIds.has(user.id) ? 'bg-secondary/40' : ''
+                      }`}
+                    >
+                      <td className="px-3 py-3">
+                        <Checkbox
+                          checked={selectedIds.has(user.id)}
+                          onCheckedChange={(value) => toggleSelectOne(user.id, value === true)}
+                          aria-label={`Select user ${user.id}`}
+                        />
+                      </td>
                       <td className="px-4 py-3 text-gray-500">{user.id}</td>
                       <td className="px-4 py-3 font-medium">{user.name}</td>
                       <td className="px-4 py-3 text-gray-700">{user.email}</td>
@@ -389,6 +575,26 @@ export default function UserManagement() {
                               title="Ban"
                             >
                               <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {user.role !== 'ADMIN' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={deleteMutation.isPending || bulkStatusMutation.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Permanently delete ${user.name} and their content? This cannot be undone.`
+                                  )
+                                ) {
+                                  deleteMutation.mutate(user.id)
+                                }
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           )}
                         </div>
