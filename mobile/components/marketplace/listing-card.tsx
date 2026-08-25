@@ -55,7 +55,7 @@ export function ListingCard({
             style={row ? styles.rowImage : styles.image}
           />
         ) : (
-          <View style={[styles.placeholder, row && styles.rowImage]}>
+          <View style={[styles.placeholder, row && styles.rowPlaceholder]}>
             <Ionicons
               color={colors.primary}
               name={categoryIcons[listing.category] || "storefront-outline"}
@@ -127,12 +127,14 @@ const styles = StyleSheet.create({
   },
   rowImageWrap: {
     width: 112,
+    height: 112,
     borderRadius: 0,
+    overflow: "hidden",
+    backgroundColor: palette.surfaceMuted,
   },
   rowImage: {
     width: 112,
-    height: "100%",
-    minHeight: 112,
+    height: 112,
   },
   placeholder: {
     width: "100%",
@@ -140,6 +142,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: palette.primarySoft,
+  },
+  rowPlaceholder: {
+    width: 112,
+    height: 112,
+    aspectRatio: undefined,
   },
   body: {
     paddingTop: spacing[2],
