@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
+from app.crud.post import (
+    get_feed_posts, create_post, create_comment, get_compound_announcements,
+    toggle_post_reaction, serialize_poll, vote_on_poll,
+)
 from app.schemas.community import (
     PostCreate, PostResponse, CommentCreate, CommentResponse,
     ReactionUpdate, PostReactionsResponse,
-)
-from app.crud.post import (
-    get_feed_posts, create_post, create_comment, get_compound_announcements,
-    toggle_post_reaction,
+    PollVoteRequest, AskRequest, AskResponse,
 )
 from app.crud.listing import get_listings
 from app.crud.compound import get_compound_by_id
@@ -29,6 +30,38 @@ def _reaction_fields(post, user_id: Optional[int]) -> dict:
         if reaction.user_id == user_id:
             user_reaction = reaction.reaction
     return {"reaction_counts": counts, "user_reaction": user_reaction}
+
+
+def _to_post_response(post, user_id: Optional[int] = None, *, is_saved: Optional[bool] = None) -> PostResponse:
+    return PostResponse(
+        id=post.id,
+        compound_id=post.compound_id,
+        compound_name=post.compound.name if post.compound else None,
+        author_id=post.author_id,
+        author_name=post.author.name if post.author else "",
+        author_avatar_url=post.author.avatar_url if post.author else None,
+        author_status=post.author.status.value if post.author and post.author.status else None,
+        content=post.content,
+        category=post.category.value if post.category else None,
+        is_urgent=bool(post.is_urgent),
+        poll=serialize_poll(post, user_id),
+        created_at=post.created_at,
+        is_saved=is_saved,
+        **_reaction_fields(post, user_id),
+        comments=[
+            CommentResponse(
+                id=c.id,
+                post_id=c.post_id,
+                author_id=c.author_id,
+                author_name=c.author.name if c.author else "",
+                author_avatar_url=c.author.avatar_url if c.author else None,
+                author_status=c.author.status.value if c.author and c.author.status else None,
+                content=c.content,
+                created_at=c.created_at,
+            )
+            for c in (post.comments or [])
+        ],
+    )
 
 
 class FeedSummaryResponse(BaseModel):
@@ -202,36 +235,7 @@ async def get_feed(
     # Convert to response format
     result = []
     for post in posts:
-        # Get compound name for context
-        compound_name = post.compound.name if post.compound else None
-        
-        result.append(PostResponse(
-            id=post.id,
-            compound_id=post.compound_id,
-            compound_name=compound_name,
-            author_id=post.author_id,
-            author_name=post.author.name,
-            author_avatar_url=post.author.avatar_url,
-            author_status=post.author.status.value if post.author.status else None,  # Include verification status
-            content=post.content,
-            category=post.category.value if post.category else None,  # Include category
-            is_urgent=post.is_urgent if post.is_urgent else False,  # Include urgent flag
-            created_at=post.created_at,
-            **_reaction_fields(post, current_user.id),
-            comments=[
-                CommentResponse(
-                    id=c.id,
-                    post_id=c.post_id,
-                    author_id=c.author_id,
-                    author_name=c.author.name,
-                    author_avatar_url=c.author.avatar_url,
-                    author_status=c.author.status.value if c.author.status else None,  # Include verification status
-                    content=c.content,
-                    created_at=c.created_at,
-                )
-                for c in post.comments
-            ]
-        ))
+        result.append(_to_post_response(post, current_user.id))
     
     return result
 
@@ -252,6 +256,12 @@ async def create_post_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User must be assigned to a compound"
         )
+
+    if post_data.poll and post_data.category not in (None, PostCategory.POLL, PostCategory.GENERAL, PostCategory.DISCUSSION):
+        # Allow poll with explicit POLL or default
+        pass
+    if post_data.poll:
+        post_data.category = PostCategory.POLL
     
     # Check if this is an official announcement
     if post_data.category == PostCategory.ANNOUNCEMENT:
@@ -310,29 +320,58 @@ async def create_post_endpoint(
                 detail="You must be verified for this compound to create posts. Please complete verification first."
             )
     
-    post = await create_post(
-        db=db,
-        compound_id=current_user.compound_id,
-        author_id=current_user.id,
-        post_data=post_data,
-    )
+    try:
+        post = await create_post(
+            db=db,
+            compound_id=current_user.compound_id,
+            author_id=current_user.id,
+            post_data=post_data,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     
     # Refresh to get relationships
-    await db.refresh(post, ["compound", "author"])
+    await db.refresh(post, ["compound", "author", "poll_votes", "reactions", "comments"])
     
-    return PostResponse(
-        id=post.id,
-        compound_id=post.compound_id,
-        compound_name=post.compound.name if post.compound else None,
-        author_id=post.author_id,
-        author_name=current_user.name,
-        author_avatar_url=current_user.avatar_url,
-        author_status=current_user.status.value if current_user.status else None,
-        content=post.content,
-        category=post.category.value if post.category else None,
-        is_urgent=post.is_urgent if post.is_urgent else False,
-        created_at=post.created_at,
-        comments=[],
+    return _to_post_response(post, current_user.id)
+
+
+@router.post("/posts/{post_id}/poll/vote", response_model=PostResponse)
+async def vote_poll_endpoint(
+    post_id: int,
+    vote: PollVoteRequest,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.compound_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select a compound first")
+    try:
+        post = await vote_on_poll(
+            db,
+            post_id=post_id,
+            user_id=current_user.id,
+            compound_id=current_user.compound_id,
+            option_id=vote.option_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Poll not found")
+    return _to_post_response(post, current_user.id)
+
+
+@router.post("/ask", response_model=AskResponse)
+async def ask_neighbours_endpoint(
+    body: AskRequest,
+    current_user: User = Depends(get_current_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.compound_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Select a compound first")
+    from app.services.neighbour_ask import answer_neighbour_question
+
+    return await answer_neighbour_question(
+        db, compound_id=current_user.compound_id, question=body.question.strip()
     )
 
 

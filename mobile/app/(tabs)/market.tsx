@@ -49,14 +49,11 @@ export default function MarketScreen() {
     try {
       const params: Record<string, string> = { scope: "compound", sort_by: "date_desc" };
       if (search.trim()) params.search = search.trim();
+      if (segment === "free") params.intent = "FREE";
+      if (segment === "sale") params.intent = "SELL";
       const data = await apiClient.getListings(params);
       if (compoundId !== (activeCompoundId || user?.compound_id)) return;
       let items = (data || []).filter((item) => item.category !== "SERVICE");
-      if (segment === "free") {
-        items = items.filter((item) => item.price === 0 || item.price == null);
-      } else if (segment === "sale") {
-        items = items.filter((item) => item.price != null && item.price > 0);
-      }
       setListings(items);
     } catch (error: any) {
       console.error("Failed to load listings:", error);

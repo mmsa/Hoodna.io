@@ -50,6 +50,8 @@ export function NeighbourPostCard({
   const [userReaction, setUserReaction] = useState<string | null>(
     post.user_reaction ?? null,
   );
+  const [poll, setPoll] = useState(post.poll);
+  const [saved, setSaved] = useState(Boolean(post.is_saved));
   const likeCount = (reactionCounts.LIKE ?? 0) + (reactionCounts.LOVE ?? 0);
   const commentCount = post.comments?.length ?? 0;
   const liked = userReaction === "LIKE" || userReaction === "LOVE";
@@ -76,6 +78,25 @@ export function NeighbourPostCard({
       });
     } catch {
       Alert.alert("Could not share", "Please try again.");
+    }
+  }
+
+  async function handleSave() {
+    try {
+      if (saved) await apiClient?.unsavePost(post.id);
+      else await apiClient?.savePost(post.id);
+      setSaved((value) => !value);
+    } catch (error: any) {
+      Alert.alert("Could not update saved posts", error?.message || "Please try again.");
+    }
+  }
+
+  async function handleVote(optionId: number) {
+    try {
+      const updated = await apiClient?.votePoll(post.id, optionId);
+      if (updated?.poll) setPoll(updated.poll);
+    } catch (error: any) {
+      Alert.alert("Could not vote", error?.message || "Please try again.");
     }
   }
 
@@ -118,6 +139,26 @@ export function NeighbourPostCard({
       <View style={styles.body}>
         <LinkifiedText text={post.content} style={styles.content} />
         <LinkPreviewCard text={post.content} apiClient={apiClient} />
+        <View style={styles.categoryBadge}>
+          <Text style={styles.categoryText}>
+            {post.category === "LOST_FOUND" ? "Lost & found" : post.category === "POLL" ? "Poll" : (post.category || "General").replace("_", " ")}
+          </Text>
+        </View>
+        {poll ? (
+          <View style={styles.poll}>
+            <Text style={styles.pollQuestion}>{poll.question || post.content}</Text>
+            {poll.options.map((option) => {
+              const percent = poll.total_votes ? Math.round((option.votes / poll.total_votes) * 100) : 0;
+              return (
+                <TouchableOpacity key={option.id} onPress={() => handleVote(option.id)} style={[styles.pollOption, poll.user_vote === option.id && styles.pollOptionSelected]}>
+                  <Text style={styles.pollOptionText}>{option.label}</Text>
+                  <Text style={styles.pollPercent}>{percent}%</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <Text style={styles.pollVotes}>{poll.total_votes} votes</Text>
+          </View>
+        ) : null}
 
         <View style={styles.meta}>
           <TouchableOpacity
@@ -197,6 +238,9 @@ export function NeighbourPostCard({
           >
             <Text style={styles.actionLabel}>Share</Text>
           </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={saved ? "Unsave post" : "Save post"} onPress={handleSave} style={styles.action}>
+            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={18} color={saved ? colors.primary : colors.textMuted} />
+          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -254,6 +298,15 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.body,
     marginBottom: spacing[3],
   },
+  categoryBadge: { alignSelf: "flex-start", marginBottom: spacing[3], borderRadius: radii.full, backgroundColor: palette.primarySoft, paddingHorizontal: spacing[2], paddingVertical: 4 },
+  categoryText: { color: colors.primary, fontSize: typography.size.caption, fontWeight: typography.weight.bold, textTransform: "capitalize" },
+  poll: { gap: spacing[2], marginBottom: spacing[3] },
+  pollQuestion: { color: colors.textMain, fontSize: typography.size.bodySmall, fontWeight: typography.weight.bold },
+  pollOption: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: palette.border, borderRadius: radii.medium, paddingHorizontal: spacing[3] },
+  pollOptionSelected: { borderColor: colors.primary, backgroundColor: palette.primarySoft },
+  pollOptionText: { color: colors.textMain, flex: 1 },
+  pollPercent: { color: colors.textMuted, fontWeight: typography.weight.semibold },
+  pollVotes: { color: colors.textMuted, fontSize: typography.size.caption },
   meta: {
     flexDirection: "row",
     alignItems: "center",

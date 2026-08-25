@@ -16,6 +16,35 @@ export const BusinessHoursDaySchema = z.object({
 
 export const BusinessHoursSchema = z.record(z.string(), BusinessHoursDaySchema);
 
+export const BusinessOfferCreateSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).optional(),
+  badge_text: z.string().trim().max(80).optional(),
+  starts_at: z.string().datetime().optional(),
+  ends_at: z.string().datetime().optional(),
+  is_active: z.boolean().optional(),
+});
+
+export const BusinessOfferUpdateSchema = BusinessOfferCreateSchema.partial();
+
+export const BusinessOfferSchema = BusinessOfferCreateSchema.extend({
+  id: z.number().int().positive(),
+  business_id: z.number().int().positive(),
+  description: z.string().nullable().optional(),
+  badge_text: z.string().nullable().optional(),
+  starts_at: z.string().datetime().nullable().optional(),
+  ends_at: z.string().datetime().nullable().optional(),
+  is_active: z.boolean(),
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
+});
+
+export const BusinessAnalyticsSchema = z.object({
+  profile_views: z.number().int().nonnegative(),
+  offer_clicks: z.number().int().nonnegative(),
+  active_offers: z.number().int().nonnegative(),
+});
+
 export const BusinessSummarySchema = z.object({
   id: z.number().int().positive(),
   slug: z.string(),
@@ -39,7 +68,10 @@ export const BusinessDetailSchema = BusinessSummarySchema.extend({
   hours: BusinessHoursSchema.nullable().optional(),
   is_hidden: z.boolean().optional(),
   user_membership_role: BusinessMembershipRoleSchema.nullable().optional(),
+  viewer_membership_role: BusinessMembershipRoleSchema.nullable().optional(),
   current_user_claim_status: BusinessClaimStatusSchema.nullable().optional(),
+  profile_views: z.number().int().nonnegative().optional(),
+  offers: z.array(BusinessOfferSchema).default([]),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
 });
@@ -128,3 +160,7 @@ export type BusinessClaim = z.infer<typeof BusinessClaimSchema>;
 export type BusinessClaimReview = z.infer<typeof BusinessClaimReviewSchema>;
 export type BusinessMembership = z.infer<typeof BusinessMembershipSchema>;
 export type AdminBusinessUpdate = z.infer<typeof AdminBusinessUpdateSchema>;
+export type BusinessOffer = z.infer<typeof BusinessOfferSchema>;
+export type BusinessOfferCreate = z.infer<typeof BusinessOfferCreateSchema>;
+export type BusinessOfferUpdate = z.infer<typeof BusinessOfferUpdateSchema>;
+export type BusinessAnalytics = z.infer<typeof BusinessAnalyticsSchema>;

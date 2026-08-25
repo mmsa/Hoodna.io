@@ -108,10 +108,58 @@ class BusinessResponse(BaseModel):
     public_status: PublicBusinessStatus
     is_active: bool
     is_hidden: bool
+    profile_views: int = 0
+    offers: list["BusinessOfferResponse"] = Field(default_factory=list)
     viewer_claim_status: BusinessClaimStatus | None = None
     viewer_membership_role: BusinessMembershipRole | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class BusinessOfferCreate(BaseModel):
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    badge_text: str | None = Field(None, max_length=80)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    is_active: bool = True
+
+
+class BusinessOfferUpdate(BaseModel):
+    title: str | None = Field(None, min_length=2, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    badge_text: str | None = Field(None, max_length=80)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def require_update(self):
+        if not self.model_fields_set:
+            raise ValueError("at least one field must be supplied")
+        return self
+
+
+class BusinessOfferResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    business_id: int
+    title: str
+    description: str | None
+    badge_text: str | None
+    starts_at: datetime | None
+    ends_at: datetime | None
+    is_active: bool
+    click_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class BusinessAnalyticsResponse(BaseModel):
+    profile_views: int
+    offer_clicks: int
+    active_offers: int
 
 
 class BusinessListResponse(BaseModel):
@@ -190,3 +238,6 @@ class BusinessSearchResult(BaseModel):
     category: str
     verification_status: BusinessVerificationStatus
     public_status: PublicBusinessStatus
+
+
+BusinessResponse.model_rebuild()

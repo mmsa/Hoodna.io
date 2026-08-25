@@ -33,7 +33,9 @@ export function ListingCard({
   const service = listing.category === "SERVICE";
   const row = layout === "row";
   const price =
-    listing.price == null
+    listing.intent === "FREE"
+      ? "Free"
+      : listing.price == null
       ? "Ask price"
       : `${listing.price.toLocaleString()} ${listing.currency || "EGP"}`;
 
@@ -63,6 +65,9 @@ export function ListingCard({
             />
           </View>
         )}
+        {listing.intent === "FREE" ? (
+          <View style={styles.freeBadge}><Text style={styles.freeBadgeText}>FREE</Text></View>
+        ) : null}
       </View>
 
       <View style={[styles.body, row && styles.rowBody]}>
@@ -175,4 +180,6 @@ const styles = StyleSheet.create({
     fontSize: typography.size.caption,
   },
   remove: { position: "absolute", top: spacing[2], right: spacing[2] },
+  freeBadge: { position: "absolute", left: spacing[2], top: spacing[2], borderRadius: radii.full, backgroundColor: colors.primary, paddingHorizontal: spacing[2], paddingVertical: 4 },
+  freeBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: typography.weight.bold },
 });

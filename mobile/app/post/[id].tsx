@@ -52,6 +52,7 @@ export default function PostDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: "comment" | "user"; id: number; title: string } | null>(null);
   const { apiClient, user } = useAuth();
   const postingEnabled = useFeature("community_posting");
@@ -103,6 +104,29 @@ export default function PostDetailScreen() {
     }
   }
 
+  async function toggleSaved() {
+    if (!post || saving) return;
+    setSaving(true);
+    try {
+      if (post.is_saved) await apiClient.unsavePost(post.id);
+      else await apiClient.savePost(post.id);
+      setPost({ ...post, is_saved: !post.is_saved });
+    } catch (error: any) {
+      Alert.alert("Could not update saved posts", error?.message || "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function vote(optionId: number) {
+    if (!post) return;
+    try {
+      setPost(await apiClient.votePoll(post.id, optionId));
+    } catch (error: any) {
+      Alert.alert("Could not vote", error?.message || "Please try again.");
+    }
+  }
+
   if (loading || !post) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1", justifyContent: "center", alignItems: "center" }}>
@@ -141,6 +165,9 @@ export default function PostDetailScreen() {
           <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>Post</Text>
         </View>
         <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity accessibilityLabel={post.is_saved ? "Unsave post" : "Save post"} onPress={toggleSaved} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={post.is_saved ? "bookmark" : "bookmark-outline"} size={21} color={colors.primary} />
+          </TouchableOpacity>
           {/* Moderator Actions */}
           {user && (user.role === "MODERATOR" || user.role === "ADMIN") && (
             <>
@@ -289,6 +316,23 @@ export default function PostDetailScreen() {
               style={{ fontSize: 16, color: "#1F2937", lineHeight: 24 }}
             />
             <LinkPreviewCard text={post.content} apiClient={apiClient} />
+            <View style={{ alignSelf: "flex-start", marginTop: 10, borderRadius: 999, backgroundColor: colors.primaryLight, paddingHorizontal: 10, paddingVertical: 5 }}>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>{post.category === "LOST_FOUND" ? "Lost & found" : post.category === "POLL" ? "Poll" : post.category || "General"}</Text>
+            </View>
+            {post.poll ? (
+              <View style={{ marginTop: 14, gap: 8 }}>
+                <Text style={{ color: colors.textMain, fontWeight: "700" }}>{post.poll.question || post.content}</Text>
+                {post.poll.options.map((option) => {
+                  const percent = post.poll?.total_votes ? Math.round((option.votes / post.poll.total_votes) * 100) : 0;
+                  return (
+                    <TouchableOpacity key={option.id} onPress={() => vote(option.id)} style={{ flexDirection: "row", justifyContent: "space-between", borderWidth: 1, borderColor: post.poll?.user_vote === option.id ? colors.primary : colors.border, borderRadius: 10, padding: 12 }}>
+                      <Text style={{ color: colors.textMain }}>{option.label}</Text><Text style={{ color: colors.textMuted }}>{percent}%</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>{post.poll.total_votes} votes</Text>
+              </View>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => {

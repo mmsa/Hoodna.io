@@ -246,7 +246,7 @@ export function Header() {
                 <NotificationsDropdown />
 
                 {/* Saved Items Button */}
-                <Link href="/saved-listings">
+                <Link href="/saved">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -305,7 +305,7 @@ export function Header() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/saved-listings" className="flex items-center">
+                      <Link href="/saved" className="flex items-center">
                         <Bookmark className="me-2 h-4 w-4" />
                         <span>{t('nav.savedListings')}</span>
                       </Link>
@@ -453,7 +453,7 @@ export function Header() {
                 )}
               </Button>
             </Link>
-            <Link href="/saved-listings" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/saved" onClick={() => setMobileMenuOpen(false)}>
               <Button
                 variant="ghost"
                 className="w-full justify-start relative"

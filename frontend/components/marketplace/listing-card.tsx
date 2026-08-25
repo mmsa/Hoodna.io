@@ -63,7 +63,9 @@ export function ListingCard({ listing, action, className }: ListingCardProps) {
 
           <div className="absolute bottom-3 left-3">
             <span className="eljiran-price-overlay">
-              {formatListingPrice(listing.price, listing.currency, isService)}
+              {listing.intent === "FREE"
+                ? "Free"
+                : formatListingPrice(listing.price, listing.currency, isService)}
             </span>
           </div>
 

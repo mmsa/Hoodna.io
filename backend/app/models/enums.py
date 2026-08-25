@@ -46,6 +46,7 @@ class ListingCategory(str, Enum):
 class ListingIntent(str, Enum):
     SELL = "SELL"
     RENT = "RENT"
+    FREE = "FREE"  # Giveaway / free to neighbour
 
 
 class ListingStatus(str, Enum):
@@ -102,6 +103,7 @@ class PostCategory(str, Enum):
     ANNOUNCEMENT = "ANNOUNCEMENT"  # Official announcements
     ALERT = "ALERT"  # Urgent alerts
     DISCUSSION = "DISCUSSION"  # General discussions
+    POLL = "POLL"  # Community poll
 
 
 class ProviderType(str, Enum):

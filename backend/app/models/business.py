@@ -64,6 +64,7 @@ class IndependentBusiness(Base):
     )
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     is_hidden = Column(Boolean, default=False, nullable=False, index=True)
+    profile_views = Column(Integer, default=0, nullable=False, server_default="0")
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
@@ -81,6 +82,43 @@ class IndependentBusiness(Base):
     memberships = relationship(
         "BusinessMembership", back_populates="business", cascade="all, delete-orphan"
     )
+    offers = relationship(
+        "BusinessOffer", back_populates="business", cascade="all, delete-orphan"
+    )
+
+
+class BusinessOffer(Base):
+    __tablename__ = "business_offers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    business_id = Column(
+        Integer,
+        ForeignKey("independent_businesses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    badge_text = Column(String(80), nullable=True)
+    starts_at = Column(DateTime(timezone=True), nullable=True)
+    ends_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False, server_default=text("true"))
+    click_count = Column(Integer, default=0, nullable=False, server_default="0")
+    created_by_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    business = relationship("IndependentBusiness", back_populates="offers")
+    created_by = relationship("User")
 
 
 class BusinessClaim(Base):

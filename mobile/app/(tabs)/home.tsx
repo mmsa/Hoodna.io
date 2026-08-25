@@ -5,6 +5,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -34,6 +35,10 @@ export default function HomeScreen() {
   const [postsLimit, setPostsLimit] = useState(15);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [question, setQuestion] = useState("");
+  const [askAnswer, setAskAnswer] = useState("");
+  const [asking, setAsking] = useState(false);
   const { user, apiClient } = useAuth();
   const { activeCompoundId } = useCompound();
   const router = useRouter();
@@ -132,6 +137,23 @@ export default function HomeScreen() {
   }
 
   const canPost = user?.can_post || false;
+  const visiblePosts = categoryFilter === "ALL"
+    ? posts
+    : posts.filter((post) => post.category === categoryFilter);
+
+  async function askNeighbours() {
+    if (!question.trim() || !apiClient || asking) return;
+    setAsking(true);
+    try {
+      const result = await apiClient.askNeighbours(question.trim());
+      setAskAnswer(result.answer);
+    } catch {
+      setAskAnswer("Could not search neighbourhood knowledge. Please try again.");
+    } finally {
+      setAsking(false);
+    }
+  }
+
   const verificationStatus = user?.verification_status || "UNVERIFIED";
 
   if (user && user.role === "SERVICE_PROVIDER") {
@@ -236,7 +258,7 @@ export default function HomeScreen() {
       ) : null}
 
       <FlatList
-        data={posts}
+        data={visiblePosts}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={
           <RefreshControl
@@ -272,6 +294,17 @@ export default function HomeScreen() {
 
             <HomeShortcuts />
 
+            <View style={styles.askCard}>
+              <Text style={styles.askTitle}>Ask neighbours</Text>
+              <View style={styles.askRow}>
+                <TextInput value={question} onChangeText={setQuestion} placeholder="Recommendations or local updates" placeholderTextColor={colors.textMuted} style={styles.askInput} onSubmitEditing={askNeighbours} />
+                <TouchableOpacity onPress={askNeighbours} disabled={!question.trim() || asking} style={styles.askButton}>
+                  {asking ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
+                </TouchableOpacity>
+              </View>
+              {askAnswer ? <Text style={styles.askAnswer}>{askAnswer}</Text> : null}
+            </View>
+
             <View style={{ paddingHorizontal: spacing[5] }}>
               <CompoundInviteCard />
             </View>
@@ -297,6 +330,19 @@ export default function HomeScreen() {
 
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>From neighbours</Text>
+            </View>
+            <View style={styles.filters}>
+              {[
+                ["ALL", "All"],
+                ["LOST_FOUND", "Lost/Found"],
+                ["EVENT", "Event"],
+                ["HELP", "Help"],
+                ["POLL", "Poll"],
+              ].map(([value, label]) => (
+                <TouchableOpacity key={value} onPress={() => setCategoryFilter(value)} style={[styles.filterChip, categoryFilter === value && styles.filterChipActive]}>
+                  <Text style={[styles.filterText, categoryFilter === value && styles.filterTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         }
@@ -401,6 +447,17 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: spacing[3],
   },
+  askCard: { marginHorizontal: spacing[5], marginTop: spacing[4], borderRadius: radii.xl, backgroundColor: palette.surfaceMuted, padding: spacing[4] },
+  askTitle: { color: colors.textMain, fontSize: typography.size.bodySmall, fontWeight: typography.weight.bold, marginBottom: spacing[2] },
+  askRow: { flexDirection: "row", gap: spacing[2] },
+  askInput: { flex: 1, minHeight: 44, borderRadius: radii.full, backgroundColor: palette.surface, paddingHorizontal: spacing[4], color: colors.textMain },
+  askButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
+  askAnswer: { marginTop: spacing[3], color: colors.textMain, fontSize: typography.size.bodySmall, lineHeight: 20 },
+  filters: { flexDirection: "row", gap: spacing[2], paddingHorizontal: spacing[5], paddingBottom: spacing[3], flexWrap: "wrap" },
+  filterChip: { borderRadius: radii.full, backgroundColor: palette.surfaceMuted, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
+  filterChipActive: { backgroundColor: colors.primary },
+  filterText: { color: colors.textMuted, fontSize: typography.size.caption, fontWeight: typography.weight.semibold },
+  filterTextActive: { color: "#FFFFFF" },
   sharePressed: {
     opacity: 0.9,
   },

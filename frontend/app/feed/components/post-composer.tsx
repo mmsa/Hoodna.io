@@ -1,7 +1,8 @@
 "use client"
 
 import { useId, useState } from "react"
-import { AlertTriangle, BadgeHelp, Loader2, Megaphone, Send, ShoppingBag, Sparkles } from "lucide-react"
+import { AlertTriangle, BadgeHelp, ListChecks, Loader2, Megaphone, Search, Send, ShoppingBag, Sparkles } from "lucide-react"
+import { Input } from "@/components/ui/input"
 
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ interface PostComposerProps {
     content: string
     category: PostCategory
     is_urgent: boolean
+    poll?: { question?: string; options: Array<{ label: string }> }
   }) => void
 }
 
@@ -39,13 +41,26 @@ export function PostComposer({
   const [content, setContent] = useState("")
   const [category, setCategory] = useState<PostCategory>("GENERAL")
   const [isUrgent, setIsUrgent] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState("")
+  const [pollOptions, setPollOptions] = useState(["", ""])
 
   const submit = () => {
     if (!content.trim() || isSubmitting) return
-    onSubmit({ content: content.trim(), category, is_urgent: isUrgent })
+    const options = pollOptions.map((label) => label.trim()).filter(Boolean)
+    if (category === "POLL" && options.length < 2) return
+    onSubmit({
+      content: content.trim(),
+      category,
+      is_urgent: isUrgent,
+      ...(category === "POLL"
+        ? { poll: { question: pollQuestion.trim() || undefined, options: options.map((label) => ({ label })) } }
+        : {}),
+    })
     setContent("")
     setCategory("GENERAL")
     setIsUrgent(false)
+    setPollQuestion("")
+    setPollOptions(["", ""])
   }
 
   const quickActions: Array<{
@@ -55,6 +70,18 @@ export function PostComposer({
     urgent?: boolean
     icon: React.ReactNode
   }> = [
+    {
+      label: "Lost & found",
+      helper: "Report a missing or found item",
+      value: "LOST_FOUND",
+      icon: <Search className="h-4 w-4" />,
+    },
+    {
+      label: "Poll",
+      helper: "Ask neighbours to vote",
+      value: "POLL",
+      icon: <ListChecks className="h-4 w-4" />,
+    },
     {
       label: t("feed.ask"),
       helper: t("feed.categories.GENERAL"),
@@ -150,6 +177,40 @@ export function PostComposer({
             rows={3}
             className="min-h-[6rem] resize-none rounded-[22px] border-border/70 bg-muted/30 text-[15px] leading-6 shadow-none focus-visible:border-primary/30 focus-visible:ring-primary/15"
           />
+          {category === "POLL" ? (
+            <div className="mt-3 space-y-2 rounded-[18px] border border-border/70 bg-muted/20 p-3">
+              <Input
+                value={pollQuestion}
+                onChange={(event) => setPollQuestion(event.target.value)}
+                placeholder="Poll question (optional)"
+              />
+              {pollOptions.map((option, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={option}
+                    onChange={(event) =>
+                      setPollOptions((current) =>
+                        current.map((value, itemIndex) =>
+                          itemIndex === index ? event.target.value : value
+                        )
+                      )
+                    }
+                    placeholder={`Option ${index + 1}`}
+                  />
+                  {pollOptions.length > 2 ? (
+                    <Button type="button" variant="ghost" onClick={() => setPollOptions((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+              {pollOptions.length < 4 ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => setPollOptions((current) => [...current, ""])}>
+                  Add option
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Select
               value={category}
@@ -183,7 +244,7 @@ export function PostComposer({
             <Button
               type="button"
               onClick={submit}
-              disabled={!content.trim() || isSubmitting}
+              disabled={!content.trim() || isSubmitting || (category === "POLL" && pollOptions.filter((value) => value.trim()).length < 2)}
               className="sm:ml-auto"
             >
               {isSubmitting ? (

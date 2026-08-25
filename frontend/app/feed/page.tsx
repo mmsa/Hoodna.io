@@ -35,6 +35,8 @@ import { track } from "@/lib/telemetry";
 
 import { PostCard } from "./components/post-card";
 import { PostComposer } from "./components/post-composer";
+import { AskNeighbours } from "./components/ask-neighbours";
+import { FeedFilters, type FeedFilter } from "./components/feed-filters";
 import type { Listing, Post, FeedSummary } from "./components/types";
 import { CommunitySidebar } from "@/components/community-sidebar";
 import { CompoundHero } from "@/components/feed/compound-hero";
@@ -62,6 +64,8 @@ export default function FeedPage() {
   const { isEnabled } = useFeatureConfig();
   const communityPostingEnabled = isEnabled("community_posting");
   const [newComments, setNewComments] = useState<Record<number, string>>({});
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("ALL");
+  const [feedQuery, setFeedQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const queryClient = useQueryClient();
 
@@ -341,11 +345,13 @@ export default function FeedPage() {
       content: string;
       category?: string;
       is_urgent?: boolean;
+      poll?: { question?: string; options: Array<{ label: string }> };
     }) => {
       const response = await api.post("/api/posts", {
         content: data.content,
         category: data.category ?? "GENERAL",
         is_urgent: data.is_urgent ?? false,
+        poll: data.poll,
       });
       return response.data;
     },
@@ -452,8 +458,17 @@ export default function FeedPage() {
   const urgentPosts = posts?.filter((p) => p.is_urgent === true) || [];
   const regularPosts =
     posts?.filter(
-      (p) => !p.is_urgent && !announcements?.some((a) => a.id === p.id)
-    ) || [];
+      (p) => (!p.is_urgent || feedFilter === "URGENT") && !announcements?.some((a) => a.id === p.id)
+    ).filter((post) => {
+      const matchesFilter =
+        feedFilter === "ALL" ||
+        (feedFilter === "URGENT" ? post.is_urgent : post.category === feedFilter)
+      const matchesQuery =
+        !feedQuery.trim() ||
+        post.content.toLowerCase().includes(feedQuery.trim().toLowerCase()) ||
+        post.author_name.toLowerCase().includes(feedQuery.trim().toLowerCase())
+      return matchesFilter && matchesQuery
+    }) || [];
 
   if (!userLoading && user && user.role === "SERVICE_PROVIDER") {
     return (
@@ -614,6 +629,16 @@ export default function FeedPage() {
                 </CardContent>
               </Card>
             )}
+
+            <AskNeighbours />
+            <div className="mb-6">
+              <FeedFilters
+                activeFilter={feedFilter}
+                query={feedQuery}
+                onFilterChange={setFeedFilter}
+                onQueryChange={setFeedQuery}
+              />
+            </div>
 
             {urgentPosts.length > 0 && (
               <Section

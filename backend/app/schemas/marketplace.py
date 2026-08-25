@@ -150,15 +150,21 @@ class ListingCreate(BaseModel):
     @model_validator(mode="after")
     def validate_category_details(self):
         allowed_intents = {
-            ListingCategory.PROPERTY: {ListingIntent.SELL, ListingIntent.RENT},
-            ListingCategory.CAR: {ListingIntent.SELL},
-            ListingCategory.ITEM: {ListingIntent.SELL},
+            ListingCategory.PROPERTY: {
+                ListingIntent.SELL,
+                ListingIntent.RENT,
+                ListingIntent.FREE,
+            },
+            ListingCategory.CAR: {ListingIntent.SELL, ListingIntent.FREE},
+            ListingCategory.ITEM: {ListingIntent.SELL, ListingIntent.FREE},
             ListingCategory.SERVICE: {ListingIntent.SELL, ListingIntent.RENT},
         }
         if self.intent not in allowed_intents[self.category]:
             raise ValueError(
                 f"{self.category.value} listings do not support {self.intent.value} intent"
             )
+        if self.intent == ListingIntent.FREE:
+            self.price = None
         validate_attributes_for_category(self.category, self.attributes)
         return self
 

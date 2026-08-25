@@ -7,6 +7,7 @@ export type PostCategory =
   | "ANNOUNCEMENT"
   | "ALERT"
   | "DISCUSSION"
+  | "POLL"
 
 export interface Comment {
   id: number
@@ -33,6 +34,13 @@ export interface Post {
   comments: Comment[]
   reaction_counts?: Record<string, number>
   user_reaction?: string | null
+  is_saved?: boolean
+  poll?: {
+    question: string
+    options: Array<{ id: number; label: string; votes: number }>
+    total_votes: number
+    user_vote: number | null
+  } | null
 }
 
 export interface Listing {
@@ -78,6 +86,7 @@ export const POST_CATEGORIES: Array<{
   { value: "EVENT", label: "Event" },
   { value: "MARKETPLACE", label: "Marketplace" },
   { value: "DISCUSSION", label: "Discussion" },
+  { value: "POLL", label: "Poll" },
 ]
 
 export function categoryLabel(category?: string) {
@@ -111,6 +120,7 @@ const CATEGORY_ACCENTS: Record<string, string> = {
   ANNOUNCEMENT: "border-l-amber-400",
   ALERT: "border-l-destructive",
   DISCUSSION: "border-l-primary",
+  POLL: "border-l-teal-500",
 }
 
 const CATEGORY_BADGES: Record<string, string> = {
@@ -122,6 +132,7 @@ const CATEGORY_BADGES: Record<string, string> = {
   ANNOUNCEMENT: "bg-amber-50 text-amber-900",
   ALERT: "bg-destructive/10 text-destructive",
   DISCUSSION: "bg-primary/10 text-primary",
+  POLL: "bg-teal-50 text-teal-800",
 }
 
 export function categoryAccentClass(category?: string) {

@@ -16,6 +16,7 @@ from app.schemas.business import (
     BusinessClaimCreate,
     BusinessClaimResponse,
     BusinessResponse,
+    BusinessOfferResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,10 +53,33 @@ async def business_response(
         claim_status = claim.status if claim else None
         membership_role = membership.role if membership else None
     values = {column.name: getattr(business, column.name) for column in business.__table__.columns}
+    # Eager offers if loaded; otherwise fetch active (or all for owners)
+    offers = list(getattr(business, "offers", []) or [])
+    if not offers:
+        from sqlalchemy.orm import selectinload
+        from app.models.business import BusinessOffer
+
+        loaded = await db.get(
+            IndependentBusiness,
+            business.id,
+            options=[selectinload(IndependentBusiness.offers)],
+        )
+        offers = list(loaded.offers) if loaded else []
+    show_all = membership_role in (
+        BusinessMembershipRole.OWNER,
+        BusinessMembershipRole.MANAGER,
+    )
+    offer_models = [
+        o
+        for o in offers
+        if show_all or o.is_active
+    ]
     values.update(
         public_status=public_status(business.verification_status),
         viewer_claim_status=claim_status,
         viewer_membership_role=membership_role,
+        profile_views=getattr(business, "profile_views", 0) or 0,
+        offers=[BusinessOfferResponse.model_validate(o) for o in offer_models],
     )
     return BusinessResponse.model_validate(values)
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import {
   Ban,
   Bell,
+  Bookmark,
   CheckCircle,
   Clock,
   Home,
@@ -62,6 +63,9 @@ export function PostCard({
   const [userReaction, setUserReaction] = useState<string | null>(
     post.user_reaction ?? null
   )
+  const [poll, setPoll] = useState(post.poll)
+  const [isSaved, setIsSaved] = useState(Boolean(post.is_saved))
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -135,6 +139,29 @@ export function PostCard({
         description: detail,
         variant: "destructive",
       })
+    }
+  }
+
+  const handleSave = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      if (isSaved) await api.delete(`/api/posts/${post.id}/save`)
+      else await api.post(`/api/posts/${post.id}/save`)
+      setIsSaved((value) => !value)
+    } catch {
+      toast({ title: "Could not update saved posts", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const vote = async (optionId: number) => {
+    try {
+      const response = await api.post(`/api/posts/${post.id}/poll/vote`, { option_id: optionId })
+      setPoll(response.data.poll)
+    } catch {
+      toast({ title: "Could not record vote", variant: "destructive" })
     }
   }
 
@@ -299,6 +326,33 @@ export function PostCard({
 
         <LinkifiedText text={post.content} className="mb-1 text-[15px] leading-relaxed text-foreground" />
         <LinkPreviewCard text={post.content} />
+        {poll ? (
+          <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
+            <p className="mb-3 font-semibold">{poll.question || post.content}</p>
+            <div className="space-y-2">
+              {poll.options.map((option) => {
+                const percent = poll.total_votes ? Math.round((option.votes / poll.total_votes) * 100) : 0
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => vote(option.id)}
+                    className={cn(
+                      "relative flex w-full overflow-hidden rounded-md border border-border p-2.5 text-left text-sm",
+                      poll.user_vote === option.id && "border-primary"
+                    )}
+                  >
+                    <span className="absolute inset-y-0 left-0 bg-primary/10" style={{ width: `${percent}%` }} />
+                    <span className="relative flex w-full justify-between gap-3">
+                      <span>{option.label}</span><span>{percent}%</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">{poll.total_votes} votes</p>
+          </div>
+        ) : null}
 
         <div className="mb-4 mt-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-1">
@@ -353,6 +407,15 @@ export function PostCard({
           >
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">Share</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            aria-label={isSaved ? "Unsave post" : "Save post"}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <Bookmark className={cn("h-4 w-4", isSaved && "fill-current text-primary")} />
           </button>
           <ReportDialog
             entityType="post"

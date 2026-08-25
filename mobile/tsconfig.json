@@ -5,6 +5,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@hoodna/shared": [
+        "../packages/shared/dist/index.d.ts"
+      ],
+      "@hoodna/shared/*": [
+        "../packages/shared/dist/*"
       ]
     }
   },

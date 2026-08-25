@@ -1,11 +1,79 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, with_loader_criteria
-from app.models.post import Post, Comment, PostReaction
+from app.models.post import Post, Comment, PostReaction, PollVote
 from app.models.user import User
 from app.models.enums import UserRole
-from app.schemas.community import PostCreate, CommentCreate
+from app.schemas.community import PostCreate, CommentCreate, PollResult, PollOptionResult
 from datetime import datetime, timezone
+
+
+def build_poll_payload(poll_data) -> dict | None:
+    if not poll_data:
+        return None
+    options = []
+    next_id = 1
+    for opt in poll_data.options:
+        label = (opt.label or "").strip()
+        if not label:
+            continue
+        option_id = opt.id if isinstance(opt.id, int) and opt.id > 0 else next_id
+        next_id = max(next_id, option_id + 1)
+        options.append({"id": int(option_id), "label": label[:200]})
+    if len(options) < 2:
+        raise ValueError("Polls need at least 2 options")
+    # Normalize to sequential ids if duplicates
+    seen = set()
+    normalized = []
+    seq = 1
+    for opt in options[:4]:
+        oid = int(opt["id"])
+        if oid in seen:
+            while seq in seen:
+                seq += 1
+            oid = seq
+        seen.add(oid)
+        normalized.append({"id": oid, "label": opt["label"]})
+        seq = max(seq, oid + 1)
+    return {
+        "question": (poll_data.question or "").strip()[:500] or None,
+        "options": normalized,
+    }
+
+
+def serialize_poll(post: Post, user_id: int | None = None) -> PollResult | None:
+    raw = post.poll
+    if not raw or not isinstance(raw, dict):
+        return None
+    options_raw = raw.get("options") or []
+    counts: dict[int, int] = {}
+    user_vote = None
+    for vote in getattr(post, "poll_votes", []) or []:
+        try:
+            oid = int(vote.option_id)
+        except (TypeError, ValueError):
+            continue
+        counts[oid] = counts.get(oid, 0) + 1
+        if user_id is not None and vote.user_id == user_id:
+            user_vote = oid
+    options = []
+    for opt in options_raw:
+        try:
+            oid = int(opt.get("id"))
+        except (TypeError, ValueError):
+            continue
+        label = str(opt.get("label") or "").strip()
+        if not label:
+            continue
+        options.append(PollOptionResult(id=oid, label=label, votes=counts.get(oid, 0)))
+    if len(options) < 2:
+        return None
+    return PollResult(
+        question=raw.get("question") or "",
+        options=options,
+        total_votes=sum(o.votes for o in options),
+        user_vote=user_vote,
+    )
 
 
 async def get_feed_posts(
@@ -20,6 +88,7 @@ async def get_feed_posts(
         selectinload(Post.compound),  # Load compound for compound_name
         selectinload(Post.comments).selectinload(Comment.author),
         selectinload(Post.reactions),
+        selectinload(Post.poll_votes),
         with_loader_criteria(Comment, Comment.deleted_at.is_(None)),
     ).where(Post.deleted_at.is_(None))
     
@@ -130,18 +199,67 @@ async def create_post(
 ) -> Post:
     """Create a new post."""
     from app.models.enums import PostCategory
-    
+
+    poll_payload = build_poll_payload(post_data.poll)
+    category = post_data.category or PostCategory.GENERAL
+    if poll_payload:
+        category = PostCategory.POLL
+
     db_post = Post(
         compound_id=compound_id,
         author_id=author_id,
         content=post_data.content,
-        category=post_data.category or PostCategory.GENERAL,
+        category=category,
         is_urgent=post_data.is_urgent or False,
+        poll=poll_payload,
     )
     db.add(db_post)
     await db.flush()
     await db.refresh(db_post)
     return db_post
+
+
+async def vote_on_poll(
+    db: AsyncSession,
+    *,
+    post_id: int,
+    user_id: int,
+    compound_id: int,
+    option_id: str,
+) -> Post:
+    post = await db.scalar(
+        select(Post)
+        .options(selectinload(Post.poll_votes), selectinload(Post.author), selectinload(Post.compound))
+        .where(
+            Post.id == post_id,
+            Post.compound_id == compound_id,
+            Post.deleted_at.is_(None),
+        )
+    )
+    if not post or not post.poll:
+        raise ValueError("Poll not found")
+    option_ids = {int(opt.get("id")) for opt in (post.poll.get("options") or []) if opt.get("id") is not None}
+    if option_id not in option_ids:
+        raise ValueError("Invalid poll option")
+
+    option_key = str(option_id)
+    existing = next((v for v in post.poll_votes if v.user_id == user_id), None)
+    if existing:
+        existing.option_id = option_key
+    else:
+        db.add(PollVote(post_id=post_id, user_id=user_id, option_id=option_key))
+    await db.commit()
+    return await db.scalar(
+        select(Post)
+        .options(
+            selectinload(Post.poll_votes),
+            selectinload(Post.author),
+            selectinload(Post.compound),
+            selectinload(Post.comments).selectinload(Comment.author),
+            selectinload(Post.reactions),
+        )
+        .where(Post.id == post_id)
+    )
 
 
 async def create_comment(

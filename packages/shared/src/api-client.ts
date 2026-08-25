@@ -31,6 +31,10 @@ import {
   BusinessDetail,
   BusinessDirectoryResponse,
   BusinessMembership,
+  BusinessOffer,
+  BusinessOfferCreate,
+  BusinessOfferUpdate,
+  BusinessAnalytics,
 } from "./schemas/business";
 import { ReportCreate, ReportEntityType, ReportResponse, ReportUpdate } from "./schemas/report";
 import {
@@ -384,6 +388,30 @@ export class ApiClient {
     return this.request<Post>("/api/posts", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  async votePoll(postId: number, optionId: number): Promise<Post> {
+    return this.request<Post>(`/api/posts/${postId}/poll/vote`, {
+      method: "POST",
+      body: JSON.stringify({ option_id: optionId }),
+    });
+  }
+
+  async askNeighbours(question: string): Promise<{
+    answer: string;
+    citations: Array<{
+      type: string;
+      id: number;
+      title: string;
+      url_path: string;
+      snippet?: string;
+    }>;
+    used_llm: boolean;
+  }> {
+    return this.request("/api/ask", {
+      method: "POST",
+      body: JSON.stringify({ question }),
     });
   }
 
@@ -920,6 +948,40 @@ export class ApiClient {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async createBusinessOffer(slug: string, data: BusinessOfferCreate): Promise<BusinessOffer> {
+    return this.request<BusinessOffer>(`/api/businesses/${encodeURIComponent(slug)}/offers`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBusinessOffer(
+    slug: string,
+    offerId: number,
+    data: BusinessOfferUpdate,
+  ): Promise<BusinessOffer> {
+    return this.request<BusinessOffer>(
+      `/api/businesses/${encodeURIComponent(slug)}/offers/${offerId}`,
+      { method: "PATCH", body: JSON.stringify(data) },
+    );
+  }
+
+  async deleteBusinessOffer(slug: string, offerId: number): Promise<void> {
+    await this.request(`/api/businesses/${encodeURIComponent(slug)}/offers/${offerId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async trackBusinessOfferClick(offerId: number): Promise<void> {
+    await this.request(`/api/businesses/offers/${offerId}/click`, { method: "POST" });
+  }
+
+  async getBusinessAnalytics(slug: string): Promise<BusinessAnalytics> {
+    return this.request<BusinessAnalytics>(
+      `/api/businesses/${encodeURIComponent(slug)}/analytics`,
+    );
   }
 
   async createAdminBusiness(data: BusinessCreate): Promise<BusinessDetail> {

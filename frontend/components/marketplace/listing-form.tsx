@@ -47,7 +47,7 @@ const listingFormSchema = z.object({
     (value) => !value.trim() || (Number.isFinite(Number(value)) && Number(value) >= 0),
     "Enter a valid non-negative price"
   ),
-  intent: z.enum(["SELL", "RENT"]),
+  intent: z.enum(["SELL", "RENT", "FREE"]),
   condition: z.enum(["NEW", "LIKE_NEW", "USED", "FAIR"]).optional(),
   carMake: z.string(),
   carModel: z.string(),
@@ -61,8 +61,11 @@ const listingFormSchema = z.object({
   areaSqm: z.string(),
   furnishing: z.enum(["UNFURNISHED", "SEMI_FURNISHED", "FURNISHED"]).optional(),
 }).superRefine((values, ctx) => {
-  if ((values.category === "ITEM" || values.category === "CAR") && values.intent !== "SELL") {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["intent"], message: "This category is for sale only" })
+  if ((values.category === "ITEM" || values.category === "CAR") && values.intent === "RENT") {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["intent"], message: "Choose for sale or free" })
+  }
+  if (values.category === "SERVICE" && values.intent === "FREE") {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["intent"], message: "Services cannot be free listings" })
   }
   if (values.category === "ITEM" && !values.condition) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["condition"], message: "Choose the item condition" })
@@ -184,7 +187,7 @@ export function ListingForm({
       category: values.category,
       title: values.title.trim(),
       description: values.description.trim() || undefined,
-      price: values.price.trim() ? Number(values.price) : null,
+      price: values.intent === "FREE" ? null : values.price.trim() ? Number(values.price) : null,
       currency: "EGP",
       intent: values.intent,
       attributes: buildAttributes(values),
@@ -245,13 +248,18 @@ export function ListingForm({
             </Button>
           ) : null}
 
-          {category === "PROPERTY" || category === "SERVICE" ? (
+          {category === "PROPERTY" || category === "SERVICE" || category === "ITEM" || category === "CAR" ? (
             <fieldset>
               <legend className="text-sm font-medium">
                 {category === "SERVICE" ? "Pricing" : "Listing type"}
               </legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {(["SELL", "RENT"] as ListingIntent[]).map((value) => (
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {(category === "SERVICE"
+                  ? (["SELL", "RENT"] as ListingIntent[])
+                  : category === "PROPERTY"
+                    ? (["SELL", "RENT", "FREE"] as ListingIntent[])
+                    : (["SELL", "FREE"] as ListingIntent[])
+                ).map((value) => (
                   <button
                     key={value}
                     type="button"
@@ -265,16 +273,12 @@ export function ListingForm({
                   >
                     {category === "SERVICE"
                       ? value === "SELL" ? "One-time" : "Hourly"
-                      : value === "SELL" ? "For sale" : "For rent"}
+                      : value === "SELL" ? "For sale" : value === "RENT" ? "For rent" : "Free"}
                   </button>
                 ))}
               </div>
             </fieldset>
-          ) : (
-            <div className="rounded-lg bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
-              For sale
-            </div>
-          )}
+          ) : null}
 
           {category === "ITEM" ? (
             <fieldset>
@@ -353,7 +357,7 @@ export function ListingForm({
             />
           </div>
 
-          <div>
+          {intent !== "FREE" ? <div>
             <Label htmlFor="listing-price">
               {category === "SERVICE" && intent === "RENT" ? "Hourly price (EGP)" : "Price (EGP)"}
             </Label>
@@ -369,7 +373,11 @@ export function ListingForm({
               aria-invalid={Boolean(form.formState.errors.price)}
             />
             <FormError message={form.formState.errors.price?.message} />
-          </div>
+          </div> : (
+            <div className="rounded-lg bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
+              Free listings do not have a price.
+            </div>
+          )}
         </div>
       </section>
 

@@ -289,7 +289,7 @@ export default function CreateListingScreen() {
       Alert.alert("Title required", "Add a clear title for your listing.");
       return;
     }
-    const parsedPrice = price.trim() ? Number(price) : null;
+    const parsedPrice = intent === "FREE" ? null : price.trim() ? Number(price) : null;
     if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
       Alert.alert("Check the price", "Enter a valid non-negative price.");
       return;
@@ -458,27 +458,27 @@ export default function CreateListingScreen() {
           </Button>
         ) : null}
 
-        {(property || service) ? (
+        {(property || service || category === "ITEM" || category === "CAR") ? (
           <>
             <Text style={styles.sectionLabel}>{service ? "Pricing" : "Listing type"}</Text>
             <View style={styles.chips}>
-              {(["SELL", "RENT"] as ListingIntent[]).map((value) => (
+              {(service
+                ? (["SELL", "RENT"] as ListingIntent[])
+                : property
+                  ? (["SELL", "RENT", "FREE"] as ListingIntent[])
+                  : (["SELL", "FREE"] as ListingIntent[])
+              ).map((value) => (
                 <Chip
                   disabled={!!editId}
                   key={value}
-                  label={service ? (value === "SELL" ? "One-time" : "Hourly") : value === "SELL" ? "For sale" : "For rent"}
+                  label={service ? (value === "SELL" ? "One-time" : "Hourly") : value === "SELL" ? "For sale" : value === "RENT" ? "For rent" : "Free"}
                   onPress={() => setIntent(value)}
                   selected={intent === value}
                 />
               ))}
             </View>
           </>
-        ) : (
-          <View style={styles.saleOnly}>
-            <Ionicons color={colors.primary} name="pricetag-outline" size={18} />
-            <Text style={styles.saleOnlyText}>For sale</Text>
-          </View>
-        )}
+        ) : null}
 
         {category === "ITEM" ? (
           <>
@@ -530,7 +530,7 @@ export default function CreateListingScreen() {
           </View>
         ) : null}
 
-        <TextField
+        {intent !== "FREE" ? <TextField
           autoCapitalize="sentences"
           label="Title"
           maxLength={120}
@@ -538,7 +538,12 @@ export default function CreateListingScreen() {
           placeholder={copy.placeholder}
           returnKeyType="next"
           value={title}
-        />
+        /> : (
+          <View style={styles.saleOnly}>
+            <Ionicons color={colors.primary} name="gift-outline" size={18} />
+            <Text style={styles.saleOnlyText}>Free — no price needed</Text>
+          </View>
+        )}
         <TextArea
           containerStyle={styles.field}
           label="Description"

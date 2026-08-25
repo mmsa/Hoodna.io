@@ -7,7 +7,7 @@ export const ListingCategorySchema = z.enum([
   "SERVICE",
 ]);
 
-export const ListingIntentSchema = z.enum(["SELL", "RENT"]);
+export const ListingIntentSchema = z.enum(["SELL", "RENT", "FREE"]);
 
 export const ListingStatusSchema = z.enum([
   "DRAFT",
@@ -72,6 +72,7 @@ export const ListingAttributesSchema = z.union([
 type CategoryAndAttributes = {
   category: z.infer<typeof ListingCategorySchema>;
   intent: z.infer<typeof ListingIntentSchema>;
+  price?: number | null;
   attributes?: z.infer<typeof ListingAttributesSchema> | null;
 };
 
@@ -81,12 +82,29 @@ const validateCategoryDetails = (
 ) => {
   if (
     (listing.category === "CAR" || listing.category === "ITEM") &&
-    listing.intent !== "SELL"
+    listing.intent !== "SELL" &&
+    listing.intent !== "FREE"
   ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["intent"],
       message: `${listing.category} listings require SELL intent`,
+    });
+  }
+
+  if (listing.category === "SERVICE" && listing.intent === "FREE") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["intent"],
+      message: "SERVICE listings cannot use FREE intent",
+    });
+  }
+
+  if (listing.intent === "FREE" && listing.price != null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["price"],
+      message: "FREE listings must not have a price",
     });
   }
 

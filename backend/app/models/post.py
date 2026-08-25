@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Boolean, Enum as SQLEnum, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -14,6 +14,8 @@ class Post(Base):
     content = Column(Text, nullable=False)
     category = Column(SQLEnum(PostCategory), default=PostCategory.GENERAL, nullable=False, index=True)  # Post category for structure
     is_urgent = Column(Boolean, default=False, nullable=False, index=True)  # Urgent flag for alerts section
+    # Poll payload: { question?, options: [{ id, label }] }
+    poll = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
@@ -23,6 +25,7 @@ class Post(Base):
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
     reactions = relationship("PostReaction", back_populates="post", cascade="all, delete-orphan")
     saved_by_users = relationship("SavedPost", back_populates="post", cascade="all, delete-orphan")
+    poll_votes = relationship("PollVote", back_populates="post", cascade="all, delete-orphan")
 
 
 class Comment(Base):
@@ -53,5 +56,21 @@ class PostReaction(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     post = relationship("Post", back_populates="reactions")
+    user = relationship("User")
+
+
+class PollVote(Base):
+    __tablename__ = "poll_votes"
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_poll_vote_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    option_id = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    post = relationship("Post", back_populates="poll_votes")
     user = relationship("User")
 

@@ -16,6 +16,7 @@ const POST_CATEGORIES = [
   { value: "MARKETPLACE", label: "Marketplace", icon: "🛒", color: "#10B981" },
   { value: "DISCUSSION", label: "Discussion", icon: "💭", color: "#707070" },
   { value: "ALERT", label: "Alert", icon: "⚠️", color: "#EF4444" },
+  { value: "POLL", label: "Poll", icon: "📊", color: "#158074" },
 ];
 
 export default function CreatePostScreen() {
@@ -23,6 +24,8 @@ export default function CreatePostScreen() {
   const [category, setCategory] = useState<string>("GENERAL");
   const [isUrgent, setIsUrgent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
   const { apiClient, user } = useAuth();
   const postingEnabled = useFeature("community_posting");
   const { track } = useTelemetry();
@@ -42,6 +45,11 @@ export default function CreatePostScreen() {
       Alert.alert("Error", "Please select a category");
       return;
     }
+    const options = pollOptions.map((label) => label.trim()).filter(Boolean);
+    if (category === "POLL" && options.length < 2) {
+      Alert.alert("Poll options required", "Add at least two options.");
+      return;
+    }
 
     if (!user?.compound_id) {
       Alert.alert("Error", "Please select a compound first");
@@ -54,6 +62,9 @@ export default function CreatePostScreen() {
         content: content.trim(),
         category: category as any,
         is_urgent: isUrgent || category === "ALERT", // Auto-set urgent for ALERT category
+        ...(category === "POLL"
+          ? { poll: { question: pollQuestion.trim() || undefined, options: options.map((label) => ({ label })) } }
+          : {}),
       };
 
       const post = await apiClient.createPost(data);
@@ -208,6 +219,31 @@ export default function CreatePostScreen() {
             numberOfLines={8}
             autoFocus
           />
+          {category === "POLL" ? (
+            <View style={{ marginBottom: 20, gap: 10 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#374151" }}>Poll</Text>
+              <TextInput
+                style={{ backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", padding: 12, color: "#1B1B1B" }}
+                placeholder="Question (optional)"
+                placeholderTextColor="#9CA3AF"
+                value={pollQuestion}
+                onChangeText={setPollQuestion}
+              />
+              {pollOptions.map((option, index) => (
+                <View key={index} style={{ flexDirection: "row", gap: 8 }}>
+                  <TextInput
+                    style={{ flex: 1, backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#E5E7EB", padding: 12, color: "#1B1B1B" }}
+                    placeholder={`Option ${index + 1}`}
+                    placeholderTextColor="#9CA3AF"
+                    value={option}
+                    onChangeText={(value) => setPollOptions((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))}
+                  />
+                  {pollOptions.length > 2 ? <TouchableOpacity onPress={() => setPollOptions((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={{ justifyContent: "center", padding: 8 }}><Ionicons name="close" size={20} color="#6B7280" /></TouchableOpacity> : null}
+                </View>
+              ))}
+              {pollOptions.length < 4 ? <TouchableOpacity onPress={() => setPollOptions((current) => [...current, ""])}><Text style={{ color: "#158074", fontWeight: "600" }}>+ Add option</Text></TouchableOpacity> : null}
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={{

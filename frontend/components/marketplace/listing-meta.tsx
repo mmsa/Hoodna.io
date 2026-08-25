@@ -23,6 +23,7 @@ export const LISTING_INTENTS: Array<{ value: ListingIntent | ""; label: string }
   { value: "", label: "All types" },
   { value: "SELL", label: "For sale" },
   { value: "RENT", label: "For rent" },
+  { value: "FREE", label: "Free" },
 ]
 
 export const LISTING_SORT_OPTIONS = [
@@ -43,6 +44,7 @@ export function intentLabel(
   intent?: string | null,
   category?: ListingCategory | string | null
 ) {
+  if (intent === "FREE") return "Free"
   if (category === "SERVICE") return intent === "RENT" ? "Hourly" : "One-time"
   if (category === "PROPERTY" && intent === "RENT") return "For rent"
   return "For sale"

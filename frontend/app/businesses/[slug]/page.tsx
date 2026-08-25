@@ -5,8 +5,9 @@ import {
   BusinessClaimCreateSchema,
   type BusinessDetail,
   type BusinessHoursDay,
+  type BusinessOffer,
 } from "@hoodna/shared"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Building2, Globe, Loader2, Mail, MapPin, Phone } from "lucide-react"
 
 import api from "@/lib/api"
@@ -99,8 +100,111 @@ export default function BusinessPage({ params }: { params: { slug: string } }) {
             </CardContent>
           </Card>
         ) : null}
+        <BusinessOffers business={item} />
       </div>
     </main>
+  )
+}
+
+function BusinessOffers({ business }: { business: BusinessDetail }) {
+  const queryClient = useQueryClient()
+  const role = business.viewer_membership_role || business.user_membership_role
+  const canManage = role === "OWNER" || role === "MANAGER"
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [badgeText, setBadgeText] = useState("")
+  const [saving, setSaving] = useState(false)
+  const analytics = useQuery({
+    queryKey: ["business-analytics", business.slug],
+    queryFn: async () => (await api.get(`/api/businesses/${encodeURIComponent(business.slug)}/analytics`)).data,
+    enabled: canManage,
+  })
+
+  async function createOffer(event: React.FormEvent) {
+    event.preventDefault()
+    if (!title.trim()) return
+    setSaving(true)
+    try {
+      await api.post(`/api/businesses/${encodeURIComponent(business.slug)}/offers`, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        badge_text: badgeText.trim() || undefined,
+        is_active: true,
+      })
+      setTitle("")
+      setDescription("")
+      setBadgeText("")
+      await queryClient.invalidateQueries({ queryKey: ["business", business.slug] })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteOffer(offer: BusinessOffer) {
+    await api.delete(`/api/businesses/${encodeURIComponent(business.slug)}/offers/${offer.id}`)
+    await queryClient.invalidateQueries({ queryKey: ["business", business.slug] })
+  }
+
+  async function toggleOffer(offer: BusinessOffer) {
+    await api.patch(`/api/businesses/${encodeURIComponent(business.slug)}/offers/${offer.id}`, {
+      is_active: !offer.is_active,
+    })
+    await queryClient.invalidateQueries({ queryKey: ["business", business.slug] })
+  }
+
+  return (
+    <>
+      {canManage && analytics.data ? (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            ["Profile views", analytics.data.profile_views],
+            ["Offer clicks", analytics.data.offer_clicks],
+            ["Active offers", analytics.data.active_offers],
+          ].map(([label, value]) => (
+            <Card key={String(label)}><CardContent className="p-4"><p className="text-2xl font-bold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></CardContent></Card>
+          ))}
+        </div>
+      ) : null}
+      <Card>
+        <CardHeader><CardTitle>Offers</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {business.offers?.length ? business.offers.filter((offer) => offer.is_active || canManage).map((offer) => (
+            <div key={offer.id} className="rounded-lg border border-border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  {offer.badge_text ? <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">{offer.badge_text}</span> : null}
+                  <h3 className="mt-2 font-semibold">{offer.title}</h3>
+                  {offer.description ? <p className="mt-1 text-sm text-muted-foreground">{offer.description}</p> : null}
+                </div>
+                {canManage ? (
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => toggleOffer(offer)}>{offer.is_active ? "Pause" : "Activate"}</Button>
+                    <Button variant="ghost" size="sm" onClick={() => deleteOffer(offer)}>Delete</Button>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => api.post(`/api/businesses/offers/${offer.id}/click`)}>
+                    View offer
+                  </Button>
+                )}
+              </div>
+            </div>
+          )) : <p className="text-sm text-muted-foreground">No current offers.</p>}
+        </CardContent>
+      </Card>
+      {canManage ? (
+        <Card>
+          <CardHeader><CardTitle>Create offer</CardTitle></CardHeader>
+          <CardContent>
+            <form className="space-y-3" onSubmit={createOffer}>
+              <div><Label htmlFor="offer-title">Title</Label><Input id="offer-title" value={title} onChange={(event) => setTitle(event.target.value)} required /></div>
+              <div><Label htmlFor="offer-badge">Badge text</Label><Input id="offer-badge" value={badgeText} onChange={(event) => setBadgeText(event.target.value)} placeholder="Neighbour special" /></div>
+              <div><Label htmlFor="offer-description">Description</Label><Textarea id="offer-description" value={description} onChange={(event) => setDescription(event.target.value)} /></div>
+              <Button type="submit" disabled={saving || !title.trim()}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Publish offer</Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+    </>
   )
 }
 

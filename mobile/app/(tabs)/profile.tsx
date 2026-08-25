@@ -162,7 +162,7 @@ export default function ProfileScreen() {
       key: "saved",
       label: "Saved",
       icon: "bookmark-outline" as const,
-      route: "/saved-listings",
+      route: "/saved-posts",
     },
     ...(invitationsEnabled
       ? [

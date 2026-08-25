@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_current_user_optional
@@ -12,6 +12,10 @@ from app.schemas.business import (
     BusinessListResponse,
     BusinessResponse,
     BusinessSearchResult,
+    BusinessOfferCreate,
+    BusinessOfferUpdate,
+    BusinessOfferResponse,
+    BusinessAnalyticsResponse,
 )
 from app.services.businesses import (
     ActiveClaimExistsError,
@@ -152,6 +156,152 @@ async def business_detail(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Business not found"
         )
+    business.profile_views = int(getattr(business, "profile_views", 0) or 0) + 1
+    await db.commit()
+    await db.refresh(business)
     return await business_response(
         db, business, current_user.id if current_user else None
+    )
+
+
+@router.post("/{slug}/offers", response_model=BusinessOfferResponse, status_code=status.HTTP_201_CREATED)
+async def create_business_offer(
+    slug: str,
+    data: BusinessOfferCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> BusinessOfferResponse:
+    from app.models.business import BusinessOffer
+    from app.models.enums import BusinessMembershipRole
+
+    business = await business_crud.get_public_business_by_slug(db, slug)
+    if business is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    membership = await business_crud.get_membership(db, current_user.id, business.id)
+    if not membership or membership.role not in (
+        BusinessMembershipRole.OWNER,
+        BusinessMembershipRole.MANAGER,
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a business owner")
+    offer = BusinessOffer(
+        business_id=business.id,
+        created_by_id=current_user.id,
+        **data.model_dump(),
+    )
+    db.add(offer)
+    await db.commit()
+    await db.refresh(offer)
+    return BusinessOfferResponse.model_validate(offer)
+
+
+@router.patch("/{slug}/offers/{offer_id}", response_model=BusinessOfferResponse)
+async def update_business_offer(
+    slug: str,
+    offer_id: int,
+    data: BusinessOfferUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> BusinessOfferResponse:
+    from app.models.business import BusinessOffer
+    from app.models.enums import BusinessMembershipRole
+
+    business = await business_crud.get_public_business_by_slug(db, slug)
+    if business is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    membership = await business_crud.get_membership(db, current_user.id, business.id)
+    if not membership or membership.role not in (
+        BusinessMembershipRole.OWNER,
+        BusinessMembershipRole.MANAGER,
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a business owner")
+    offer = await db.get(BusinessOffer, offer_id)
+    if not offer or offer.business_id != business.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(offer, key, value)
+    await db.commit()
+    await db.refresh(offer)
+    return BusinessOfferResponse.model_validate(offer)
+
+
+@router.delete("/{slug}/offers/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_business_offer(
+    slug: str,
+    offer_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.business import BusinessOffer
+    from app.models.enums import BusinessMembershipRole
+
+    business = await business_crud.get_public_business_by_slug(db, slug)
+    if business is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    membership = await business_crud.get_membership(db, current_user.id, business.id)
+    if not membership or membership.role not in (
+        BusinessMembershipRole.OWNER,
+        BusinessMembershipRole.MANAGER,
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a business owner")
+    offer = await db.get(BusinessOffer, offer_id)
+    if not offer or offer.business_id != business.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
+    await db.delete(offer)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/offers/{offer_id}/click", status_code=status.HTTP_204_NO_CONTENT)
+async def click_business_offer(
+    offer_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.business import BusinessOffer
+
+    offer = await db.get(BusinessOffer, offer_id)
+    if not offer or not offer.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found")
+    offer.click_count = int(offer.click_count or 0) + 1
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{slug}/analytics", response_model=BusinessAnalyticsResponse)
+async def business_analytics(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> BusinessAnalyticsResponse:
+    from app.models.business import BusinessOffer
+    from app.models.enums import BusinessMembershipRole
+    from sqlalchemy import select, func
+
+    business = await business_crud.get_public_business_by_slug(db, slug)
+    if business is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    membership = await business_crud.get_membership(db, current_user.id, business.id)
+    if not membership or membership.role not in (
+        BusinessMembershipRole.OWNER,
+        BusinessMembershipRole.MANAGER,
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a business owner")
+    clicks = (
+        await db.execute(
+            select(func.coalesce(func.sum(BusinessOffer.click_count), 0)).where(
+                BusinessOffer.business_id == business.id
+            )
+        )
+    ).scalar_one()
+    active = (
+        await db.execute(
+            select(func.count()).select_from(BusinessOffer).where(
+                BusinessOffer.business_id == business.id,
+                BusinessOffer.is_active.is_(True),
+            )
+        )
+    ).scalar_one()
+    return BusinessAnalyticsResponse(
+        profile_views=int(business.profile_views or 0),
+        offer_clicks=int(clicks or 0),
+        active_offers=int(active or 0),
     )

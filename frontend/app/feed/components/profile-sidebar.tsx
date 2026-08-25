@@ -95,7 +95,7 @@ export function ProfileSidebar({
                 View Profile
               </Button>
             </Link>
-            <Link href="/saved-listings">
+            <Link href="/saved">
               <Button variant="outline" className="w-full justify-start" size="sm">
                 <Star className="mr-2 h-4 w-4" />
                 Saved Items

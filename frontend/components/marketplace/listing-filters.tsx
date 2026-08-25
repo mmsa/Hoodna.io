@@ -42,7 +42,7 @@ export function ListingFilters({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const set = (key: keyof ListingFilterValues, next: string) => {
     if (key === "category") {
-      onChange({ ...value, category: next, intent: next === "PROPERTY" ? value.intent : "" })
+      onChange({ ...value, category: next })
       return
     }
     onChange({ ...value, [key]: next })
@@ -85,6 +85,11 @@ export function ListingFilters({
             }
           />
         ))}
+        <Chip
+          label="Free"
+          selected={value.intent === "FREE"}
+          onClick={() => set("intent", value.intent === "FREE" ? "" : "FREE")}
+        />
         <button
           type="button"
           onClick={() => setShowAdvanced((open) => !open)}
@@ -98,7 +103,7 @@ export function ListingFilters({
       {showAdvanced ? (
         <div className="eljiran-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            {value.category === "PROPERTY" ? (
+            {value.category !== "SERVICE" ? (
               <Select
                 value={value.intent || "all"}
                 onValueChange={(next) => set("intent", next === "all" ? "" : next)}
