@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-  ArrowDown,
   Bell,
   Car,
   Home as HomeIcon,
@@ -233,6 +232,7 @@ export default function FeedPage() {
   const [allPosts, setAllPosts] = useState<Post[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMorePosts, setHasMorePosts] = useState(true);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: postsData,
@@ -411,7 +411,7 @@ export default function FeedPage() {
     }
   };
 
-  const loadMorePosts = async () => {
+  const loadMorePosts = useCallback(async () => {
     if (isLoadingMore || !hasMorePosts) return;
 
     setIsLoadingMore(true);
@@ -430,7 +430,23 @@ export default function FeedPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  };
+  }, [isLoadingMore, hasMorePosts, postsLimit, toast, t]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasMorePosts || !shouldFetchData) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMorePosts();
+        }
+      },
+      { root: null, rootMargin: "240px 0px", threshold: 0 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMorePosts, shouldFetchData, loadMorePosts, allPosts.length]);
 
   const posts = allPosts;
   const urgentPosts = posts?.filter((p) => p.is_urgent === true) || [];
@@ -699,24 +715,19 @@ export default function FeedPage() {
                   })}
 
                   {hasMorePosts && (
-                    <div className="flex justify-center pt-4">
-                      <Button
-                        onClick={loadMorePosts}
-                        disabled={isLoadingMore}
-                        variant="outline"
-                      >
-                        {isLoadingMore ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading…
-                          </>
-                        ) : (
-                          <>
-                            Load more posts
-                            <ArrowDown className="ml-2 h-4 w-4" />
-                          </>
-                        )}
-                      </Button>
+                    <div
+                      ref={loadMoreRef}
+                      className="flex justify-center py-6"
+                      aria-hidden={!isLoadingMore}
+                    >
+                      {isLoadingMore ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading…
+                        </div>
+                      ) : (
+                        <div className="h-8 w-full" />
+                      )}
                     </div>
                   )}
 

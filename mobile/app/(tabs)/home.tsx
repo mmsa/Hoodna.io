@@ -31,6 +31,9 @@ export default function HomeScreen() {
   const [compoundHeroUrl, setCompoundHeroUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [postsLimit, setPostsLimit] = useState(15);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const { user, apiClient } = useAuth();
   const { activeCompoundId } = useCompound();
   const router = useRouter();
@@ -47,12 +50,14 @@ export default function HomeScreen() {
 
     setLoading(true);
     setPosts([]);
+    setPostsLimit(15);
+    setHasMorePosts(true);
 
     async function loadCompoundData() {
       try {
         const [summary, feedPosts] = await Promise.all([
           apiClient.getFeedSummary(),
-          apiClient.getPosts(compoundId),
+          apiClient.getFeed(15),
         ]);
         if (cancelled) return;
         setCompoundName(summary.compound_name);
@@ -62,6 +67,7 @@ export default function HomeScreen() {
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
         setPosts(sorted);
+        setHasMorePosts((feedPosts || []).length >= 15);
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load feed:", error);
@@ -88,7 +94,7 @@ export default function HomeScreen() {
     try {
       const [summary, feedPosts] = await Promise.all([
         apiClient.getFeedSummary(),
-        apiClient.getPosts(compoundId),
+        apiClient.getFeed(15),
       ]);
       setCompoundName(summary.compound_name);
       setCompoundArea(summary.compound_area);
@@ -97,10 +103,31 @@ export default function HomeScreen() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
       setPosts(sorted);
+      setPostsLimit(15);
+      setHasMorePosts((feedPosts || []).length >= 15);
     } catch (error) {
       console.error("Failed to refresh feed:", error);
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function handleLoadMore() {
+    if (!apiClient || loadingMore || !hasMorePosts || loading || refreshing) return;
+    setLoadingMore(true);
+    try {
+      const nextLimit = postsLimit + 15;
+      const feedPosts = await apiClient.getFeed(nextLimit);
+      const sorted = [...(feedPosts || [])].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      setPosts(sorted);
+      setPostsLimit(nextLimit);
+      setHasMorePosts((feedPosts || []).length >= nextLimit);
+    } catch (error) {
+      console.error("Failed to load more feed:", error);
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -218,6 +245,15 @@ export default function HomeScreen() {
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ paddingVertical: spacing[4], alignItems: "center" }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : null
         }
         ListHeaderComponent={
           <View>
