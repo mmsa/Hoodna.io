@@ -594,14 +594,22 @@ def _assign_threads(content_items: list[dict[str, Any]]) -> None:
 
 
 def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]) -> ParsedImport:
-    users_by_phone: dict[str, dict[str, Any]] = {}
+    # Unique senders: phone when present, else stable name key (WhatsApp often hides numbers).
+    users_by_key: dict[str, dict[str, Any]] = {}
     content_items: list[dict[str, Any]] = []
 
     for message_index, message in enumerate(messages):
         phone = message.phone
         name = _sender_display(message.sender_name, phone)
-        if phone and phone not in users_by_phone:
-            users_by_phone[phone] = {
+        if phone:
+            user_key = f"phone:{phone}"
+        elif name and name != "Neighbour":
+            user_key = f"name:{name.casefold()}"
+        else:
+            user_key = ""
+
+        if user_key and user_key not in users_by_key:
+            users_by_key[user_key] = {
                 "kind": ChatImportItemKind.USER.value,
                 "decision": "APPROVED",
                 "raw_payload": {
@@ -615,13 +623,16 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
                     "phone_private": True,
                 },
             }
-        elif phone and phone in users_by_phone:
+        elif user_key and user_key in users_by_key:
             # Prefer a real contact/profile name over Neighbour when we later see one
-            existing_name = users_by_phone[phone]["normalized"].get("name")
+            existing_name = users_by_key[user_key]["normalized"].get("name")
             if name != "Neighbour" and (
                 not existing_name or existing_name == "Neighbour"
             ):
-                users_by_phone[phone]["normalized"]["name"] = name
+                users_by_key[user_key]["normalized"]["name"] = name
+            # Fill phone if we first saw the person by name, then later by number
+            if phone and not users_by_key[user_key]["normalized"].get("phone"):
+                users_by_key[user_key]["normalized"]["phone"] = phone
 
         kind = classify_message(message.text)
         parsed_ts = parse_import_timestamp(message.timestamp)
@@ -671,7 +682,7 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
     return ParsedImport(
         source=source,
         messages=messages,
-        users=list(users_by_phone.values()),
+        users=list(users_by_key.values()),
         items=content_items,
     )
 

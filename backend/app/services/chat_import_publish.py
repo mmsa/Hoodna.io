@@ -133,6 +133,7 @@ async def _resolve_author(
     job: ChatImportJob,
     item: ChatImportItem,
     phone_to_user: dict[str, User],
+    touched_user_ids: set[int] | None = None,
 ) -> User:
     normalized = dict(item.normalized or {})
     phone = normalize_phone(normalized.get("phone")) if normalized.get("phone") else None
@@ -149,6 +150,8 @@ async def _resolve_author(
         if author.phone:
             phone_to_user[author.phone] = author
     item.matched_user_id = author.id
+    if touched_user_ids is not None:
+        touched_user_ids.add(author.id)
     return author
 
 
@@ -180,6 +183,7 @@ async def publish_chat_import_job(
         "errors": 0,
     }
     phone_to_user: dict[str, User] = {}
+    touched_user_ids: set[int] = set()
     # message_index → published Post.id
     message_index_to_post_id: dict[int, int] = {}
 
@@ -199,10 +203,10 @@ async def publish_chat_import_job(
         )
         phone_key = user.phone or ""
         phone_to_user[phone_key] = user
+        touched_user_ids.add(user.id)
         item.matched_user_id = user.id
         item.published_entity_type = "USER"
         item.published_entity_id = user.id
-        stats["users_created_or_matched"] += 1
 
     # Pass 1: posts + listings (roots)
     for item in items:
@@ -213,7 +217,11 @@ async def publish_chat_import_job(
             continue
         normalized = dict(item.normalized or {})
         author = await _resolve_author(
-            db, job=job, item=item, phone_to_user=phone_to_user
+            db,
+            job=job,
+            item=item,
+            phone_to_user=phone_to_user,
+            touched_user_ids=touched_user_ids,
         )
 
         try:
@@ -223,7 +231,6 @@ async def publish_chat_import_job(
                     item.decision = ChatImportItemDecision.REJECTED
                     item.reject_reason = "Empty content"
                     continue
-                provenance = f"\n\n— imported from group chat (job #{job.id})"
                 created_at = _original_created_at(normalized)
                 category_raw = str(normalized.get("post_category") or "GENERAL").upper()
                 try:
@@ -238,7 +245,7 @@ async def publish_chat_import_job(
                 post_kwargs = dict(
                     compound_id=job.compound_id,
                     author_id=author.id,
-                    content=content + provenance,
+                    content=content,
                     category=post_category,
                     is_urgent=post_category == PostCategory.ALERT,
                 )
@@ -318,7 +325,11 @@ async def publish_chat_import_job(
             continue
         normalized = dict(item.normalized or {})
         author = await _resolve_author(
-            db, job=job, item=item, phone_to_user=phone_to_user
+            db,
+            job=job,
+            item=item,
+            phone_to_user=phone_to_user,
+            touched_user_ids=touched_user_ids,
         )
         content = redact_phones((normalized.get("content") or "").strip())
         if not content:
@@ -337,7 +348,6 @@ async def publish_chat_import_job(
             created_at = _original_created_at(normalized)
             if post_id is None:
                 # Orphan comment → publish as its own post
-                provenance = f"\n\n— imported from group chat (job #{job.id})"
                 category_raw = str(normalized.get("post_category") or "GENERAL").upper()
                 try:
                     post_category = PostCategory(category_raw)
@@ -348,7 +358,7 @@ async def publish_chat_import_job(
                 post_kwargs = dict(
                     compound_id=job.compound_id,
                     author_id=author.id,
-                    content=content + provenance,
+                    content=content,
                     category=post_category,
                     is_urgent=post_category == PostCategory.ALERT,
                 )
@@ -380,6 +390,7 @@ async def publish_chat_import_job(
             stats["errors"] += 1
             item.reject_reason = str(exc)[:500]
 
+    stats["users_created_or_matched"] = len(touched_user_ids)
     job.stats = {**(job.stats or {}), "publish": stats}
     job.status = ChatImportJobStatus.COMPLETED
     job.completed_at = datetime.now(timezone.utc)
