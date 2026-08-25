@@ -104,6 +104,17 @@ export function NeighbourPostCard({
     currentUser?.role === "MODERATOR" ||
     currentUser?.role === "ADMIN" ||
     currentUser?.role === "COMPOUND_MOD";
+  const hasProfilePhoto = Boolean(post.author_avatar_url?.trim());
+  const visualHint =
+    post.category === "EVENT"
+      ? "Community event"
+      : post.category === "HELP"
+        ? "Neighbour needs help"
+        : post.category === "LOST_FOUND"
+          ? "Lost & found"
+          : post.category === "POLL"
+            ? "Neighbour poll"
+            : "From your compound";
 
   return (
     <TouchableOpacity
@@ -111,22 +122,25 @@ export function NeighbourPostCard({
       onPress={() => router.push(`/post/${post.id}`)}
       style={styles.card}
     >
-      <View style={styles.visual}>
-        <View style={styles.visualInner}>
+      <View style={[styles.visual, !hasProfilePhoto && styles.visualCompact]}>
+        <View
+          style={[
+            styles.visualInner,
+            !hasProfilePhoto && styles.visualInnerCompact,
+          ]}
+        >
           <Avatar
             name={post.author_name}
             fileUrl={post.author_avatar_url}
             apiClient={apiClient}
-            size={72}
+            size={hasProfilePhoto ? 72 : 40}
+            style={!hasProfilePhoto ? styles.monogram : undefined}
           />
-          <Text style={styles.visualHint} numberOfLines={2}>
-            {post.category === "EVENT"
-              ? "Community event"
-              : post.category === "HELP"
-                ? "Neighbour needs help"
-                : post.category === "LOST_FOUND"
-                  ? "Lost & found"
-                  : "From your compound"}
+          <Text
+            style={[styles.visualHint, !hasProfilePhoto && styles.visualHintCompact]}
+            numberOfLines={2}
+          >
+            {visualHint}
           </Text>
         </View>
         {post.is_urgent ? (
@@ -262,6 +276,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primarySoft,
     position: "relative",
   },
+  visualCompact: {
+    height: 88,
+    backgroundColor: "#EEF4F2",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.border,
+  },
   visualInner: {
     flex: 1,
     alignItems: "center",
@@ -269,11 +289,31 @@ const styles = StyleSheet.create({
     gap: spacing[3],
     paddingHorizontal: spacing[6],
   },
+  visualInnerCompact: {
+    flexDirection: "row",
+    gap: spacing[3],
+    paddingHorizontal: spacing[4],
+    justifyContent: "flex-start",
+  },
+  monogram: {
+    backgroundColor: "#DCE8E4",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(15, 81, 50, 0.12)",
+  },
   visualHint: {
     color: palette.primaryHover,
     fontSize: typography.size.bodySmall,
     fontWeight: typography.weight.semibold,
     textAlign: "center",
+  },
+  visualHintCompact: {
+    flex: 1,
+    textAlign: "left",
+    fontSize: 12,
+    fontWeight: typography.weight.medium,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: "#5A7268",
   },
   urgentBadge: {
     position: "absolute",
