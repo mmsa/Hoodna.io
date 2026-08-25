@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { SonnerToaster } from '@/components/sonner-toaster'
 import { Header } from '@/components/header'
 import { AppContentLayout } from '@/components/app-content-layout'
+import { AppVersionBadge } from '@/components/app-version-badge'
 
 const localeBootstrapScript = `
 (function () {
@@ -59,6 +60,7 @@ export default function RootLayout({
         </Providers>
         <Toaster />
         <SonnerToaster />
+        <AppVersionBadge />
       </body>
     </html>
   )

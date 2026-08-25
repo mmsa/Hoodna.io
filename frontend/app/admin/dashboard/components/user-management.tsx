@@ -209,14 +209,14 @@ export default function UserManagement() {
     <div className="space-y-4">
       <Card>
         <CardContent className="p-4 space-y-4">
-          <div className="flex flex-col lg:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <div className="space-y-3">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
               <Input
                 placeholder="Search by ID, name, email, or phone…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-10 pr-10"
+                className="w-full pl-10 pr-10"
               />
               {searchInput && (
                 <button
@@ -228,7 +228,7 @@ export default function UserManagement() {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(0) }}>
                 <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
                 <SelectContent>

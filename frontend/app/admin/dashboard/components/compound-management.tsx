@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Camera, ExternalLink, Loader2, Plus, Search, Trash2 } from 'lucide-react'
+import { Building2, Camera, ExternalLink, ImageIcon, Loader2, Plus, Search, Trash2 } from 'lucide-react'
 
 import { SignedFileImage } from '@/components/signed-file'
 import { Button } from '@/components/ui/button'
@@ -42,6 +42,17 @@ const EMPTY_FORM = {
 
 function isPending(compound: CompoundRow) {
   return !compound.compound_id || !compound.area
+}
+
+function buildGoogleImagesSearchUrl(name: string, area?: string | null) {
+  const query = `${name} ${area || ''} Egypt compound`.replace(/\s+/g, ' ').trim()
+  return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`
+}
+
+function openGoogleImagesSuggest(name: string, area?: string | null) {
+  const trimmed = name.trim()
+  if (!trimmed) return
+  window.open(buildGoogleImagesSearchUrl(trimmed, area), '_blank', 'noopener,noreferrer')
 }
 
 function errorDetail(error: unknown): string {
@@ -341,6 +352,15 @@ export default function CompoundManagement() {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={!compound.name.trim()}
+                            onClick={() => openGoogleImagesSuggest(compound.name, compound.area)}
+                          >
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            Suggest hero
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             className="text-destructive hover:text-destructive"
                             onClick={() => {
                               setDeleting(compound)
@@ -440,28 +460,42 @@ export default function CompoundManagement() {
                     />
                   </div>
                 ) : null}
-                <label className="inline-flex cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) void handleHeroUpload(file)
-                      event.target.value = ''
-                    }}
-                  />
-                  <Button type="button" variant="outline" disabled={uploading} asChild>
-                    <span>
-                      {uploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Camera className="h-4 w-4" />
-                      )}
-                      {form.hero_image_url ? 'Replace hero image' : 'Upload hero image'}
-                    </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!form.name.trim()}
+                    onClick={() => openGoogleImagesSuggest(form.name, form.area)}
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    Suggest hero
                   </Button>
-                </label>
+                  <label className="inline-flex cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0]
+                        if (file) void handleHeroUpload(file)
+                        event.target.value = ''
+                      }}
+                    />
+                    <Button type="button" variant="outline" disabled={uploading} asChild>
+                      <span>
+                        {uploading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                        {form.hero_image_url ? 'Replace hero image' : 'Upload hero image'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Suggest opens Google Images for this compound. Download a photo, then upload it here.
+                </p>
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
