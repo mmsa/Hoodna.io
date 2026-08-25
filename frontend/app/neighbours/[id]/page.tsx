@@ -27,7 +27,7 @@ import { formatCompoundName } from "@/lib/format-compound"
 
 export default function NeighbourProfilePage() {
   const params = useParams<{ id: string }>()
-  const userId = Number(params.id)
+  const userId = Number(params?.id)
   const { user } = useAuth()
 
   const { data, isLoading, error, refetch } = useQuery<PublicUserProfile>({
