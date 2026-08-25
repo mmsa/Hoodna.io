@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 from app.models.enums import UserStatus, UserRole
 
@@ -37,6 +37,10 @@ class AdminUserListItem(BaseModel):
     compound_id: Optional[int] = None
     compound_name: Optional[str] = None
     created_at: datetime
+    creation_source: Optional[str] = None
+    creation_details: Optional[Dict[str, Any]] = None
+    creation_job_id: Optional[int] = None
+    creation_note: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -88,6 +92,10 @@ class AdminUserDetailResponse(BaseModel):
     compound_name: Optional[str] = None
     compound_area: Optional[str] = None
     created_at: datetime
+    creation_source: Optional[str] = None
+    creation_details: Optional[Dict[str, Any]] = None
+    creation_job_id: Optional[int] = None
+    creation_note: Optional[str] = None
     verification_status: Optional[str] = None
     can_post: Optional[bool] = None
     can_comment: Optional[bool] = None
@@ -97,4 +105,3 @@ class AdminUserDetailResponse(BaseModel):
     provider_profile: Optional[dict] = None
     moderator_profile: Optional[dict] = None
     activity: AdminUserActivityStats
-

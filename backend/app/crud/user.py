@@ -24,17 +24,31 @@ async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def create_user_by_phone(db: AsyncSession, phone: str, name: str) -> User:
+async def create_user_by_phone(
+    db: AsyncSession,
+    phone: str,
+    name: str,
+    *,
+    creation_source: str = "PHONE_AUTH",
+    creation_details: dict | None = None,
+    creation_job_id: int | None = None,
+) -> User:
     """Create a new user with phone number (no password)."""
     phone_normalized = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
     # Generate a dummy email for phone-only users
     dummy_email = f"phone_{phone_normalized}@hoodna.local"
+    details = {"note": "Registered with phone"}
+    if creation_details:
+        details.update(creation_details)
     db_user = User(
         name=name,
         email=dummy_email,
         phone=phone_normalized,
         password_hash="",  # No password for phone auth users
         status=UserStatus.PENDING_VERIFICATION,
+        creation_source=creation_source,
+        creation_details=details,
+        creation_job_id=creation_job_id,
     )
     db.add(db_user)
     await db.flush()
@@ -47,9 +61,19 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     return await db.get(User, user_id)
 
 
-async def create_user(db: AsyncSession, user_data: UserCreate, role: UserRole | None = None) -> User:
+async def create_user(
+    db: AsyncSession,
+    user_data: UserCreate,
+    role: UserRole | None = None,
+    *,
+    creation_source: str = "EMAIL_SIGNUP",
+    creation_details: dict | None = None,
+) -> User:
     """Create a new user."""
     hashed_password = get_password_hash(user_data.password)
+    details = {"note": "Registered with email"}
+    if creation_details:
+        details.update(creation_details)
     db_user = User(
         name=user_data.name,
         email=user_data.email,
@@ -57,6 +81,8 @@ async def create_user(db: AsyncSession, user_data: UserCreate, role: UserRole | 
         password_hash=hashed_password,
         role=role,
         status=UserStatus.PENDING_VERIFICATION,
+        creation_source=creation_source,
+        creation_details=details,
     )
     db.add(db_user)
     await db.flush()

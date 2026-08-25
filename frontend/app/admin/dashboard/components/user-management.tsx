@@ -44,6 +44,10 @@ interface AdminUser {
   compound_id?: number
   compound_name?: string
   created_at: string
+  creation_source?: string | null
+  creation_details?: Record<string, unknown> | null
+  creation_job_id?: number | null
+  creation_note?: string | null
 }
 
 interface AdminUserListResponse {
@@ -313,6 +317,7 @@ export default function UserManagement() {
                     <th className="px-4 py-3 font-medium">Role</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium hidden lg:table-cell">Compound</th>
+                    <th className="px-4 py-3 font-medium hidden md:table-cell">How added</th>
                     <th className="px-4 py-3 font-medium hidden lg:table-cell">Joined</th>
                     <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
@@ -334,6 +339,11 @@ export default function UserManagement() {
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell text-gray-600">
                         {user.compound_name || (user.compound_id ? `#${user.compound_id}` : '—')}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-gray-600 max-w-[220px]">
+                        <span className="line-clamp-2" title={user.creation_note || undefined}>
+                          {user.creation_note || '—'}
+                        </span>
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell text-gray-500">
                         {new Date(user.created_at).toLocaleDateString()}

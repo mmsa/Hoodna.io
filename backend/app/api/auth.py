@@ -184,6 +184,14 @@ async def phone_auth_verify(
             await redeem_registration_referral(
                 db, request.referral_code.strip(), user.id
             )
+            from app.services.user_creation import apply_creation_provenance
+
+            apply_creation_provenance(
+                user,
+                source="PHONE_AUTH",
+                details={"referral_code": request.referral_code.strip()},
+                overwrite=True,
+            )
     
     # Check if banned
     if user.status.value == "BANNED":
@@ -244,6 +252,11 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
         db,
         user_data,
         role=signup_role or UserRole.RESIDENT,
+        creation_details=(
+            {"referral_code": user_data.referral_code.strip()}
+            if user_data.referral_code
+            else None
+        ),
     )
     if user_data.referral_code:
         await redeem_registration_referral(

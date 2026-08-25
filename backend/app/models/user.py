@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SQLEnum, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SQLEnum, Boolean, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -18,6 +18,12 @@ class User(Base):
     role = Column(SQLEnum(UserRole), nullable=True)  # Can be null until user selects role
     status = Column(SQLEnum(UserStatus), default=UserStatus.PENDING_VERIFICATION, nullable=False)
     compound_id = Column(Integer, ForeignKey("compounds.id"), nullable=True)
+    # How the account was created (PHONE_AUTH, EMAIL_SIGNUP, CHAT_IMPORT, DEMO, SEED_ADMIN, …)
+    creation_source = Column(String(64), nullable=True, index=True)
+    creation_details = Column(JSON, nullable=True)
+    creation_job_id = Column(
+        Integer, ForeignKey("chat_import_jobs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships

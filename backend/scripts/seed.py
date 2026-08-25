@@ -55,6 +55,8 @@ async def seed_admin():
                 password_hash=get_password_hash(admin_password),
                 role=UserRole.ADMIN,
                 status=UserStatus.APPROVED,
+                creation_source="SEED_ADMIN",
+                creation_details={"note": "Seeded admin account"},
             )
             session.add(admin_user)
             await session.flush()

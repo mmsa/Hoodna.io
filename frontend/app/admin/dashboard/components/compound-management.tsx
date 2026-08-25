@@ -540,11 +540,15 @@ export default function CompoundManagement() {
             </p>
             {forceDelete ? (
               <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive">
-                This compound still has linked users, posts, or listings. Confirming will clear
-                user links and delete related content.
+                This compound still has linked data. Confirming will delete posts, listings,
+                chat imports (and their files), and users that were created only by chat
+                import for this compound. Real registered users are kept but unlinked.
               </p>
             ) : (
-              <p>Deletion is blocked if the compound still has linked data, unless you force it.</p>
+              <p>
+                Deletion is blocked if the compound still has users, posts, listings, or chat
+                imports — unless you force it.
+              </p>
             )}
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-row">

@@ -440,6 +440,11 @@ async def seed_compound_demo(
                 role=UserRole.USER,
                 status=UserStatus.APPROVED,
                 compound_id=compound.id,
+                creation_source="DEMO",
+                creation_details={
+                    "note": "Demo seed account",
+                    "compound_slug": compound_slug,
+                },
             )
             session.add(user)
             await session.flush()

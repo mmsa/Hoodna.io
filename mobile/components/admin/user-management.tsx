@@ -25,6 +25,7 @@ interface AdminUser {
   compound_id?: number;
   compound_name?: string;
   created_at: string;
+  creation_note?: string | null;
 }
 
 const PAGE_SIZE = 25;
@@ -227,6 +228,9 @@ export function UserManagement() {
                 <Text style={{ fontSize: 11, color: colors.textMuted }}>#{user.id}</Text>
               </View>
               <Text style={{ fontSize: 13, color: colors.textMuted }}>{user.email}</Text>
+              {user.creation_note ? (
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{user.creation_note}</Text>
+              ) : null}
               {user.phone ? <Text style={{ fontSize: 13, color: colors.textMuted }}>{user.phone}</Text> : null}
               {user.compound_name ? (
                 <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>{user.compound_name}</Text>

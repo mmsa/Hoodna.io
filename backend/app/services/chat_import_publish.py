@@ -61,15 +61,37 @@ async def resolve_or_create_invited_user(
     compound_id: int,
     phone: str | None,
     name: str | None,
+    job: ChatImportJob | None = None,
 ) -> User:
+    from app.services.user_creation import apply_creation_provenance
+
     display_name = _safe_public_name(name, phone)
     normalized = normalize_phone(phone) if phone else None
     if not normalized:
         normalized = _synthetic_phone(display_name)
 
+    import_details: dict = {}
+    job_id = None
+    if job is not None:
+        job_id = job.id
+        import_details = {
+            "original_filename": job.original_filename,
+            "chat_source": getattr(job.source, "value", job.source),
+            "uploaded_by_id": job.uploaded_by_id,
+            "compound_id": job.compound_id,
+            "note": "Imported from group chat",
+        }
+
     user = await get_user_by_phone(db, normalized)
     if not user:
-        user = await create_user_by_phone(db, normalized, display_name)
+        user = await create_user_by_phone(
+            db,
+            normalized,
+            display_name,
+            creation_source="CHAT_IMPORT",
+            creation_details=import_details or {"note": "Imported from group chat"},
+            creation_job_id=job_id,
+        )
         user.profile_setup_required = True
     else:
         # Never overwrite a real name with a phone-like string
@@ -86,6 +108,13 @@ async def resolve_or_create_invited_user(
         # Existing password-less invited accounts still need setup.
         if not user.password_hash:
             user.profile_setup_required = True
+        apply_creation_provenance(
+            user,
+            source="CHAT_IMPORT",
+            details=import_details or None,
+            job_id=job_id,
+            overwrite=False,
+        )
 
     await ensure_pending_compound_membership(
         db, user.id, compound_id, source="CHAT_IMPORT"
@@ -115,6 +144,7 @@ async def _resolve_author(
             compound_id=job.compound_id,
             phone=phone,
             name=normalized.get("name"),
+            job=job,
         )
         if author.phone:
             phone_to_user[author.phone] = author
@@ -165,6 +195,7 @@ async def publish_chat_import_job(
             compound_id=job.compound_id,
             phone=normalized.get("phone"),
             name=normalized.get("name"),
+            job=job,
         )
         phone_key = user.phone or ""
         phone_to_user[phone_key] = user

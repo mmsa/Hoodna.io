@@ -118,6 +118,10 @@ export function UserDetailModal({ userId, visible, onClose, onRefresh, onResetPa
                 }
               />
               <Row label="Joined" value={new Date(detail.created_at).toLocaleString()} />
+              <Row label="How added" value={detail.creation_note || undefined} />
+              {detail.creation_job_id != null ? (
+                <Row label="Import job" value={`#${detail.creation_job_id}`} />
+              ) : null}
             </Section>
 
             <Section title="Permissions">

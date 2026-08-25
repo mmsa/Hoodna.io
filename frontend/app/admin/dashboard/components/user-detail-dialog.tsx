@@ -26,6 +26,10 @@ export interface AdminUserDetail {
   compound_name?: string
   compound_area?: string
   created_at: string
+  creation_source?: string | null
+  creation_details?: Record<string, unknown> | null
+  creation_job_id?: number | null
+  creation_note?: string | null
   verification_status?: string
   can_post?: boolean
   can_comment?: boolean
@@ -172,6 +176,28 @@ export default function UserDetailDialog({
                 <DetailRow label="Phone" value={user.phone} />
                 <DetailRow label="User ID" value={user.id} />
                 <DetailRow label="Joined" value={new Date(user.created_at).toLocaleString()} />
+                <DetailRow label="How added" value={user.creation_note || '—'} />
+                {user.creation_source ? (
+                  <DetailRow label="Source" value={user.creation_source} />
+                ) : null}
+                {user.creation_job_id != null ? (
+                  <DetailRow label="Import job" value={`#${user.creation_job_id}`} />
+                ) : null}
+                {user.creation_details && Object.keys(user.creation_details).length > 0 ? (
+                  <DetailRow
+                    label="Source details"
+                    value={
+                      <ul className="space-y-0.5">
+                        {Object.entries(user.creation_details).map(([key, value]) => (
+                          <li key={key}>
+                            <span className="text-gray-500">{key}:</span>{' '}
+                            {value == null ? '—' : String(value)}
+                          </li>
+                        ))}
+                      </ul>
+                    }
+                  />
+                ) : null}
                 <DetailRow
                   label="Primary compound"
                   value={

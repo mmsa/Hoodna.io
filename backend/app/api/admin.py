@@ -132,6 +132,8 @@ async def list_users(
     )
 
     items: list[AdminUserListItem] = []
+    from app.services.user_creation import user_creation_fields
+
     for user in users:
         compound_name = None
         if user.compound_id:
@@ -149,6 +151,7 @@ async def list_users(
                 compound_id=user.compound_id,
                 compound_name=compound_name,
                 created_at=user.created_at,
+                **user_creation_fields(user),
             )
         )
 
@@ -298,6 +301,8 @@ async def get_user_detail(
 
     activity_counts = await get_user_activity_counts(db, user.id)
 
+    from app.services.user_creation import user_creation_fields
+
     return AdminUserDetailResponse(
         id=user.id,
         name=user.name,
@@ -318,6 +323,7 @@ async def get_user_detail(
         provider_profile=provider_profile_data,
         moderator_profile=moderator_profile_data,
         activity=AdminUserActivityStats(**activity_counts),
+        **user_creation_fields(user),
     )
 
 
