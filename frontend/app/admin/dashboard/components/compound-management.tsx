@@ -17,13 +17,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import api from '@/lib/api'
@@ -40,22 +33,15 @@ interface CompoundRow {
   hero_image_url?: string | null
 }
 
-const STATUS_OPTIONS = [
-  'Ready to Move',
-  'Under Construction',
-  'Mixed/Phased',
-]
-
 const EMPTY_FORM = {
   name: '',
   area: '',
   developer: '',
-  status_2025: '',
   hero_image_url: '',
 }
 
 function isPending(compound: CompoundRow) {
-  return !compound.compound_id || !compound.area || !compound.status_2025
+  return !compound.compound_id || !compound.area
 }
 
 function errorDetail(error: unknown): string {
@@ -100,7 +86,8 @@ export default function CompoundManagement() {
         name: form.name.trim(),
         area: form.area.trim() || undefined,
         developer: form.developer.trim() || undefined,
-        status_2025: form.status_2025 || undefined,
+        // App only supports operating compounds; keep catalog field filled for completeness checks.
+        status_2025: 'Ready to Move',
         hero_image_url: form.hero_image_url || undefined,
       }
       if (!payload.name) {
@@ -189,7 +176,6 @@ export default function CompoundManagement() {
       name: compound.name || '',
       area: compound.area || '',
       developer: compound.developer || '',
-      status_2025: compound.status_2025 || '',
       hero_image_url: compound.hero_image_url || '',
     })
   }
@@ -303,7 +289,6 @@ export default function CompoundManagement() {
                   <tr>
                     <th className="px-4 py-3 font-semibold">Compound</th>
                     <th className="px-4 py-3 font-semibold">Area</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold">Hero</th>
                     <th className="px-4 py-3 font-semibold">Actions</th>
                   </tr>
@@ -323,7 +308,6 @@ export default function CompoundManagement() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{compound.area || '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{compound.status_2025 || '—'}</td>
                       <td className="px-4 py-3">
                         {compound.hero_image_url ? (
                           <div className="relative h-12 w-20 overflow-hidden rounded-lg">
@@ -439,27 +423,6 @@ export default function CompoundManagement() {
                 value={form.developer}
                 onChange={(e) => setForm((f) => ({ ...f, developer: e.target.value }))}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={form.status_2025 || 'none'}
-                onValueChange={(value) =>
-                  setForm((f) => ({ ...f, status_2025: value === 'none' ? '' : value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Not set</SelectItem>
-                  {STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {!creating ? (

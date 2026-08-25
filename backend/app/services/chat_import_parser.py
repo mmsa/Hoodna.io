@@ -26,26 +26,88 @@ PHONE_LIKE_SENDER_RE = re.compile(
 WHATSAPP_LINE_RE = re.compile(
     r"^\[?(\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APMapm]{2})?)\]?\s*[-–]?\s*([^:]+):\s*(.*)$"
 )
-# Expanded bilingual commercial signals (fallback when LLM unavailable)
-LISTING_HINT_RE = re.compile(
+# Expanded bilingual commercial signals (fallback when LLM unavailable).
+# Keep this STRICT: price/جنيه alone is not a marketplace listing.
+STRONG_LISTING_RE = re.compile(
     r"("
-    r"for\s+sale|sell(?:ing)?|buy(?:ing)?|rent(?:ing|al)?|"
-    r"للبيع|للبيع|مطلوب\s*بيع|معروض|للتأجير|للتاجير|للايجار|للإيجار|للايجار|"
-    r"ايجار|إيجار|سعر(?:ه|ها)?|جنيه|كاش|قسط|"
-    r"هبيع|هابيع|بتباع|بتبيع|هشتري|اشتري|"
-    r"available\s+for|looking\s+to\s+(?:sell|buy|rent)|"
-    r"egp|\ble\b"
+    r"\bfor\s+sale\b|\bselling\b|\bsell\s+my\b|\bbuying\b|\bfor\s+rent\b|\brenting\b|"
+    r"looking\s+to\s+(?:sell|buy|rent)|available\s+for\s+(?:sale|rent)|"
+    r"للبيع|معروض\s*للبيع|مطلوب\s*(?:شراء|بيع)|هبيع|هابيع|بتباع|بتبيع|"
+    r"للإيجار|للايجار|للتأجير|للتاجير|للايجار"
     r")",
     re.IGNORECASE,
 )
-PRICE_RE = re.compile(
-    r"(?<!\d)(\d{1,3}(?:[, ]\d{3})+|\d{4,7})(?:\.\d+)?(?!\d)",
+# Community works / fund talk that often contains prices but is NOT a listing
+COMMUNITY_COST_RE = re.compile(
+    r"("
+    r"street\s+fund|rain\s+drain|per\s+meter|مصاريف|تحصيل|صندوق|اشتراك|"
+    r"ميزانية|الشارع|انترلوك|interlock|متر\s*الشارع|جنيه\s*/\s*متر|"
+    r"لكل\s*متر|توريد\s+و\s*تركيب|تركيب\s+بال|"
+    r"كل\s+(?:عمارة|مبنى|بيت)\s+يدفع"
+    r")",
+    re.IGNORECASE,
+)
+SERVICE_RECOMMENDATION_RE = re.compile(
+    r"("
+    r"anyone\s+(?:know|recommend)|looking\s+for\s+a\s+(?:good\s+)?|"
+    r"recommend(?:ation|ed)?|need(?:s|ed)?\s+a\s+(?:plumber|electrician|cleaner|painter|driver)|"
+    r"حد\s*يعرف|مين\s*(?:كويس|شاطر|موثوق)|محتاج(?:ة)?\s*(?:سباك|كهربائي|نجدة|نجار|صيانه|صيانة)|"
+    r"ترشيح|انصح(?:وني|ني)?|سيب(?:وا)?\s+رقم"
+    r")",
+    re.IGNORECASE,
+)
+SERVICE_OFFER_RE = re.compile(
+    r"("
+    r"\bi\s+(?:offer|provide|do)\b|\bavailable\s+for\s+(?:work|jobs)\b|"
+    r"أقدم\s+خدمات|بقدم\s+(?:خدمة|خدمات)|متاح\s+ل(?:لعمل|لشغل)|"
+    r"خدمات\s+(?:نظافة|صيانة|سباكة|كهرباء)"
+    r")",
+    re.IGNORECASE,
 )
 SKIP_RE = re.compile(
     r"^(?:\s*|null|none|<media omitted>|image omitted|video omitted|audio omitted|"
     r"sticker omitted|gif omitted|document omitted|contact card omitted|"
     r"this message was deleted|you deleted this message|"
     r"messages and calls are end-to-end encrypted.*)$",
+    re.IGNORECASE,
+)
+# WhatsApp / Telegram group system noise (never publish as posts)
+SYSTEM_MESSAGE_RE = re.compile(
+    r"("
+    r"you\s+joined\s+using\s+a\s+group\s+link|"
+    r"joined\s+using\s+(?:this\s+)?(?:group\s+)?link|"
+    r"created\s+this\s+group|"
+    r"~\s*.+\s+created\s+this\s+group|"
+    r"created\s+group|"
+    r"turned\s+on\s+admin\s+approval|"
+    r"turned\s+off\s+admin\s+approval|"
+    r"changed\s+(?:this\s+)?group(?:'s)?\s+(?:description|icon|name|settings|subject)|"
+    r"(?:was\s+)?added\s+.+\s+to\s+(?:the\s+)?group|"
+    r"removed\s+.+\s+from\s+(?:the\s+)?group|"
+    r"left\s*$|left\s+the\s+group|"
+    r"changed\s+their\s+phone\s+number|"
+    r"security\s+code\s+changed|"
+    r"messages\s+and\s+calls\s+are\s+end-to-end\s+encrypted|"
+    r"you(?:'re|\s+are)\s+now\s+an\s+admin|"
+    r"is\s+now\s+an\s+admin|"
+    r"only\s+admins\s+can\s+(?:send|edit|delete)|"
+    r"waiting\s+for\s+this\s+message|"
+    r"missed\s+(?:voice|video)\s+call|"
+    r"انضم(?:يت|ت)?\s+باستخدام|"
+    r"أنشأ(?:ت)?\s+(?:هذه\s+)?المجموعة|"
+    r"تم\s+إنشاء\s+(?:هذه\s+)?المجموعة|"
+    r"تفعيل\s+موافقة\s+المشرف|"
+    r"تم\s+تغيير\s+(?:وصف|اسم|صورة)\s+المجموعة"
+    r")",
+    re.IGNORECASE,
+)
+GREETING_ONLY_RE = re.compile(
+    r"^(?:"
+    r"السلا+م\s*عليكم(?:\s*و(?:رحمة|رحمه)\s*الله(?:\s*وبركاته)?)?|"
+    r"سلام\s*عليكم|"
+    r"hi+|hello+|hey+|good\s+(?:morning|evening|night)|"
+    r"صباح\s*(?:الخير|النور)|مساء\s*(?:الخير|النور)|أهلا(?:ً|ا)?|مرحبا(?:ً|ا)?"
+    r")[\s!.]*$",
     re.IGNORECASE,
 )
 # Likely starts a new community thread rather than a reply
@@ -58,6 +120,9 @@ NEW_ROOT_RE = re.compile(
 )
 PHONE_IN_TEXT_RE = re.compile(
     r"(?:\+|00)?(?:20)?0?1[0125][\d\s\-()]{7,12}|\+\d{8,15}"
+)
+PRICE_RE = re.compile(
+    r"(?<!\d)(\d{1,3}(?:[, ]\d{3})+|\d{4,7})(?:\.\d+)?(?!\d)",
 )
 
 REPLY_MAX_CHARS = 240
@@ -115,13 +180,108 @@ def redact_phones(text: str) -> str:
 def classify_message(text: str) -> ChatImportItemKind:
     """Regex fallback classifier (used when LLM is unavailable)."""
     cleaned = (text or "").strip()
-    if not cleaned or SKIP_RE.match(cleaned):
+    if not cleaned or SKIP_RE.match(cleaned) or SYSTEM_MESSAGE_RE.search(cleaned):
         return ChatImportItemKind.SKIP
-    if LISTING_HINT_RE.search(cleaned):
-        return ChatImportItemKind.LISTING
+    if GREETING_ONLY_RE.match(cleaned):
+        return ChatImportItemKind.SKIP
     if len(cleaned) < 2:
         return ChatImportItemKind.SKIP
+
+    # Community fund / street works with prices → post, not marketplace listing
+    if COMMUNITY_COST_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
+        return ChatImportItemKind.POST
+
+    # Service asks / recommendations → community post
+    if SERVICE_RECOMMENDATION_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
+        return ChatImportItemKind.POST
+
+    # Explicit personal sell/buy/rent of goods or property
+    if STRONG_LISTING_RE.search(cleaned):
+        return ChatImportItemKind.LISTING
+
+    # Someone advertising their own services (marketplace-ish)
+    if SERVICE_OFFER_RE.search(cleaned):
+        return ChatImportItemKind.LISTING
+
     return ChatImportItemKind.POST
+
+
+def infer_post_category(text: str) -> str:
+    """Map free-text chat into a feed PostCategory value."""
+    cleaned = (text or "").strip()
+    lower = cleaned.lower()
+    if SERVICE_RECOMMENDATION_RE.search(cleaned) or any(
+        token in lower
+        for token in (
+            "help",
+            "anyone know",
+            "looking for",
+            "محتاج",
+            "عايز",
+            "عاوز",
+            "حد يعرف",
+            "ترشيح",
+        )
+    ):
+        return "HELP"
+    if any(
+        token in lower
+        for token in (
+            "lost",
+            "found",
+            "missing",
+            "ضاعت",
+            "فقدت",
+            "لقينا",
+            "لقيتها",
+            "مفقود",
+        )
+    ):
+        return "LOST_FOUND"
+    if any(
+        token in lower
+        for token in (
+            "event",
+            "party",
+            "meeting",
+            "gathering",
+            "حفلة",
+            "اجتماع",
+            "مناسبة",
+        )
+    ):
+        return "EVENT"
+    if any(
+        token in lower
+        for token in (
+            "urgent",
+            "emergency",
+            "alert",
+            "عاجل",
+            "خطر",
+            "حريق",
+            "سرقة",
+        )
+    ):
+        return "ALERT"
+    if COMMUNITY_COST_RE.search(cleaned) or any(
+        token in lower for token in ("announcement", "اعلان", "إعلان", "تنويه", "تنبيه")
+    ):
+        return "DISCUSSION"
+    return "GENERAL"
+
+
+def skip_reason(text: str) -> str:
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return "Empty message"
+    if SYSTEM_MESSAGE_RE.search(cleaned):
+        return "WhatsApp/Telegram system message"
+    if GREETING_ONLY_RE.match(cleaned):
+        return "Greeting-only message"
+    if SKIP_RE.match(cleaned):
+        return "Empty or media-only message"
+    return "Skipped"
 
 
 def extract_price(text: str) -> float | None:
@@ -477,6 +637,15 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
         }
         if kind == ChatImportItemKind.LISTING:
             normalized = ensure_listing_normalized(normalized)
+            # Service offers become SERVICE category when possible
+            if SERVICE_OFFER_RE.search(message.text) and not STRONG_LISTING_RE.search(
+                message.text
+            ):
+                normalized["category"] = "SERVICE"
+        elif kind == ChatImportItemKind.POST:
+            normalized["post_category"] = infer_post_category(message.text)
+            if SERVICE_RECOMMENDATION_RE.search(message.text):
+                normalized["is_service_recommendation"] = True
         raw_payload = {
             "sender": message.sender_name,
             "text": message.text,
@@ -491,7 +660,7 @@ def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]
                 "decision": "APPROVED" if kind != ChatImportItemKind.SKIP else "REJECTED",
                 "raw_payload": raw_payload,
                 "normalized": normalized,
-                "reject_reason": "Empty or media-only message"
+                "reject_reason": skip_reason(message.text)
                 if kind == ChatImportItemKind.SKIP
                 else None,
             }

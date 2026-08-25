@@ -194,12 +194,22 @@ async def publish_chat_import_job(
                     continue
                 provenance = f"\n\n— imported from group chat (job #{job.id})"
                 created_at = _original_created_at(normalized)
+                category_raw = str(normalized.get("post_category") or "GENERAL").upper()
+                try:
+                    post_category = PostCategory(category_raw)
+                except ValueError:
+                    post_category = PostCategory.GENERAL
+                # Official ANNOUNCEMENT is reserved for compound mods
+                if post_category == PostCategory.ANNOUNCEMENT:
+                    post_category = PostCategory.DISCUSSION
+                if post_category == PostCategory.MARKETPLACE:
+                    post_category = PostCategory.GENERAL
                 post_kwargs = dict(
                     compound_id=job.compound_id,
                     author_id=author.id,
                     content=content + provenance,
-                    category=PostCategory.GENERAL,
-                    is_urgent=False,
+                    category=post_category,
+                    is_urgent=post_category == PostCategory.ALERT,
                 )
                 if created_at is not None:
                     post_kwargs["created_at"] = created_at
@@ -297,12 +307,19 @@ async def publish_chat_import_job(
             if post_id is None:
                 # Orphan comment → publish as its own post
                 provenance = f"\n\n— imported from group chat (job #{job.id})"
+                category_raw = str(normalized.get("post_category") or "GENERAL").upper()
+                try:
+                    post_category = PostCategory(category_raw)
+                except ValueError:
+                    post_category = PostCategory.GENERAL
+                if post_category in (PostCategory.ANNOUNCEMENT, PostCategory.MARKETPLACE):
+                    post_category = PostCategory.DISCUSSION
                 post_kwargs = dict(
                     compound_id=job.compound_id,
                     author_id=author.id,
                     content=content + provenance,
-                    category=PostCategory.GENERAL,
-                    is_urgent=False,
+                    category=post_category,
+                    is_urgent=post_category == PostCategory.ALERT,
                 )
                 if created_at is not None:
                     post_kwargs["created_at"] = created_at

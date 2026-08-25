@@ -93,6 +93,38 @@ def test_classify_message():
     assert classify_message("Anyone seen my cat?") == ChatImportItemKind.POST
     assert classify_message("<Media omitted>") == ChatImportItemKind.SKIP
     assert classify_message("شقة للبيع في المرحلة الثالثة") == ChatImportItemKind.LISTING
+    # System noise
+    assert (
+        classify_message("You joined using a group link") == ChatImportItemKind.SKIP
+    )
+    assert (
+        classify_message("~ رضا الديب created this group") == ChatImportItemKind.SKIP
+    )
+    assert (
+        classify_message("I turned on admin approval to join this group")
+        == ChatImportItemKind.SKIP
+    )
+    assert classify_message("السلام عليكم ورحمة الله وبركاته") == ChatImportItemKind.SKIP
+    # Community costs / service asks are posts, not listings
+    assert (
+        classify_message("تكلفة صرف المطر 3000 جنيه للواحدة")
+        == ChatImportItemKind.POST
+    )
+    assert (
+        classify_message("نعمل صندوق شارع كل عمارة تدفع 200 جنيه")
+        == ChatImportItemKind.POST
+    )
+    assert (
+        classify_message("Anyone know a good plumber?") == ChatImportItemKind.POST
+    )
+
+
+def test_infer_post_category():
+    from app.services.chat_import_parser import infer_post_category
+
+    assert infer_post_category("Anyone know a good plumber?") == "HELP"
+    assert infer_post_category("Lost keys near gate 3") == "LOST_FOUND"
+    assert infer_post_category("نعمل صندوق شارع") == "DISCUSSION"
 
 
 def test_sender_display_never_phone():

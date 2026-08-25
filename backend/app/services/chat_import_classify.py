@@ -17,20 +17,31 @@ logger = logging.getLogger(__name__)
 CLASSIFY_MODEL = "gpt-4o-mini"
 BATCH_SIZE = 25
 # Keep parse responsive on large WhatsApp groups
-MAX_LLM_CANDIDATES = 60
+MAX_LLM_CANDIDATES = 80
 BATCH_TIMEOUT_SECONDS = 35.0
 
-# Commercial / listing-ish signals worth sending to the LLM
+# Signals worth sending to the LLM (ambiguous commercial / service chat)
 AMBIGUOUS_RE = re.compile(
     r"("
     r"for\s+sale|sell(?:ing)?|buy(?:ing)?|rent(?:ing|al)?|price|egp|\ble\b|"
     r"للبيع|مطلوب|معروض|للتأجير|للتاجير|للايجار|للإيجار|"
     r"ايجار|إيجار|سعر|جنيه|كاش|قسط|هبيع|هابيع|بتباع|هشتري|"
     r"شقة|فيلا|عربيه|عربية|موتوسيكل|توك توك|ايفون|iphone|"
+    r"recommend|plumber|electrician|cleaner|سباك|كهربائي|ترشيح|حد\s*يعرف|"
+    r"صندوق|انترلوك|interlock|شارع|"
     r"\d{3,}"
     r")",
     re.IGNORECASE,
 )
+
+POST_CATEGORIES = {
+    "GENERAL",
+    "HELP",
+    "LOST_FOUND",
+    "EVENT",
+    "DISCUSSION",
+    "ALERT",
+}
 
 
 def _api_key() -> str | None:
@@ -53,11 +64,11 @@ def _parse_json_object(content: str) -> dict[str, Any]:
 
 def _should_llm_classify(kind: str, content: str) -> bool:
     """Only spend LLM tokens on likely listings / ambiguous commercial chat."""
-    if kind == ChatImportItemKind.LISTING.value:
-        return True
     if kind == ChatImportItemKind.SKIP.value:
         return False
-    if len(content) < 12:
+    if kind == ChatImportItemKind.LISTING.value:
+        return True
+    if len(content) < 8:
         return False
     return bool(AMBIGUOUS_RE.search(content))
 
@@ -69,7 +80,7 @@ async def classify_messages_with_llm(
     Classify each text as POST, LISTING, or SKIP.
 
     Returns a list aligned with `texts`, each dict may include:
-      kind, intent (SELL|RENT), title
+      kind, intent (SELL|RENT), category, post_category, title
     Missing/failed entries return {}.
     """
     if not texts:
@@ -87,17 +98,29 @@ async def classify_messages_with_llm(
                 f"{i}. {text[:500].replace(chr(10), ' ')}"
                 for i, text in enumerate(batch)
             )
-            prompt = f"""Classify Egyptian compound WhatsApp messages (Arabic dialect + English).
+            prompt = f"""Classify Egyptian compound WhatsApp/Telegram messages (Arabic dialect + English).
 
-For each numbered message return kind:
-- LISTING: selling/buying/renting goods, homes, cars, paid services
-- POST: chat, questions, recommendations, lost&found (not a sale)
-- SKIP: empty/media/deleted noise
+Kinds:
+- SKIP: WhatsApp/Telegram system noise ONLY — e.g. "You joined using a group link", "created this group", "turned on admin approval", media omitted, deleted messages, encryption notices. Also skip greeting-only lines like "السلام عليكم".
+- LISTING: the sender is personally selling, buying, or renting a specific good, home, or car (marketplace). Example: "Selling iPhone 13", "شقة للبيع", "For rent studio".
+- POST: everything else in community chat — questions, recommendations ("anyone know a plumber?"), contractor quotes for street works, building fund ideas, lost&found, discussions, greetings with content.
 
-For LISTING also: intent SELL or RENT, category PROPERTY|CAR|ITEM|SERVICE, title max 80 chars.
+IMPORTANT — do NOT mark as LISTING when:
+- message only mentions prices for shared street/compound works (interlock, drains, fund)
+- message asks for / recommends a service provider
+- message is chat, opinion, or announcement-like discussion
+
+For LISTING also return:
+- intent: SELL or RENT
+- category: PROPERTY | CAR | ITEM | SERVICE (SERVICE only if they advertise their own paid service)
+- title: max 80 chars
+
+For POST also return:
+- post_category: HELP (asks/recommendations) | LOST_FOUND | EVENT | ALERT | DISCUSSION (community works/fund) | GENERAL
+- is_service_recommendation: true if asking for / recommending a tradesperson
 
 Return ONLY JSON:
-{{"results":[{{"i":0,"kind":"POST|LISTING|SKIP","intent":"SELL|RENT|null","category":"PROPERTY|CAR|ITEM|SERVICE|null","title":"..."}}]}}
+{{"results":[{{"i":0,"kind":"POST|LISTING|SKIP","intent":null,"category":null,"post_category":"HELP","is_service_recommendation":false,"title":null}}]}}
 
 Messages:
 {numbered}
@@ -112,11 +135,14 @@ Messages:
                     json={
                         "model": CLASSIFY_MODEL,
                         "temperature": 0,
-                        "max_tokens": 1800,
+                        "max_tokens": 2200,
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "Bilingual Arabic/English classifier. JSON only.",
+                                "content": (
+                                    "Strict bilingual classifier for neighbourhood chat imports. "
+                                    "Prefer POST over LISTING when unsure. Prefer SKIP for system noise. JSON only."
+                                ),
                             },
                             {"role": "user", "content": prompt},
                         ],
@@ -154,13 +180,17 @@ Messages:
                     category = str(row.get("category") or "").upper()
                     if category in {"PROPERTY", "CAR", "ITEM", "SERVICE"}:
                         entry["category"] = category
+                    post_category = str(row.get("post_category") or "").upper()
+                    if post_category in POST_CATEGORIES:
+                        entry["post_category"] = post_category
+                    if row.get("is_service_recommendation") is True:
+                        entry["is_service_recommendation"] = True
                     title = row.get("title")
                     if title:
                         entry["title"] = str(title).strip()[:120]
                     results[start + idx] = entry
             except Exception as exc:  # noqa: BLE001
                 logger.warning("chat_import classify batch failed: %s", exc)
-                # Continue other batches; soft-fail overall
                 continue
     return results
 
@@ -172,7 +202,14 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
 
     Soft-fails: regex classifications are kept if LLM is slow/unavailable.
     """
-    from app.services.chat_import_parser import rethread_items
+    from app.services.chat_import_parser import (
+        ensure_listing_normalized,
+        infer_post_category,
+        rethread_items,
+        skip_reason,
+        SYSTEM_MESSAGE_RE,
+        GREETING_ONLY_RE,
+    )
 
     # Flatten prior comments so classifier sees every text message
     for item in items:
@@ -183,6 +220,16 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
             item["normalized"] = normalized
             item["decision"] = "APPROVED"
             item["reject_reason"] = None
+
+    # Hard-skip system / greeting noise even if earlier pass missed them
+    for item in items:
+        if item.get("kind") == ChatImportItemKind.USER.value:
+            continue
+        content = str((item.get("normalized") or {}).get("content") or "").strip()
+        if SYSTEM_MESSAGE_RE.search(content) or GREETING_ONLY_RE.match(content):
+            item["kind"] = ChatImportItemKind.SKIP.value
+            item["decision"] = "REJECTED"
+            item["reject_reason"] = skip_reason(content)
 
     candidates: list[tuple[int, str]] = []
     for idx, item in enumerate(items):
@@ -201,6 +248,8 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
     stats: dict[str, Any] = {
         "llm_classified": 0,
         "llm_listings": 0,
+        "llm_posts": 0,
+        "llm_skipped": 0,
         "llm_used": 0,
         "llm_candidates": len(candidates),
         "llm_capped": 1 if len(candidates) >= MAX_LLM_CANDIDATES else 0,
@@ -224,14 +273,15 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
             item["kind"] = kind
             if kind == ChatImportItemKind.SKIP.value:
                 item["decision"] = "REJECTED"
-                item["reject_reason"] = item.get("reject_reason") or "Skipped by classifier"
+                item["reject_reason"] = item.get("reject_reason") or skip_reason(
+                    str(normalized.get("content") or "")
+                )
+                stats["llm_skipped"] += 1
             else:
                 item["decision"] = "APPROVED"
                 item["reject_reason"] = None
             if kind == ChatImportItemKind.LISTING.value:
                 stats["llm_listings"] += 1
-                from app.services.chat_import_parser import ensure_listing_normalized
-
                 if classification.get("title"):
                     normalized["title"] = classification["title"]
                 if classification.get("intent") in ("SELL", "RENT"):
@@ -244,10 +294,34 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
                 }:
                     normalized["category"] = classification["category"]
                 normalized = ensure_listing_normalized(normalized)
+                normalized.pop("post_category", None)
+                normalized.pop("is_service_recommendation", None)
+            elif kind == ChatImportItemKind.POST.value:
+                stats["llm_posts"] += 1
+                post_category = classification.get("post_category") or infer_post_category(
+                    str(normalized.get("content") or "")
+                )
+                if post_category not in POST_CATEGORIES:
+                    post_category = "GENERAL"
+                normalized["post_category"] = post_category
+                if classification.get("is_service_recommendation"):
+                    normalized["is_service_recommendation"] = True
+                    normalized["post_category"] = "HELP"
             item["normalized"] = normalized
             stats["llm_classified"] += 1
     elif candidates and not llm_classification_available():
         stats["llm_skipped_reason"] = "OPENAI_API_KEY not set"
+
+    # Ensure every POST has a post_category even without LLM
+    for item in items:
+        if item.get("kind") != ChatImportItemKind.POST.value:
+            continue
+        normalized = dict(item.get("normalized") or {})
+        if not normalized.get("post_category"):
+            normalized["post_category"] = infer_post_category(
+                str(normalized.get("content") or "")
+            )
+            item["normalized"] = normalized
 
     rethread_items(items)
     return stats

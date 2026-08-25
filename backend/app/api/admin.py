@@ -1179,6 +1179,9 @@ async def admin_create_compound(
     if not payload.get("country"):
         payload["country"] = "Egypt"
 
+    # eljiran only serves operating compounds
+    payload["status_2025"] = "Ready to Move"
+
     compound = await create_compound(db, CompoundCreate(**payload))
     db.add(
         AuditLog(
@@ -1292,7 +1295,7 @@ async def update_compound_details(
     """
     Update compound details (admin completes user-requested compounds).
 
-    Admin can fill in: compound_id, area, sub_area, category, developer, status_2025, etc.
+        Admin can fill in: compound_id, area, sub_area, category, developer, etc.
     If compound_id is not provided, it will be auto-generated from name.
     """
     update_dict = update_data.model_dump(exclude_unset=True)
@@ -1310,6 +1313,9 @@ async def update_compound_details(
         if compound and compound.name:
             slug = re.sub(r"[^a-z0-9]+", "-", compound.name.lower()).strip("-")
             update_dict["compound_id"] = slug
+
+    # eljiran only serves operating compounds
+    update_dict["status_2025"] = "Ready to Move"
 
     compound = await update_compound(db, compound_id, update_dict)
 

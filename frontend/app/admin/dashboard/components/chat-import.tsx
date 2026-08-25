@@ -248,12 +248,20 @@ export default function ChatImportPanel() {
       return `${author} · ${maskPhone(n.phone)} (private)`
     }
     if (item.kind === 'LISTING') {
-      return `${author}: ${String(n.title || n.content || '')}`
+      const cat = n.category ? ` · ${String(n.category)}` : ''
+      return `${author}${cat}: ${String(n.title || n.content || '')}`
     }
     if (item.kind === 'COMMENT') {
       return `${author}: ${String(n.content || '')}`
     }
-    return `${author}: ${String(n.content || '')}`
+    if (item.kind === 'SKIP') {
+      return `${author}: ${String(n.content || '')}${
+        item.reject_reason ? ` — ${item.reject_reason}` : ''
+      }`
+    }
+    const postCat = n.post_category ? ` · ${String(n.post_category)}` : ''
+    const svc = n.is_service_recommendation ? ' · service ask' : ''
+    return `${author}${postCat}${svc}: ${String(n.content || '')}`
   }
 
   return (
