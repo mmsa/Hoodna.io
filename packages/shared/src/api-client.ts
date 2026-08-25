@@ -634,6 +634,18 @@ export class ApiClient {
     return this.request<Post[]>(`/api/feed?limit=${limit}`);
   }
 
+  async getLinkPreview(url: string): Promise<{
+    url: string;
+    title?: string | null;
+    description?: string | null;
+    image?: string | null;
+    site_name?: string | null;
+    kind: string;
+  }> {
+    const params = new URLSearchParams({ url });
+    return this.request(`/api/link-preview?${params.toString()}`);
+  }
+
   // Service categories
   async getServiceCategories(): Promise<ServiceCategory[]> {
     return this.request<ServiceCategory[]>("/api/service-categories");

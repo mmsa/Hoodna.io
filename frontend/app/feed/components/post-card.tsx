@@ -16,6 +16,7 @@ import {
 import { ReportDialog } from "@/components/report-dialog"
 import { NeighbourProfileLink } from "@/components/neighbour-profile-link"
 import { VerifiedNeighbourBadge } from "@/components/verified-neighbour-badge"
+import { LinkifiedText, LinkPreviewCard } from "@/components/link-preview"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -296,11 +297,10 @@ export function PostCard({
           </div>
         </div>
 
-        <p className="mb-4 text-[15px] leading-relaxed text-foreground">
-          {post.content}
-        </p>
+        <LinkifiedText text={post.content} className="mb-1 text-[15px] leading-relaxed text-foreground" />
+        <LinkPreviewCard text={post.content} />
 
-        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
+        <div className="mb-4 mt-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-1">
             {(
               [
@@ -406,9 +406,10 @@ export function PostCard({
                       {formatTimeAgo(comment.created_at)}
                     </span>
                   </div>
-                  <p className="ml-10 text-sm leading-relaxed text-foreground">
-                    {comment.content}
-                  </p>
+                  <div className="ml-10 text-sm leading-relaxed text-foreground">
+                    <LinkifiedText text={comment.content} className="text-sm leading-relaxed text-foreground" />
+                    <LinkPreviewCard text={comment.content} />
+                  </div>
                   <div className="ml-10 mt-1">
                     <ReportDialog
                       entityType="comment"

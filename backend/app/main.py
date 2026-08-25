@@ -53,6 +53,7 @@ from app.api import (
     referrals,
     moderators,
     telemetry,
+    link_preview,
 )
 from app.api import (
     service_categories,
@@ -149,6 +150,7 @@ app.include_router(
 app.include_router(internal.router, prefix="/api/internal", tags=["internal"])
 app.include_router(beta_metrics.router, prefix="/api/admin", tags=["admin-beta-metrics"])
 app.include_router(digests.router, prefix="/api/digests", tags=["digests"])
+app.include_router(link_preview.router, prefix="/api", tags=["link-preview"])
 
 # Mount static files for local storage (development only)
 if use_local_storage():

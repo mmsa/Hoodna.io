@@ -13,6 +13,7 @@ import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { useRouter } from "expo-router";
 
 import { Avatar } from "@/components/ui";
+import { LinkifiedText, LinkPreviewCard } from "@/components/link-preview";
 import { colors } from "@/constants/colors";
 
 function formatTimeAgo(dateString: string): string {
@@ -115,9 +116,8 @@ export function NeighbourPostCard({
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.content} numberOfLines={4}>
-          {post.content}
-        </Text>
+        <LinkifiedText text={post.content} style={styles.content} />
+        <LinkPreviewCard text={post.content} apiClient={apiClient} />
 
         <View style={styles.meta}>
           <TouchableOpacity

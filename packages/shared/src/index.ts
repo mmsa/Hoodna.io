@@ -31,5 +31,6 @@ export * from "./api-client";
 export * from "./product";
 export * from "./telemetry";
 export * from "./links";
+export * from "./link-preview";
 export * from "./notification-route";
 

@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ReportModal } from "@/components/ReportModal";
 import { AppBrandBar } from "@/components/AppBrandBar";
+import { LinkifiedText, LinkPreviewCard } from "@/components/link-preview";
 import { colors } from "@/constants/colors";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
@@ -283,7 +284,11 @@ export default function PostDetailScreen() {
                 </TouchableOpacity>
               ) : null}
             </View>
-            <Text style={{ fontSize: 16, color: "#1F2937", lineHeight: 24 }}>{post.content}</Text>
+            <LinkifiedText
+              text={post.content}
+              style={{ fontSize: 16, color: "#1F2937", lineHeight: 24 }}
+            />
+            <LinkPreviewCard text={post.content} apiClient={apiClient} />
           </View>
         }
         renderItem={({ item }) => {
@@ -330,7 +335,13 @@ export default function PostDetailScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
-              <Text style={{ fontSize: 14, color: "#4B5563", marginLeft: 40 }}>{item.content}</Text>
+              <View style={{ marginLeft: 40 }}>
+                <LinkifiedText
+                  text={item.content}
+                  style={{ fontSize: 14, color: "#4B5563" }}
+                />
+                <LinkPreviewCard text={item.content} apiClient={apiClient} />
+              </View>
             </View>
           );
         }}
