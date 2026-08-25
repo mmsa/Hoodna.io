@@ -6,6 +6,8 @@ from app.services.chat_import_parser import (
     _sender_display,
     classify_message,
     detect_and_parse_bytes,
+    extract_phones_from_text,
+    is_placeholder_import_phone,
     normalize_phone,
     parse_telegram_json,
     parse_whatsapp_text,
@@ -137,6 +139,51 @@ def test_redact_phones():
     text = redact_phones("Call me on 01001234567 please")
     assert "01001234567" not in text
     assert "hidden" in text.lower()
+
+
+def test_extract_phones_from_membership_text():
+    phones = extract_phones_from_text("+20 114 412 3448 added ~🌷")
+    assert "201144123448" in phones
+    phones = extract_phones_from_text("+20 111 450 5640 added +33 6 34 07 35 01")
+    assert "201114505640" in phones
+    assert "33634073501" in phones
+
+
+def test_never_invent_placeholder_phones():
+    assert is_placeholder_import_phone("900123456789")
+    assert normalize_phone("900123456789") is None
+    parsed = detect_and_parse_bytes(
+        b"[1/15/26, 10:01:22 AM] Sara Ali: Hello neighbours\n",
+        "chat.txt",
+    )
+    for user in parsed.users:
+        phone = user["normalized"].get("phone")
+        assert phone is None or not is_placeholder_import_phone(phone)
+
+
+def test_membership_body_phones_become_users():
+    """Phones listed only in join/add system lines must be imported (not invented)."""
+    sample = """\
+[22/07/2023, 13:30:15] +33 6 34 07 35 01: +20 111 450 5640 added +33 6 34 07 35 01
+[18/12/2024, 02:54:40] ~🌷: +20 114 412 3448 added ~🌷
+[1/15/26, 10:01:22 AM] Sara Ali: Anyone know a good plumber?
+"""
+    parsed = detect_and_parse_bytes(sample.encode("utf-8"), "chat.txt")
+    phones = {
+        u["normalized"]["phone"]
+        for u in parsed.users
+        if u["normalized"].get("phone")
+    }
+    assert "33634073501" in phones
+    assert "201114505640" in phones
+    assert "201144123448" in phones
+    # Name-only sender stays without an invented phone
+    sara = next(
+        u
+        for u in parsed.users
+        if u["normalized"].get("name") == "Sara Ali"
+    )
+    assert sara["normalized"].get("phone") is None
 
 
 def test_parse_whatsapp_text():

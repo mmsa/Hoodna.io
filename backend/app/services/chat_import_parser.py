@@ -121,6 +121,18 @@ NEW_ROOT_RE = re.compile(
 PHONE_IN_TEXT_RE = re.compile(
     r"(?:\+|00)?(?:20)?0?1[0125][\d\s\-()]{7,12}|\+\d{8,15}"
 )
+# Spaced WhatsApp formatting (+20 114 412 3448, +33 6 34…) including NBSP
+PHONE_CANDIDATE_RE = re.compile(
+    r"(?:\+|00)(?:[\d\s\xa0\-().]){8,24}|(?<!\d)(?:20)?0?1[0125](?:[\d\s\xa0\-()]){7,16}(?!\d)"
+)
+# Only harvest body phones from membership / system identity lines (not casual chat).
+MEMBERSHIP_PHONE_CONTEXT_RE = re.compile(
+    r"("
+    r"joined|added|left|removed|phone\s+number|"
+    r"انضم|أضاف|اضاف|غادر|رقم\s*(?:الهاتف|التليفون|التليفون)"
+    r")",
+    re.IGNORECASE,
+)
 PRICE_RE = re.compile(
     r"(?<!\d)(\d{1,3}(?:[, ]\d{3})+|\d{4,7})(?:\.\d+)?(?!\d)",
 )
@@ -185,6 +197,30 @@ def extract_phone_from_sender(sender: str) -> str | None:
     if not match:
         return None
     return normalize_phone(match.group(0))
+
+
+def extract_phones_from_text(text: str) -> list[str]:
+    """Return unique normalized phones listed in text. Never invents numbers."""
+    if not text:
+        return []
+    cleaned = (
+        str(text)
+        .replace("\u202a", "")
+        .replace("\u202b", "")
+        .replace("\u202c", "")
+        .replace("\u200e", "")
+        .replace("\u200f", "")
+        .replace("\u202f", " ")
+        .replace("\xa0", " ")
+    )
+    found: list[str] = []
+    seen: set[str] = set()
+    for match in PHONE_CANDIDATE_RE.finditer(cleaned):
+        phone = normalize_phone(match.group(0))
+        if phone and phone not in seen:
+            seen.add(phone)
+            found.append(phone)
+    return found
 
 
 def is_phone_like_sender(sender: str) -> bool:
@@ -636,46 +672,79 @@ def _assign_threads(content_items: list[dict[str, Any]]) -> None:
         item["normalized"] = normalized
 
 
+def _ensure_import_user(
+    users_by_key: dict[str, dict[str, Any]],
+    *,
+    source: ChatImportSource,
+    phone: str | None,
+    name: str,
+    sender_raw: str | None = None,
+) -> None:
+    """Register a USER item. Phone must be from the export — never invented."""
+    if phone:
+        user_key = f"phone:{phone}"
+        display = name if name and name != "Neighbour" else "Neighbour"
+    elif name and name != "Neighbour":
+        user_key = f"name:{name.casefold()}"
+        display = name
+    else:
+        return
+
+    if user_key not in users_by_key:
+        users_by_key[user_key] = {
+            "kind": ChatImportItemKind.USER.value,
+            "decision": "APPROVED",
+            "raw_payload": {
+                "sender": sender_raw,
+                # Admin-only: phone lives here / normalized.phone, never as display name
+            },
+            "normalized": {
+                "phone": phone,
+                "name": display,
+                "source": source.value,
+                "phone_private": True,
+            },
+        }
+        return
+
+    existing = users_by_key[user_key]["normalized"]
+    if display != "Neighbour" and (
+        not existing.get("name") or existing.get("name") == "Neighbour"
+    ):
+        existing["name"] = display
+    if phone and not existing.get("phone"):
+        existing["phone"] = phone
+
+
 def build_import_payload(source: ChatImportSource, messages: list[ParsedMessage]) -> ParsedImport:
-    # Unique senders: phone when present, else stable name key (WhatsApp often hides numbers).
+    # Unique people: phone when listed in export, else stable name key.
     users_by_key: dict[str, dict[str, Any]] = {}
     content_items: list[dict[str, Any]] = []
 
     for message_index, message in enumerate(messages):
         phone = message.phone
         name = _sender_display(message.sender_name, phone)
-        if phone:
-            user_key = f"phone:{phone}"
-        elif name and name != "Neighbour":
-            user_key = f"name:{name.casefold()}"
-        else:
-            user_key = ""
+        _ensure_import_user(
+            users_by_key,
+            source=source,
+            phone=phone,
+            name=name,
+            sender_raw=message.sender_name,
+        )
 
-        if user_key and user_key not in users_by_key:
-            users_by_key[user_key] = {
-                "kind": ChatImportItemKind.USER.value,
-                "decision": "APPROVED",
-                "raw_payload": {
-                    "sender": message.sender_name,
-                    # Admin-only: phone lives here / normalized.phone, never as display name
-                },
-                "normalized": {
-                    "phone": phone,
-                    "name": name,
-                    "source": source.value,
-                    "phone_private": True,
-                },
-            }
-        elif user_key and user_key in users_by_key:
-            # Prefer a real contact/profile name over Neighbour when we later see one
-            existing_name = users_by_key[user_key]["normalized"].get("name")
-            if name != "Neighbour" and (
-                not existing_name or existing_name == "Neighbour"
-            ):
-                users_by_key[user_key]["normalized"]["name"] = name
-            # Fill phone if we first saw the person by name, then later by number
-            if phone and not users_by_key[user_key]["normalized"].get("phone"):
-                users_by_key[user_key]["normalized"]["phone"] = phone
+        # Phones listed only in join/add/system lines (not as message sender).
+        body = message.text or ""
+        if MEMBERSHIP_PHONE_CONTEXT_RE.search(body) or SYSTEM_MESSAGE_RE.search(body):
+            for listed_phone in extract_phones_from_text(body):
+                if listed_phone == phone:
+                    continue
+                _ensure_import_user(
+                    users_by_key,
+                    source=source,
+                    phone=listed_phone,
+                    name="Neighbour",
+                    sender_raw=message.sender_name,
+                )
 
         kind = classify_message(message.text)
         parsed_ts = parse_import_timestamp(message.timestamp)
