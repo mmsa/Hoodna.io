@@ -160,17 +160,24 @@ async def list_users(
     filters = []
     if search:
         term = search.strip()
+        like = f"%{term}%"
+        search_parts = [
+            User.name.ilike(like),
+            User.email.ilike(like),
+            User.phone.ilike(like),
+        ]
+        # Numeric terms used to match only user id — also match phone fragments
+        # (e.g. "3391" in "+2010…3391…") and exact id when the whole term is digits.
+        digits = "".join(ch for ch in term if ch.isdigit())
         if term.isdigit():
-            filters.append(User.id == int(term))
-        else:
-            like = f"%{term}%"
-            filters.append(
-                or_(
-                    User.name.ilike(like),
-                    User.email.ilike(like),
-                    User.phone.ilike(like),
-                )
-            )
+            try:
+                search_parts.append(User.id == int(term))
+            except ValueError:
+                pass
+        if digits:
+            phone_digits = func.regexp_replace(User.phone, r"[^0-9]", "", "g")
+            search_parts.append(phone_digits.like(f"%{digits}%"))
+        filters.append(or_(*search_parts))
     if role:
         filters.append(User.role == role)
     if status:
