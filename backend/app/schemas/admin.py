@@ -1,7 +1,7 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from datetime import datetime
-from app.models.enums import DocumentStatus, UserStatus, UserRole
+from app.models.enums import UserStatus, UserRole
 
 
 class DocumentReviewRequest(BaseModel):
@@ -13,14 +13,24 @@ class UserStatusUpdate(BaseModel):
 
 
 class AdminResetPasswordRequest(BaseModel):
-    email: EmailStr
+    # Phone-auth users use synthetic emails like phone_*@hoodna.local
+    email: str
     new_password: str
+
+    @field_validator("email")
+    @classmethod
+    def email_nonempty(cls, v: str) -> str:
+        value = (v or "").strip()
+        if not value or "@" not in value:
+            raise ValueError("Invalid email")
+        return value
 
 
 class AdminUserListItem(BaseModel):
     id: int
     name: str
-    email: EmailStr
+    # str: phone-auth placeholders (@hoodna.local) fail EmailStr reserved-TLD checks
+    email: str
     phone: Optional[str] = None
     role: Optional[UserRole] = None
     status: UserStatus
@@ -70,7 +80,7 @@ class AdminUserCompoundsUpdate(BaseModel):
 class AdminUserDetailResponse(BaseModel):
     id: int
     name: str
-    email: EmailStr
+    email: str
     phone: Optional[str] = None
     role: Optional[UserRole] = None
     status: UserStatus

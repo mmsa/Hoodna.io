@@ -19,8 +19,13 @@ class UserUpdate(BaseModel):
     role: Optional[UserRole] = None
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
+    """Response schema — email is str so phone-auth @hoodna.local placeholders validate."""
+
     id: int
+    name: str
+    email: str
+    phone: Optional[str] = None
     avatar_url: Optional[str] = None
     role: Optional[UserRole] = None
     status: UserStatus
