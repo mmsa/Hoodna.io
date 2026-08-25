@@ -252,6 +252,15 @@ async def delete_user(db: AsyncSession, user_id: int) -> dict:
     from sqlalchemy import delete, or_, update
     from app.models.post import Post, Comment, PostReaction
     from app.models.listing import Listing, Promotion
+    from app.models.saved_listing import SavedListing
+    from app.models.saved_post import SavedPost
+    from app.models.message import Message, Conversation
+    from app.models.notification import Notification
+    from app.models.review import Review
+    from app.models.report import Report
+    from app.models.verification import VerificationDocument
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.models.compound import Compound
 
     user = await db.get(User, user_id)
     if not user:
