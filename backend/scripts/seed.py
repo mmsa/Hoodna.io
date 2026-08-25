@@ -10,8 +10,9 @@ import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
 
-# Import model modules so SQLAlchemy can resolve string relationships.
+# Import model modules so SQLAlchemy can resolve string relationships / FKs.
 from app.models import (  # noqa: F401
+    chat_import,
     compound,
     compound_moderator,
     listing,
