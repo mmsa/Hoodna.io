@@ -249,6 +249,30 @@ export default function FeedPage() {
   });
 
   useEffect(() => {
+    if (!isMounted || userLoading || !user) return;
+    if (effectiveCompoundId) return;
+
+    // Previously we only showed a spinner here and never navigated.
+    if (isStaff) {
+      router.replace("/onboarding/compound-select?returnTo=/feed");
+      return;
+    }
+    if (isModerator) {
+      router.replace("/moderator/status");
+      return;
+    }
+    router.replace("/onboarding/compound-select");
+  }, [
+    isMounted,
+    userLoading,
+    user,
+    effectiveCompoundId,
+    isStaff,
+    isModerator,
+    router,
+  ]);
+
+  useEffect(() => {
     if (postsData) {
       setAllPosts(postsData);
       setHasMorePosts(postsData.length >= postsLimit);
@@ -453,6 +477,25 @@ export default function FeedPage() {
               description={t("feed.redirectingCompound")}
               className="w-full border-none bg-transparent"
             />
+            <div className="mt-4 text-center">
+              <Link
+                href="/onboarding/compound-select?returnTo=/feed"
+                className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+              >
+                {t("feed.redirectingCompound")}
+              </Link>
+              {isStaff ? (
+                <>
+                  <span className="mx-2 text-muted-foreground">·</span>
+                  <Link
+                    href="/admin/dashboard"
+                    className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    Admin Dashboard
+                  </Link>
+                </>
+              ) : null}
+            </div>
           </PageLayout>
         </AppShell>
       );
