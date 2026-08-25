@@ -28,6 +28,11 @@ class User(Base):
 
     # Relationships
     compound = relationship("Compound", back_populates="users", foreign_keys=[compound_id])
+    creation_job = relationship(
+        "ChatImportJob",
+        foreign_keys=[creation_job_id],
+        post_update=True,
+    )
     verification_documents = relationship(
         "VerificationDocument",
         foreign_keys="VerificationDocument.user_id",

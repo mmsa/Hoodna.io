@@ -65,7 +65,7 @@ class ChatImportJob(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     compound = relationship("Compound")
-    uploaded_by = relationship("User")
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
     items = relationship(
         "ChatImportItem",
         back_populates="job",
@@ -118,4 +118,4 @@ class ChatImportItem(Base):
     )
 
     job = relationship("ChatImportJob", back_populates="items")
-    matched_user = relationship("User")
+    matched_user = relationship("User", foreign_keys=[matched_user_id])
