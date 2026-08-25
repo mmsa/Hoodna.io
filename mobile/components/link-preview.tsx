@@ -63,33 +63,46 @@ export function LinkifiedText({ text, style }: { text: string; style?: any }) {
   );
 }
 
-function SocialHero({ kind }: { kind: LinkHostKind }) {
-  const theme = socialBrandTheme(kind);
-  const iconName =
-    kind === "facebook"
-      ? ("logo-facebook" as const)
-      : kind === "tiktok"
-        ? ("logo-tiktok" as const)
-        : kind === "instagram"
-          ? ("logo-instagram" as const)
-          : kind === "twitter"
-            ? ("logo-twitter" as const)
-            : ("link-outline" as const);
+function platformIcon(kind: LinkHostKind) {
+  if (kind === "facebook") return "logo-facebook" as const;
+  if (kind === "tiktok") return "logo-tiktok" as const;
+  if (kind === "instagram") return "logo-instagram" as const;
+  if (kind === "twitter") return "logo-twitter" as const;
+  if (kind === "youtube") return "logo-youtube" as const;
+  return "link-outline" as const;
+}
 
+function CompactSocialLink({ url, kind }: { url: string; kind: LinkHostKind }) {
+  const theme = socialBrandTheme(kind);
   return (
-    <View
-      style={[
-        styles.socialHero,
-        { backgroundColor: theme.bg },
-      ]}
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={() => Linking.openURL(url)}
+      style={styles.compactCard}
     >
-      <View style={[styles.socialHeroWash, { backgroundColor: theme.bgEnd }]} />
-      <Ionicons name={iconName} size={40} color="#FFFFFF" />
-      <View style={styles.playCircle}>
-        <Ionicons name="play" size={28} color="#111" style={{ marginLeft: 3 }} />
+      <View
+        style={[
+          styles.logoBadge,
+          { backgroundColor: theme.bg },
+        ]}
+      >
+        <Ionicons name={platformIcon(kind)} size={22} color="#FFFFFF" />
       </View>
-      <Text style={styles.socialCta}>{socialWatchLabel(kind)}</Text>
-    </View>
+      <View style={styles.compactMeta}>
+        <Text style={styles.site} numberOfLines={1}>
+          {linkKindLabel(kind).toUpperCase()}
+        </Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {socialWatchLabel(kind)}
+        </Text>
+        <Text style={styles.host} numberOfLines={1}>
+          {displayHostname(url)}
+        </Text>
+      </View>
+      <View style={styles.arrowBtn}>
+        <Ionicons name="arrow-up-outline" size={16} color={colors.textMain} style={{ transform: [{ rotate: "45deg" }] }} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -113,7 +126,7 @@ export function LinkPreviewCard({
       url,
       kind,
       title: socialWatchLabel(kind),
-      description: "Opens in the app or browser",
+      description: displayHostname(url),
       site_name: linkKindLabel(kind),
       image: youtubeThumbnailUrl(url),
     };
@@ -143,12 +156,11 @@ export function LinkPreviewCard({
   if (!url || !preview) return null;
 
   const kind = preview.kind;
-  const isSocialFallback =
-    !preview.image &&
-    (kind === "facebook" ||
-      kind === "tiktok" ||
-      kind === "instagram" ||
-      kind === "twitter");
+  const hasRealThumb = Boolean(preview.image);
+
+  if (!hasRealThumb) {
+    return <CompactSocialLink url={url} kind={kind} />;
+  }
 
   return (
     <TouchableOpacity
@@ -156,37 +168,27 @@ export function LinkPreviewCard({
       onPress={() => Linking.openURL(url)}
       style={styles.card}
     >
-      {preview.image ? (
-        <View>
-          <Image source={{ uri: preview.image }} style={styles.image} resizeMode="cover" />
-          {(kind === "youtube" || kind === "facebook" || kind === "tiktok") && (
-            <View style={styles.playOverlay}>
-              <View style={styles.playCircleDark}>
-                <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 2 }} />
-              </View>
+      <View>
+        <Image source={{ uri: preview.image! }} style={styles.image} resizeMode="cover" />
+        {(kind === "youtube" || kind === "facebook" || kind === "tiktok") && (
+          <View style={styles.playOverlay}>
+            <View style={styles.playCircleDark}>
+              <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 2 }} />
             </View>
-          )}
-        </View>
-      ) : isSocialFallback ? (
-        <SocialHero kind={kind} />
-      ) : (
-        <View style={styles.imageFallback}>
-          <Ionicons name="link-outline" size={28} color={colors.primary} />
-        </View>
-      )}
+          </View>
+        )}
+      </View>
       <View style={styles.metaRow}>
         <View style={styles.metaText}>
           <Text style={styles.site} numberOfLines={1}>
             {(preview.site_name || linkKindLabel(kind)).toUpperCase()}
           </Text>
-          <Text style={styles.title} numberOfLines={1}>
-            {isSocialFallback
-              ? socialWatchLabel(kind)
-              : preview.title || displayHostname(url)}
+          <Text style={styles.title} numberOfLines={2}>
+            {preview.title || displayHostname(url)}
           </Text>
         </View>
-        <View style={styles.openPill}>
-          <Text style={styles.openPillText}>Open</Text>
+        <View style={styles.arrowBtn}>
+          <Ionicons name="arrow-up-outline" size={16} color={colors.textMain} style={{ transform: [{ rotate: "45deg" }] }} />
         </View>
       </View>
     </TouchableOpacity>
@@ -203,43 +205,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundCard,
     overflow: "hidden",
   },
-  image: { width: "100%", height: 180, backgroundColor: colors.gray50 },
-  imageFallback: {
-    width: "100%",
-    height: 112,
+  compactCard: {
+    marginTop: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundCard,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E8F3F1",
-  },
-  socialHero: {
-    width: "100%",
-    height: 180,
-    alignItems: "center",
-    justifyContent: "center",
     gap: 12,
-    overflow: "hidden",
   },
-  socialHeroWash: {
-    position: "absolute",
-    right: -40,
-    bottom: -40,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    opacity: 0.35,
-  },
-  playCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FFFFFF",
+  logoBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
   },
+  compactMeta: { flex: 1, gap: 1 },
+  host: { fontSize: 11, color: colors.textMuted },
+  image: { width: "100%", height: 180, backgroundColor: colors.gray50 },
   playCircleDark: {
     width: 48,
     height: 48,
@@ -253,11 +240,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  socialCta: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-  },
   metaRow: {
     padding: 12,
     flexDirection: "row",
@@ -267,11 +249,12 @@ const styles = StyleSheet.create({
   metaText: { flex: 1, gap: 2 },
   site: { fontSize: 10, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.4 },
   title: { fontSize: 14, fontWeight: "700", color: colors.textMain },
-  openPill: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
+  arrowBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.gray100,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  openPillText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 });
