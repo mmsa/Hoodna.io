@@ -9,7 +9,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.crud.user import create_user_by_phone, get_user_by_phone
+from app.crud.user import (
+    create_chat_import_user,
+    create_user_by_phone,
+    find_chat_import_user_by_name,
+    get_user_by_phone,
+)
 from app.crud.user_compound_membership import ensure_pending_compound_membership
 from app.models.chat_import import ChatImportItem, ChatImportJob
 from app.models.enums import (
@@ -31,15 +36,12 @@ from app.models.user_compound_membership import UserCompoundMembership
 from app.services.chat_import_parser import (
     _sender_display,
     is_phone_like_sender,
+    is_placeholder_import_phone,
     normalize_phone,
     parse_import_timestamp,
     redact_phones,
+    stable_chat_import_email,
 )
-
-
-def _synthetic_phone(name: str) -> str:
-    digest = abs(hash(name.strip().lower() or "neighbour")) % (10**9)
-    return f"900{digest:09d}"
 
 
 def _original_created_at(normalized: dict[str, Any]):
@@ -67,8 +69,9 @@ async def resolve_or_create_invited_user(
 
     display_name = _safe_public_name(name, phone)
     normalized = normalize_phone(phone) if phone else None
-    if not normalized:
-        normalized = _synthetic_phone(display_name)
+    # Never treat our old fake 900… placeholders as real numbers.
+    if normalized and is_placeholder_import_phone(normalized):
+        normalized = None
 
     import_details: dict = {}
     job_id = None
@@ -79,42 +82,77 @@ async def resolve_or_create_invited_user(
             "chat_source": getattr(job.source, "value", job.source),
             "uploaded_by_id": job.uploaded_by_id,
             "compound_id": job.compound_id,
-            "note": "Imported from group chat",
+            "note": (
+                "Imported from group chat"
+                if normalized
+                else "Imported from group chat (no phone in export)"
+            ),
+            "phone_in_export": bool(normalized),
         }
 
-    user = await get_user_by_phone(db, normalized)
-    if not user:
-        user = await create_user_by_phone(
-            db,
-            normalized,
-            display_name,
-            creation_source="CHAT_IMPORT",
-            creation_details=import_details or {"note": "Imported from group chat"},
-            creation_job_id=job_id,
-        )
-        user.profile_setup_required = True
-    else:
-        # Never overwrite a real name with a phone-like string
-        if display_name and display_name != "Neighbour":
-            if (
-                not user.name
-                or user.name.startswith("phone_")
-                or is_phone_like_sender(user.name)
-                or user.name == "Neighbour"
-            ):
-                user.name = display_name
-        elif user.name and is_phone_like_sender(user.name):
-            user.name = "Neighbour"
-        # Existing password-less invited accounts still need setup.
-        if not user.password_hash:
+    user: User | None = None
+    if normalized:
+        user = await get_user_by_phone(db, normalized)
+        if not user:
+            user = await create_user_by_phone(
+                db,
+                normalized,
+                display_name,
+                creation_source="CHAT_IMPORT",
+                creation_details=import_details or {"note": "Imported from group chat"},
+                creation_job_id=job_id,
+            )
             user.profile_setup_required = True
-        apply_creation_provenance(
-            user,
-            source="CHAT_IMPORT",
-            details=import_details or None,
-            job_id=job_id,
-            overwrite=False,
+        else:
+            if display_name and display_name != "Neighbour":
+                if (
+                    not user.name
+                    or user.name.startswith("phone_")
+                    or is_phone_like_sender(user.name)
+                    or user.name == "Neighbour"
+                ):
+                    user.name = display_name
+            elif user.name and is_phone_like_sender(user.name):
+                user.name = "Neighbour"
+            if not user.password_hash:
+                user.profile_setup_required = True
+            apply_creation_provenance(
+                user,
+                source="CHAT_IMPORT",
+                details=import_details or None,
+                job_id=job_id,
+                overwrite=False,
+            )
+    else:
+        # WhatsApp hid the number (contact name only). Do not invent a dialable phone.
+        email = stable_chat_import_email(compound_id, display_name)
+        user = await find_chat_import_user_by_name(
+            db, name=display_name, email=email
         )
+        if not user:
+            user = await create_chat_import_user(
+                db,
+                name=display_name,
+                email=email,
+                creation_details=import_details
+                or {"note": "Imported from group chat (no phone in export)"},
+                creation_job_id=job_id,
+            )
+            user.profile_setup_required = True
+        else:
+            if user.phone and is_placeholder_import_phone(user.phone):
+                user.phone = None
+            if user.email and str(user.email).startswith("phone_900"):
+                user.email = email
+            if not user.password_hash:
+                user.profile_setup_required = True
+            apply_creation_provenance(
+                user,
+                source="CHAT_IMPORT",
+                details=import_details or None,
+                job_id=job_id,
+                overwrite=False,
+            )
 
     await ensure_pending_compound_membership(
         db, user.id, compound_id, source="CHAT_IMPORT"

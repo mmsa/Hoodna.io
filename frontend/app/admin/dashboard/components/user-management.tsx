@@ -61,6 +61,19 @@ interface AdminUserListResponse {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
+/** Fake 900… phones from older chat imports — not real / not for OTP. */
+function formatAdminPhone(user: AdminUser): string {
+  const phone = (user.phone || '').trim()
+  if (!phone) {
+    if (user.creation_source === 'CHAT_IMPORT') return 'Not in WhatsApp export'
+    return '—'
+  }
+  if (/^900\d{9,}$/.test(phone.replace(/\D/g, ''))) {
+    return 'Not in WhatsApp export'
+  }
+  return phone
+}
+
 function statusBadgeClass(status: string) {
   switch (status) {
     case 'APPROVED':
@@ -514,7 +527,9 @@ export default function UserManagement() {
                       <td className="px-4 py-3 text-gray-500">{user.id}</td>
                       <td className="px-4 py-3 font-medium">{user.name}</td>
                       <td className="px-4 py-3 text-gray-700">{user.email}</td>
-                      <td className="px-4 py-3 hidden md:table-cell text-gray-600">{user.phone || '—'}</td>
+                      <td className="px-4 py-3 hidden md:table-cell text-gray-600">
+                        {formatAdminPhone(user)}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded text-xs bg-gray-100">{formatUserRole(user.role)}</span>
                       </td>

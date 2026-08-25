@@ -173,7 +173,18 @@ export default function UserDetailDialog({
               <dl>
                 <DetailRow label="Name" value={user.name} />
                 <DetailRow label="Email" value={user.email} />
-                <DetailRow label="Phone" value={user.phone} />
+                <DetailRow
+                  label="Phone"
+                  value={
+                    !user.phone
+                      ? user.creation_source === 'CHAT_IMPORT'
+                        ? 'Not in WhatsApp export'
+                        : '—'
+                      : /^900\d{9,}$/.test(String(user.phone).replace(/\D/g, ''))
+                        ? 'Not in WhatsApp export'
+                        : user.phone
+                  }
+                />
                 <DetailRow label="User ID" value={user.id} />
                 <DetailRow label="Joined" value={new Date(user.created_at).toLocaleString()} />
                 <DetailRow label="How added" value={user.creation_note || '—'} />

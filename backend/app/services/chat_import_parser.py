@@ -132,8 +132,22 @@ THREAD_GAP_SECONDS = 45 * 60
 def normalize_phone(raw: str | None) -> str | None:
     if not raw:
         return None
-    digits = re.sub(r"[^\d]", "", raw)
+    # Strip WhatsApp bidi marks / NBSP before digit extraction
+    cleaned = (
+        str(raw)
+        .replace("\u202a", "")
+        .replace("\u202b", "")
+        .replace("\u202c", "")
+        .replace("\u200e", "")
+        .replace("\u200f", "")
+        .replace("\u202f", "")
+        .replace("\xa0", " ")
+    )
+    digits = re.sub(r"[^\d]", "", cleaned)
     if not digits:
+        return None
+    # Reject legacy chat-import placeholder phones (900 + 9 digits)
+    if is_placeholder_import_phone(digits):
         return None
     # Egyptian mobile: 01xxxxxxxxx → 20 + without leading 0
     if digits.startswith("01") and len(digits) == 11:
@@ -143,6 +157,23 @@ def normalize_phone(raw: str | None) -> str | None:
     elif digits.startswith("0020"):
         digits = digits[2:]
     return digits if len(digits) >= 8 else None
+
+
+def is_placeholder_import_phone(phone: str | None) -> bool:
+    """True for fake 900… numbers we used to invent for name-only WhatsApp senders."""
+    if not phone:
+        return False
+    digits = re.sub(r"[^\d]", "", str(phone))
+    return digits.startswith("900") and len(digits) >= 12
+
+
+def stable_chat_import_email(compound_id: int, display_name: str) -> str:
+    """Stable identity email when WhatsApp export has a name but no phone."""
+    import hashlib
+
+    key = f"{compound_id}:{(display_name or 'neighbour').strip().lower()}"
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:24]
+    return f"chatimport_{digest}@hoodna.local"
 
 
 def extract_phone_from_sender(sender: str) -> str | None:
@@ -443,6 +474,18 @@ def _sender_display(name: str, phone: str | None) -> str:
     Prefer WhatsApp/Telegram contact/profile name when present in the export.
     """
     cleaned = (name or "").strip()
+    # WhatsApp iOS exports: ~\u202fName, bidi marks around +20 numbers
+    cleaned = (
+        cleaned.replace("\u202a", "")
+        .replace("\u202b", "")
+        .replace("\u202c", "")
+        .replace("\u200e", "")
+        .replace("\u200f", "")
+        .replace("\u202f", " ")
+        .replace("\xa0", " ")
+    )
+    cleaned = re.sub(r"^~\s*", "", cleaned).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if not cleaned or is_phone_like_sender(cleaned):
         return "Neighbour"
 

@@ -109,6 +109,15 @@ async def phone_auth_start(
 ):
     """Start phone authentication by sending OTP."""
     phone_normalized = request.phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+
+    # Chat-import used to invent fake 900… placeholders — never send OTP there.
+    from app.services.chat_import_parser import is_placeholder_import_phone
+
+    if is_placeholder_import_phone(phone_normalized) or not phone_normalized.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid phone number",
+        )
     
     # Generate OTP
     otp_code = generate_otp()
@@ -138,6 +147,14 @@ async def phone_auth_verify(
 ):
     """Verify OTP and return tokens. Creates user if doesn't exist."""
     phone_normalized = request.phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+
+    from app.services.chat_import_parser import is_placeholder_import_phone
+
+    if is_placeholder_import_phone(phone_normalized) or not phone_normalized.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid phone number",
+        )
     
     # Check OTP
     stored_otp = otp_storage.get(phone_normalized)

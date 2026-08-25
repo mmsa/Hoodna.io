@@ -20,6 +20,8 @@ async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
     """Get user by phone number."""
     # Normalize phone (remove spaces, dashes, etc.)
     phone_normalized = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    if not phone_normalized:
+        return None
     result = await db.execute(select(User).where(User.phone == phone_normalized))
     return result.scalar_one_or_none()
 
@@ -54,6 +56,55 @@ async def create_user_by_phone(
     await db.flush()
     await db.refresh(db_user)
     return db_user
+
+
+async def create_chat_import_user(
+    db: AsyncSession,
+    *,
+    name: str,
+    email: str,
+    creation_details: dict | None = None,
+    creation_job_id: int | None = None,
+) -> User:
+    """Create a chat-import user without a real phone (WhatsApp hid the number)."""
+    details = {"note": "Imported from group chat (no phone in export)"}
+    if creation_details:
+        details.update(creation_details)
+    db_user = User(
+        name=name,
+        email=email,
+        phone=None,
+        password_hash="",
+        status=UserStatus.PENDING_VERIFICATION,
+        creation_source="CHAT_IMPORT",
+        creation_details=details,
+        creation_job_id=creation_job_id,
+    )
+    db.add(db_user)
+    await db.flush()
+    await db.refresh(db_user)
+    return db_user
+
+
+async def find_chat_import_user_by_name(
+    db: AsyncSession,
+    *,
+    name: str,
+    email: str,
+) -> User | None:
+    """Find an existing chat-import identity by stable email or legacy synthetic phone."""
+    by_email = await get_user_by_email(db, email)
+    if by_email:
+        return by_email
+    # Legacy rows used fake 900… phones derived from the display name.
+    result = await db.execute(
+        select(User).where(
+            User.creation_source == "CHAT_IMPORT",
+            User.name == name,
+            or_(User.phone.is_(None), User.phone.like("900%")),
+        ).limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
