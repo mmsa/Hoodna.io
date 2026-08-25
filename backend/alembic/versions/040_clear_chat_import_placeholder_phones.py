@@ -1,14 +1,14 @@
 """Clear fake 900… phones invented for name-only WhatsApp chat imports.
 
-Revision ID: 040_clear_chat_import_placeholder_phones
-Revises: 039_strip_import_provenance_footers
+Revision ID: 040
+Revises: 039
 Create Date: 2026-08-25
 """
 
 from alembic import op
 
-revision = "040_clear_chat_import_placeholder_phones"
-down_revision = "039_strip_import_provenance_footers"
+revision = "040"
+down_revision = "039"
 branch_labels = None
 depends_on = None
 
