@@ -54,6 +54,18 @@ services:
         value: Eljiran
       - key: OPENAI_API_KEY
         sync: false
+      - key: SMS_PROVIDER
+        value: "none"
+      - key: SMSMISR_USERNAME
+        sync: false
+      - key: SMSMISR_PASSWORD
+        sync: false
+      - key: SMSMISR_SENDER
+        sync: false
+      - key: SMSMISR_OTP_TEMPLATE
+        sync: false
+      - key: SMSMISR_ENVIRONMENT
+        value: "2"
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

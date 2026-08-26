@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.auth import (
@@ -106,10 +106,18 @@ def generate_otp() -> str:
 @router.post("/start", response_model=PhoneAuthStartResponse)
 async def phone_auth_start(
     request: PhoneAuthStartRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Start phone authentication by sending OTP."""
+    """Start phone authentication by sending OTP via SMS (SMS Misr in production)."""
     from app.utils.phone import normalize_phone
+    from app.services.sms import (
+        OtpRateLimitError,
+        SmsDeliveryError,
+        check_otp_rate_limits,
+        send_otp_sms,
+        sms_delivery_configured,
+    )
 
     phone_normalized = normalize_phone(request.phone)
     if not phone_normalized:
@@ -117,26 +125,63 @@ async def phone_auth_start(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid phone number",
         )
-    
+
+    client_ip = None
+    if http_request.client:
+        client_ip = http_request.client.host
+    forwarded = http_request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip() or client_ip
+
+    try:
+        check_otp_rate_limits(phone=phone_normalized, client_ip=client_ip)
+    except OtpRateLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
+
     # Generate OTP
     otp_code = generate_otp()
-    
+
     # Store OTP (expires in 10 minutes)
     import time
+
     otp_storage[phone_normalized] = {
         "otp": otp_code,
         "expires_at": time.time() + 600,  # 10 minutes
     }
-    
-    # In production, send SMS via Twilio/AWS SNS/etc.
-    # For now, return OTP in dev mode
+
+    sms_configured = sms_delivery_configured()
+    if sms_configured:
+        try:
+            await send_otp_sms(phone_normalized, otp_code)
+        except SmsDeliveryError as exc:
+            # Drop stored OTP so a failed send cannot be guessed from a prior race
+            otp_storage.pop(phone_normalized, None)
+            logger.error(
+                "otp_sms_delivery_failed",
+                extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not send SMS verification code. Please try again.",
+            ) from exc
+        # Never return otp_code when SMS was sent
+        return PhoneAuthStartResponse(message="OTP sent successfully")
+
+    # Local engineering only: expose code when SMS is not configured
     if settings.ENVIRONMENT == "development":
         return PhoneAuthStartResponse(
-            message="OTP sent successfully",
-            otp_code=otp_code,  # Only in dev
+            message="OTP sent successfully (dev — SMS not configured)",
+            otp_code=otp_code,
         )
-    
-    return PhoneAuthStartResponse(message="OTP sent successfully")
+
+    otp_storage.pop(phone_normalized, None)
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="OTP delivery not configured. Set SMS_PROVIDER=smsmisr and SMS Misr credentials.",
+    )
 
 
 @router.post("/verify", response_model=TokenResponse)

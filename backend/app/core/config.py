@@ -104,12 +104,37 @@ class Settings(BaseSettings):
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
 
+    # Phone OTP SMS (SMS Misr for Egypt). SMS_PROVIDER=smsmisr|none
+    SMS_PROVIDER: str = "none"
+    SMSMISR_USERNAME: str = ""
+    SMSMISR_PASSWORD: str = ""
+    SMSMISR_SENDER: str = ""  # Sender token from SMS Misr dashboard
+    SMSMISR_OTP_TEMPLATE: str = ""  # Approved OTP template token
+    SMSMISR_ENVIRONMENT: int = 2  # 2=test, 1=live
+    SMSMISR_OTP_URL: str = "https://smsmisr.com/api/OTP/"
+    OTP_MAX_PER_PHONE_PER_HOUR: int = 5
+    OTP_MAX_PER_IP_PER_HOUR: int = 20
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v: Any) -> Any:
         if isinstance(v, str):
             return normalize_database_url(v)
         return v
+
+    @property
+    def sms_provider(self) -> str:
+        return (self.SMS_PROVIDER or "none").strip().lower()
+
+    @property
+    def smsmisr_configured(self) -> bool:
+        return bool(
+            self.sms_provider == "smsmisr"
+            and self.SMSMISR_USERNAME.strip()
+            and self.SMSMISR_PASSWORD.strip()
+            and self.SMSMISR_SENDER.strip()
+            and self.SMSMISR_OTP_TEMPLATE.strip()
+        )
 
     @property
     def cors_origin_list(self) -> List[str]:

@@ -34,7 +34,21 @@ export default function PhoneLoginScreen() {
         params: { phone: normalizedPhone },
       });
     } catch (error: any) {
-      Alert.alert(t("common.error"), error.message || t("auth.otpFailed"));
+      const message = String(error?.message || "");
+      const lower = message.toLowerCase();
+      let detail = t("auth.otpFailed");
+      if (lower.includes("too many") || lower.includes("429")) {
+        detail = t("auth.otpRateLimited");
+      } else if (
+        lower.includes("not configured") ||
+        lower.includes("unavailable") ||
+        lower.includes("503")
+      ) {
+        detail = t("auth.otpNotConfigured");
+      } else if (message.trim()) {
+        detail = message;
+      }
+      Alert.alert(t("common.error"), detail);
     } finally {
       setLoading(false);
     }

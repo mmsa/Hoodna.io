@@ -55,6 +55,30 @@ Optional but recommended for uploads/email:
 - `OPENAI_API_KEY`
 - Stripe keys if you use promotions
 
+### Phone OTP SMS (SMS Misr — Egypt)
+
+Real phone ownership verification sends OTP via [SMS Misr](https://smsmisr.com/). Without these vars, production `/api/auth/start` returns **503**.
+
+1. Create an SMS Misr account and buy a small SMS pack  
+2. Approve a **Sender ID** and create an **OTP template** (ASCII, e.g. `Your eljiran code is {otp}`)  
+3. Set on Render `eljiran-api`:
+
+| Key | Value |
+|-----|--------|
+| `SMS_PROVIDER` | `smsmisr` |
+| `SMSMISR_USERNAME` | SMS Misr username |
+| `SMSMISR_PASSWORD` | SMS Misr password |
+| `SMSMISR_SENDER` | Sender **token** from dashboard |
+| `SMSMISR_OTP_TEMPLATE` | OTP template **token** |
+| `SMSMISR_ENVIRONMENT` | `2` for test, then `1` for live |
+| `OTP_MAX_PER_PHONE_PER_HOUR` | optional, default `5` |
+| `OTP_MAX_PER_IP_PER_HOUR` | optional, default `20` |
+
+4. Redeploy the API. Test with `SMSMISR_ENVIRONMENT=2` first, then switch to `1`.  
+5. Never put SMS Misr credentials in the mobile app — only on the API.
+
+Local development without SMS Misr still returns `otp_code` in the start response when `ENVIRONMENT=development` and SMS is not configured.
+
 If no mail provider is configured, forgot-password still returns success but emails are **not** sent (check Render logs for the reset link).
 
 After creating the bucket and IAM user:
