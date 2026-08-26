@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
-import { Ionicons } from "@expo/vector-icons";
 import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCode } from "@/lib/referral";
 import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
@@ -16,7 +15,6 @@ export default function SignupScreen() {
   const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<"RESIDENT" | "SERVICE_PROVIDER" | "COMPOUND_MOD" | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const params = useLocalSearchParams<{ ref?: string }>();
@@ -55,9 +53,6 @@ export default function SignupScreen() {
     if (!password || password.length < 6) {
       newErrors.password = t("auth.passwordMinLength");
     }
-    if (!selectedRole) {
-      newErrors.role = t("auth.selectAccountType");
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -72,17 +67,17 @@ export default function SignupScreen() {
         phone,
         password,
         ...(email.trim() ? { email: email.trim() } : {}),
-        role: selectedRole!,
         referral_code: referralCode,
       });
 
       await login(response.access_token, response.refresh_token);
-      track("registration_completed", { method: "email", role: selectedRole! });
+      track("registration_completed", { method: "email" });
       if (referralCode) {
         track("referral_registration_completed", {});
         await clearPendingReferralCode();
       }
 
+      // Match web: OTP first, then choose-role
       router.replace("/auth/verify-contact");
     } catch (error: any) {
       Alert.alert(t("auth.signupFailedTitle"), error.message || t("auth.signupFailed"));
@@ -282,159 +277,6 @@ export default function SignupScreen() {
               <Text style={{ fontSize: 12, color: "#6C757D", marginTop: 4 }}>
                 {t("auth.passwordHint")}
               </Text>
-            </View>
-
-            {/* Role Selection */}
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 12 }}>
-                {t("auth.accountType")} <Text style={{ color: "#E63946" }}>*</Text>
-              </Text>
-              {errors.role && (
-                <Text style={{ fontSize: 12, color: "#E63946", marginBottom: 8 }}>
-                  {errors.role}
-                </Text>
-              )}
-              
-              {/* Resident */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 12,
-                  borderWidth: 2,
-                  borderColor: selectedRole === "RESIDENT" ? "#158074" : "#E5E7EB",
-                }}
-                onPress={() => {
-                  setSelectedRole("RESIDENT");
-                  if (errors.role) setErrors({ ...errors, role: "" });
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: selectedRole === "RESIDENT" ? "#E6F3F1" : "#F3F4F6",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Ionicons
-                      name="home"
-                      size={20}
-                      color={selectedRole === "RESIDENT" ? "#158074" : "#6C757D"}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
-                      {t("auth.roleResident")}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#6C757D" }}>
-                      {t("auth.roleResidentDesc")}
-                    </Text>
-                  </View>
-                  {selectedRole === "RESIDENT" && (
-                    <Ionicons name="checkmark-circle" size={24} color="#158074" />
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              {/* Service Provider */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 12,
-                  borderWidth: 2,
-                  borderColor: selectedRole === "SERVICE_PROVIDER" ? "#10B981" : "#E5E7EB",
-                }}
-                onPress={() => {
-                  setSelectedRole("SERVICE_PROVIDER");
-                  if (errors.role) setErrors({ ...errors, role: "" });
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: selectedRole === "SERVICE_PROVIDER" ? "#D1FAE5" : "#F3F4F6",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Ionicons
-                      name="construct"
-                      size={20}
-                      color={selectedRole === "SERVICE_PROVIDER" ? "#10B981" : "#6C757D"}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
-                      {t("auth.roleProvider")}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#6C757D" }}>
-                      {t("auth.roleProviderDesc")}
-                    </Text>
-                  </View>
-                  {selectedRole === "SERVICE_PROVIDER" && (
-                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              {/* Compound Moderator */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 12,
-                  borderWidth: 2,
-                  borderColor: selectedRole === "COMPOUND_MOD" ? "#158074" : "#E5E7EB",
-                }}
-                onPress={() => {
-                  setSelectedRole("COMPOUND_MOD");
-                  if (errors.role) setErrors({ ...errors, role: "" });
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: selectedRole === "COMPOUND_MOD" ? "#E6F3F1" : "#F3F4F6",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={20}
-                      color={selectedRole === "COMPOUND_MOD" ? "#158074" : "#6C757D"}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#1B1B1B" }}>
-                      {t("auth.roleModerator")}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: "#6C757D" }}>
-                      {t("auth.roleModeratorDesc")}
-                    </Text>
-                  </View>
-                  {selectedRole === "COMPOUND_MOD" && (
-                    <Ionicons name="checkmark-circle" size={24} color="#158074" />
-                  )}
-                </View>
-              </TouchableOpacity>
             </View>
 
             {/* Sign Up Button */}
