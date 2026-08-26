@@ -17,9 +17,15 @@ import { track } from '@/lib/telemetry'
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  phone: z.string().min(7, 'Phone number is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  phone: z.string().optional(),
+  email: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || z.string().email().safeParse(v).success, {
+      message: 'Invalid email address',
+    }),
 })
 
 type SignupForm = z.infer<typeof signupSchema>
@@ -79,7 +85,10 @@ export default function SignupPage() {
       Cookies.remove('refresh_token', { path: '/' })
 
       const response = await api.post('/api/auth/signup', {
-        ...data,
+        name: data.name,
+        phone: data.phone,
+        password: data.password,
+        ...(data.email?.trim() ? { email: data.email.trim() } : {}),
         ...(referralCode ? { referral_code: referralCode } : {}),
       })
       const { access_token, refresh_token } = response.data
@@ -165,7 +174,19 @@ export default function SignupPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                {...register('phone')}
+                placeholder="+20 123 456 7890"
+              />
+              {errors.phone && (
+                <p className="text-sm text-red-600">{errors.phone.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email (Optional)</Label>
               <Input
                 id="email"
                 type="email"
@@ -175,15 +196,6 @@ export default function SignupPage() {
               {errors.email && (
                 <p className="text-sm text-red-600">{errors.email.message}</p>
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone (Optional)</Label>
-              <Input
-                id="phone"
-                type="tel"
-                {...register('phone')}
-                placeholder="+20 123 456 7890"
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

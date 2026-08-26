@@ -280,26 +280,48 @@ async def phone_auth_verify(
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     """Sign up a new user and return authentication tokens."""
-    if not await is_feature_enabled(
-        db, "user_registration", anonymous_id=f"email:{user_data.email.casefold()}"
-    ):
+    from app.utils.phone import normalize_phone
+
+    phone_normalized = normalize_phone(user_data.phone)
+    if not phone_normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid phone number",
+        )
+
+    feature_key = (
+        f"email:{user_data.email.casefold()}"
+        if user_data.email
+        else f"phone:{phone_normalized}"
+    )
+    if not await is_feature_enabled(db, "user_registration", anonymous_id=feature_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User registration is currently unavailable",
         )
-    # Normalize email to lowercase
-    email_lower = user_data.email.lower().strip()
-    
-    # Check if user already exists
-    existing_user = await get_user_by_email(db, email_lower)
-    if existing_user:
+
+    existing_phone = await get_user_by_phone(db, phone_normalized)
+    if existing_phone:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Phone number already registered",
         )
-    
-    # Create user with normalized email — never trust client role for privileged accounts
-    user_data.email = email_lower
+
+    if user_data.email:
+        email_lower = user_data.email.lower().strip()
+        existing_user = await get_user_by_email(db, email_lower)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
+            )
+        user_data.email = email_lower
+    else:
+        # DB requires a unique email; match phone-auth placeholder pattern
+        user_data.email = f"phone_{phone_normalized}@hoodna.local"
+
+    user_data.phone = phone_normalized
+
     from app.models.enums import UserRole
 
     signup_role = user_data.role
@@ -318,6 +340,11 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
         db,
         user_data,
         role=signup_role or UserRole.RESIDENT,
+        creation_source=(
+            "PHONE_PASSWORD_SIGNUP"
+            if user_data.email.endswith("@hoodna.local")
+            else "EMAIL_SIGNUP"
+        ),
         creation_details=(
             {"referral_code": user_data.referral_code.strip()}
             if user_data.referral_code

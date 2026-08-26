@@ -6,9 +6,9 @@ from app.schemas.user import UserResponse
 
 class UserSignup(BaseModel):
     name: str
-    email: EmailStr
+    phone: str = Field(..., min_length=7, max_length=32)
     password: str
-    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
     role: Optional[UserRole] = None
     referral_code: Optional[str] = Field(
         default=None, min_length=4, max_length=64

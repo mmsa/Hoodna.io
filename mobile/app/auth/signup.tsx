@@ -46,7 +46,11 @@ export default function SignupScreen() {
     if (!name || name.length < 2) {
       newErrors.name = t("auth.nameMinLength");
     }
-    if (!email || !email.includes("@")) {
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (!phone || phoneDigits.length < 7) {
+      newErrors.phone = t("auth.enterPhone");
+    }
+    if (email.trim() && !email.includes("@")) {
       newErrors.email = t("auth.invalidEmail");
     }
     if (!password || password.length < 6) {
@@ -66,9 +70,9 @@ export default function SignupScreen() {
     try {
       const response = await apiClient.signup({
         name,
-        email,
+        phone,
         password,
-        phone: phone || undefined,
+        ...(email.trim() ? { email: email.trim() } : {}),
         role: selectedRole!,
         referral_code: referralCode,
       });
@@ -165,10 +169,42 @@ export default function SignupScreen() {
               )}
             </View>
 
-            {/* Email */}
+            {/* Phone */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                {t("auth.email")}
+                {t("auth.phone")}
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 14,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: errors.phone ? "#E63946" : "#E5E7EB",
+                  color: "#1B1B1B",
+                }}
+                placeholder={t("auth.phonePlaceholder")}
+                placeholderTextColor="#9CA3AF"
+                value={phone}
+                onChangeText={(text) => {
+                  setPhone(text);
+                  if (errors.phone) setErrors({ ...errors, phone: "" });
+                }}
+                keyboardType="phone-pad"
+              />
+              {errors.phone && (
+                <Text style={{ fontSize: 12, color: "#E63946", marginTop: 4 }}>
+                  {errors.phone}
+                </Text>
+              )}
+            </View>
+
+            {/* Email (Optional) */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
+                {t("auth.emailOptional")}
               </Text>
               <TextInput
                 style={{
@@ -197,30 +233,6 @@ export default function SignupScreen() {
                   {errors.email}
                 </Text>
               )}
-            </View>
-
-            {/* Phone (Optional) */}
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                {t("auth.phoneOptional")}
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: 12,
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  fontSize: 16,
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  color: "#1B1B1B",
-                }}
-                placeholder="+1234567890"
-                placeholderTextColor="#9CA3AF"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
             </View>
 
             {/* Password */}

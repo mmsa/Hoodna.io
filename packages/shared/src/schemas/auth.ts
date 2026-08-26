@@ -28,9 +28,13 @@ export const UserLoginSchema = z.object({
 
 export const UserSignupSchema = z.object({
   name: z.string().min(2),
-  email: z.string().email(),
+  phone: z.string().min(7, "Phone number is required"),
   password: z.string().min(6),
-  phone: z.string().optional(),
+  email: z
+    .string()
+    .email("Invalid email address")
+    .optional()
+    .or(z.literal("")),
   role: z.enum(['RESIDENT', 'SERVICE_PROVIDER', 'COMPOUND_MOD']),
   referral_code: z.string().trim().min(4).max(64).optional(),
 });
