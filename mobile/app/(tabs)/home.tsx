@@ -24,6 +24,7 @@ import { AppPressable, Button } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 export default function HomeScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -42,6 +43,7 @@ export default function HomeScreen() {
   const { user, apiClient } = useAuth();
   const { activeCompoundId } = useCompound();
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (user?.role === "SERVICE_PROVIDER") {
@@ -249,8 +251,8 @@ export default function HomeScreen() {
           >
             <Text style={styles.bannerText}>
               {verificationStatus === "PENDING"
-                ? "Your verification is being reviewed"
-                : "Verify your account to unlock all features"}
+                ? t("feed.verificationInReview")
+                : t("feed.verifyToUnlock")}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textMain} />
           </TouchableOpacity>
@@ -295,9 +297,9 @@ export default function HomeScreen() {
             <HomeShortcuts />
 
             <View style={styles.askCard}>
-              <Text style={styles.askTitle}>Ask neighbours</Text>
+              <Text style={styles.askTitle}>{t("feed.ask")}</Text>
               <View style={styles.askRow}>
-                <TextInput value={question} onChangeText={setQuestion} placeholder="Recommendations or local updates" placeholderTextColor={colors.textMuted} style={styles.askInput} onSubmitEditing={askNeighbours} />
+                <TextInput value={question} onChangeText={setQuestion} placeholder={t("feed.askPlaceholder")} placeholderTextColor={colors.textMuted} style={styles.askInput} onSubmitEditing={askNeighbours} />
                 <TouchableOpacity onPress={askNeighbours} disabled={!question.trim() || asking} style={styles.askButton}>
                   {asking ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
                 </TouchableOpacity>
@@ -311,7 +313,7 @@ export default function HomeScreen() {
 
             {canPost ? (
               <AppPressable
-                accessibilityLabel="Share with neighbours"
+                accessibilityLabel={t("feed.shareWithNeighbours")}
                 accessibilityRole="button"
                 onPress={() => router.push("/create-post")}
                 pressedStyle={styles.sharePressed}
@@ -321,23 +323,23 @@ export default function HomeScreen() {
                   <Ionicons name="people-outline" size={22} color={colors.primary} />
                 </View>
                 <View style={styles.shareCopy}>
-                  <Text style={styles.shareTitle}>Share with neighbours</Text>
-                  <Text style={styles.shareSubtitle}>Post a message or helpful update</Text>
+                  <Text style={styles.shareTitle}>{t("feed.shareWithNeighbours")}</Text>
+                  <Text style={styles.shareSubtitle}>{t("feed.composerPrompt")}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </AppPressable>
             ) : null}
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>From neighbours</Text>
+              <Text style={styles.sectionTitle}>{t("feed.fromNeighbours")}</Text>
             </View>
             <View style={styles.filters}>
               {[
-                ["ALL", "All"],
-                ["LOST_FOUND", "Lost/Found"],
-                ["EVENT", "Event"],
-                ["HELP", "Help"],
-                ["POLL", "Poll"],
+                ["ALL", t("feed.filterAll")],
+                ["LOST_FOUND", t("feed.filterLostFound")],
+                ["EVENT", t("feed.filterEvent")],
+                ["HELP", t("feed.filterHelp")],
+                ["POLL", t("feed.filterPoll")],
               ].map(([value, label]) => (
                 <TouchableOpacity key={value} onPress={() => setCategoryFilter(value)} style={[styles.filterChip, categoryFilter === value && styles.filterChipActive]}>
                   <Text style={[styles.filterText, categoryFilter === value && styles.filterTextActive]}>{label}</Text>

@@ -482,6 +482,14 @@ async def update_listing_endpoint(
             detail="You can only update your own listings"
         )
 
+    from app.services.imported_content_consent import is_imported_listing
+
+    if await is_imported_listing(db, listing_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Imported listings cannot be edited. You can delete them instead.",
+        )
+
     if "attributes" in listing_data.model_fields_set:
         try:
             validate_attributes_for_category(listing.category, listing_data.attributes)

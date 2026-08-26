@@ -39,6 +39,9 @@ class UserResponse(BaseModel):
     verified_compound_ids: Optional[List[int]] = None
     is_verified_for_current_compound: Optional[bool] = None
     needs_profile_setup: Optional[bool] = None
+    creation_source: Optional[str] = None
+    needs_imported_content_choice: Optional[bool] = None
+    imported_content_choice: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -47,6 +50,20 @@ class UserResponse(BaseModel):
 class CompleteProfileRequest(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     password: str = Field(min_length=8, max_length=128)
+    # Required for chat-import accounts that have not chosen yet
+    imported_content_choice: Optional[str] = Field(
+        default=None,
+        description="KEEP or DISCARD imported posts/listings/comments",
+    )
+
+
+class ImportedContentSummaryResponse(BaseModel):
+    needs_choice: bool
+    posts: int = 0
+    comments: int = 0
+    listings: int = 0
+    total: int = 0
+    choice: Optional[str] = None
 
 
 class AvatarPresignRequest(BaseModel):

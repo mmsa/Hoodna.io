@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { Avatar } from "@/components/ui";
 import { LinkifiedText, LinkPreviewCard } from "@/components/link-preview";
 import { colors } from "@/constants/colors";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString);
@@ -43,6 +44,7 @@ export function NeighbourPostCard({
   onPostDeleted?: (postId: number) => void;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const timeAgo = formatTimeAgo(post.created_at);
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
     post.reaction_counts ?? {},
@@ -107,14 +109,14 @@ export function NeighbourPostCard({
   const hasProfilePhoto = Boolean(post.author_avatar_url?.trim());
   const visualHint =
     post.category === "EVENT"
-      ? "Community event"
+      ? t("feed.communityEvent")
       : post.category === "HELP"
-        ? "Neighbour needs help"
+        ? t("feed.neighbourNeedsHelp")
         : post.category === "LOST_FOUND"
-          ? "Lost & found"
+          ? t("feed.lostAndFound")
           : post.category === "POLL"
-            ? "Neighbour poll"
-            : "From your compound";
+            ? t("feed.neighbourPoll")
+            : t("feed.fromYourCompound");
 
   return (
     <TouchableOpacity

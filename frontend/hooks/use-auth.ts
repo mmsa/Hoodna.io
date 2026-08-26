@@ -21,6 +21,9 @@ interface User {
   can_comment?: boolean
   can_create_listing?: boolean
   needs_profile_setup?: boolean | null
+  creation_source?: string | null
+  needs_imported_content_choice?: boolean | null
+  imported_content_choice?: string | null
 }
 
 export function useAuth() {

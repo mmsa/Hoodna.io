@@ -17,12 +17,13 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
 
 
 async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
-    """Get user by phone number."""
-    # Normalize phone (remove spaces, dashes, etc.)
-    phone_normalized = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
-    if not phone_normalized:
+    """Get user by phone number (Egyptian-aware country-code normalization)."""
+    from app.utils.phone import phone_lookup_candidates
+
+    candidates = phone_lookup_candidates(phone)
+    if not candidates:
         return None
-    result = await db.execute(select(User).where(User.phone == phone_normalized))
+    result = await db.execute(select(User).where(User.phone.in_(candidates)))
     return result.scalar_one_or_none()
 
 
@@ -36,7 +37,11 @@ async def create_user_by_phone(
     creation_job_id: int | None = None,
 ) -> User:
     """Create a new user with phone number (no password)."""
-    phone_normalized = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    from app.utils.phone import normalize_phone
+
+    phone_normalized = normalize_phone(phone)
+    if not phone_normalized:
+        raise ValueError("Invalid phone number")
     # Generate a dummy email for phone-only users
     dummy_email = f"phone_{phone_normalized}@hoodna.local"
     details = {"note": "Registered with phone"}

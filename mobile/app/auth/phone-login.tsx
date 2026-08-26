@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
+import { normalizePhone } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,21 +14,21 @@ export default function PhoneLoginScreen() {
   const router = useRouter();
   const { t } = useTranslation();
 
-  // Normalize phone number to match backend normalization
-  const normalizePhone = (phoneNumber: string): string => {
-    return phoneNumber.trim().replace(/\s+/g, "").replace(/-/g, "").replace(/\+/g, "");
-  };
-
   async function handleStart() {
     if (!phone.trim()) {
       Alert.alert(t("common.error"), t("auth.enterPhone"));
       return;
     }
 
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      Alert.alert(t("common.error"), t("auth.enterPhone"));
+      return;
+    }
+
     setLoading(true);
     try {
-      const normalizedPhone = normalizePhone(phone);
-      const response = await apiClient.phoneAuthStart({ phone: normalizedPhone });
+      await apiClient.phoneAuthStart({ phone: normalizedPhone });
       router.push({
         pathname: "/auth/otp-verify",
         params: { phone: normalizedPhone },

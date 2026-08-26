@@ -40,6 +40,9 @@ export const UserSchema = z.object({
   verified_compound_ids: z.array(z.number()).nullable().optional(),
   is_verified_for_current_compound: z.boolean().nullable().optional(),
   needs_profile_setup: z.boolean().nullable().optional(),
+  creation_source: z.string().nullable().optional(),
+  needs_imported_content_choice: z.boolean().nullable().optional(),
+  imported_content_choice: z.string().nullable().optional(),
 });
 
 export type User = z.infer<typeof UserSchema>;

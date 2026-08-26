@@ -68,10 +68,11 @@ function formatAdminPhone(user: AdminUser): string {
     if (user.creation_source === 'CHAT_IMPORT') return 'Not in WhatsApp export'
     return '—'
   }
-  if (/^900\d{9,}$/.test(phone.replace(/\D/g, ''))) {
+  const digits = phone.replace(/\D/g, '')
+  if (/^900\d{9,}$/.test(digits)) {
     return 'Not in WhatsApp export'
   }
-  return phone
+  return digits ? `+${digits}` : phone
 }
 
 function statusBadgeClass(status: string) {

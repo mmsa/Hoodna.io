@@ -15,6 +15,9 @@ class User(Base):
     avatar_url = Column(String(512), nullable=True)
     password_hash = Column(String, nullable=False)
     profile_setup_required = Column(Boolean, nullable=False, default=False, server_default="false")
+    # KEEP | DISCARD — set once when a chat-imported user finishes profile setup
+    imported_content_choice = Column(String(16), nullable=True)
+    imported_content_choice_at = Column(DateTime(timezone=True), nullable=True)
     role = Column(SQLEnum(UserRole), nullable=True)  # Can be null until user selects role
     status = Column(SQLEnum(UserStatus), default=UserStatus.PENDING_VERIFICATION, nullable=False)
     compound_id = Column(Integer, ForeignKey("compounds.id"), nullable=True)

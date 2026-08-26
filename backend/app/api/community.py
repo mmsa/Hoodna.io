@@ -481,3 +481,39 @@ async def get_announcements(
     
     return result
 
+
+
+@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_own_post(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Owner soft-delete for a post (including imported posts they chose to keep)."""
+    from app.crud.post import delete_post, get_post_by_id
+    from app.models.enums import UserRole
+
+    post = await get_post_by_id(db, post_id)
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    is_staff = current_user.role in (
+        UserRole.ADMIN,
+        UserRole.MODERATOR,
+        UserRole.COMPOUND_MOD,
+    )
+    if post.author_id != current_user.id and not is_staff:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own posts",
+        )
+    if is_staff and post.author_id != current_user.id:
+        if current_user.role != UserRole.ADMIN and post.compound_id != current_user.compound_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only delete posts from your compound",
+            )
+
+    await delete_post(db, post_id)
+    await db.commit()
+    return None

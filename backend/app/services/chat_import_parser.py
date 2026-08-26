@@ -141,43 +141,13 @@ REPLY_MAX_CHARS = 240
 THREAD_GAP_SECONDS = 45 * 60
 
 
-def normalize_phone(raw: str | None) -> str | None:
-    if not raw:
-        return None
-    # Strip WhatsApp bidi marks / NBSP before digit extraction
-    cleaned = (
-        str(raw)
-        .replace("\u202a", "")
-        .replace("\u202b", "")
-        .replace("\u202c", "")
-        .replace("\u200e", "")
-        .replace("\u200f", "")
-        .replace("\u202f", "")
-        .replace("\xa0", " ")
-    )
-    digits = re.sub(r"[^\d]", "", cleaned)
-    if not digits:
-        return None
-    # Reject legacy chat-import placeholder phones (900 + 9 digits)
-    if is_placeholder_import_phone(digits):
-        return None
-    # Egyptian mobile: 01xxxxxxxxx → 20 + without leading 0
-    if digits.startswith("01") and len(digits) == 11:
-        digits = "20" + digits[1:]
-    elif digits.startswith("1") and len(digits) == 10:
-        digits = "20" + digits
-    elif digits.startswith("0020"):
-        digits = digits[2:]
-    return digits if len(digits) >= 8 else None
-
-
-def is_placeholder_import_phone(phone: str | None) -> bool:
-    """True for fake 900… numbers we used to invent for name-only WhatsApp senders."""
-    if not phone:
-        return False
-    digits = re.sub(r"[^\d]", "", str(phone))
-    return digits.startswith("900") and len(digits) >= 12
-
+# Re-export shared phone helpers (OTP + import must use the same rules).
+from app.utils.phone import (  # noqa: E402
+    format_phone_display,
+    is_placeholder_import_phone,
+    normalize_phone,
+    phone_lookup_candidates,
+)
 
 def stable_chat_import_email(compound_id: int, display_name: str) -> str:
     """Stable identity email when WhatsApp export has a name but no phone."""

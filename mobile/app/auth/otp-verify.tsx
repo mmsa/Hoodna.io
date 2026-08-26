@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { normalizePhone } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,20 +31,20 @@ export default function OTPVerifyScreen() {
     }
   }, [user, router]);
 
-  // Normalize phone number to match backend normalization
-  const normalizePhone = (phoneNumber: string): string => {
-    return phoneNumber.trim().replace(/\s+/g, "").replace(/-/g, "").replace(/\+/g, "");
-  };
-
   async function handleResend() {
     if (!phone) {
+      Alert.alert(t("common.error"), t("auth.enterPhone"));
+      return;
+    }
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
       Alert.alert(t("common.error"), t("auth.enterPhone"));
       return;
     }
 
     setLoading(true);
     try {
-      await apiClient.phoneAuthStart({ phone: normalizePhone(phone) });
+      await apiClient.phoneAuthStart({ phone: normalizedPhone });
       setOtp("");
       Alert.alert(t("common.success"), t("auth.resendCode"));
     } catch (error: any) {
@@ -64,10 +65,16 @@ export default function OTPVerifyScreen() {
       return;
     }
 
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      Alert.alert(t("common.error"), t("auth.enterPhone"));
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await apiClient.phoneAuthVerify({
-        phone: normalizePhone(phone),
+        phone: normalizedPhone,
         otp_code: otp.trim(),
         name: showNameInput ? name.trim() : undefined,
       });

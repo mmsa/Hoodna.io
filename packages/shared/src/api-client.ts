@@ -251,11 +251,27 @@ export class ApiClient {
   async completeProfile(data: {
     name: string;
     password: string;
+    imported_content_choice?: "KEEP" | "DISCARD";
   }): Promise<User> {
     return this.request<User>("/api/auth/me/complete-profile", {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async getImportedContentSummary(): Promise<{
+    needs_choice: boolean;
+    posts: number;
+    comments: number;
+    listings: number;
+    total: number;
+    choice?: string | null;
+  }> {
+    return this.request("/api/auth/me/imported-content");
+  }
+
+  async deleteOwnPost(postId: number): Promise<void> {
+    await this.request(`/api/posts/${postId}`, { method: "DELETE" });
   }
 
   async getCompoundInvites(): Promise<

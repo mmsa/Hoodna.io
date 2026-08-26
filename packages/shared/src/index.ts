@@ -33,4 +33,5 @@ export * from "./telemetry";
 export * from "./links";
 export * from "./link-preview";
 export * from "./notification-route";
+export * from "./phone";
 

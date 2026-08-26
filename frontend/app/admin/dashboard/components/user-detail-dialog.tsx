@@ -182,7 +182,7 @@ export default function UserDetailDialog({
                         : '—'
                       : /^900\d{9,}$/.test(String(user.phone).replace(/\D/g, ''))
                         ? 'Not in WhatsApp export'
-                        : user.phone
+                        : `+${String(user.phone).replace(/\D/g, '')}`
                   }
                 />
                 <DetailRow label="User ID" value={user.id} />

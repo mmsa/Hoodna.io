@@ -12,6 +12,7 @@ from app.schemas.user import (
     AvatarPresignRequest,
     AvatarUpdate,
     CompleteProfileRequest,
+    ImportedContentSummaryResponse,
     UserResponse,
     UserUpdate,
 )
@@ -108,12 +109,10 @@ async def phone_auth_start(
     db: AsyncSession = Depends(get_db),
 ):
     """Start phone authentication by sending OTP."""
-    phone_normalized = request.phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    from app.utils.phone import normalize_phone
 
-    # Chat-import used to invent fake 900… placeholders — never send OTP there.
-    from app.services.chat_import_parser import is_placeholder_import_phone
-
-    if is_placeholder_import_phone(phone_normalized) or not phone_normalized.isdigit():
+    phone_normalized = normalize_phone(request.phone)
+    if not phone_normalized:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid phone number",
@@ -146,11 +145,10 @@ async def phone_auth_verify(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify OTP and return tokens. Creates user if doesn't exist."""
-    phone_normalized = request.phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    from app.utils.phone import normalize_phone
 
-    from app.services.chat_import_parser import is_placeholder_import_phone
-
-    if is_placeholder_import_phone(phone_normalized) or not phone_normalized.isdigit():
+    phone_normalized = normalize_phone(request.phone)
+    if not phone_normalized:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid phone number",
@@ -181,7 +179,7 @@ async def phone_auth_verify(
     # OTP verified, remove it
     del otp_storage[phone_normalized]
     
-    # Get or create user
+    # Get or create user (lookup uses same country-code normalization)
     user = await get_user_by_phone(db, phone_normalized)
     if not user:
         if not await is_feature_enabled(
@@ -196,7 +194,13 @@ async def phone_auth_verify(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name is required for new users"
             )
-        user = await create_user_by_phone(db, phone_normalized, request.name)
+        try:
+            user = await create_user_by_phone(db, phone_normalized, request.name)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc) or "Invalid phone number",
+            ) from exc
         if request.referral_code:
             await redeem_registration_referral(
                 db, request.referral_code.strip(), user.id
@@ -463,6 +467,8 @@ async def get_current_user_info(
             if verification_status == "APPROVED":
                 verification_status = "UNVERIFIED"
 
+    from app.services.imported_content_consent import needs_imported_content_choice
+
     return UserResponse(
         id=current_user.id,
         name=current_user.name,
@@ -480,6 +486,31 @@ async def get_current_user_info(
         verified_compound_ids=verified_compound_ids,
         is_verified_for_current_compound=is_verified_for_current_compound,
         needs_profile_setup=bool(getattr(current_user, "profile_setup_required", False)),
+        creation_source=getattr(current_user, "creation_source", None),
+        needs_imported_content_choice=needs_imported_content_choice(current_user),
+        imported_content_choice=getattr(current_user, "imported_content_choice", None),
+    )
+
+
+@router.get("/me/imported-content", response_model=ImportedContentSummaryResponse)
+async def get_imported_content_summary(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Summary of chat-imported posts/listings for first-login consent."""
+    from app.services.imported_content_consent import (
+        needs_imported_content_choice,
+        summarize_imported_content,
+    )
+
+    summary = await summarize_imported_content(db, current_user.id)
+    return ImportedContentSummaryResponse(
+        needs_choice=needs_imported_content_choice(current_user),
+        posts=summary["posts"],
+        comments=summary["comments"],
+        listings=summary["listings"],
+        total=summary["total"],
+        choice=getattr(current_user, "imported_content_choice", None),
     )
 
 
@@ -491,12 +522,19 @@ async def complete_profile(
 ):
     """
     Finish invited-account setup: set display name + password.
+    Chat-import users must choose KEEP or DISCARD for imported content.
     Email is not required. Pending CHAT_IMPORT compound invites are confirmed.
     """
+    from datetime import datetime, timezone
+
     from sqlalchemy import select
     from app.models.user_compound_membership import UserCompoundMembership
     from app.models.enums import UserRole, UserStatus
     from app.services.chat_import_publish import confirm_chat_import_membership
+    from app.services.imported_content_consent import (
+        discard_imported_content,
+        needs_imported_content_choice,
+    )
 
     name = body.name.strip()
     if len(name) < 2:
@@ -509,6 +547,24 @@ async def complete_profile(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters",
         )
+
+    choice = (body.imported_content_choice or "").strip().upper() or None
+    if needs_imported_content_choice(current_user):
+        if choice not in ("KEEP", "DISCARD"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Choose whether to keep or discard imported community content",
+            )
+        if choice == "DISCARD":
+            await discard_imported_content(db, current_user)
+        current_user.imported_content_choice = choice
+        current_user.imported_content_choice_at = datetime.now(timezone.utc)
+    elif choice in ("KEEP", "DISCARD") and not current_user.imported_content_choice:
+        # Idempotent if client always sends a choice
+        if choice == "DISCARD":
+            await discard_imported_content(db, current_user)
+        current_user.imported_content_choice = choice
+        current_user.imported_content_choice_at = datetime.now(timezone.utc)
 
     current_user.name = name
     current_user.password_hash = get_password_hash(body.password)
