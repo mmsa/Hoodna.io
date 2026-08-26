@@ -96,6 +96,31 @@ async def test_login_success(async_client: AsyncClient, db_session):
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+async def test_login_with_phone(async_client: AsyncClient, db_session):
+    """Password login accepts phone number as identifier."""
+    from app.crud.user import create_user
+
+    user_data = UserCreate(
+        name="Phone Login User",
+        email="phonelogin@example.com",
+        phone="201098765432",
+        password="password123",
+    )
+    await create_user(db_session, user_data, role=UserRole.USER)
+
+    response = await async_client.post(
+        "/api/auth/login",
+        json={
+            "email": "201098765432",
+            "password": "password123",
+        },
+    )
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 async def test_login_invalid_credentials(async_client: AsyncClient, db_session):
     """Test login with invalid credentials."""
     response = await async_client.post(
@@ -106,7 +131,6 @@ async def test_login_invalid_credentials(async_client: AsyncClient, db_session):
         },
     )
     assert response.status_code == 401
-
 
 @pytest.mark.asyncio
 @pytest.mark.unit

@@ -369,45 +369,58 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    """Login and get access/refresh tokens."""
+    """Login with email or phone number + password."""
     import logging
     logger = logging.getLogger(__name__)
-    
-    # Normalize email to lowercase for lookup
-    email_lower = credentials.email.lower().strip()
-    user = await get_user_by_email(db, email_lower)
-    
-    if not user:
-        logger.warning(f"Login attempt failed: User not found for email {email_lower}")
+
+    identifier = (credentials.email or "").strip()
+    if not identifier:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            detail="Incorrect email/phone or password",
         )
-    
-    # Verify password
+
+    if "@" in identifier:
+        user = await get_user_by_email(db, identifier.lower())
+    else:
+        user = await get_user_by_phone(db, identifier)
+
+    if not user:
+        logger.warning("Login attempt failed: user not found for identifier")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email/phone or password",
+        )
+
+    # Phone-OTP accounts may have an empty password hash
+    if not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email/phone or password",
+        )
+
     password_valid = verify_password(credentials.password, user.password_hash)
     if not password_valid:
-        logger.warning(f"Login attempt failed: Invalid password for user {user.email}")
+        logger.warning(f"Login attempt failed: Invalid password for user {user.id}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            detail="Incorrect email/phone or password",
         )
-    
+
     if user.status.value == "BANNED":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is banned"
+            detail="User is banned",
         )
-    
-    # Create tokens
+
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-    
-    logger.info(f"Successful login for user {user.email}")
+
+    logger.info(f"Successful login for user {user.id}")
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=user
+        user=user,
     )
 
 

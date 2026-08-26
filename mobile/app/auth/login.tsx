@@ -26,7 +26,7 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     if (!email.trim()) {
-      Alert.alert(t("common.error"), t("auth.enterEmail"));
+      Alert.alert(t("common.error"), t("auth.enterEmailOrPhone"));
       return;
     }
     if (!password.trim()) {
@@ -36,8 +36,9 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
+      const identifier = email.trim();
       const response = await apiClient.login({
-        email: email.trim().toLowerCase(),
+        email: identifier.includes("@") ? identifier.toLowerCase() : identifier,
         password,
       });
       await login(response.access_token, response.refresh_token);
@@ -70,10 +71,10 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           autoFocus
-          keyboardType="email-address"
-          label={t("auth.email")}
+          keyboardType="default"
+          label={t("auth.emailOrPhone")}
           onChangeText={setEmail}
-          placeholder={t("auth.emailPlaceholder")}
+          placeholder={t("auth.emailOrPhonePlaceholder")}
           value={email}
         />
         <TextField

@@ -16,7 +16,9 @@ class UserSignup(BaseModel):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    """Password login. `email` accepts an email address or a mobile phone number."""
+
+    email: str = Field(..., min_length=3, max_length=255)
     password: str
 
 

@@ -16,7 +16,7 @@ import { getPostAuthWebRoute } from '@/lib/resident-routing'
 import { useTranslation } from '@/components/locale-provider'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().min(3, 'Enter your email or phone number'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 
@@ -140,12 +140,14 @@ export default function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">{t('auth.email')}</Label>
+              <Label htmlFor="email">{t('auth.emailOrPhone')}</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
+                autoComplete="username"
+                inputMode="email"
                 {...register('email')}
-                placeholder={t('auth.emailPlaceholder')}
+                placeholder={t('auth.emailOrPhonePlaceholder')}
               />
               {errors.email && (
                 <p className="text-sm text-red-600">{errors.email.message}</p>

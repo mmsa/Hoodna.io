@@ -22,8 +22,9 @@ export const PhoneAuthVerifyRequestSchema = z.object({
 });
 
 export const UserLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  /** Email address or mobile phone number */
+  email: z.string().min(3, "Enter your email or phone number"),
+  password: z.string().min(6),
 });
 
 export const UserSignupSchema = z.object({
