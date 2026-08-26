@@ -109,7 +109,7 @@ async def phone_auth_start(
     http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Start phone authentication by sending OTP via SMS (SMS Misr in production)."""
+    """Start phone authentication by sending OTP (SMS.to / Twilio / WhatsApp)."""
     from app.utils.phone import normalize_phone
     from app.services.sms import (
         OtpRateLimitError,
@@ -165,12 +165,12 @@ async def phone_auth_start(
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not send SMS verification code. Please try again.",
+                detail="Could not send verification code. Please try again.",
             ) from exc
-        # Never return otp_code when SMS was sent
+        # Never return otp_code when a production OTP channel was used
         return PhoneAuthStartResponse(message="OTP sent successfully")
 
-    # Local engineering only: expose code when SMS is not configured
+    # Local engineering only: expose code when OTP channel is not configured
     if settings.ENVIRONMENT == "development":
         return PhoneAuthStartResponse(
             message="OTP sent successfully (dev — SMS not configured)",
@@ -180,7 +180,7 @@ async def phone_auth_start(
     otp_storage.pop(phone_normalized, None)
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="OTP delivery not configured. Set SMS_PROVIDER=smsmisr and SMS Misr credentials.",
+        detail="OTP delivery not configured. Set SMS_PROVIDER=smsto with SMSTO_API_KEY.",
     )
 
 

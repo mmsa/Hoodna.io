@@ -1,4 +1,4 @@
-"""SMS delivery for phone OTP (SMS Misr Egypt)."""
+"""OTP delivery via SMS.to, Twilio SMS, or WhatsApp Cloud API."""
 
 from __future__ import annotations
 
@@ -13,12 +13,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# SMS Misr success codes commonly returned for accepted OTP/SMS sends
-_SMSMISR_SUCCESS_CODES = {"1901", "4901", "200"}
-
 
 class SmsDeliveryError(Exception):
-    """Raised when an OTP SMS could not be sent."""
+    """Raised when an OTP message could not be sent."""
 
 
 class OtpRateLimitError(Exception):
@@ -63,7 +60,19 @@ def check_otp_rate_limits(*, phone: str, client_ip: str | None) -> None:
 
 
 def sms_delivery_configured() -> bool:
-    return settings.smsmisr_configured
+    """True when a production OTP channel is configured."""
+    return settings.otp_delivery_configured
+
+
+def _to_e164(phone_digits: str) -> str:
+    digits = "".join(ch for ch in phone_digits if ch.isdigit())
+    if not digits:
+        raise SmsDeliveryError("Invalid phone number")
+    return f"+{digits}"
+
+
+def _otp_message_body(code: str) -> str:
+    return f"Your Eljiran verification code is {code}"
 
 
 async def send_otp_sms(phone_digits: str, code: str) -> None:
@@ -71,73 +80,210 @@ async def send_otp_sms(phone_digits: str, code: str) -> None:
     Send an OTP via the configured provider.
     phone_digits: normalized digits without '+' (e.g. 201001234567).
     """
-    if not settings.smsmisr_configured:
-        raise SmsDeliveryError("SMS delivery is not configured")
-    await _send_smsmisr_otp(phone_digits, code)
+    if settings.smsto_configured:
+        await _send_smsto_otp(phone_digits, code)
+        return
+    if settings.twilio_configured:
+        await _send_twilio_otp(phone_digits, code)
+        return
+    if settings.whatsapp_configured:
+        await _send_whatsapp_auth_otp(phone_digits, code)
+        return
+    raise SmsDeliveryError("OTP delivery is not configured")
 
 
-async def _send_smsmisr_otp(phone_digits: str, code: str) -> None:
-    mobile = "".join(ch for ch in phone_digits if ch.isdigit())
-    if not mobile:
-        raise SmsDeliveryError("Invalid phone number for SMS")
-
-    payload = {
-        "environment": str(int(settings.SMSMISR_ENVIRONMENT)),
-        "username": settings.SMSMISR_USERNAME.strip(),
-        "password": settings.SMSMISR_PASSWORD.strip(),
-        "sender": settings.SMSMISR_SENDER.strip(),
-        "mobile": mobile,
-        "template": settings.SMSMISR_OTP_TEMPLATE.strip(),
-        "otp": code,
+async def _send_smsto_otp(phone_digits: str, code: str) -> None:
+    """Send OTP via SMS.to /sms/send API."""
+    to = _to_e164(phone_digits)
+    url = "https://api.sms.to/sms/send"
+    payload: dict[str, str | bool] = {
+        "message": _otp_message_body(code),
+        "to": to,
+        "bypass_optout": True,
     }
-    url = (settings.SMSMISR_OTP_URL or "https://smsmisr.com/api/OTP/").strip()
+    sender_id = (settings.SMSTO_SENDER_ID or "").strip()
+    if sender_id:
+        payload["sender_id"] = sender_id[:11]
+
+    headers = {
+        "Authorization": f"Bearer {settings.SMSTO_API_KEY.strip()}",
+        "Content-Type": "application/json",
+    }
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(url, data=payload)
+            response = await client.post(url, headers=headers, json=payload)
     except httpx.HTTPError as exc:
-        logger.error("smsmisr_otp_request_failed", extra={"error": str(exc)})
-        raise SmsDeliveryError("Failed to reach SMS provider") from exc
+        logger.error("smsto_otp_request_failed", extra={"error": str(exc)})
+        raise SmsDeliveryError("Failed to reach SMS.to API") from exc
 
-    raw_text = (response.text or "").strip()
-    code_value: str | None = None
-    sms_id: str | None = None
-    cost: str | None = None
-
+    message_id = None
+    error_message = None
     try:
         data = response.json()
         if isinstance(data, dict):
-            code_value = str(data.get("code") or data.get("Code") or "")
-            sms_id = str(data.get("SMSID") or data.get("smsid") or "") or None
-            cost = str(data.get("Cost") or data.get("cost") or "") or None
+            message_id = data.get("message_id") or data.get("id")
+            error_message = data.get("message") if response.status_code >= 400 else None
+            if isinstance(data.get("success"), bool) and not data["success"]:
+                error_message = data.get("message") or error_message or "SMS.to send failed"
     except Exception:
-        # Some older responses may be plain text
-        code_value = raw_text[:32] if raw_text else None
+        data = None
+
+    if response.status_code >= 400 or (
+        isinstance(data, dict) and data.get("success") is False
+    ):
+        logger.error(
+            "smsto_otp_http_error",
+            extra={
+                "status_code": response.status_code,
+                "error": error_message,
+                "body": (response.text or "")[:500],
+            },
+        )
+        raise SmsDeliveryError(error_message or "SMS.to rejected the OTP message")
+
+    logger.info(
+        "smsto_otp_sent",
+        extra={
+            "message_id": message_id,
+            "mobile_suffix": phone_digits[-4:] if len(phone_digits) >= 4 else "****",
+        },
+    )
+
+
+async def _send_twilio_otp(phone_digits: str, code: str) -> None:
+    """Send OTP via Twilio Messages API (form-urlencoded)."""
+    account_sid = settings.TWILIO_ACCOUNT_SID.strip()
+    auth_token = settings.TWILIO_AUTH_TOKEN.strip()
+    from_number = settings.TWILIO_FROM_NUMBER.strip()
+    to = _to_e164(phone_digits)
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(
+                url,
+                auth=(account_sid, auth_token),
+                data={
+                    "To": to,
+                    "From": from_number,
+                    "Body": _otp_message_body(code),
+                },
+            )
+    except httpx.HTTPError as exc:
+        logger.error("twilio_otp_request_failed", extra={"error": str(exc)})
+        raise SmsDeliveryError("Failed to reach Twilio API") from exc
+
+    sid = None
+    error_message = None
+    try:
+        data = response.json()
+        if isinstance(data, dict):
+            sid = data.get("sid")
+            error_message = data.get("message") or data.get("error_message")
+    except Exception:
+        data = None
 
     if response.status_code >= 400:
         logger.error(
-            "smsmisr_otp_http_error",
+            "twilio_otp_http_error",
             extra={
                 "status_code": response.status_code,
-                "provider_code": code_value,
-                "sms_id": sms_id,
+                "error": error_message,
+                "body": (response.text or "")[:500],
             },
         )
-        raise SmsDeliveryError("SMS provider rejected the request")
-
-    if code_value and code_value not in _SMSMISR_SUCCESS_CODES:
-        logger.error(
-            "smsmisr_otp_rejected",
-            extra={"provider_code": code_value, "sms_id": sms_id, "cost": cost},
-        )
-        raise SmsDeliveryError(f"SMS provider error code {code_value}")
+        raise SmsDeliveryError(error_message or "Twilio rejected the OTP message")
 
     logger.info(
-        "smsmisr_otp_sent",
+        "twilio_otp_sent",
         extra={
-            "provider_code": code_value or "ok",
-            "sms_id": sms_id,
-            "cost": cost,
-            "mobile_suffix": mobile[-4:] if len(mobile) >= 4 else "****",
+            "sid": sid,
+            "mobile_suffix": phone_digits[-4:] if len(phone_digits) >= 4 else "****",
+        },
+    )
+
+
+async def _send_whatsapp_auth_otp(phone_digits: str, code: str) -> None:
+    """
+    Send a WhatsApp AUTHENTICATION template with copy-code button.
+    Docs: Meta Cloud API auth OTP / copy_code templates.
+    """
+    to = _to_e164(phone_digits)
+    phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID.strip()
+    version = (settings.WHATSAPP_GRAPH_VERSION or "v21.0").strip().lstrip("/")
+    url = f"https://graph.facebook.com/{version}/{phone_number_id}/messages"
+    template_name = settings.WHATSAPP_OTP_TEMPLATE.strip()
+    language = (settings.WHATSAPP_OTP_TEMPLATE_LANG or "en_US").strip()
+
+    # Body + button both receive the OTP for AUTHENTICATION copy_code templates.
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to.lstrip("+"),  # Cloud API accepts digits; + also ok — use digits
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": code}],
+                },
+                {
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": "0",
+                    "parameters": [{"type": "text", "text": code}],
+                },
+            ],
+        },
+    }
+
+    headers = {
+        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN.strip()}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+    except httpx.HTTPError as exc:
+        logger.error("whatsapp_otp_request_failed", extra={"error": str(exc)})
+        raise SmsDeliveryError("Failed to reach WhatsApp API") from exc
+
+    message_id = None
+    error_message = None
+    try:
+        data = response.json()
+        if isinstance(data, dict):
+            messages = data.get("messages") or []
+            if messages and isinstance(messages[0], dict):
+                message_id = messages[0].get("id")
+            err = data.get("error")
+            if isinstance(err, dict):
+                error_message = err.get("message") or str(err)
+    except Exception:
+        data = None
+
+    if response.status_code >= 400:
+        logger.error(
+            "whatsapp_otp_http_error",
+            extra={
+                "status_code": response.status_code,
+                "error": error_message,
+                "body": (response.text or "")[:500],
+            },
+        )
+        raise SmsDeliveryError(
+            error_message or "WhatsApp API rejected the OTP message"
+        )
+
+    logger.info(
+        "whatsapp_otp_sent",
+        extra={
+            "message_id": message_id,
+            "mobile_suffix": phone_digits[-4:] if len(phone_digits) >= 4 else "****",
+            "template": template_name,
         },
     )

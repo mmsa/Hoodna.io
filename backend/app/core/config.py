@@ -104,14 +104,18 @@ class Settings(BaseSettings):
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
 
-    # Phone OTP SMS (SMS Misr for Egypt). SMS_PROVIDER=smsmisr|none
+    # Phone OTP. SMS_PROVIDER=smsto|twilio|whatsapp|none
     SMS_PROVIDER: str = "none"
-    SMSMISR_USERNAME: str = ""
-    SMSMISR_PASSWORD: str = ""
-    SMSMISR_SENDER: str = ""  # Sender token from SMS Misr dashboard
-    SMSMISR_OTP_TEMPLATE: str = ""  # Approved OTP template token
-    SMSMISR_ENVIRONMENT: int = 2  # 2=test, 1=live
-    SMSMISR_OTP_URL: str = "https://smsmisr.com/api/OTP/"
+    SMSTO_API_KEY: str = ""
+    SMSTO_SENDER_ID: str = "Eljiran"  # Max 11 chars alphanumeric where allowed
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""  # E.164 sender, e.g. +1...
+    WHATSAPP_TOKEN: str = ""  # Permanent Cloud API access token
+    WHATSAPP_PHONE_NUMBER_ID: str = ""  # From Meta WhatsApp > API Setup
+    WHATSAPP_OTP_TEMPLATE: str = "eljiran_auth_otp"  # Approved AUTHENTICATION template name
+    WHATSAPP_OTP_TEMPLATE_LANG: str = "en_US"
+    WHATSAPP_GRAPH_VERSION: str = "v21.0"
     OTP_MAX_PER_PHONE_PER_HOUR: int = 5
     OTP_MAX_PER_IP_PER_HOUR: int = 20
 
@@ -127,13 +131,33 @@ class Settings(BaseSettings):
         return (self.SMS_PROVIDER or "none").strip().lower()
 
     @property
-    def smsmisr_configured(self) -> bool:
+    def smsto_configured(self) -> bool:
+        return bool(self.sms_provider == "smsto" and self.SMSTO_API_KEY.strip())
+
+    @property
+    def twilio_configured(self) -> bool:
         return bool(
-            self.sms_provider == "smsmisr"
-            and self.SMSMISR_USERNAME.strip()
-            and self.SMSMISR_PASSWORD.strip()
-            and self.SMSMISR_SENDER.strip()
-            and self.SMSMISR_OTP_TEMPLATE.strip()
+            self.sms_provider == "twilio"
+            and self.TWILIO_ACCOUNT_SID.strip()
+            and self.TWILIO_AUTH_TOKEN.strip()
+            and self.TWILIO_FROM_NUMBER.strip()
+        )
+
+    @property
+    def whatsapp_configured(self) -> bool:
+        return bool(
+            self.sms_provider == "whatsapp"
+            and self.WHATSAPP_TOKEN.strip()
+            and self.WHATSAPP_PHONE_NUMBER_ID.strip()
+            and self.WHATSAPP_OTP_TEMPLATE.strip()
+        )
+
+    @property
+    def otp_delivery_configured(self) -> bool:
+        return (
+            self.smsto_configured
+            or self.twilio_configured
+            or self.whatsapp_configured
         )
 
     @property

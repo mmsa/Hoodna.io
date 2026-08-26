@@ -55,29 +55,33 @@ Optional but recommended for uploads/email:
 - `OPENAI_API_KEY`
 - Stripe keys if you use promotions
 
-### Phone OTP SMS (SMS Misr — Egypt)
+### Phone OTP via SMS.to
 
-Real phone ownership verification sends OTP via [SMS Misr](https://smsmisr.com/). Without these vars, production `/api/auth/start` returns **503**.
+Production `/api/auth/start` sends an English SMS OTP through [SMS.to](https://sms.to/) (~€0.185/SMS to Egypt). Without these vars, production returns **503**. Twilio and WhatsApp remain supported as alternate `SMS_PROVIDER` values.
 
-1. Create an SMS Misr account and buy a small SMS pack  
-2. Approve a **Sender ID** and create an **OTP template** (ASCII, e.g. `Your eljiran code is {otp}`)  
-3. Set on Render `eljiran-api`:
+1. Create an [SMS.to](https://sms.to/) account and top up credit  
+2. Dashboard → **API Clients** → generate an **API key**  
+3. Send a manual test to your Egyptian number to confirm delivery  
+4. Set on Render `eljiran-api`:
 
 | Key | Value |
 |-----|--------|
-| `SMS_PROVIDER` | `smsmisr` |
-| `SMSMISR_USERNAME` | SMS Misr username |
-| `SMSMISR_PASSWORD` | SMS Misr password |
-| `SMSMISR_SENDER` | Sender **token** from dashboard |
-| `SMSMISR_OTP_TEMPLATE` | OTP template **token** |
-| `SMSMISR_ENVIRONMENT` | `2` for test, then `1` for live |
+| `SMS_PROVIDER` | `smsto` |
+| `SMSTO_API_KEY` | from SMS.to API Clients |
+| `SMSTO_SENDER_ID` | optional, default `Eljiran` (max 11 chars; may be rewritten in Egypt) |
 | `OTP_MAX_PER_PHONE_PER_HOUR` | optional, default `5` |
 | `OTP_MAX_PER_IP_PER_HOUR` | optional, default `20` |
 
-4. Redeploy the API. Test with `SMSMISR_ENVIRONMENT=2` first, then switch to `1`.  
-5. Never put SMS Misr credentials in the mobile app — only on the API.
+5. Redeploy the API. Never put the API key in the mobile app — only on the API.
 
-Local development without SMS Misr still returns `otp_code` in the start response when `ENVIRONMENT=development` and SMS is not configured.
+Local development without SMS.to still returns `otp_code` in the start response when `ENVIRONMENT=development` and no OTP provider is configured.
+
+### Alternate providers
+
+| `SMS_PROVIDER` | Required env vars |
+|----------------|-------------------|
+| `twilio` | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` |
+| `whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_OTP_TEMPLATE`, `WHATSAPP_OTP_TEMPLATE_LANG` |
 
 If no mail provider is configured, forgot-password still returns success but emails are **not** sent (check Render logs for the reset link).
 
