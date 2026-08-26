@@ -179,7 +179,7 @@ export default function SignupPage() {
                 id="phone"
                 type="tel"
                 {...register('phone')}
-                placeholder="+20 123 456 7890"
+                placeholder="Mobile with country code"
               />
               {errors.phone && (
                 <p className="text-sm text-red-600">{errors.phone.message}</p>
