@@ -53,6 +53,8 @@ async def create_user_by_phone(
         phone=phone_normalized,
         password_hash="",  # No password for phone auth users
         status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=True,
+        email_verified=True,  # placeholder email — nothing to verify
         creation_source=creation_source,
         creation_details=details,
         creation_job_id=creation_job_id,
@@ -81,6 +83,8 @@ async def create_chat_import_user(
         phone=None,
         password_hash="",
         status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=True,  # no phone to verify
+        email_verified=True,  # verified via invite/import flow
         creation_source="CHAT_IMPORT",
         creation_details=details,
         creation_job_id=creation_job_id,
@@ -124,6 +128,8 @@ async def create_user(
     *,
     creation_source: str = "EMAIL_SIGNUP",
     creation_details: dict | None = None,
+    phone_verified: bool = True,
+    email_verified: bool = True,
 ) -> User:
     """Create a new user."""
     hashed_password = get_password_hash(user_data.password)
@@ -137,6 +143,8 @@ async def create_user(
         password_hash=hashed_password,
         role=role,
         status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=phone_verified,
+        email_verified=email_verified,
         creation_source=creation_source,
         creation_details=details,
     )

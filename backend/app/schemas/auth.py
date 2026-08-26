@@ -58,3 +58,11 @@ class PhoneAuthVerifyRequest(BaseModel):
     referral_code: Optional[str] = Field(
         default=None, min_length=4, max_length=64
     )
+
+
+class ConfirmPhoneOtpRequest(BaseModel):
+    otp_code: str = Field(..., min_length=4, max_length=12)
+
+
+class ConfirmEmailOtpRequest(BaseModel):
+    otp_code: str = Field(..., min_length=4, max_length=12)

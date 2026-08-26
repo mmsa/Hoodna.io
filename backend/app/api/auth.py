@@ -6,7 +6,8 @@ from app.db.session import get_db
 from app.schemas.auth import (
     UserSignup, UserLogin, TokenResponse, RefreshTokenRequest, 
     ForgotPasswordRequest, ResetPasswordRequest,
-    PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest
+    PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest,
+    ConfirmPhoneOtpRequest, ConfirmEmailOtpRequest,
 )
 from app.schemas.user import (
     AvatarPresignRequest,
@@ -39,7 +40,11 @@ from app.crud.referral import (
 )
 from app.crud.user import get_user_by_email, create_user, get_user_by_phone, create_user_by_phone
 from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token, create_password_reset_token, get_password_hash
-from app.services.email import send_password_reset_email, send_password_reset_confirmation_email
+from app.services.email import (
+    send_password_reset_email,
+    send_password_reset_confirmation_email,
+    send_email_verification_email,
+)
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.enums import AccountDeletionStatus
@@ -96,11 +101,29 @@ async def options_handler():
 
 # In-memory OTP storage (use Redis in production)
 otp_storage: dict[str, dict] = {}
+email_otp_storage: dict[str, dict] = {}
 
 
 def generate_otp() -> str:
     """Generate a 6-digit OTP code."""
-    return ''.join(random.choices(string.digits, k=6))
+    return "".join(random.choices(string.digits, k=6))
+
+
+def _is_placeholder_email(email: str | None) -> bool:
+    return bool(email and str(email).endswith("@hoodna.local"))
+
+
+def _user_needs_contact_verification(user: User) -> bool:
+    """True until phone (if present) and real email (if present) are verified."""
+    if not user.phone:
+        phone_ok = True
+    else:
+        phone_ok = bool(getattr(user, "phone_verified", True))
+    if _is_placeholder_email(user.email):
+        email_ok = True
+    else:
+        email_ok = bool(getattr(user, "email_verified", True))
+    return not phone_ok or not email_ok
 
 
 @router.post("/start", response_model=PhoneAuthStartResponse)
@@ -336,13 +359,15 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid role for registration",
         )
+
+    has_real_email = not _is_placeholder_email(user_data.email)
     user = await create_user(
         db,
         user_data,
-        role=signup_role or UserRole.RESIDENT,
+        role=signup_role,  # None until user picks on choose-role
         creation_source=(
             "PHONE_PASSWORD_SIGNUP"
-            if user_data.email.endswith("@hoodna.local")
+            if _is_placeholder_email(user_data.email)
             else "EMAIL_SIGNUP"
         ),
         creation_details=(
@@ -350,20 +375,79 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
             if user_data.referral_code
             else None
         ),
+        phone_verified=False,
+        email_verified=not has_real_email,
     )
     if user_data.referral_code:
         await redeem_registration_referral(
             db, user_data.referral_code.strip(), user.id
         )
-    
-    # Automatically log the user in by creating tokens
+
+    # Send phone OTP (required before onboarding)
+    from app.services.sms import (
+        OtpRateLimitError,
+        SmsDeliveryError,
+        check_otp_rate_limits,
+        send_otp_sms,
+        sms_delivery_configured,
+    )
+    import time
+
+    otp_code = generate_otp()
+    otp_storage[phone_normalized] = {
+        "otp": otp_code,
+        "expires_at": time.time() + 600,
+    }
+    if sms_delivery_configured():
+        try:
+            check_otp_rate_limits(phone=phone_normalized, client_ip=None)
+            await send_otp_sms(phone_normalized, otp_code)
+        except (SmsDeliveryError, OtpRateLimitError) as exc:
+            logger.warning(
+                "signup_otp_send_failed",
+                extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
+            )
+            # Account exists; user can resend from verify-contact screen
+    elif settings.ENVIRONMENT == "development":
+        logger.info("signup_dev_otp phone=...%s code=%s", phone_normalized[-4:], otp_code)
+
+    email_otp_code = None
+    if has_real_email:
+        email_otp_code = generate_otp()
+        email_otp_storage[user_data.email] = {
+            "otp": email_otp_code,
+            "expires_at": time.time() + 600,
+            "user_id": user.id,
+        }
+        sent = send_email_verification_email(user_data.email, email_otp_code)
+        if not sent and settings.ENVIRONMENT == "development":
+            logger.info(
+                "signup_dev_email_otp email=%s code=%s",
+                user_data.email,
+                email_otp_code,
+            )
+
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=user
+        user=UserResponse(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            avatar_url=user.avatar_url,
+            role=user.role,
+            status=user.status,
+            compound_id=user.compound_id,
+            created_at=user.created_at,
+            phone_verified=bool(user.phone_verified),
+            email_verified=bool(user.email_verified),
+            needs_contact_verification=_user_needs_contact_verification(user),
+            creation_source=getattr(user, "creation_source", None),
+        ),
     )
 
 
@@ -422,6 +506,151 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
         refresh_token=refresh_token,
         user=user,
     )
+
+
+@router.post("/confirm-phone")
+async def confirm_signup_phone(
+    body: ConfirmPhoneOtpRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Confirm phone ownership with OTP after password signup."""
+    import time
+    from app.utils.phone import normalize_phone
+
+    if getattr(current_user, "phone_verified", False):
+        return {"message": "Phone already verified", "phone_verified": True}
+
+    phone_normalized = normalize_phone(current_user.phone)
+    if not phone_normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No phone number on this account",
+        )
+
+    stored = otp_storage.get(phone_normalized)
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP not found. Please request a new code.",
+        )
+    if time.time() > stored["expires_at"]:
+        otp_storage.pop(phone_normalized, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP expired. Please request a new code.",
+        )
+    if stored["otp"] != body.otp_code.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP code",
+        )
+
+    otp_storage.pop(phone_normalized, None)
+    current_user.phone_verified = True
+    await db.flush()
+    return {"message": "Phone verified", "phone_verified": True}
+
+
+@router.post("/confirm-email")
+async def confirm_signup_email(
+    body: ConfirmEmailOtpRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Confirm email ownership with OTP after password signup."""
+    import time
+
+    if getattr(current_user, "email_verified", False):
+        return {"message": "Email already verified", "email_verified": True}
+
+    if _is_placeholder_email(current_user.email):
+        current_user.email_verified = True
+        await db.flush()
+        return {"message": "Email verified", "email_verified": True}
+
+    stored = email_otp_storage.get(current_user.email)
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP not found. Please request a new code.",
+        )
+    if time.time() > stored["expires_at"]:
+        email_otp_storage.pop(current_user.email, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP expired. Please request a new code.",
+        )
+    if stored["otp"] != body.otp_code.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP code",
+        )
+
+    email_otp_storage.pop(current_user.email, None)
+    current_user.email_verified = True
+    await db.flush()
+    return {"message": "Email verified", "email_verified": True}
+
+
+@router.post("/resend-contact-otp")
+async def resend_contact_otp(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """Resend phone and/or email verification codes for the logged-in user."""
+    import time
+    from app.utils.phone import normalize_phone
+    from app.services.sms import (
+        OtpRateLimitError,
+        SmsDeliveryError,
+        check_otp_rate_limits,
+        send_otp_sms,
+        sms_delivery_configured,
+    )
+
+    result: dict = {"phone_sent": False, "email_sent": False}
+
+    if not getattr(current_user, "phone_verified", False):
+        phone_normalized = normalize_phone(current_user.phone)
+        if phone_normalized:
+            client_ip = request.client.host if request.client else None
+            otp_code = generate_otp()
+            otp_storage[phone_normalized] = {
+                "otp": otp_code,
+                "expires_at": time.time() + 600,
+            }
+            if sms_delivery_configured():
+                try:
+                    check_otp_rate_limits(phone=phone_normalized, client_ip=client_ip)
+                    await send_otp_sms(phone_normalized, otp_code)
+                    result["phone_sent"] = True
+                except (SmsDeliveryError, OtpRateLimitError) as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=str(exc) or "Could not send verification code",
+                    ) from exc
+            elif settings.ENVIRONMENT == "development":
+                result["phone_sent"] = True
+                result["dev_phone_otp"] = otp_code
+
+    if (
+        not getattr(current_user, "email_verified", False)
+        and not _is_placeholder_email(current_user.email)
+    ):
+        email_otp_code = generate_otp()
+        email_otp_storage[current_user.email] = {
+            "otp": email_otp_code,
+            "expires_at": time.time() + 600,
+            "user_id": current_user.id,
+        }
+        sent = send_email_verification_email(current_user.email, email_otp_code)
+        result["email_sent"] = sent
+        if not sent and settings.ENVIRONMENT == "development":
+            result["dev_email_otp"] = email_otp_code
+            result["email_sent"] = True
+
+    return result
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -571,6 +800,9 @@ async def get_current_user_info(
         verified_compound_ids=verified_compound_ids,
         is_verified_for_current_compound=is_verified_for_current_compound,
         needs_profile_setup=bool(getattr(current_user, "profile_setup_required", False)),
+        phone_verified=bool(getattr(current_user, "phone_verified", True)),
+        email_verified=bool(getattr(current_user, "email_verified", True)),
+        needs_contact_verification=_user_needs_contact_verification(current_user),
         creation_source=getattr(current_user, "creation_source", None),
         needs_imported_content_choice=needs_imported_content_choice(current_user),
         imported_content_choice=getattr(current_user, "imported_content_choice", None),

@@ -121,7 +121,7 @@ export default function SignupPage() {
       if (referralCode) {
         track('referral_registration_completed', { source_screen: 'signup' })
       }
-      window.location.href = '/onboarding/choose-role'
+      window.location.href = '/auth/verify-contact'
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Signup failed')
       // Clear cookies on error

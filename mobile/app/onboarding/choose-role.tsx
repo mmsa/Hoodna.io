@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/constants/colors";
-import { getPostAuthRoute, getRoleOnboardingRoute } from "@/lib/resident-routing";
+import { getPostAuthRoute, getRoleOnboardingRoute, needsContactVerification } from "@/lib/resident-routing";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export default function ChooseRoleScreen() {
@@ -14,9 +14,14 @@ export default function ChooseRoleScreen() {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Redirect if user already has a role
+  // Contact verification first; only skip when role is already set
   useEffect(() => {
-    if (!userLoading && user && user.role) {
+    if (userLoading || !user) return;
+    if (needsContactVerification(user)) {
+      router.replace("/auth/verify-contact");
+      return;
+    }
+    if (user.role) {
       router.replace(getPostAuthRoute(user) as any);
     }
   }, [user, userLoading, router]);

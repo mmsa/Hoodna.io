@@ -103,6 +103,7 @@ api.interceptors.response.use(
         !pathname.includes('/verification') &&
         !pathname.includes('/onboarding/compound-select') &&
         !pathname.includes('/onboarding/choose-role') &&
+        !pathname.includes('/auth/verify-contact') &&
         !pathname.includes('/onboarding/provider') &&
         !pathname.includes('/onboarding/moderator') &&
         !pathname.includes('/provider/status') &&

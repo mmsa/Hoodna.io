@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import { getRoleOnboardingRoute } from "@/lib/resident-routing";
 import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCode } from "@/lib/referral";
 import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
@@ -84,7 +83,7 @@ export default function SignupScreen() {
         await clearPendingReferralCode();
       }
 
-      router.replace(getRoleOnboardingRoute(selectedRole!) as any);
+      router.replace("/auth/verify-contact");
     } catch (error: any) {
       Alert.alert(t("auth.signupFailedTitle"), error.message || t("auth.signupFailed"));
     } finally {

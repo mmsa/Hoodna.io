@@ -10,6 +10,7 @@ import {
   canAccessVerificationUpload,
   isVerifiedForCurrentCompound,
   isPlatformStaff,
+  needsContactVerification,
 } from '@/lib/resident-routing'
 
 interface RoleGuardProps {
@@ -23,6 +24,7 @@ const PUBLIC_ROUTES = [
   '/auth/reset-password',
   '/auth/phone-login',
   '/auth/otp-verify',
+  '/auth/verify-contact',
   '/',
   '/features',
 ]
@@ -71,6 +73,15 @@ export function RoleGuard({ children }: RoleGuardProps) {
         return
       }
       router.replace('/profile')
+      return
+    }
+
+    // Password signup: require phone (+ email if provided) OTP before onboarding.
+    if (needsContactVerification(user)) {
+      if (pathname.startsWith('/auth/verify-contact') || pathname.startsWith('/auth/login')) {
+        return
+      }
+      router.replace('/auth/verify-contact')
       return
     }
 

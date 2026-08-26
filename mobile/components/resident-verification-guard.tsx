@@ -7,6 +7,7 @@ import {
   isPlatformStaff,
   isResidentRole,
   isVerifiedForCurrentCompound,
+  needsContactVerification,
 } from "@/lib/resident-routing";
 
 const PUBLIC_PREFIXES = ["/auth", "/features"];
@@ -28,8 +29,19 @@ export function ResidentVerificationGuard() {
 
   useEffect(() => {
     if (loading || !user || !pathname) return;
-    // Platform staff browse freely (synced with web RoleGuard)
     if (isPlatformStaff(user.role)) return;
+
+    if (needsContactVerification(user)) {
+      if (
+        pathname.startsWith("/auth/verify-contact") ||
+        pathname.startsWith("/auth/login")
+      ) {
+        return;
+      }
+      router.replace("/auth/verify-contact");
+      return;
+    }
+
     if (!isResidentRole(user.role)) return;
     if (user.status === "APPROVED" && isVerifiedForCurrentCompound(user)) return;
 

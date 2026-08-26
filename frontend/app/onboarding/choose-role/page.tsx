@@ -11,7 +11,7 @@ import { Building2, Wrench, Shield, ArrowRight } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
-import { getPostAuthWebRoute } from '@/lib/resident-routing'
+import { getPostAuthWebRoute, needsContactVerification } from '@/lib/resident-routing'
 import { SignOutButton } from '@/components/sign-out-button'
 
 // Prevent SSR from crashing when global location is unavailable during prerender
@@ -25,9 +25,14 @@ export default function ChooseRolePage() {
   const queryClient = useQueryClient()
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
 
-  // Redirect if user already has a role
+  // Contact verification first; only skip this page when role is already set
   useEffect(() => {
-    if (!userLoading && user && user.role) {
+    if (userLoading || !user) return
+    if (needsContactVerification(user)) {
+      router.replace('/auth/verify-contact')
+      return
+    }
+    if (user.role) {
       router.replace(getPostAuthWebRoute(user))
     }
   }, [user, userLoading, router])

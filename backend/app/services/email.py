@@ -153,6 +153,35 @@ def send_password_reset_email(email: str, reset_link: str) -> bool:
     return False
 
 
+def send_email_verification_email(email: str, code: str) -> bool:
+    """Send a 6-digit email verification code via Resend, SES, or SMTP."""
+    subject = "Verify your eljiran.io email"
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #158074;">Verify your email</h2>
+        <p>Your eljiran verification code is:</p>
+        <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">{code}</p>
+        <p>This code expires in 10 minutes.</p>
+      </div>
+    </body>
+    </html>
+    """
+    text_body = (
+        "Verify your eljiran.io email\n\n"
+        f"Your verification code is: {code}\n\n"
+        "This code expires in 10 minutes.\n"
+    )
+    for sender in (_send_via_resend, _send_via_ses, _send_via_smtp):
+        if sender(email, subject, html_body, text_body):
+            return True
+    logger.warning("All email providers failed. Email verify code for %s: %s", email, code)
+    return False
+
+
 def send_password_reset_confirmation_email(email: str) -> bool:
     """Send password reset confirmation email."""
     subject = "Your Password Has Been Reset"

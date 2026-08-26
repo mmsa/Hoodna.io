@@ -39,6 +39,9 @@ class UserResponse(BaseModel):
     verified_compound_ids: Optional[List[int]] = None
     is_verified_for_current_compound: Optional[bool] = None
     needs_profile_setup: Optional[bool] = None
+    phone_verified: Optional[bool] = None
+    email_verified: Optional[bool] = None
+    needs_contact_verification: Optional[bool] = None
     creation_source: Optional[str] = None
     needs_imported_content_choice: Optional[bool] = None
     imported_content_choice: Optional[str] = None

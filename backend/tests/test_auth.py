@@ -33,6 +33,69 @@ async def test_signup_success(async_client: AsyncClient, db_session):
     assert "refresh_token" in data
     assert data["user"]["email"] == "newuser@example.com"
     assert data["user"]["role"] == "USER"
+    assert data["user"]["phone_verified"] is False
+    assert data["user"]["email_verified"] is False
+    assert data["user"]["needs_contact_verification"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_signup_without_role_leaves_role_null(async_client: AsyncClient):
+    """Web signup omits role until choose-role; must not default to RESIDENT."""
+    response = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "No Role User",
+            "phone": "+201111111111",
+            "password": "password123",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["user"]["role"] is None
+    assert data["user"]["phone_verified"] is False
+    assert data["user"]["email_verified"] is True  # placeholder email
+    assert data["user"]["needs_contact_verification"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_confirm_phone_otp_after_signup(async_client: AsyncClient):
+    """Contact OTP gate: confirm-phone clears needs_contact_verification."""
+    from app.api.auth import otp_storage
+    from app.utils.phone import normalize_phone
+
+    phone = "+201222222222"
+    signup = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "OTP User",
+            "phone": phone,
+            "password": "password123",
+        },
+    )
+    assert signup.status_code == 201
+    token = signup.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    normalized = normalize_phone(phone)
+    assert normalized in otp_storage
+    code = otp_storage[normalized]["otp"]
+
+    me_before = await async_client.get("/api/auth/me", headers=headers)
+    assert me_before.json()["needs_contact_verification"] is True
+
+    confirm = await async_client.post(
+        "/api/auth/confirm-phone",
+        headers=headers,
+        json={"otp_code": code},
+    )
+    assert confirm.status_code == 200
+    assert confirm.json()["phone_verified"] is True
+
+    me_after = await async_client.get("/api/auth/me", headers=headers)
+    assert me_after.json()["phone_verified"] is True
+    assert me_after.json()["needs_contact_verification"] is False
 
 
 @pytest.mark.asyncio
@@ -233,10 +296,12 @@ async def test_user_can_upload_profile_picture(
         json={
             "name": "Avatar User",
             "email": "avatar@example.com",
+            "phone": "+201555555555",
             "password": "password123",
             "role": "RESIDENT",
         },
     )
+    assert signup.status_code == 201
     token = signup.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -284,6 +349,7 @@ async def test_signup_rejects_privileged_roles(async_client: AsyncClient):
             json={
                 "name": f"Bad {role}",
                 "email": f"bad-{role.lower()}@example.com",
+                "phone": f"+20100000{len(role):04d}",
                 "password": "password123",
                 "role": role,
             },
@@ -305,6 +371,7 @@ async def test_local_upload_rejects_foreign_profile_path(
         json={
             "name": "Upload User",
             "email": "upload@example.com",
+            "phone": "+201333333333",
             "password": "password123",
             "role": "RESIDENT",
         },

@@ -98,10 +98,26 @@ export function isVerificationRejected(
   );
 }
 
+/** Phone OTP (+ email OTP when a real email was provided) still required. */
+export function needsContactVerification(user: {
+  needs_contact_verification?: boolean | null;
+  phone_verified?: boolean | null;
+  email_verified?: boolean | null;
+}): boolean {
+  if (user.needs_contact_verification === true) return true;
+  if (user.needs_contact_verification === false) return false;
+  if (user.phone_verified === false) return true;
+  if (user.email_verified === false) return true;
+  return false;
+}
+
 /** Post-auth destination for any logged-in user. */
 export function getPostAuthRoute(user: User): string {
   if (user.needs_profile_setup) {
     return "/(tabs)/profile";
+  }
+  if (needsContactVerification(user)) {
+    return "/auth/verify-contact";
   }
   if (!user.role) {
     return "/onboarding/choose-role";

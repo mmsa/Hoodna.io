@@ -80,6 +80,19 @@ export function isResidentRole(role: string | null | undefined): boolean {
   return role === 'RESIDENT' || role === 'USER'
 }
 
+/** Phone OTP (+ email OTP when a real email was provided) still required. */
+export function needsContactVerification(user: {
+  needs_contact_verification?: boolean | null
+  phone_verified?: boolean | null
+  email_verified?: boolean | null
+}): boolean {
+  if (user.needs_contact_verification === true) return true
+  if (user.needs_contact_verification === false) return false
+  if (user.phone_verified === false) return true
+  if (user.email_verified === false) return true
+  return false
+}
+
 export function getPostAuthWebRoute(user: {
   role?: string | null
   status?: string | null
@@ -88,9 +101,15 @@ export function getPostAuthWebRoute(user: {
   verified_compound_ids?: number[] | null
   is_verified_for_current_compound?: boolean | null
   needs_profile_setup?: boolean | null
+  needs_contact_verification?: boolean | null
+  phone_verified?: boolean | null
+  email_verified?: boolean | null
 }): string {
   if (user.needs_profile_setup) {
     return '/profile'
+  }
+  if (needsContactVerification(user)) {
+    return '/auth/verify-contact'
   }
   if (!user.role) {
     return '/onboarding/choose-role'

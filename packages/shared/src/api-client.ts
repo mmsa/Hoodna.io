@@ -198,6 +198,31 @@ export class ApiClient {
     });
   }
 
+  async confirmPhoneOtp(data: { otp_code: string }): Promise<{ message: string; phone_verified: boolean }> {
+    return this.request("/api/auth/confirm-phone", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async confirmEmailOtp(data: { otp_code: string }): Promise<{ message: string; email_verified: boolean }> {
+    return this.request("/api/auth/confirm-email", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resendContactOtp(): Promise<{
+    phone_sent: boolean;
+    email_sent: boolean;
+    dev_phone_otp?: string;
+    dev_email_otp?: string;
+  }> {
+    return this.request("/api/auth/resend-contact-otp", {
+      method: "POST",
+    });
+  }
+
   async getMe(): Promise<User> {
     return this.request<User>("/api/auth/me");
   }

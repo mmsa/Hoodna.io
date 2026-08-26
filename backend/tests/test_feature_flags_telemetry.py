@@ -138,6 +138,7 @@ async def test_registration_flag_is_enforced(db_session, monkeypatch):
             json={
                 "name": "Closed Registration",
                 "email": "closed@example.com",
+                "phone": "+201444444444",
                 "password": "password123",
                 "role": "USER",
             },

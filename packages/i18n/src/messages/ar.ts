@@ -137,6 +137,12 @@ export const ar: MessageTree = {
     otpVerifyFailed: "رمز غير صالح أو منتهٍ. يرجى المحاولة مرة أخرى.",
     passwordResetSuccess: "تم تحديث كلمة المرور. يمكنك تسجيل الدخول الآن.",
     passwordResetFailed: "تعذر إعادة تعيين كلمة المرور. يرجى المحاولة مرة أخرى.",
+    verifyContactTitle: "تحقق من بيانات التواصل",
+    verifyContactSubtitle: "أدخل الرمز الذي أرسلناه قبل المتابعة.",
+    verifyPhone: "تحقق من الهاتف",
+    verifyEmail: "تحقق من البريد",
+    verifying: "جارٍ التحقق…",
+    phoneVerified: "تم التحقق من الهاتف",
   },
   feed: {
     composerPrompt: "ماذا يحدث في حيك؟",

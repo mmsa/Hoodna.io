@@ -135,6 +135,12 @@ export const en = {
     otpVerifyFailed: "Invalid or expired code. Please try again.",
     passwordResetSuccess: "Password updated. You can sign in now.",
     passwordResetFailed: "Failed to reset password. Please try again.",
+    verifyContactTitle: "Verify your contact details",
+    verifyContactSubtitle: "Enter the code we sent before continuing.",
+    verifyPhone: "Verify phone",
+    verifyEmail: "Verify email",
+    verifying: "Verifying…",
+    phoneVerified: "Phone verified",
   },
   feed: {
     composerPrompt: "What's happening in your neighbourhood?",
