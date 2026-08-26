@@ -17,6 +17,9 @@ const ALLOWED_WHILE_PENDING = [
   "/verification-pending",
   "/onboarding/compound-select",
   "/onboarding/choose-role",
+  "/settings",
+  "/(tabs)/profile",
+  "/profile",
 ];
 
 /**

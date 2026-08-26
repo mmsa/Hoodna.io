@@ -136,6 +136,8 @@ export function RoleGuard({ children }: RoleGuardProps) {
         '/verification/pending',
         '/onboarding/compound-select',
         '/onboarding/choose-role',
+        '/settings',
+        '/profile',
         '/auth',
       ]
       if (allowedWhilePending.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
