@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "expo-router";
 import { colors } from "@/constants/colors";
 import { openFileUrl } from "@/lib/file-url";
 import { UserManagement } from "@/components/admin/user-management";
@@ -200,7 +201,8 @@ function AdminActionButton({
 }
 
 export default function AdminDashboardScreen() {
-  const { user, apiClient } = useAuth();
+  const { user, apiClient, logout } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>("users");
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [searchQuery, setSearchQuery] = useState("");
@@ -367,10 +369,24 @@ export default function AdminDashboardScreen() {
     }, targetId);
   }
 
+  function confirmLogout() {
+    Alert.alert("Log out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          router.replace("/auth");
+        },
+      },
+    ]);
+  }
+
   if (user?.role !== "ADMIN") {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-        <Header showLogo={true} showBackButton={true} title="Admin Dashboard" />
+        <Header showLogo={true} title="Admin Dashboard" />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
           <Ionicons name="lock-closed-outline" size={38} color={colors.textMuted} />
           <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textMain, marginTop: 14, marginBottom: 8 }}>
@@ -388,7 +404,7 @@ export default function AdminDashboardScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
-      <Header showLogo={true} showBackButton={true} title="Admin Dashboard" />
+      <Header showLogo={true} title="Admin Dashboard" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -419,6 +435,27 @@ export default function AdminDashboardScreen() {
             <Text style={{ fontSize: 14, lineHeight: 21, color: colors.textMuted }}>
               Manage users, verifications, service providers, and moderators — same capabilities as the web admin.
             </Text>
+            <TouchableOpacity
+              onPress={confirmLogout}
+              activeOpacity={0.82}
+              accessibilityRole="button"
+              accessibilityLabel="Log out"
+              style={{
+                marginTop: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingVertical: 12,
+                backgroundColor: colors.gray50,
+              }}
+            >
+              <Ionicons name="log-out-outline" size={18} color={colors.error} />
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.error }}>Log out</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>

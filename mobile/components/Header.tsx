@@ -36,7 +36,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function Header({ title, showLogo = true, showBackButton = false, rightAction }: HeaderProps) {
   const router = useRouter();
-  const { user, apiClient, refreshUser } = useAuth();
+  const { user, apiClient, refreshUser, logout } = useAuth();
   const { activeCompoundId, isSwitching, switchCompound } = useCompound();
   const [compound, setCompound] = useState<Compound | null>(null);
   const [showCompoundSwitcher, setShowCompoundSwitcher] = useState(false);
@@ -218,6 +218,29 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         )}
 
         <View style={styles.actionsSection}>
+          {(user?.role === "ADMIN" || user?.role === "MODERATOR") ? (
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => {
+                Alert.alert("Log out", "Are you sure you want to log out?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Log out",
+                    style: "destructive",
+                    onPress: async () => {
+                      await logout();
+                      router.replace("/auth");
+                    },
+                  },
+                ]);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Log out"
+            >
+              <Ionicons name="log-out-outline" size={22} color={palette.onPrimary} />
+            </TouchableOpacity>
+          ) : null}
           {/* Search Button */}
           <TouchableOpacity
             style={styles.searchButton}

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, Image } from "react-native";
+import { View, ActivityIndicator, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { getPostAuthRoute } from "@/lib/resident-routing";
 
 export default function SplashScreen() {
@@ -33,13 +34,15 @@ export default function SplashScreen() {
       <Image
         source={require("@/assets/icon.png")}
         style={{
-          width: 200,
-          height: 80,
-          marginBottom: 16,
-          resizeMode: 'contain',
+          width: 88,
+          height: 88,
+          marginBottom: 12,
+          resizeMode: "contain",
+          borderRadius: 20,
         }}
       />
-      <ActivityIndicator size="large" color="#158074" />
+      <BrandWordmark compact tone="dark" />
+      <ActivityIndicator size="large" color="#158074" style={{ marginTop: 20 }} />
     </View>
   );
 }
