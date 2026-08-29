@@ -28,6 +28,7 @@ class ChatImportItemResponse(BaseModel):
     job_id: int
     kind: ChatImportItemKind
     decision: ChatImportItemDecision
+    # Omit heavy raw_payload from default API responses (OOM risk on large imports)
     raw_payload: dict[str, Any] = Field(default_factory=dict)
     normalized: dict[str, Any] = Field(default_factory=dict)
     matched_user_id: Optional[int] = None
@@ -54,10 +55,19 @@ class ChatImportJobResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
+    # Always empty on job endpoints — use GET .../items for pages
     items: list[ChatImportItemResponse] = Field(default_factory=list)
+    item_count: int = 0
 
     class Config:
         from_attributes = True
+
+
+class ChatImportItemsPage(BaseModel):
+    items: list[ChatImportItemResponse]
+    total: int
+    skip: int
+    limit: int
 
 
 class ChatImportJobListItem(BaseModel):

@@ -21,7 +21,9 @@ from app.models.enums import (
 from app.models.moderation import AuditLog
 from app.models.user import User
 from app.schemas.chat_import import (
+    ChatImportItemsPage,
     ChatImportItemsPatchRequest,
+    ChatImportItemResponse,
     ChatImportJobListItem,
     ChatImportJobResponse,
     ChatImportPublishResponse,
@@ -29,7 +31,9 @@ from app.schemas.chat_import import (
 from app.services.chat_import_parser import detect_and_parse_bytes, summarize_parsed
 from app.services.chat_import_classify import enrich_import_items_with_llm
 from app.services.chat_import_publish import (
-    get_job_with_items,
+    count_job_items,
+    get_job,
+    list_job_items,
     publish_chat_import_job,
     replace_job_items_from_parse,
 )
@@ -41,8 +45,37 @@ CHAT_IMPORT_DIR = LOCAL_STORAGE_DIR / "chat-imports"
 CHAT_IMPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _job_response(job: ChatImportJob) -> ChatImportJobResponse:
-    return ChatImportJobResponse.model_validate(job)
+async def _job_response(db: AsyncSession, job: ChatImportJob) -> ChatImportJobResponse:
+    """Serialize job metadata only — never embed tens of thousands of items."""
+    item_count = await count_job_items(db, job.id)
+    # Prefer stats total when present (faster path after parse)
+    stats = job.stats or {}
+    if isinstance(stats.get("items_total"), int):
+        item_count = max(item_count, stats["items_total"])
+    elif isinstance(stats.get("total_messages"), int):
+        item_count = max(item_count, stats["total_messages"])
+    data = ChatImportJobResponse.model_validate(job)
+    data.items = []
+    data.item_count = item_count
+    return data
+
+
+def _item_response(item) -> ChatImportItemResponse:
+    """Drop raw_payload to keep list pages small."""
+    return ChatImportItemResponse(
+        id=item.id,
+        job_id=item.job_id,
+        kind=item.kind,
+        decision=item.decision,
+        raw_payload={},
+        normalized=item.normalized or {},
+        matched_user_id=item.matched_user_id,
+        published_entity_type=item.published_entity_type,
+        published_entity_id=item.published_entity_id,
+        reject_reason=item.reject_reason,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 @router.get("/chat-imports", response_model=list[ChatImportJobListItem])
@@ -107,8 +140,8 @@ async def create_chat_import(
         )
     )
     await db.commit()
-    job = await get_job_with_items(db, job.id)
-    return _job_response(job)
+    job = await get_job(db, job.id)
+    return await _job_response(db, job)
 
 
 @router.get("/chat-imports/{job_id}", response_model=ChatImportJobResponse)
@@ -117,10 +150,35 @@ async def get_chat_import(
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await get_job_with_items(db, job_id)
+    job = await get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
-    return _job_response(job)
+    return await _job_response(db, job)
+
+
+@router.get("/chat-imports/{job_id}/items", response_model=ChatImportItemsPage)
+async def get_chat_import_items(
+    job_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    kind: ChatImportItemKind | None = None,
+    decision: ChatImportItemDecision | None = None,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    job = await get_job(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Import job not found")
+    total = await count_job_items(db, job_id, kind=kind, decision=decision)
+    items = await list_job_items(
+        db, job_id, skip=skip, limit=limit, kind=kind, decision=decision
+    )
+    return ChatImportItemsPage(
+        items=[_item_response(i) for i in items],
+        total=total,
+        skip=max(0, skip),
+        limit=max(1, min(limit, 100)),
+    )
 
 
 @router.post("/chat-imports/{job_id}/parse", response_model=ChatImportJobResponse)
@@ -129,7 +187,7 @@ async def parse_chat_import(
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await get_job_with_items(db, job_id)
+    job = await get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
     if not job.storage_path or not Path(job.storage_path).exists():
@@ -152,8 +210,9 @@ async def parse_chat_import(
         llm_stats = await enrich_import_items_with_llm(parsed.items)
         stats = summarize_parsed(parsed)
         stats.update(llm_stats)
+        stats["items_total"] = len(parsed.users) + len(parsed.items)
 
-        job = await get_job_with_items(db, job_id)
+        job = await get_job(db, job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Import job not found")
         await replace_job_items_from_parse(
@@ -171,15 +230,15 @@ async def parse_chat_import(
         await db.commit()
     except Exception as exc:  # noqa: BLE001
         await db.rollback()
-        job = await get_job_with_items(db, job_id)
+        job = await get_job(db, job_id)
         if job:
             job.status = ChatImportJobStatus.FAILED
             job.error_message = str(exc)[:1000]
             await db.commit()
         raise HTTPException(status_code=400, detail=f"Parse failed: {exc}") from exc
 
-    job = await get_job_with_items(db, job_id)
-    return _job_response(job)
+    job = await get_job(db, job_id)
+    return await _job_response(db, job)
 
 
 @router.patch("/chat-imports/{job_id}/items", response_model=ChatImportJobResponse)
@@ -189,7 +248,9 @@ async def patch_chat_import_items(
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await get_job_with_items(db, job_id)
+    from app.models.chat_import import ChatImportItem
+
+    job = await get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
     if job.status not in (
@@ -199,7 +260,17 @@ async def patch_chat_import_items(
     ):
         raise HTTPException(status_code=400, detail="Job is not editable in current status")
 
-    by_id = {item.id: item for item in job.items}
+    update_ids = [u.id for u in body.items]
+    if not update_ids:
+        return await _job_response(db, job)
+
+    result = await db.execute(
+        select(ChatImportItem).where(
+            ChatImportItem.job_id == job_id,
+            ChatImportItem.id.in_(update_ids),
+        )
+    )
+    by_id = {item.id: item for item in result.scalars().all()}
     for update in body.items:
         item = by_id.get(update.id)
         if not item:
@@ -223,8 +294,8 @@ async def patch_chat_import_items(
             item.normalized = ensure_listing_normalized(item.normalized)
 
     await db.commit()
-    job = await get_job_with_items(db, job_id)
-    return _job_response(job)
+    job = await get_job(db, job_id)
+    return await _job_response(db, job)
 
 
 @router.post("/chat-imports/{job_id}/publish", response_model=ChatImportPublishResponse)
@@ -233,25 +304,16 @@ async def publish_chat_import(
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await get_job_with_items(db, job_id)
+    job = await get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
     if job.status not in (ChatImportJobStatus.PREVIEW, ChatImportJobStatus.COMPLETED):
         raise HTTPException(status_code=400, detail="Job must be in PREVIEW before publish")
 
-    approved = [
-        item
-        for item in job.items
-        if item.decision == ChatImportItemDecision.APPROVED
-        and item.kind
-        in (
-            ChatImportItemKind.USER,
-            ChatImportItemKind.POST,
-            ChatImportItemKind.COMMENT,
-            ChatImportItemKind.LISTING,
-        )
-    ]
-    if not approved:
+    approved_count = await count_job_items(
+        db, job_id, decision=ChatImportItemDecision.APPROVED
+    )
+    if approved_count == 0:
         raise HTTPException(status_code=400, detail="No approved items to publish")
 
     try:
@@ -259,14 +321,14 @@ async def publish_chat_import(
         await db.commit()
     except Exception as exc:  # noqa: BLE001
         await db.rollback()
-        job = await get_job_with_items(db, job_id)
+        job = await get_job(db, job_id)
         if job:
             job.status = ChatImportJobStatus.FAILED
             job.error_message = str(exc)[:1000]
             await db.commit()
         raise HTTPException(status_code=400, detail=f"Publish failed: {exc}") from exc
 
-    job = await get_job_with_items(db, job_id)
+    job = await get_job(db, job_id)
     return ChatImportPublishResponse(
         job_id=job.id,
         status=job.status,
@@ -280,27 +342,26 @@ async def delete_chat_import(
     current_user: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    job = await get_job_with_items(db, job_id)
+    job = await get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
     if job.status == ChatImportJobStatus.PUBLISHING:
         raise HTTPException(status_code=400, detail="Cannot delete while publishing")
 
-    storage_path = job.storage_path
-    await db.delete(job)
+    if job.storage_path:
+        job_dir = Path(job.storage_path).parent
+        if job_dir.exists() and job_dir.is_dir():
+            shutil.rmtree(job_dir, ignore_errors=True)
+
     db.add(
         AuditLog(
             actor_id=current_user.id,
             event_type="chat_import.delete",
             entity_type="CHAT_IMPORT_JOB",
-            entity_id=str(job_id),
-            data={},
+            entity_id=str(job.id),
+            data={"compound_id": job.compound_id},
         )
     )
+    await db.delete(job)
     await db.commit()
-
-    if storage_path:
-        job_dir = Path(storage_path).parent
-        if job_dir.exists() and job_dir.parent == CHAT_IMPORT_DIR:
-            shutil.rmtree(job_dir, ignore_errors=True)
     return None

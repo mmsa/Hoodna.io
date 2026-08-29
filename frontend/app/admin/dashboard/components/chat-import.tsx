@@ -48,8 +48,16 @@ interface ImportJob {
   original_filename?: string | null
   stats?: Record<string, unknown>
   error_message?: string | null
-  items: ImportItem[]
+  items?: ImportItem[]
+  item_count?: number
   created_at: string
+}
+
+interface ItemsPage {
+  items: ImportItem[]
+  total: number
+  skip: number
+  limit: number
 }
 
 interface JobListItem {
@@ -62,6 +70,8 @@ interface JobListItem {
   created_at: string
 }
 
+const PAGE_SIZE = 50
+
 export default function ChatImportPanel() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -70,6 +80,7 @@ export default function ChatImportPanel() {
   const [file, setFile] = useState<File | null>(null)
   const [activeJobId, setActiveJobId] = useState<number | null>(null)
   const [kindFilter, setKindFilter] = useState<'ALL' | ItemKind>('ALL')
+  const [itemPage, setItemPage] = useState(0)
 
   const { data: compoundsData } = useQuery({
     queryKey: ['admin-compounds-chat-import'],
@@ -101,6 +112,18 @@ export default function ChatImportPanel() {
         : false,
   })
 
+  const kindParam = kindFilter === 'ALL' ? '' : `&kind=${kindFilter}`
+  const { data: itemsPage, isLoading: itemsLoading } = useQuery({
+    queryKey: ['admin-chat-import-items', activeJobId, kindFilter, itemPage],
+    queryFn: async () => {
+      const response = await api.get(
+        `/api/admin/chat-imports/${activeJobId}/items?skip=${itemPage * PAGE_SIZE}&limit=${PAGE_SIZE}${kindParam}`,
+      )
+      return response.data as ItemsPage
+    },
+    enabled: !!activeJobId && !!job && job.status !== 'PARSING' && job.status !== 'UPLOADED',
+  })
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!compoundId || !file) throw new Error('Pick a compound and file')
@@ -115,6 +138,7 @@ export default function ChatImportPanel() {
     },
     onSuccess: (created) => {
       setActiveJobId(created.id)
+      setItemPage(0)
       setFile(null)
       queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
       toast({ title: 'Upload saved', description: `Job #${created.id} ready to parse.` })
@@ -131,13 +155,15 @@ export default function ChatImportPanel() {
   const parseMutation = useMutation({
     mutationFn: async (jobId: number) => {
       const response = await api.post(`/api/admin/chat-imports/${jobId}/parse`, null, {
-        // Large WhatsApp exports + optional LLM can take a while
-        timeout: 180_000,
+        // Large Telegram/WhatsApp exports + optional LLM can take a while
+        timeout: 600_000,
       })
       return response.data as ImportJob
     },
     onSuccess: () => {
+      setItemPage(0)
       queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import-items'] })
       queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
       toast({ title: 'Parsed', description: 'Review items before publishing.' })
     },
@@ -159,17 +185,21 @@ export default function ChatImportPanel() {
       return response.data as ImportJob
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import-items', activeJobId] })
       queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
     },
   })
 
   const publishMutation = useMutation({
     mutationFn: async (jobId: number) => {
-      const response = await api.post(`/api/admin/chat-imports/${jobId}/publish`)
+      const response = await api.post(`/api/admin/chat-imports/${jobId}/publish`, null, {
+        timeout: 600_000,
+      })
       return response.data
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-chat-import', activeJobId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-chat-import-items'] })
       queryClient.invalidateQueries({ queryKey: ['admin-chat-imports'] })
       toast({
         title: 'Published',
@@ -206,16 +236,13 @@ export default function ChatImportPanel() {
   }
 
   const visibleItems = useMemo(() => {
-    const items = job?.items || []
-    const filtered =
-      kindFilter === 'ALL' ? items : items.filter((item) => item.kind === kindFilter)
-
+    const items = itemsPage?.items || []
     // Parent post first, then its comments; other kinds keep relative order
-    const users = filtered.filter((i) => i.kind === 'USER')
-    const roots = filtered.filter((i) => i.kind === 'POST' || i.kind === 'LISTING')
-    const comments = filtered.filter((i) => i.kind === 'COMMENT')
-    const skips = filtered.filter((i) => i.kind === 'SKIP')
-    const other = filtered.filter(
+    const users = items.filter((i) => i.kind === 'USER')
+    const roots = items.filter((i) => i.kind === 'POST' || i.kind === 'LISTING')
+    const comments = items.filter((i) => i.kind === 'COMMENT')
+    const skips = items.filter((i) => i.kind === 'SKIP')
+    const other = items.filter(
       (i) => !['USER', 'POST', 'LISTING', 'COMMENT', 'SKIP'].includes(i.kind),
     )
 
@@ -230,7 +257,6 @@ export default function ChatImportPanel() {
         ordered.push(...children)
       }
     }
-    // Orphan comments (parent filtered out)
     const attached = new Set(
       ordered.filter((i) => i.kind === 'COMMENT').map((i) => i.id),
     )
@@ -239,7 +265,10 @@ export default function ChatImportPanel() {
     }
     ordered.push(...skips, ...other)
     return ordered
-  }, [job?.items, kindFilter])
+  }, [itemsPage?.items])
+
+  const totalItems = itemsPage?.total ?? job?.item_count ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE))
 
   const previewText = (item: ImportItem) => {
     const n = item.normalized || {}
@@ -345,7 +374,10 @@ export default function ChatImportPanel() {
                 <button
                   key={row.id}
                   type="button"
-                  onClick={() => setActiveJobId(row.id)}
+                  onClick={() => {
+                    setActiveJobId(row.id)
+                    setItemPage(0)
+                  }}
                   className={cn(
                     'w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                     activeJobId === row.id
@@ -371,6 +403,7 @@ export default function ChatImportPanel() {
             {job ? (
               <CardDescription>
                 Status: {job.status}
+                {typeof job.item_count === 'number' ? ` · ${job.item_count} items` : ''}
                 {job.error_message ? ` · ${job.error_message}` : ''}
                 {job.stats ? ` · ${JSON.stringify(job.stats)}` : ''}
               </CardDescription>
@@ -410,7 +443,13 @@ export default function ChatImportPanel() {
                   >
                     Discard
                   </Button>
-                  <Select value={kindFilter} onValueChange={(value) => setKindFilter(value as any)}>
+                  <Select
+                    value={kindFilter}
+                    onValueChange={(value) => {
+                      setKindFilter(value as any)
+                      setItemPage(0)
+                    }}
+                  >
                     <SelectTrigger className="w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -426,6 +465,11 @@ export default function ChatImportPanel() {
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border border-border">
+                  {itemsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
                   <table className="min-w-full text-sm">
                     <thead className="bg-muted/40 text-left">
                       <tr>
@@ -436,6 +480,13 @@ export default function ChatImportPanel() {
                       </tr>
                     </thead>
                     <tbody>
+                      {visibleItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
+                            No items on this page.
+                          </td>
+                        </tr>
+                      ) : null}
                       {visibleItems.map((item) => (
                         <tr key={item.id} className="border-t border-border align-top">
                           <td className="px-3 py-2">
@@ -524,10 +575,34 @@ export default function ChatImportPanel() {
                       ))}
                     </tbody>
                   </table>
-                  {visibleItems.length === 0 ? (
-                    <p className="p-4 text-sm text-muted-foreground">No items. Run Parse first.</p>
-                  ) : null}
+                  )}
                 </div>
+                {totalItems > 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <span>
+                      Showing {itemPage * PAGE_SIZE + 1}–
+                      {Math.min((itemPage + 1) * PAGE_SIZE, totalItems)} of {totalItems}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={itemPage <= 0 || itemsLoading}
+                        onClick={() => setItemPage((p) => Math.max(0, p - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={itemPage + 1 >= totalPages || itemsLoading}
+                        onClick={() => setItemPage((p) => p + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
           </CardContent>

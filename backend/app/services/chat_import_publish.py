@@ -478,13 +478,65 @@ async def replace_job_items_from_parse(
     await db.flush()
 
 
+async def get_job(db: AsyncSession, job_id: int) -> ChatImportJob | None:
+    """Load job metadata only — never pull 10k+ items into RAM."""
+    result = await db.execute(select(ChatImportJob).where(ChatImportJob.id == job_id))
+    return result.scalar_one_or_none()
+
+
 async def get_job_with_items(db: AsyncSession, job_id: int) -> ChatImportJob | None:
+    """Prefer get_job() + paginated items for API responses.
+
+    Kept for small jobs / tests. Avoid on large Telegram imports.
+    """
     result = await db.execute(
         select(ChatImportJob)
         .options(selectinload(ChatImportJob.items))
         .where(ChatImportJob.id == job_id)
     )
     return result.scalar_one_or_none()
+
+
+async def count_job_items(
+    db: AsyncSession,
+    job_id: int,
+    *,
+    kind: ChatImportItemKind | None = None,
+    decision: ChatImportItemDecision | None = None,
+) -> int:
+    from sqlalchemy import func
+
+    query = select(func.count()).select_from(ChatImportItem).where(
+        ChatImportItem.job_id == job_id
+    )
+    if kind is not None:
+        query = query.where(ChatImportItem.kind == kind)
+    if decision is not None:
+        query = query.where(ChatImportItem.decision == decision)
+    result = await db.execute(query)
+    return int(result.scalar_one() or 0)
+
+
+async def list_job_items(
+    db: AsyncSession,
+    job_id: int,
+    *,
+    skip: int = 0,
+    limit: int = 50,
+    kind: ChatImportItemKind | None = None,
+    decision: ChatImportItemDecision | None = None,
+) -> list[ChatImportItem]:
+    """Paginated items without loading an entire 40k import into memory."""
+    limit = max(1, min(limit, 100))
+    skip = max(0, skip)
+    query = select(ChatImportItem).where(ChatImportItem.job_id == job_id)
+    if kind is not None:
+        query = query.where(ChatImportItem.kind == kind)
+    if decision is not None:
+        query = query.where(ChatImportItem.decision == decision)
+    query = query.order_by(ChatImportItem.id).offset(skip).limit(limit)
+    result = await db.execute(query)
+    return list(result.scalars().all())
 
 
 async def confirm_chat_import_membership(
