@@ -30,33 +30,42 @@ WHATSAPP_LINE_RE = re.compile(
 # Buyer/wanted inquiries are NOT listings — they become community POSTs.
 STRONG_LISTING_RE = re.compile(
     r"("
-    r"\bfor\s+sale\b|\bi'?m\s+selling\b|\bselling\b|\bsell\s+my\b|"
+    r"\bfor\s+sale\b|\bi'?m\s+selling\b|\bwe(?:'re|\s+are)\s+selling\b|\bselling\b|\bsell\s+my\b|"
     r"\bavailable\s+for\s+(?:sale|rent)\b|\boffering\s+for\s+(?:sale|rent)\b|"
-    r"\bfor\s+rent\b|\brenting\s+(?:out\s+)?(?:my|a|an)\b|"
+    r"\brenting\s+(?:out\s+)?(?:my|a|an)\b|"
     r"looking\s+to\s+sell|"
-    r"للبيع|معروض\s*للبيع|هبيع|هابيع|بتباع|بتبيع|معروض\s*للإيجار|"
-    r"للإيجار|للايجار|للتأجير|للتاجير"
+    # Bare "for rent" is too noisy (often appears in wanted asks) — require offer framing
+    r"\b(?:studio|apartment|flat|villa|duplex|penthouse|room|unit)\s+for\s+rent\b|"
+    r"\bfor\s+rent\b.{0,40}\b(?:call|contact|whatsapp|available|monthly)\b|"
+    r"للبيع|معروض\s*للبيع|هبيع|هابيع|بتباع|بتبيع|معروض\s*(?:للإيجار|للايجار)|"
+    r"شقة\s+للإيجار|شقه\s+للإيجار|فيلا\s+للإيجار|"
+    r"(?:عندي|معايا|معى)\s+(?:شقة|شقه|فيلا|عربي|عربية|ايفون).{0,30}(?:للبيع|للإيجار|للايجار)"
     r")",
-    re.IGNORECASE,
+    re.IGNORECASE | re.DOTALL,
 )
 # "Looking for / anyone has / wants to buy" → Request post, never marketplace listing
 WANTED_INQUIRY_RE = re.compile(
     r"("
     r"\banyone\s+(?:has|have|knows?)\b|"
-    r"\bdoes\s+anyone\s+have\b|"
+    r"\bdoes\s+anyone\s+(?:has|have|know)\b|"
     r"\bif\s+anyone\s+has\b|"
     r"\blooking\s+(?:for|to\s+(?:buy|rent|find|lease))\b|"
     r"\bwant(?:s|ed)?\s+to\s+(?:buy|rent|lease)\b|"
     r"\bbuying\b|\bneed(?:s|ed)?\s+(?:to\s+)?(?:buy|rent)\b|"
     r"\bseeking\b|\bin\s+search\s+of\b|"
-    r"لو\s*حد\s*عند(?:ه|ها|كم)|"
+    r"\bbroker\b|\bagent\b|"
+    r"لو\s*حد\s*عند(?:ه|ها|كم)?|"
     r"فيه\s*حد\s*عند|"
-    r"عايز(?:ة)?\s*(?:يشتري|تشتري|أشتري|اشتري|يستأجر|تستأجر|أجار|ايجار)|"
-    r"عاوز(?:ة)?\s*(?:يشتري|تشتري|أشتري|اشتري|يستأجر|تستأجر)|"
+    r"حد\s*عند(?:ه|ها|كم)|"
+    r"حد\s*يعرف|"
+    r"مين\s*عند|"
+    r"عايز(?:ة)?\s*(?:يشتري|تشتري|أشتري|اشتري|يستأجر|تستأجر|أجار|ايجار|شقة|شقه)|"
+    r"عاوز(?:ة)?\s*(?:يشتري|تشتري|أشتري|اشتري|يستأجر|تستأجر|شقة|شقه)|"
     r"محتاج(?:ة)?\s*(?:شقة|شقه|فيلا|بيت|عربي|سيارة|ايجار|إيجار)|"
-    r"مطلوب\s*(?:شراء|ايجار|إيجار|للإيجار)|"
-    r"هشتري|هستأجر|عايز(?:ة)?\s*يستأجر|"
-    r"صديق(?:ي|تى|تي)?\s*(?:عايز|عاوز|محتاج)"
+    r"مطلوب\s*(?:شراء|ايجار|إيجار|للإيجار|شقة|شقه)|"
+    r"هشتري|هستأجر|"
+    r"صديق(?:ي|تى|تي)?\s*(?:عايز|عاوز|محتاج)|"
+    r"رقم\s*(?:سمسار|وسيط|broker)"
     r")",
     re.IGNORECASE,
 )
@@ -66,7 +75,9 @@ COMMUNITY_COST_RE = re.compile(
     r"street\s+fund|rain\s+drain|per\s+meter|مصاريف|تحصيل|صندوق|اشتراك|"
     r"ميزانية|الشارع|انترلوك|interlock|متر\s*الشارع|جنيه\s*/\s*متر|"
     r"لكل\s*متر|توريد\s+و\s*تركيب|تركيب\s+بال|"
-    r"كل\s+(?:عمارة|مبنى|بيت)\s+يدفع"
+    r"كل\s+(?:عمارة|مبنى|بيت)\s+يدفع|"
+    r"عداد|meter\s+fee|electric(?:ity)?\s+(?:bill|meter)|leak|ducts?|"
+    r"مياه|كهرباء|صيانه\s+العمارة|صيانة\s+العمارة"
     r")",
     re.IGNORECASE,
 )
@@ -79,12 +90,23 @@ SERVICE_RECOMMENDATION_RE = re.compile(
     r")",
     re.IGNORECASE,
 )
+# Advertising own services — keep tight (do NOT match "Yes I do")
 SERVICE_OFFER_RE = re.compile(
     r"("
-    r"\bi\s+(?:offer|provide|do)\b|\bavailable\s+for\s+(?:work|jobs)\b|"
+    r"\bi\s+(?:offer|provide)\b|\bavailable\s+for\s+(?:work|jobs)\b|"
+    r"\bmy\s+services?\b|\boffering\s+(?:services?|cleaning|maintenance)\b|"
     r"أقدم\s+خدمات|بقدم\s+(?:خدمة|خدمات)|متاح\s+ل(?:لعمل|لشغل)|"
     r"خدمات\s+(?:نظافة|صيانة|سباكة|كهرباء)"
     r")",
+    re.IGNORECASE,
+)
+# Short chat replies / thanks — never marketplace listings
+CHATTY_REPLY_RE = re.compile(
+    r"^(?:"
+    r"yes(?:\s+i\s+do)?|yeah|yep|ok(?:ay)?|sure|done|thanks?(?:\s+you)?|thx|"
+    r"please\s+send|plz\s+send|send\s+me|"
+    r"تمام|حاضر|ايوه|أيوه|ماشي|شكرا(?:ً|ا)?|من فضلك|لو سمحت"
+    r").{0,80}$",
     re.IGNORECASE,
 )
 SKIP_RE = re.compile(
@@ -246,14 +268,33 @@ def is_wanted_inquiry(text: str) -> bool:
         return True
     # Question + property words without a clear offer (e.g. "Anyone … for rent?")
     if ("?" in cleaned or "؟" in cleaned) and re.search(
-        r"\b(?:rent|sale|apartment|penthouse|villa|duplex|studio|flat|شقة|شقه|فيلا)\b",
+        r"(?:rent|sale|apartment|penthouse|villa|duplex|studio|flat|شقة|شقه|فيلا|للإيجار|للايجار|للبيع)",
         cleaned,
         re.IGNORECASE,
     ):
         if re.search(
-            r"\b(?:anyone|anybody|someone|حد|مين)\b", cleaned, re.IGNORECASE
+            r"(?:anyone|anybody|someone|حد|مين|يعرف)", cleaned, re.IGNORECASE
         ):
             return True
+    return False
+
+
+def is_listing_offer(text: str) -> bool:
+    """True only when the sender is clearly offering something for sale/rent."""
+    cleaned = (text or "").strip()
+    if len(cleaned) < 12:
+        return False
+    if CHATTY_REPLY_RE.match(cleaned):
+        return False
+    if is_wanted_inquiry(cleaned):
+        return False
+    # Utility / building / leak talk with prices is not a marketplace listing
+    if COMMUNITY_COST_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
+        return False
+    if STRONG_LISTING_RE.search(cleaned):
+        return True
+    if SERVICE_OFFER_RE.search(cleaned):
+        return True
     return False
 
 
@@ -272,19 +313,18 @@ def classify_message(text: str) -> ChatImportItemKind:
         return ChatImportItemKind.POST
 
     # Service asks / recommendations → community post
-    if SERVICE_RECOMMENDATION_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
+    if SERVICE_RECOMMENDATION_RE.search(cleaned):
         return ChatImportItemKind.POST
 
     # Buyer / "anyone have X?" enquiries → Request posts, never listings
     if is_wanted_inquiry(cleaned):
         return ChatImportItemKind.POST
 
-    # Explicit personal offer to sell/rent goods or property
-    if STRONG_LISTING_RE.search(cleaned):
-        return ChatImportItemKind.LISTING
+    if CHATTY_REPLY_RE.match(cleaned):
+        return ChatImportItemKind.POST
 
-    # Someone advertising their own services (marketplace-ish)
-    if SERVICE_OFFER_RE.search(cleaned):
+    # Explicit personal offer to sell/rent / advertise own services
+    if is_listing_offer(cleaned):
         return ChatImportItemKind.LISTING
 
     return ChatImportItemKind.POST

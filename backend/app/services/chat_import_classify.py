@@ -209,6 +209,7 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
     from app.services.chat_import_parser import (
         ensure_listing_normalized,
         infer_post_category,
+        is_listing_offer,
         is_wanted_inquiry,
         rethread_items,
         skip_reason,
@@ -285,15 +286,16 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
             else:
                 item["decision"] = "APPROVED"
                 item["reject_reason"] = None
-            # Safety: demote buyer/wanted enquiries the model mistagged as LISTING
+            # Safety: demote anything that is not a clear seller/landlord offer
             content = str(normalized.get("content") or "")
-            if kind == ChatImportItemKind.LISTING.value and is_wanted_inquiry(content):
+            if kind == ChatImportItemKind.LISTING.value and not is_listing_offer(content):
                 kind = ChatImportItemKind.POST.value
                 item["kind"] = kind
                 classification = {
                     **classification,
                     "kind": kind,
-                    "post_category": "HELP",
+                    "post_category": classification.get("post_category")
+                    or ("HELP" if is_wanted_inquiry(content) else "GENERAL"),
                 }
 
             if kind == ChatImportItemKind.LISTING.value:
@@ -339,13 +341,13 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
             )
             item["normalized"] = normalized
 
-    # Final guard: never leave buyer/wanted enquiries as LISTING (regex or LLM)
+    # Final guard: LISTING only for clear offers (regex or LLM mistags otherwise)
     demoted = 0
     for item in items:
         if item.get("kind") != ChatImportItemKind.LISTING.value:
             continue
         content = str((item.get("normalized") or {}).get("content") or "")
-        if not is_wanted_inquiry(content):
+        if is_listing_offer(content):
             continue
         item["kind"] = ChatImportItemKind.POST.value
         item["decision"] = "APPROVED"
@@ -353,10 +355,12 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
         normalized = dict(item.get("normalized") or {})
         for key in ("title", "intent", "category", "price", "currency"):
             normalized.pop(key, None)
-        normalized["post_category"] = "HELP"
+        normalized["post_category"] = (
+            "HELP" if is_wanted_inquiry(content) else infer_post_category(content)
+        )
         item["normalized"] = normalized
         demoted += 1
-    stats["wanted_demoted_to_post"] = demoted
+    stats["non_offer_demoted_to_post"] = demoted
 
     rethread_items(items)
     return stats

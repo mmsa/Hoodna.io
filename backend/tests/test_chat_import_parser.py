@@ -138,10 +138,33 @@ def test_classify_message():
         == ChatImportItemKind.POST
     )
     assert (
+        classify_message(
+            "صباح الخير حد عنده شقة ارضي بجنينه للإيجار او حد يعرف حد ممكن يأجرها"
+        )
+        == ChatImportItemKind.POST
+    )
+    assert (
+        classify_message(
+            "حد يعرف شقة ارضي بجنينه للبيع او رقم سمسار كويس"
+        )
+        == ChatImportItemKind.POST
+    )
+    assert (
         classify_message("What if i already paid the money long time ago?")
         == ChatImportItemKind.POST
     )
     assert classify_message("looking to buy a 3 bedroom apartment") == ChatImportItemKind.POST
+    assert classify_message("Yes I do plz send me ur email") == ChatImportItemKind.POST
+    assert (
+        classify_message(
+            "im not using the bathroom, as soon as i do, the ducts leak all over the place"
+        )
+        == ChatImportItemKind.POST
+    )
+    assert (
+        classify_message("كلمنا و دفعنا ١٠ آلاف جنيه ثمن العداد")
+        == ChatImportItemKind.POST
+    )
 
 
 def test_infer_post_category():
