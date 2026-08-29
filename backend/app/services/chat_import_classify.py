@@ -22,17 +22,21 @@ logger = logging.getLogger(__name__)
 
 CLASSIFY_MODEL = "gpt-4o-mini"
 BATCH_SIZE = 25
-# Ambiguous messages only — raised so large Telegram exports get better coverage
-MAX_LLM_CANDIDATES = 200
+# Ambiguous / commercial messages go to the model (regex only routes)
+MAX_LLM_CANDIDATES = 400
 BATCH_TIMEOUT_SECONDS = 35.0
+
+# Listings older than this are skipped (stale marketplace noise)
+LISTING_MAX_AGE_DAYS = 183  # ~6 months
 
 Confidence = Literal["high", "low"]
 
-# Signals that mean "not sure from regex alone — ask the small model"
+# Anything commercial / property-ish → ask the small model (not static regex)
 AMBIGUOUS_RE = re.compile(
     r"("
     r"for\s+sale|sell(?:ing)?|buy(?:ing)?|rent(?:ing|al)?|price|egp|\ble\b|"
     r"available|offer(?:ing)?|studio|apartment|villa|duplex|penthouse|flat|"
+    r"furnished|semi\s*furnished|sqm|m2|م2|"
     r"للبيع|مطلوب|معروض|للتأجير|للتاجير|للايجار|للإيجار|"
     r"ايجار|إيجار|سعر|جنيه|كاش|قسط|هبيع|هابيع|بتباع|هشتري|"
     r"شقة|شقه|فيلا|عربيه|عربية|موتوسيكل|توك توك|ايفون|iphone|"
@@ -73,20 +77,19 @@ def _parse_json_object(content: str) -> dict[str, Any]:
 
 def regex_kind_and_confidence(content: str) -> tuple[str, Confidence]:
     """
-    High confidence → trust regex, skip LLM.
-    Low confidence → provisional POST (or prior kind), send to small LLM.
+    Route only — keep static rules minimal.
+
+    High confidence: obvious SKIP / short chat / mundane non-commercial POST.
+    Low confidence: anything commercial/property-ish → small LLM decides dynamically.
+    Never assign LISTING from regex when LLM will run (provisional POST).
     """
     from app.services.chat_import_parser import (
         CHATTY_REPLY_RE,
-        COMMUNITY_COST_RE,
         GREETING_ONLY_RE,
-        SERVICE_RECOMMENDATION_RE,
         SKIP_RE,
-        STRONG_LISTING_RE,
         SYSTEM_MESSAGE_RE,
         classify_message,
         is_listing_offer,
-        is_wanted_inquiry,
     )
 
     cleaned = (content or "").strip()
@@ -96,26 +99,18 @@ def regex_kind_and_confidence(content: str) -> tuple[str, Confidence]:
         return ChatImportItemKind.SKIP.value, "high"
     if len(cleaned) < 2:
         return ChatImportItemKind.SKIP.value, "high"
-
-    # Clear non-listings
     if CHATTY_REPLY_RE.match(cleaned):
         return ChatImportItemKind.POST.value, "high"
-    if is_wanted_inquiry(cleaned):
-        return ChatImportItemKind.POST.value, "high"
-    if SERVICE_RECOMMENDATION_RE.search(cleaned):
-        return ChatImportItemKind.POST.value, "high"
-    if COMMUNITY_COST_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
-        return ChatImportItemKind.POST.value, "high"
 
-    # Clear marketplace offer
-    if is_listing_offer(cleaned):
-        return ChatImportItemKind.LISTING.value, "high"
-
-    kind = classify_message(cleaned).value
-    # Commercial / property-ish wording without a clear offer → ask the model
-    if len(cleaned) >= 12 and AMBIGUOUS_RE.search(cleaned):
+    # Commercial / marketplace-adjacent → always ask the model
+    if len(cleaned) >= 10 and AMBIGUOUS_RE.search(cleaned):
         return ChatImportItemKind.POST.value, "low"
 
+    # No commercial signal: keep regex POST/SKIP, skip LLM
+    kind = classify_message(cleaned).value
+    # If regex somehow thought LISTING without ambiguous markers, still ask LLM
+    if kind == ChatImportItemKind.LISTING.value or is_listing_offer(cleaned):
+        return ChatImportItemKind.POST.value, "low"
     return kind, "high"
 
 
@@ -168,22 +163,23 @@ async def classify_messages_with_llm(
                 for i, text in enumerate(batch)
             )
             prompt = f"""Classify Egyptian compound WhatsApp/Telegram messages (Arabic dialect + English).
-These messages are AMBIGUOUS — regex was not confident. Be careful.
+Decide dynamically from meaning — do not rely on keyword shortcuts alone.
 
 Kinds:
 - SKIP: system noise or greeting-only ("السلام عليكم", "مساء الخير", joined group, media omitted).
-- LISTING: ONLY when the sender is clearly OFFERING something they have (selling, renting out, or advertising their own paid service). Examples: "Selling iPhone 13", "شقة للبيع", "255m Duplex available for Sale".
-- POST: everything else — questions, buyer/wanted requests, recommendations, community/utility talk, complaints, thanks, short replies, discussions.
+- LISTING: ONLY when the sender is clearly OFFERING something they (or a friend they represent) have — selling, renting out, or advertising their own paid service.
+  Examples: "Selling iPhone 13", "شقة للبيع", "دي شقة خاصة بواحد صاحبي للبيع", "185m apartment for rent", "im renting my apartment if anyone interested".
+- POST: everything else — buyer/wanted requests, jokes, thanks, complaints, community talk, short replies.
 
-CRITICAL — prefer POST. Do NOT mark LISTING when:
-- seeking / anyone has / looking for / عايز يشتري / حد عنده
-- process questions, leaks/maintenance, meter/fund/street costs
-- short replies ("Yes I do plz send me ur email")
-- thanks / social chat
-- you are not highly confident it is a seller/landlord offer
+CRITICAL — these are POST (neighbour requests), NEVER LISTING:
+- "is anyone selling a 190 SQM apartment"
+- "Anyone has a penthouse for rent?"
+- "عايز يشتري شقة" / "حد عنده شقة للبيع"
+- jokes or casual chat that only mention هبيع/selling without a real offer
+- "Yes I do plz send me ur email", thanks, leaks/maintenance, meter/fund costs
 
 Also return confidence: "high" or "low".
-If kind would be LISTING but you are not sure → set kind=POST and confidence=low.
+If you are not highly confident it is a real offer → kind=POST, confidence=low.
 
 For LISTING also return:
 - intent: SELL or RENT
@@ -467,8 +463,38 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
 
     elif candidates and not llm_classification_available():
         stats["llm_skipped_reason"] = "OPENAI_API_KEY not set"
-        # No LLM: low-confidence stays POST (already set)
-        stats["llm_low_conf_default_post"] = len(candidates)
+        # Offline fallback: use regex offer detector for low-confidence rows
+        from app.services.chat_import_parser import (
+            classify_message,
+            ensure_listing_normalized,
+            is_listing_offer,
+        )
+
+        for item_idx, content in candidates:
+            item = items[item_idx]
+            kind = (
+                ChatImportItemKind.LISTING.value
+                if is_listing_offer(content)
+                else classify_message(content).value
+            )
+            kind = _apply_hard_overrides(content, kind)
+            item["kind"] = kind
+            normalized = dict(item.get("normalized") or {})
+            normalized["classification_source"] = "regex_fallback"
+            normalized["classification_confidence"] = "low"
+            if kind == ChatImportItemKind.LISTING.value:
+                item["normalized"] = ensure_listing_normalized(normalized)
+                item["decision"] = "APPROVED"
+            elif kind == ChatImportItemKind.SKIP.value:
+                item["decision"] = "REJECTED"
+                item["reject_reason"] = skip_reason(content)
+                item["normalized"] = normalized
+            else:
+                normalized["post_category"] = infer_post_category(content)
+                item["decision"] = "APPROVED"
+                item["normalized"] = normalized
+        stats["llm_low_conf_default_post"] = 0
+        stats["regex_fallback_classified"] = len(candidates)
 
     # Ensure every POST has a post_category
     for item in items:
@@ -482,7 +508,10 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
             item["normalized"] = normalized
 
     # Absolute veto: wanted / chatty must never remain LISTING
-    from app.services.chat_import_parser import CHATTY_REPLY_RE
+    from app.services.chat_import_parser import (
+        CHATTY_REPLY_RE,
+        is_stale_listing_timestamp,
+    )
 
     demoted = 0
     for item in items:
@@ -501,6 +530,25 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
         item["normalized"] = normalized
         demoted += 1
     stats["hard_veto_demoted_to_post"] = demoted
+
+    # Drop marketplace offers older than ~6 months
+    stale = 0
+    for item in items:
+        if item.get("kind") != ChatImportItemKind.LISTING.value:
+            continue
+        normalized = dict(item.get("normalized") or {})
+        stamp = normalized.get("created_at") or normalized.get("timestamp")
+        if not is_stale_listing_timestamp(
+            stamp if isinstance(stamp, str) else None
+        ):
+            continue
+        item["kind"] = ChatImportItemKind.SKIP.value
+        item["decision"] = "REJECTED"
+        item["reject_reason"] = "Listing older than 6 months"
+        normalized["stale_listing"] = True
+        item["normalized"] = normalized
+        stale += 1
+    stats["listings_skipped_older_than_6_months"] = stale
 
     rethread_items(items)
     return stats

@@ -5,7 +5,7 @@ import json
 import re
 import zipfile
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -15,6 +15,8 @@ from app.models.enums import ChatImportItemKind, ChatImportSource
 
 # WhatsApp exports are local wall-clock; Egyptian compounds default to Cairo.
 IMPORT_LOCAL_TZ = ZoneInfo("Africa/Cairo")
+# Marketplace offers older than this are ignored on import/publish
+LISTING_MAX_AGE = timedelta(days=183)  # ~6 months
 
 PHONE_RE = re.compile(
     r"(?:\+|00)?(?:20)?0?1[0125]\d{8}|\+\d{8,15}|\d{10,15}"
@@ -30,25 +32,33 @@ WHATSAPP_LINE_RE = re.compile(
 # Buyer/wanted inquiries are NOT listings — they become community POSTs.
 STRONG_LISTING_RE = re.compile(
     r"("
-    r"\bfor\s+sale\b|\bi'?m\s+selling\b|\bwe(?:'re|\s+are)\s+selling\b|\bselling\b|\bsell\s+my\b|"
+    r"\bfor\s+sale\b|\bi'?m\s+selling\b|\bwe(?:'re|\s+are)\s+selling\b|"
+    r"\bselling\s+(?:my|this|our|[A-Za-z\u0600-\u06FF]+)\b|\bsell\s+my\b|"
     r"\bavailable\s+for\s+(?:sale|rent)\b|\boffering\s+for\s+(?:sale|rent)\b|"
-    r"\brenting\s+(?:out\s+)?(?:my|a|an)\b|"
+    r"\bi'?m\s+renting\s+my\b|\brenting\s+(?:out\s+)?(?:my|this|our)\b|"
     r"looking\s+to\s+sell|"
     # Bare "for rent" is too noisy (often appears in wanted asks) — require offer framing
     r"\b(?:studio|apartment|flat|villa|duplex|penthouse|room|unit)\s+for\s+rent\b|"
     r"\bfor\s+rent\b.{0,40}\b(?:call|contact|whatsapp|available|monthly)\b|"
-    r"للبيع|معروض\s*للبيع|هبيع|هابيع|بتباع|بتبيع|معروض\s*(?:للإيجار|للايجار)|"
+    r"\bamenities\s+for\s+rent\b|"
+    # Arabic: require للبيع / معروض, or sell-verb next to a real item (not joke "هبيع" alone)
+    r"للبيع|معروض\s*للبيع|معروض\s*(?:للإيجار|للايجار)|"
     r"شقة\s+للإيجار|شقه\s+للإيجار|فيلا\s+للإيجار|"
-    r"(?:عندي|معايا|معى)\s+(?:شقة|شقه|فيلا|عربي|عربية|ايفون).{0,30}(?:للبيع|للإيجار|للايجار)"
+    r"(?:هبيع|هابيع|بتباع|بتبيع)\s*(?:شقة|شقه|فيلا|عربي|عربية|ايفون|موتو|"
+    r"تلاجة|غسالة|شاشه|شاشة)|"
+    r"(?:شقة|شقه|فيلا|عربي|عربية|ايفون).{0,40}(?:هبيع|هابيع|بتباع|بتبيع|للبيع)|"
+    r"(?:عندي|معايا|معى|صاحبي|صديقي)\s+(?:شقة|شقه|فيلا|عربي|عربية).{0,40}"
+    r"(?:للبيع|للإيجار|للايجار|هبيع|هابيع)"
     r")",
     re.IGNORECASE | re.DOTALL,
 )
 # "Looking for / anyone has / wants to buy" → Request post, never marketplace listing
 WANTED_INQUIRY_RE = re.compile(
     r"("
-    r"\banyone\s+(?:has|have|knows?)\b|"
-    r"\bdoes\s+anyone\s+(?:has|have|know)\b|"
-    r"\bif\s+anyone\s+has\b|"
+    r"\banyone\s+(?:has|have|knows?|selling|renting|got)\b|"
+    r"\bis\s+anyone\s+(?:selling|renting|offering|have|has)\b|"
+    r"\bdoes\s+anyone\s+(?:has|have|know|sell)\b|"
+    r"\bif\s+anyone\s+(?:has|is\s+selling)\b|"
     r"\blooking\s+(?:for|to\s+(?:buy|rent|find|lease))\b|"
     r"\bwant(?:s|ed)?\s+to\s+(?:buy|rent|lease)\b|"
     r"\bbuying\b|\bneed(?:s|ed)?\s+(?:to\s+)?(?:buy|rent)\b|"
@@ -108,6 +118,14 @@ CHATTY_REPLY_RE = re.compile(
     r"تمام|حاضر|ايوه|أيوه|ماشي|شكرا(?:ً|ا)?|من فضلك|لو سمحت"
     r").{0,80}$",
     re.IGNORECASE,
+)
+# Joke / emoji-heavy one-liners that only casually mention selling
+THIN_LISTING_RE = re.compile(
+    r"^[\W\d_]*"  # optional emoji/punct lead-in
+    r".{0,40}"
+    r"(?:هبيع|هابيع|بتباع|selling|for\s+sale)"
+    r".{0,40}$",
+    re.IGNORECASE | re.DOTALL,
 )
 SKIP_RE = re.compile(
     r"^(?:\s*|null|none|<media omitted>|image omitted|video omitted|audio omitted|"
@@ -259,6 +277,10 @@ def redact_phones(text: str) -> str:
     return PHONE_IN_TEXT_RE.sub("[phone hidden]", text)
 
 
+def _letter_count(text: str) -> int:
+    return len(re.findall(r"[A-Za-z\u0600-\u06FF]", text or ""))
+
+
 def is_wanted_inquiry(text: str) -> bool:
     """True when the sender is seeking something, not offering it."""
     cleaned = (text or "").strip()
@@ -266,15 +288,22 @@ def is_wanted_inquiry(text: str) -> bool:
         return False
     if WANTED_INQUIRY_RE.search(cleaned):
         return True
-    # Question + property words without a clear offer (e.g. "Anyone … for rent?")
-    if ("?" in cleaned or "؟" in cleaned) and re.search(
-        r"(?:rent|sale|apartment|penthouse|villa|duplex|studio|flat|شقة|شقه|فيلا|للإيجار|للايجار|للبيع)",
+    # Question-like buyer phrasing (with or without '?')
+    if re.search(
+        r"(?:rent|sale|selling|apartment|penthouse|villa|duplex|studio|flat|شقة|شقه|فيلا|للإيجار|للايجار|للبيع)",
         cleaned,
         re.IGNORECASE,
+    ) and re.search(
+        r"(?:anyone|anybody|someone|حد|مين|يعرف)", cleaned, re.IGNORECASE
     ):
+        # "is anyone selling…" / "حد يعرف شقة…" — seeker, not seller
         if re.search(
-            r"(?:anyone|anybody|someone|حد|مين|يعرف)", cleaned, re.IGNORECASE
+            r"(?:is\s+anyone|anyone\s+selling|anyone\s+renting|حد\s*يعرف|حد\s*عند)",
+            cleaned,
+            re.IGNORECASE,
         ):
+            return True
+        if "?" in cleaned or "؟" in cleaned:
             return True
     return False
 
@@ -287,6 +316,27 @@ def is_listing_offer(text: str) -> bool:
     if CHATTY_REPLY_RE.match(cleaned):
         return False
     if is_wanted_inquiry(cleaned):
+        return False
+    # Emoji / joke one-liners with a casual "هبيع" are not listings
+    if (
+        _letter_count(cleaned) < 28
+        and re.search(r"هبيع|هابيع|بتباع|selling", cleaned, re.IGNORECASE)
+        and (
+            re.search(r"[\U0001F300-\U0001FAFF]|😂|🤣|تعبان|يظهر", cleaned)
+            or (
+                not re.search(
+                    r"شقة|شقه|فيلا|عربي|عربية|ايفون|sofa|apartment|villa|للبيع|for\s+sale",
+                    cleaned,
+                    re.IGNORECASE,
+                )
+            )
+        )
+        and not re.search(
+            r"\bfor\s+sale\b|\bavailable\s+for\b|للبيع|amenities\s+for\s+rent",
+            cleaned,
+            re.IGNORECASE,
+        )
+    ):
         return False
     # Utility / building / leak talk with prices is not a marketplace listing
     if COMMUNITY_COST_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
@@ -645,6 +695,28 @@ def parse_import_timestamp(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=IMPORT_LOCAL_TZ)
     return parsed
+
+
+def is_stale_listing_timestamp(
+    value: str | datetime | None,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """True when the message timestamp is older than ~6 months."""
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        parsed = parse_import_timestamp(value if isinstance(value, str) else None)
+    if parsed is None:
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=IMPORT_LOCAL_TZ)
+    anchor = now or datetime.now(timezone.utc)
+    if anchor.tzinfo is None:
+        anchor = anchor.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc) < (
+        anchor.astimezone(timezone.utc) - LISTING_MAX_AGE
+    )
 
 
 # Keep private alias used by threading heuristics

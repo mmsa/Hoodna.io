@@ -170,29 +170,38 @@ def test_classify_message():
 def test_regex_kind_and_confidence():
     from app.services.chat_import_classify import regex_kind_and_confidence
 
-    # Clear offer → high LISTING
+    # Commercial / offer-like wording → low confidence (LLM decides dynamically)
     kind, conf = regex_kind_and_confidence("Selling sofa 5000 EGP")
-    assert kind == ChatImportItemKind.LISTING.value and conf == "high"
+    assert kind == ChatImportItemKind.POST.value and conf == "low"
 
-    # Clear wanted → high POST
     kind, conf = regex_kind_and_confidence(
         "Anyone has a fully finished penthouse in VGK for RENT?"
     )
-    assert kind == ChatImportItemKind.POST.value and conf == "high"
+    assert kind == ChatImportItemKind.POST.value and conf == "low"
 
-    # Clear chatty → high POST
-    kind, conf = regex_kind_and_confidence("Yes I do plz send me ur email")
-    assert kind == ChatImportItemKind.POST.value and conf == "high"
-
-    # Soft commercial wording without clear offer → low (LLM should decide)
     kind, conf = regex_kind_and_confidence(
-        "Nice duplex 255m garden view VGK stage 3 price around 8 million"
+        "Hi Everyone, is anyone selling a 190 SQM apartment"
     )
     assert kind == ChatImportItemKind.POST.value and conf == "low"
+
+    # Clear chatty → high POST (skip LLM)
+    kind, conf = regex_kind_and_confidence("Yes I do plz send me ur email")
+    assert kind == ChatImportItemKind.POST.value and conf == "high"
 
     # Mundane chat → high POST (skip LLM)
     kind, conf = regex_kind_and_confidence("See you at the club tonight")
     assert kind == ChatImportItemKind.POST.value and conf == "high"
+
+
+def test_stale_listing_timestamp():
+    from datetime import datetime, timezone
+
+    from app.services.chat_import_parser import is_stale_listing_timestamp
+
+    now = datetime(2026, 8, 29, tzinfo=timezone.utc)
+    assert is_stale_listing_timestamp("2025-01-01T12:00:00+00:00", now=now) is True
+    assert is_stale_listing_timestamp("2026-07-01T12:00:00+00:00", now=now) is False
+    assert is_stale_listing_timestamp(None, now=now) is False
 
 
 def test_infer_post_category():

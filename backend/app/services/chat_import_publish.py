@@ -217,6 +217,7 @@ async def publish_chat_import_job(
         "posts_published": 0,
         "comments_published": 0,
         "listings_published": 0,
+        "listings_skipped_stale": 0,
         "skipped_already_published": 0,
         "errors": 0,
     }
@@ -299,9 +300,19 @@ async def publish_chat_import_job(
                     message_index_to_post_id[msg_index] = post.id
                 stats["posts_published"] += 1
             else:
-                from app.services.chat_import_parser import ensure_listing_normalized
+                from app.services.chat_import_parser import (
+                    ensure_listing_normalized,
+                    is_stale_listing_timestamp,
+                )
 
                 normalized = ensure_listing_normalized(normalized)
+                if is_stale_listing_timestamp(
+                    normalized.get("created_at") or normalized.get("timestamp")
+                ):
+                    item.decision = ChatImportItemDecision.REJECTED
+                    item.reject_reason = "Listing older than 6 months"
+                    stats["listings_skipped_stale"] += 1
+                    continue
                 title = redact_phones(
                     (normalized.get("title") or listing_fallback_title(normalized)).strip()
                 )
