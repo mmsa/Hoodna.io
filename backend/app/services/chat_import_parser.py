@@ -119,14 +119,6 @@ CHATTY_REPLY_RE = re.compile(
     r").{0,80}$",
     re.IGNORECASE,
 )
-# Joke / emoji-heavy one-liners that only casually mention selling
-THIN_LISTING_RE = re.compile(
-    r"^[\W\d_]*"  # optional emoji/punct lead-in
-    r".{0,40}"
-    r"(?:هبيع|هابيع|بتباع|selling|for\s+sale)"
-    r".{0,40}$",
-    re.IGNORECASE | re.DOTALL,
-)
 SKIP_RE = re.compile(
     r"^(?:\s*|null|none|<media omitted>|image omitted|video omitted|audio omitted|"
     r"sticker omitted|gif omitted|document omitted|contact card omitted|"
