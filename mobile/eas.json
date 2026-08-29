@@ -13,6 +13,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eljiran-api.onrender.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
@@ -20,6 +23,9 @@
     },
     "production": {
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://eljiran-api.onrender.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
@@ -31,6 +37,10 @@
     "production": {
       "ios": {
         "ascAppId": "6789875474"
+      },
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }
