@@ -272,8 +272,8 @@ async def approve_provider_change_request(
     _ = profile.updated_at
     
     # Send notification to provider
-    from app.services.notifications import create_notification
-    from app.models.notification import NotificationType
+    from app.crud.notification import create_notification
+    from app.models.enums import NotificationType
     from app.schemas.notification import NotificationCreate
     await create_notification(
         db=db,
@@ -282,8 +282,10 @@ async def approve_provider_change_request(
             type=NotificationType.VERIFICATION_APPROVED,
             title="Change Request Approved",
             message="Your request to change category or service areas has been approved.",
-            data={"provider_id": profile.id}
-        )
+            related_id=profile.id,
+            related_type="service_provider",
+            extra_data={"provider_id": profile.id},
+        ),
     )
     
     return profile
@@ -327,8 +329,8 @@ async def reject_provider_change_request(
     _ = profile.updated_at
     
     # Send notification to provider
-    from app.services.notifications import create_notification
-    from app.models.notification import NotificationType
+    from app.crud.notification import create_notification
+    from app.models.enums import NotificationType
     from app.schemas.notification import NotificationCreate
     await create_notification(
         db=db,
@@ -337,8 +339,10 @@ async def reject_provider_change_request(
             type=NotificationType.VERIFICATION_REJECTED,
             title="Change Request Rejected",
             message=f"Your request to change category or service areas has been rejected. Reason: {request.reason}",
-            data={"provider_id": profile.id}
-        )
+            related_id=profile.id,
+            related_type="service_provider",
+            extra_data={"provider_id": profile.id, "reason": request.reason},
+        ),
     )
     
     return profile
@@ -382,8 +386,8 @@ async def request_more_details_provider(
     _ = profile.updated_at
     
     # Send notification to user
-    from app.services.notifications import create_notification
-    from app.models.notification import NotificationType
+    from app.crud.notification import create_notification
+    from app.models.enums import NotificationType
     from app.schemas.notification import NotificationCreate
     await create_notification(
         db=db,
@@ -616,8 +620,8 @@ async def request_more_details_moderator(
     _ = profile.updated_at
     
     # Send notification to user
-    from app.services.notifications import create_notification
-    from app.models.notification import NotificationType
+    from app.crud.notification import create_notification
+    from app.models.enums import NotificationType
     from app.schemas.notification import NotificationCreate
     await create_notification(
         db=db,

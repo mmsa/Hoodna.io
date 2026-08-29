@@ -106,14 +106,13 @@ async def request_category_compounds_change_endpoint(
         )
         await db.refresh(profile, ["documents", "category"])
         
-        # Send notification to admins
-        from app.services.notifications import create_notification
-        from app.models.notification import NotificationType
+        # Notify admins that a provider requested category/area changes
+        from app.crud.notification import create_notification
+        from app.models.enums import NotificationType
         from app.schemas.notification import NotificationCreate
         from app.models.user import User as UserModel
         from sqlalchemy import select
         
-        # Get all admins
         admins_result = await db.execute(
             select(UserModel).where(UserModel.role == UserRole.ADMIN)
         )
@@ -122,13 +121,21 @@ async def request_category_compounds_change_endpoint(
         for admin in admins:
             await create_notification(
                 db=db,
-                notification=NotificationCreate(
+                notification_data=NotificationCreate(
                     user_id=admin.id,
-                    type=NotificationType.PROVIDER_CHANGE_REQUEST,
+                    type=NotificationType.VERIFICATION_REQUEST_MORE,
                     title="Provider Change Request",
-                    message=f"Provider {profile.business_name} has requested changes to their category or service areas.",
-                    data={"provider_id": profile.id, "user_id": profile.user_id}
-                )
+                    message=(
+                        f"Provider {profile.business_name} has requested changes "
+                        "to their category or service areas."
+                    ),
+                    related_id=profile.id,
+                    related_type="service_provider",
+                    extra_data={
+                        "provider_id": profile.id,
+                        "user_id": profile.user_id,
+                    },
+                ),
             )
         
         return profile

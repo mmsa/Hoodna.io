@@ -12,6 +12,8 @@ export type EljiranRoute =
   | { type: "business"; slug: string }
   | { type: "post"; id: number }
   | { type: "listing"; id: number }
+  | { type: "message"; id: number }
+  | { type: "verification" }
   | { type: "notification"; id: number }
   | { type: "digest"; id?: number };
 
@@ -22,6 +24,8 @@ function routePath(route: EljiranRoute): string {
     case "business": return `/businesses/${encodeURIComponent(route.slug)}`;
     case "post": return `/posts/${route.id}`;
     case "listing": return `/listing/${route.id}`;
+    case "message": return `/messages/${route.id}`;
+    case "verification": return "/verification";
     case "notification": return `/notifications/${route.id}`;
     case "digest": return route.id ? `/digest/${route.id}` : "/digest";
   }

@@ -157,14 +157,14 @@ export default function NotificationsScreen() {
         router.push(`/post/${destination.id}`);
       } else if (destination.type === "listing") {
         router.push(`/listing/${destination.id}`);
+      } else if (destination.type === "message") {
+        router.push(`/messages/${destination.id}`);
+      } else if (destination.type === "verification") {
+        router.push("/verification");
       } else if (destination.type === "business") {
         router.push(`/businesses/${destination.slug}`);
       } else if (destination.type === "digest") {
         router.push("/digest");
-      } else if (notification.related_type === "message" && notification.related_id) {
-        router.push(`/messages/${notification.related_id}`);
-      } else if (notification.type.startsWith("VERIFICATION")) {
-        router.push("/verification");
       } else if (notification.type.startsWith("BUSINESS_CLAIM")) {
         router.push("/business-claims");
       } else if (notification.type === "REFERRAL_ACCEPTED") {

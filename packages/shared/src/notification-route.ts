@@ -13,17 +13,28 @@ export function getNotificationRoute(
   notification: NotificationRouteInput,
 ): EljiranRoute {
   const relatedType = notification.related_type?.toLowerCase();
+  const type = notification.type.toUpperCase();
+
   if (relatedType === "post" && notification.related_id) {
     return { type: "post", id: notification.related_id };
   }
   if (relatedType === "listing" && notification.related_id) {
     return { type: "listing", id: notification.related_id };
   }
+  if (
+    (relatedType === "message" || type === "MESSAGE") &&
+    notification.related_id
+  ) {
+    return { type: "message", id: notification.related_id };
+  }
   if (relatedType === "business") {
     const slug = notification.extra_data?.business_slug;
     if (typeof slug === "string" && slug) return { type: "business", slug };
   }
-  if (notification.type.toLowerCase().includes("digest")) {
+  if (type.startsWith("VERIFICATION") || relatedType === "verification") {
+    return { type: "verification" };
+  }
+  if (type.toLowerCase().includes("digest")) {
     const digestId = notification.extra_data?.digest_id;
     return {
       type: "digest",
