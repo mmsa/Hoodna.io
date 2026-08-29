@@ -67,15 +67,17 @@ function formatTime(dateString: string): string {
 function getNotificationIcon(type: string) {
   switch (type) {
     case "MESSAGE":
-      return MessageCircle;
     case "COMMENT":
       return MessageCircle;
+    case "NEW_POST":
+      return FileText;
     case "VERIFICATION_APPROVED":
     case "VERIFICATION_REJECTED":
     case "VERIFICATION_REQUEST_MORE":
       return Shield;
     case "LISTING_INQUIRY":
     case "LISTING_SAVED":
+    case "NEW_LISTING":
       return ShoppingBag;
     case "POST_LIKE":
       return Heart;
