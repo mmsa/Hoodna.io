@@ -46,18 +46,30 @@ CHAT_IMPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 async def _job_response(db: AsyncSession, job: ChatImportJob) -> ChatImportJobResponse:
-    """Serialize job metadata only — never embed tens of thousands of items."""
+    """Serialize job metadata only — never touch job.items (lazy load → OOM / MissingGreenlet)."""
     item_count = await count_job_items(db, job.id)
-    # Prefer stats total when present (faster path after parse)
     stats = job.stats or {}
     if isinstance(stats.get("items_total"), int):
         item_count = max(item_count, stats["items_total"])
-    elif isinstance(stats.get("total_messages"), int):
-        item_count = max(item_count, stats["total_messages"])
-    data = ChatImportJobResponse.model_validate(job)
-    data.items = []
-    data.item_count = item_count
-    return data
+    elif isinstance(stats.get("messages"), int):
+        # summarize_parsed uses "messages"
+        item_count = max(item_count, stats["messages"] + int(stats.get("users") or 0))
+    return ChatImportJobResponse(
+        id=job.id,
+        compound_id=job.compound_id,
+        uploaded_by_id=job.uploaded_by_id,
+        source=job.source,
+        status=job.status,
+        original_filename=job.original_filename,
+        storage_path=job.storage_path,
+        stats=stats,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        completed_at=job.completed_at,
+        items=[],
+        item_count=item_count,
+    )
 
 
 def _item_response(item) -> ChatImportItemResponse:
