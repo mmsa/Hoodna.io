@@ -10,7 +10,7 @@ export type FeedCategory =
 
 export const POST_FILTERS: ReadonlyArray<{ value: FeedCategory; label: string }> = [
   { value: "", label: "All" },
-  { value: "help", label: "Help" },
+  { value: "help", label: "Request" },
   { value: "lost", label: "Lost & found" },
   { value: "event", label: "Events" },
   { value: "marketplace", label: "Market" },
@@ -19,7 +19,7 @@ export const POST_FILTERS: ReadonlyArray<{ value: FeedCategory; label: string }>
 
 export const POST_CATEGORIES = [
   { value: "GENERAL", label: "General" },
-  { value: "HELP", label: "Help" },
+  { value: "HELP", label: "Request" },
   { value: "LOST_FOUND", label: "Lost & found" },
   { value: "EVENT", label: "Event" },
   { value: "MARKETPLACE", label: "Marketplace" },
@@ -32,7 +32,7 @@ const CATEGORY_META: Record<
   { label: string; type: Exclude<FeedCategory, ""> }
 > = {
   GENERAL: { label: "General", type: "general" },
-  HELP: { label: "Help", type: "help" },
+  HELP: { label: "Request", type: "help" },
   LOST_FOUND: { label: "Lost & found", type: "lost" },
   EVENT: { label: "Event", type: "event" },
   MARKETPLACE: { label: "Marketplace", type: "marketplace" },

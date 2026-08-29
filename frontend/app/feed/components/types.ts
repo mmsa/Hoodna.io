@@ -81,7 +81,7 @@ export const POST_CATEGORIES: Array<{
   label: string
 }> = [
   { value: "GENERAL", label: "General" },
-  { value: "HELP", label: "Help request" },
+  { value: "HELP", label: "Request" },
   { value: "LOST_FOUND", label: "Lost & found" },
   { value: "EVENT", label: "Event" },
   { value: "MARKETPLACE", label: "Marketplace" },

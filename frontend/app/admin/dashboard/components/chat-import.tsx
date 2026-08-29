@@ -288,7 +288,10 @@ export default function ChatImportPanel() {
         item.reject_reason ? ` — ${item.reject_reason}` : ''
       }`
     }
-    const postCat = n.post_category ? ` · ${String(n.post_category)}` : ''
+    const postCatRaw = n.post_category ? String(n.post_category) : ''
+    const postCatLabel =
+      postCatRaw === 'HELP' ? 'Request' : postCatRaw.replaceAll('_', ' ')
+    const postCat = postCatLabel ? ` · ${postCatLabel}` : ''
     const svc = n.is_service_recommendation ? ' · service ask' : ''
     return `${author}${postCat}${svc}: ${String(n.content || '')}`
   }

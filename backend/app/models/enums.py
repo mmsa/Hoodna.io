@@ -96,7 +96,7 @@ class NotificationType(str, Enum):
 class PostCategory(str, Enum):
     """Post categories for better organization and structure."""
     GENERAL = "GENERAL"
-    HELP = "HELP"  # Asking for help/assistance
+    HELP = "HELP"  # Neighbour requests / asks (wanted, recommendations, assistance)
     LOST_FOUND = "LOST_FOUND"  # Lost and found items
     EVENT = "EVENT"  # Community events
     MARKETPLACE = "MARKETPLACE"  # Buy/sell items

@@ -101,22 +101,25 @@ async def classify_messages_with_llm(
             prompt = f"""Classify Egyptian compound WhatsApp/Telegram messages (Arabic dialect + English).
 
 Kinds:
-- SKIP: WhatsApp/Telegram system noise ONLY — e.g. "You joined using a group link", "created this group", "turned on admin approval", media omitted, deleted messages, encryption notices. Also skip greeting-only lines like "السلام عليكم".
-- LISTING: the sender is personally selling, buying, or renting a specific good, home, or car (marketplace). Example: "Selling iPhone 13", "شقة للبيع", "For rent studio".
-- POST: everything else in community chat — questions, recommendations ("anyone know a plumber?"), contractor quotes for street works, building fund ideas, lost&found, discussions, greetings with content.
+- SKIP: WhatsApp/Telegram system noise ONLY — e.g. "You joined using a group link", "created this group", "turned on admin approval", media omitted, deleted messages, encryption notices. Also skip greeting-only lines like "السلام عليكم" / "مساء الخير".
+- LISTING: ONLY when the sender is OFFERING something they have — selling, renting out, or advertising their own paid service. Examples: "Selling iPhone 13", "شقة للبيع", "255m Duplex available for Sale", "Studio for rent — call me".
+- POST: everything else — questions, buyer/wanted requests, recommendations, community works, lost&found, process questions, discussions.
 
-IMPORTANT — do NOT mark as LISTING when:
-- message only mentions prices for shared street/compound works (interlock, drains, fund)
-- message asks for / recommends a service provider
-- message is chat, opinion, or announcement-like discussion
+CRITICAL — do NOT mark as LISTING when the sender is SEEKING / asking (these are POST with post_category HELP = neighbour request):
+- "Anyone has a penthouse for rent?" / "looking for an apartment"
+- "عايز يشتري شقة" / "لو حد عنده شقه للبيع"
+- buying, wanted, "مطلوب شراء", friend wants to buy/rent
+- process questions ("what if I already paid…?")
+- service provider asks ("anyone know a plumber?")
+- street/compound fund or contractor price talk
 
 For LISTING also return:
-- intent: SELL or RENT
+- intent: SELL or RENT (never for buyer requests — those are POST)
 - category: PROPERTY | CAR | ITEM | SERVICE (SERVICE only if they advertise their own paid service)
 - title: max 80 chars
 
 For POST also return:
-- post_category: HELP (asks/recommendations) | LOST_FOUND | EVENT | ALERT | DISCUSSION (community works/fund) | GENERAL
+- post_category: HELP (neighbour requests: wanted/buyer, recommendations, asks) | LOST_FOUND | EVENT | ALERT | DISCUSSION (community works/fund) | GENERAL
 - is_service_recommendation: true if asking for / recommending a tradesperson
 
 Return ONLY JSON:
@@ -141,6 +144,7 @@ Messages:
                                 "role": "system",
                                 "content": (
                                     "Strict bilingual classifier for neighbourhood chat imports. "
+                                    "LISTING = offers only (seller/landlord). Buyer/wanted/enquiries = POST. "
                                     "Prefer POST over LISTING when unsure. Prefer SKIP for system noise. JSON only."
                                 ),
                             },
@@ -205,6 +209,7 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
     from app.services.chat_import_parser import (
         ensure_listing_normalized,
         infer_post_category,
+        is_wanted_inquiry,
         rethread_items,
         skip_reason,
         SYSTEM_MESSAGE_RE,
@@ -280,6 +285,17 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
             else:
                 item["decision"] = "APPROVED"
                 item["reject_reason"] = None
+            # Safety: demote buyer/wanted enquiries the model mistagged as LISTING
+            content = str(normalized.get("content") or "")
+            if kind == ChatImportItemKind.LISTING.value and is_wanted_inquiry(content):
+                kind = ChatImportItemKind.POST.value
+                item["kind"] = kind
+                classification = {
+                    **classification,
+                    "kind": kind,
+                    "post_category": "HELP",
+                }
+
             if kind == ChatImportItemKind.LISTING.value:
                 stats["llm_listings"] += 1
                 if classification.get("title"):
@@ -322,6 +338,25 @@ async def enrich_import_items_with_llm(items: list[dict[str, Any]]) -> dict[str,
                 str(normalized.get("content") or "")
             )
             item["normalized"] = normalized
+
+    # Final guard: never leave buyer/wanted enquiries as LISTING (regex or LLM)
+    demoted = 0
+    for item in items:
+        if item.get("kind") != ChatImportItemKind.LISTING.value:
+            continue
+        content = str((item.get("normalized") or {}).get("content") or "")
+        if not is_wanted_inquiry(content):
+            continue
+        item["kind"] = ChatImportItemKind.POST.value
+        item["decision"] = "APPROVED"
+        item["reject_reason"] = None
+        normalized = dict(item.get("normalized") or {})
+        for key in ("title", "intent", "category", "price", "currency"):
+            normalized.pop(key, None)
+        normalized["post_category"] = "HELP"
+        item["normalized"] = normalized
+        demoted += 1
+    stats["wanted_demoted_to_post"] = demoted
 
     rethread_items(items)
     return stats

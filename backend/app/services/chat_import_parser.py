@@ -26,14 +26,37 @@ PHONE_LIKE_SENDER_RE = re.compile(
 WHATSAPP_LINE_RE = re.compile(
     r"^\[?(\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[APMapm]{2})?)\]?\s*[-–]?\s*([^:]+):\s*(.*)$"
 )
-# Expanded bilingual commercial signals (fallback when LLM unavailable).
-# Keep this STRICT: price/جنيه alone is not a marketplace listing.
+# Offer-only marketplace signals (fallback when LLM unavailable).
+# Buyer/wanted inquiries are NOT listings — they become community POSTs.
 STRONG_LISTING_RE = re.compile(
     r"("
-    r"\bfor\s+sale\b|\bselling\b|\bsell\s+my\b|\bbuying\b|\bfor\s+rent\b|\brenting\b|"
-    r"looking\s+to\s+(?:sell|buy|rent)|available\s+for\s+(?:sale|rent)|"
-    r"للبيع|معروض\s*للبيع|مطلوب\s*(?:شراء|بيع)|هبيع|هابيع|بتباع|بتبيع|"
-    r"للإيجار|للايجار|للتأجير|للتاجير|للايجار"
+    r"\bfor\s+sale\b|\bi'?m\s+selling\b|\bselling\b|\bsell\s+my\b|"
+    r"\bavailable\s+for\s+(?:sale|rent)\b|\boffering\s+for\s+(?:sale|rent)\b|"
+    r"\bfor\s+rent\b|\brenting\s+(?:out\s+)?(?:my|a|an)\b|"
+    r"looking\s+to\s+sell|"
+    r"للبيع|معروض\s*للبيع|هبيع|هابيع|بتباع|بتبيع|معروض\s*للإيجار|"
+    r"للإيجار|للايجار|للتأجير|للتاجير"
+    r")",
+    re.IGNORECASE,
+)
+# "Looking for / anyone has / wants to buy" → Request post, never marketplace listing
+WANTED_INQUIRY_RE = re.compile(
+    r"("
+    r"\banyone\s+(?:has|have|knows?)\b|"
+    r"\bdoes\s+anyone\s+have\b|"
+    r"\bif\s+anyone\s+has\b|"
+    r"\blooking\s+(?:for|to\s+(?:buy|rent|find|lease))\b|"
+    r"\bwant(?:s|ed)?\s+to\s+(?:buy|rent|lease)\b|"
+    r"\bbuying\b|\bneed(?:s|ed)?\s+(?:to\s+)?(?:buy|rent)\b|"
+    r"\bseeking\b|\bin\s+search\s+of\b|"
+    r"لو\s*حد\s*عند(?:ه|ها|كم)|"
+    r"فيه\s*حد\s*عند|"
+    r"عايز(?:ة)?\s*(?:يشتري|تشتري|أشتري|اشتري|يستأجر|تستأجر|أجار|ايجار)|"
+    r"عاوز(?:ة)?\s*(?:يشتري|تشتري|أشتري|اشتري|يستأجر|تستأجر)|"
+    r"محتاج(?:ة)?\s*(?:شقة|شقه|فيلا|بيت|عربي|سيارة|ايجار|إيجار)|"
+    r"مطلوب\s*(?:شراء|ايجار|إيجار|للإيجار)|"
+    r"هشتري|هستأجر|عايز(?:ة)?\s*يستأجر|"
+    r"صديق(?:ي|تى|تي)?\s*(?:عايز|عاوز|محتاج)"
     r")",
     re.IGNORECASE,
 )
@@ -214,6 +237,26 @@ def redact_phones(text: str) -> str:
     return PHONE_IN_TEXT_RE.sub("[phone hidden]", text)
 
 
+def is_wanted_inquiry(text: str) -> bool:
+    """True when the sender is seeking something, not offering it."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return False
+    if WANTED_INQUIRY_RE.search(cleaned):
+        return True
+    # Question + property words without a clear offer (e.g. "Anyone … for rent?")
+    if ("?" in cleaned or "؟" in cleaned) and re.search(
+        r"\b(?:rent|sale|apartment|penthouse|villa|duplex|studio|flat|شقة|شقه|فيلا)\b",
+        cleaned,
+        re.IGNORECASE,
+    ):
+        if re.search(
+            r"\b(?:anyone|anybody|someone|حد|مين)\b", cleaned, re.IGNORECASE
+        ):
+            return True
+    return False
+
+
 def classify_message(text: str) -> ChatImportItemKind:
     """Regex fallback classifier (used when LLM is unavailable)."""
     cleaned = (text or "").strip()
@@ -232,7 +275,11 @@ def classify_message(text: str) -> ChatImportItemKind:
     if SERVICE_RECOMMENDATION_RE.search(cleaned) and not STRONG_LISTING_RE.search(cleaned):
         return ChatImportItemKind.POST
 
-    # Explicit personal sell/buy/rent of goods or property
+    # Buyer / "anyone have X?" enquiries → Request posts, never listings
+    if is_wanted_inquiry(cleaned):
+        return ChatImportItemKind.POST
+
+    # Explicit personal offer to sell/rent goods or property
     if STRONG_LISTING_RE.search(cleaned):
         return ChatImportItemKind.LISTING
 
@@ -247,17 +294,21 @@ def infer_post_category(text: str) -> str:
     """Map free-text chat into a feed PostCategory value."""
     cleaned = (text or "").strip()
     lower = cleaned.lower()
-    if SERVICE_RECOMMENDATION_RE.search(cleaned) or any(
-        token in lower
-        for token in (
-            "help",
-            "anyone know",
-            "looking for",
-            "محتاج",
-            "عايز",
-            "عاوز",
-            "حد يعرف",
-            "ترشيح",
+    if (
+        is_wanted_inquiry(cleaned)
+        or SERVICE_RECOMMENDATION_RE.search(cleaned)
+        or any(
+            token in lower
+            for token in (
+                "help",
+                "anyone know",
+                "looking for",
+                "محتاج",
+                "عايز",
+                "عاوز",
+                "حد يعرف",
+                "ترشيح",
+            )
         )
     ):
         return "HELP"

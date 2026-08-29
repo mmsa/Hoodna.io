@@ -95,6 +95,12 @@ def test_classify_message():
     assert classify_message("Anyone seen my cat?") == ChatImportItemKind.POST
     assert classify_message("<Media omitted>") == ChatImportItemKind.SKIP
     assert classify_message("شقة للبيع في المرحلة الثالثة") == ChatImportItemKind.LISTING
+    assert (
+        classify_message(
+            "255m Duplex with Garden 100m overlooking Landscape available for Sale"
+        )
+        == ChatImportItemKind.LISTING
+    )
     # System noise
     assert (
         classify_message("You joined using a group link") == ChatImportItemKind.SKIP
@@ -107,6 +113,7 @@ def test_classify_message():
         == ChatImportItemKind.SKIP
     )
     assert classify_message("السلام عليكم ورحمة الله وبركاته") == ChatImportItemKind.SKIP
+    assert classify_message("مساء الخير") == ChatImportItemKind.SKIP
     # Community costs / service asks are posts, not listings
     assert (
         classify_message("تكلفة صرف المطر 3000 جنيه للواحدة")
@@ -119,12 +126,29 @@ def test_classify_message():
     assert (
         classify_message("Anyone know a good plumber?") == ChatImportItemKind.POST
     )
+    # Buyer / wanted enquiries must NOT become listings
+    assert (
+        classify_message("Anyone has a fully finished penthouse in VGK for RENT?")
+        == ChatImportItemKind.POST
+    )
+    assert (
+        classify_message(
+            "صباح الخير، في واحد صديقي عايز يشتري شقه ٣ نوم، لو حد عنده شقه للبيع ياريت يتواصل معايا"
+        )
+        == ChatImportItemKind.POST
+    )
+    assert (
+        classify_message("What if i already paid the money long time ago?")
+        == ChatImportItemKind.POST
+    )
+    assert classify_message("looking to buy a 3 bedroom apartment") == ChatImportItemKind.POST
 
 
 def test_infer_post_category():
     from app.services.chat_import_parser import infer_post_category
 
     assert infer_post_category("Anyone know a good plumber?") == "HELP"
+    assert infer_post_category("Anyone has a penthouse for rent?") == "HELP"
     assert infer_post_category("Lost keys near gate 3") == "LOST_FOUND"
     assert infer_post_category("نعمل صندوق شارع") == "DISCUSSION"
 
