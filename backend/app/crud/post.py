@@ -80,9 +80,12 @@ async def get_feed_posts(
     db: AsyncSession,
     compound_id: int | None = None,
     skip: int = 0,
-    limit: int = 50
+    limit: int = 50,
+    search: str | None = None,
 ) -> list[Post]:
     """Get feed posts, optionally filtered by compound. Excludes soft-deleted posts."""
+    from sqlalchemy import or_, func
+
     query = select(Post).options(
         selectinload(Post.author),
         selectinload(Post.compound),  # Load compound for compound_name
@@ -94,6 +97,15 @@ async def get_feed_posts(
     
     if compound_id:
         query = query.where(Post.compound_id == compound_id)
+
+    if search and search.strip():
+        term = f"%{search.strip().lower()}%"
+        query = query.join(User, Post.author_id == User.id).where(
+            or_(
+                func.lower(Post.content).like(term),
+                func.lower(User.name).like(term),
+            )
+        )
     
     query = query.order_by(Post.created_at.desc()).offset(skip).limit(limit)
     

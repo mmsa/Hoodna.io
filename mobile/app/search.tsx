@@ -96,7 +96,7 @@ function SearchResultCard({ result, router }: { result: SearchResult; router: an
   const getResultUrl = () => {
     switch (result.type) {
       case "post":
-        return `/(tabs)/home#post-${result.id}`;
+        return `/post/${result.id}`;
       case "listing":
         return `/listing/${result.id}`;
       case "service":

@@ -13,6 +13,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -324,13 +325,21 @@ export default function ListingDetailScreen() {
   );
 }
 
-function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value?: string | null;
+}) {
   return (
     <View style={styles.detailRow}>
       <Ionicons color={colors.textMuted} name={icon} size={20} />
       <View style={styles.detailCopy}>
         <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value}</Text>
+        <Text style={styles.detailValue}>{value?.trim() ? value : "—"}</Text>
       </View>
     </View>
   );

@@ -699,8 +699,10 @@ export class ApiClient {
     return this.request("/api/feed/summary");
   }
 
-  async getFeed(limit = 15): Promise<Post[]> {
-    return this.request<Post[]>(`/api/feed?limit=${limit}`);
+  async getFeed(limit = 15, search?: string): Promise<Post[]> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (search?.trim()) params.set("search", search.trim());
+    return this.request<Post[]>(`/api/feed?${params.toString()}`);
   }
 
   async getLinkPreview(url: string): Promise<{

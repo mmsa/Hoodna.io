@@ -11,6 +11,12 @@ import { isPlatformStaff } from "@/lib/resident-routing";
 
 const BASE_SHORTCUTS = [
   {
+    key: "search",
+    label: "Search",
+    icon: "search-outline" as const,
+    href: "/search",
+  },
+  {
     key: "market",
     label: "Marketplace",
     icon: "bag-handle-outline" as const,

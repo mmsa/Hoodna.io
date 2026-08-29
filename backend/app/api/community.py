@@ -216,6 +216,7 @@ async def get_feed(
     compound_id: int = None,
     skip: int = 0,
     limit: int = 50,
+    search: Optional[str] = None,
     current_user: User = Depends(get_current_verified_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -230,7 +231,13 @@ async def get_feed(
             detail="User must select a compound first"
         )
     
-    posts = await get_feed_posts(db, compound_id=compound_id, skip=skip, limit=limit)
+    posts = await get_feed_posts(
+        db,
+        compound_id=compound_id,
+        skip=skip,
+        limit=limit,
+        search=search,
+    )
     
     # Convert to response format
     result = []
