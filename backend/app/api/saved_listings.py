@@ -33,6 +33,18 @@ async def save_listing_endpoint(
         )
     
     saved = await save_listing(db, current_user.id, listing_id)
+
+    if listing.owner_id != current_user.id:
+        from app.services.notifications import notify_listing_saved
+
+        await notify_listing_saved(
+            db,
+            listing_owner_id=listing.owner_id,
+            saver_name=current_user.name or "Neighbour",
+            listing_id=listing.id,
+            listing_title=listing.title or "Listing",
+        )
+
     await db.commit()
     
     return {"message": "Listing saved successfully", "saved": True}

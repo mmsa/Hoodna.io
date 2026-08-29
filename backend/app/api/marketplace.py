@@ -430,6 +430,18 @@ async def create_listing_endpoint(
     # Every listing that passes the authorization checks is immediately visible.
     listing.status = ListingStatus.ACTIVE
     await db.flush()
+
+    from app.services.notifications import notify_new_listing_in_compound
+
+    await notify_new_listing_in_compound(
+        db,
+        compound_id=listing.compound_id,
+        owner_id=current_user.id,
+        owner_name=current_user.name or "Neighbour",
+        listing_id=listing.id,
+        listing_title=listing.title or "Listing",
+    )
+    await db.commit()
     await db.refresh(listing)
     compound = await db.get(Compound, listing.compound_id)
 

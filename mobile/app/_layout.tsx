@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CompoundProvider } from "@/contexts/CompoundContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { ResidentVerificationGuard } from "@/components/resident-verification-guard";
 import { DeepLinkHandler } from "@/components/deep-link-handler";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -19,11 +20,13 @@ export default function RootLayout() {
           <AppErrorBoundary>
             <AppLocaleProvider>
               <CompoundProvider>
-                <ResidentVerificationGuard />
-                <DeepLinkHandler />
-                <StatusBar style="auto" />
-                <Stack screenOptions={{ headerShown: false }} />
-                <AppVersionBadge />
+                <NotificationsProvider>
+                  <ResidentVerificationGuard />
+                  <DeepLinkHandler />
+                  <StatusBar style="auto" />
+                  <Stack screenOptions={{ headerShown: false }} />
+                  <AppVersionBadge />
+                </NotificationsProvider>
               </CompoundProvider>
             </AppLocaleProvider>
           </AppErrorBoundary>

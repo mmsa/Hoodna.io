@@ -329,7 +329,19 @@ async def create_post_endpoint(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    
+
+    from app.services.notifications import notify_new_post_in_compound
+
+    await notify_new_post_in_compound(
+        db,
+        compound_id=current_user.compound_id,
+        author_id=current_user.id,
+        author_name=current_user.name or "Neighbour",
+        post_id=post.id,
+        content=post.content or "",
+    )
+    await db.commit()
+
     # Refresh to get relationships
     await db.refresh(post, ["compound", "author", "poll_votes", "reactions", "comments"])
     
@@ -384,12 +396,28 @@ async def react_to_post(
 ):
     """Add, change, or remove the current user's reaction."""
     try:
-        post = await toggle_post_reaction(
-            db, post_id, current_user.id, reaction_data.reaction,
+        post, event = await toggle_post_reaction(
+            db,
+            post_id,
+            current_user.id,
+            reaction_data.reaction,
             current_user.compound_id,
         )
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    if event in ("added", "changed") and post.author_id != current_user.id:
+        from app.services.notifications import notify_post_reaction
+
+        await notify_post_reaction(
+            db,
+            post_author_id=post.author_id,
+            reactor_id=current_user.id,
+            reactor_name=current_user.name or "Neighbour",
+            post_id=post.id,
+            reaction=reaction_data.reaction,
+        )
+        await db.commit()
 
     return PostReactionsResponse(**_reaction_fields(post, current_user.id))
 
@@ -402,13 +430,31 @@ async def create_comment_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a comment on a post."""
+    from app.crud.post import get_post_by_id
+    from app.services.notifications import notify_comment_on_post
+
+    post = await get_post_by_id(db, post_id)
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
     comment = await create_comment(
         db=db,
         post_id=post_id,
         author_id=current_user.id,
         comment_data=comment_data,
     )
-    
+
+    await notify_comment_on_post(
+        db,
+        post_author_id=post.author_id,
+        commenter_id=current_user.id,
+        commenter_name=current_user.name or "Neighbour",
+        post_id=post_id,
+        comment_id=comment.id,
+        comment_content=comment.content,
+    )
+    await db.commit()
+
     # Refresh to get author relationship
     await db.refresh(comment, ["author"])
     

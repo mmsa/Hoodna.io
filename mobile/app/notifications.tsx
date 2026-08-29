@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { formatRelativeTime } from "@hoodna/i18n";
 import { colors } from "@/constants/colors";
@@ -20,12 +21,20 @@ function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
     MESSAGE: "chatbubbles",
     COMMENT: "chatbubble",
     POST_LIKE: "heart",
+    NEW_POST: "newspaper",
+    NEW_LISTING: "storefront",
     VERIFICATION_APPROVED: "checkmark-circle",
     VERIFICATION_REJECTED: "close-circle",
     VERIFICATION_REQUEST_MORE: "alert-circle",
     LISTING_INQUIRY: "bag",
     LISTING_SAVED: "bookmark",
     MENTION: "at",
+    WEEKLY_DIGEST: "mail",
+    BUSINESS_CLAIM_SUBMITTED: "business",
+    BUSINESS_CLAIM_APPROVED: "checkmark-circle",
+    BUSINESS_CLAIM_REJECTED: "close-circle",
+    REFERRAL_ACCEPTED: "people",
+    REPORT_STATUS_UPDATED: "flag",
   };
   return icons[type] || "notifications";
 }
@@ -35,12 +44,19 @@ function getNotificationColor(type: string): string {
     MESSAGE: colors.primary,
     COMMENT: colors.purple,
     POST_LIKE: colors.pink,
+    NEW_POST: colors.primary,
+    NEW_LISTING: colors.accent,
     VERIFICATION_APPROVED: colors.success,
     VERIFICATION_REJECTED: colors.error,
     VERIFICATION_REQUEST_MORE: colors.accent,
     LISTING_INQUIRY: colors.accent,
     LISTING_SAVED: colors.purple,
     MENTION: colors.primary,
+    WEEKLY_DIGEST: colors.primary,
+    BUSINESS_CLAIM_APPROVED: colors.success,
+    BUSINESS_CLAIM_REJECTED: colors.error,
+    REFERRAL_ACCEPTED: colors.success,
+    REPORT_STATUS_UPDATED: colors.accent,
   };
   return palette[type] || colors.textMuted;
 }
@@ -77,10 +93,10 @@ export default function NotificationsScreen() {
   const { apiClient, user } = useAuth();
   const { track } = useTelemetry();
   const { t, locale } = useTranslation();
+  const { unreadCount, refreshUnreadCount, setUnreadCount } = useNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [busyNotificationId, setBusyNotificationId] = useState<number | null>(null);
 
@@ -102,16 +118,7 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [apiClient, filter]);
-
-  const loadUnreadCount = useCallback(async () => {
-    try {
-      const data = await apiClient.getUnreadNotificationCount();
-      setUnreadCount(data.unread_count || 0);
-    } catch (error) {
-      console.error("Failed to load unread notification count:", error);
-    }
-  }, [apiClient]);
+  }, [apiClient, filter, setUnreadCount]);
 
   useEffect(() => {
     if (!user) {
@@ -120,15 +127,14 @@ export default function NotificationsScreen() {
     }
 
     loadNotifications();
-    loadUnreadCount();
 
     const interval = setInterval(() => {
       loadNotifications();
-      loadUnreadCount();
+      void refreshUnreadCount();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [loadNotifications, loadUnreadCount, user]);
+  }, [loadNotifications, refreshUnreadCount, user]);
 
   const stats = useMemo(() => {
     const unreadItems = notifications.filter((item) => !item.read).length;
@@ -159,10 +165,14 @@ export default function NotificationsScreen() {
         router.push(`/messages/${notification.related_id}`);
       } else if (notification.type.startsWith("VERIFICATION")) {
         router.push("/verification");
+      } else if (notification.type.startsWith("BUSINESS_CLAIM")) {
+        router.push("/business-claims");
+      } else if (notification.type === "REFERRAL_ACCEPTED") {
+        router.push("/invite-neighbours");
       }
 
       loadNotifications();
-      loadUnreadCount();
+      void refreshUnreadCount();
     } catch (error) {
       console.error("Failed to open notification:", error);
     }
@@ -172,7 +182,7 @@ export default function NotificationsScreen() {
     try {
       await apiClient.markAllNotificationsRead();
       loadNotifications();
-      loadUnreadCount();
+      void refreshUnreadCount();
       Alert.alert(t("common.success"), t("notifications.markAllRead"));
     } catch (error) {
       Alert.alert(t("common.error"), t("common.error"));
@@ -184,7 +194,7 @@ export default function NotificationsScreen() {
       setBusyNotificationId(notificationId);
       await apiClient.deleteNotification(notificationId);
       setNotifications((current) => current.filter((item) => item.id !== notificationId));
-      loadUnreadCount();
+      void refreshUnreadCount();
     } catch (error) {
       Alert.alert("Error", "Failed to delete notification");
     } finally {
@@ -290,7 +300,7 @@ export default function NotificationsScreen() {
             onRefresh={() => {
               setRefreshing(true);
               loadNotifications();
-              loadUnreadCount();
+              void refreshUnreadCount();
             }}
             tintColor={colors.primary}
           />

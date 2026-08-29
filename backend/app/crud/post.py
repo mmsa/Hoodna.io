@@ -158,7 +158,8 @@ async def toggle_post_reaction(
     user_id: int,
     reaction: str,
     compound_id: int,
-) -> Post:
+) -> tuple[Post, str]:
+    """Toggle reaction. Returns (post, event) where event is added|removed|changed."""
     post = await db.scalar(
         select(Post)
         .options(selectinload(Post.reactions))
@@ -172,15 +173,19 @@ async def toggle_post_reaction(
         raise ValueError("Post not found")
 
     existing = next((item for item in post.reactions if item.user_id == user_id), None)
+    event = "added"
     if existing and existing.reaction == reaction:
         await db.delete(existing)
+        event = "removed"
     elif existing:
         existing.reaction = reaction
+        event = "changed"
     else:
         db.add(PostReaction(post_id=post_id, user_id=user_id, reaction=reaction))
+        event = "added"
 
     await db.commit()
-    return await db.scalar(
+    refreshed = await db.scalar(
         select(Post)
         .options(selectinload(Post.reactions))
         .where(
@@ -189,6 +194,7 @@ async def toggle_post_reaction(
             Post.deleted_at.is_(None),
         )
     )
+    return refreshed, event
 
 
 async def create_post(

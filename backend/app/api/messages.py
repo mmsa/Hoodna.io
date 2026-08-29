@@ -46,6 +46,7 @@ async def create_message(
         )
     
     # Verify listing exists if provided
+    listing = None
     if message_data.listing_id:
         listing = await get_listing_by_id(db, message_data.listing_id)
         if not listing:
@@ -65,7 +66,25 @@ async def create_message(
     message = await send_message(
         db, conversation.id, current_user.id, message_data.content
     )
-    
+
+    from app.services.notifications import notify_new_message, notify_listing_inquiry
+
+    await notify_new_message(
+        db,
+        user_id=message_data.recipient_id,
+        sender_name=current_user.name or "Neighbour",
+        conversation_id=conversation.id,
+        preview=message_data.content,
+    )
+    if message_data.listing_id and listing and listing.owner_id != current_user.id:
+        await notify_listing_inquiry(
+            db,
+            listing_owner_id=listing.owner_id,
+            inquirer_name=current_user.name or "Neighbour",
+            listing_id=listing.id,
+            listing_title=listing.title or "Listing",
+        )
+
     await db.commit()
     await db.refresh(message)
     await db.refresh(message.sender)
@@ -246,6 +265,22 @@ async def send_message_to_conversation(
     
     # Send message
     message = await send_message(db, conversation_id, current_user.id, content)
+
+    recipient_id = (
+        conversation.user2_id
+        if conversation.user1_id == current_user.id
+        else conversation.user1_id
+    )
+    from app.services.notifications import notify_new_message
+
+    await notify_new_message(
+        db,
+        user_id=recipient_id,
+        sender_name=current_user.name or "Neighbour",
+        conversation_id=conversation_id,
+        preview=content,
+    )
+
     await db.commit()
     await db.refresh(message)
     await db.refresh(message.sender)

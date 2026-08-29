@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SignedImage } from "@/components/signed-image";
 import { AppBrandBar } from "@/components/AppBrandBar";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { formatCompoundName } from "@/utils/formatCompound";
 
 interface CompoundHeroProps {
@@ -28,6 +29,7 @@ export function CompoundHero({
 }: CompoundHeroProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useNotifications();
 
   return (
     <View style={[styles.wrap, { height: 200 + insets.top }]}>
@@ -53,13 +55,22 @@ export function CompoundHero({
           tone="light"
           trailing={
             <TouchableOpacity
-              accessibilityLabel="Notifications"
+              accessibilityLabel={
+                unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"
+              }
               accessibilityRole="button"
               hitSlop={12}
               onPress={() => router.push("/notifications")}
               style={styles.bell}
             >
               <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+              {unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : String(unreadCount)}
+                  </Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
           }
         />
@@ -111,6 +122,26 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    lineHeight: 12,
   },
   content: {
     position: "absolute",

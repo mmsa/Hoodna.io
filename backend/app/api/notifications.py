@@ -12,7 +12,7 @@ from app.crud.notification import (
     mark_all_notifications_read,
     delete_notification,
 )
-from app.core.dependencies import get_current_approved_user
+from app.core.dependencies import get_current_user
 from app.models.user import User
 from typing import Optional
 
@@ -27,7 +27,7 @@ async def get_notifications(
     unread_only: bool = Query(
         False, description="Filter to show only unread notifications"
     ),
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get notifications for the current user."""
@@ -50,7 +50,7 @@ async def get_notifications(
 
 @router.get("/unread-count")
 async def get_unread_count(
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the count of unread notifications for the current user."""
@@ -68,7 +68,7 @@ async def get_unread_count(
 @router.patch("/{notification_id}/read", response_model=NotificationResponse)
 async def mark_read(
     notification_id: int,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a notification as read."""
@@ -89,7 +89,7 @@ async def mark_read(
 
 @router.post("/mark-all-read")
 async def mark_all_read(
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark all notifications as read for the current user."""
@@ -104,7 +104,7 @@ async def mark_all_read(
 @router.delete("/{notification_id}")
 async def delete_notification_endpoint(
     notification_id: int,
-    current_user: User = Depends(get_current_approved_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a notification."""

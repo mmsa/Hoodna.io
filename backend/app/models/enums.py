@@ -79,6 +79,8 @@ class NotificationType(str, Enum):
     MESSAGE = "MESSAGE"
     COMMENT = "COMMENT"
     POST_LIKE = "POST_LIKE"
+    NEW_POST = "NEW_POST"  # Neighbour shared a post in the compound feed
+    NEW_LISTING = "NEW_LISTING"  # New marketplace listing in the compound
     VERIFICATION_APPROVED = "VERIFICATION_APPROVED"
     VERIFICATION_REJECTED = "VERIFICATION_REJECTED"
     VERIFICATION_REQUEST_MORE = "VERIFICATION_REQUEST_MORE"
