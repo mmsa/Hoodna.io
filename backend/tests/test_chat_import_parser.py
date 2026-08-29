@@ -167,6 +167,34 @@ def test_classify_message():
     )
 
 
+def test_regex_kind_and_confidence():
+    from app.services.chat_import_classify import regex_kind_and_confidence
+
+    # Clear offer → high LISTING
+    kind, conf = regex_kind_and_confidence("Selling sofa 5000 EGP")
+    assert kind == ChatImportItemKind.LISTING.value and conf == "high"
+
+    # Clear wanted → high POST
+    kind, conf = regex_kind_and_confidence(
+        "Anyone has a fully finished penthouse in VGK for RENT?"
+    )
+    assert kind == ChatImportItemKind.POST.value and conf == "high"
+
+    # Clear chatty → high POST
+    kind, conf = regex_kind_and_confidence("Yes I do plz send me ur email")
+    assert kind == ChatImportItemKind.POST.value and conf == "high"
+
+    # Soft commercial wording without clear offer → low (LLM should decide)
+    kind, conf = regex_kind_and_confidence(
+        "Nice duplex 255m garden view VGK stage 3 price around 8 million"
+    )
+    assert kind == ChatImportItemKind.POST.value and conf == "low"
+
+    # Mundane chat → high POST (skip LLM)
+    kind, conf = regex_kind_and_confidence("See you at the club tonight")
+    assert kind == ChatImportItemKind.POST.value and conf == "high"
+
+
 def test_infer_post_category():
     from app.services.chat_import_parser import infer_post_category
 
