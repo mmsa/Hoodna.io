@@ -418,6 +418,10 @@ export const ar: MessageTree = {
     communityAnnouncements: "إعلانات المجتمع",
     businessRecommendations: "توصيات الأعمال",
     pushNotificationsDescription: "تحديثات النشاط والحساب",
+    pushPermissionDeniedTitle: "الإشعارات متوقفة",
+    pushPermissionDeniedMessage:
+      "فعّل الإشعارات من إعدادات النظام حتى يصلك تحديث النشاط.",
+    openSystemSettings: "فتح الإعدادات",
     weeklyDigestDescription: "ملخص عن حيك",
     communityAnnouncementsDescription: "إشعارات محلية مهمة",
     businessRecommendationsDescription: "أعمال قريبة ذات صلة",

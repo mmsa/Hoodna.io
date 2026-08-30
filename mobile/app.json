@@ -30,6 +30,9 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#F9F8F1"
       },
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ],
       "package": "com.eljiran.mobile",
       "versionCode": 1,
       "intentFilters": [
@@ -63,6 +66,14 @@
         {
           "photosPermission": "eljiran needs photo access so you can upload verification documents and listing images.",
           "cameraPermission": "eljiran needs camera access so you can take photos for verification and listings."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#158074",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": true
         }
       ]
     ],

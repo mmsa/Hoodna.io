@@ -9,6 +9,10 @@ import type { AccountDeletionRequest, UserPreferences } from "@hoodna/shared";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { LanguagePicker } from "@/components/LanguagePicker";
 import { Header } from "@/components/Header";
+import {
+  openSystemNotificationSettings,
+  requestPushPermission,
+} from "@/lib/push-notifications";
 
 export default function SettingsScreen() {
   const { user, apiClient, refreshUser } = useAuth();
@@ -105,6 +109,23 @@ export default function SettingsScreen() {
   async function updatePreference(key: keyof Omit<UserPreferences, "updated_at">, value: boolean) {
     if (!preferences) return;
     const previous = preferences;
+    if (key === "push_notifications" && value) {
+      const granted = await requestPushPermission();
+      if (!granted) {
+        Alert.alert(
+          t("settings.pushPermissionDeniedTitle"),
+          t("settings.pushPermissionDeniedMessage"),
+          [
+            { text: t("settings.cancel"), style: "cancel" },
+            {
+              text: t("settings.openSystemSettings"),
+              onPress: openSystemNotificationSettings,
+            },
+          ]
+        );
+        return;
+      }
+    }
     setPreferences({ ...preferences, [key]: value });
     try {
       setPreferences(await apiClient.updateUserPreferences({ [key]: value }));

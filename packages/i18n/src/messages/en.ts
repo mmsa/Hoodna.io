@@ -416,6 +416,10 @@ export const en = {
     communityAnnouncements: "Community announcements",
     businessRecommendations: "Business recommendations",
     pushNotificationsDescription: "Activity and account updates",
+    pushPermissionDeniedTitle: "Notifications are off",
+    pushPermissionDeniedMessage:
+      "Enable notifications in system settings so eljiran can send you activity updates.",
+    openSystemSettings: "Open settings",
     weeklyDigestDescription: "A summary of your neighbourhood",
     communityAnnouncementsDescription: "Important local notices",
     businessRecommendationsDescription: "Relevant nearby businesses",
