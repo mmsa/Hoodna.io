@@ -18,12 +18,13 @@ fi
 echo "==> Building shared packages"
 npm run build:packages
 
-echo "==> Syncing iOS build number from app.json"
-BUILD_NUMBER="$(node -e "const app=require('./app.json'); console.log(app.expo.ios.buildNumber || '1')")"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "$ROOT_DIR/ios/eljiran/Info.plist" 2>/dev/null || true
-
 echo "==> Generating native iOS project"
-npx expo prebuild --platform ios
+npx expo prebuild --platform ios --non-interactive
+
+BUILD_NUMBER="$(node -e "const app=require('./app.json'); console.log(app.expo.ios.buildNumber || '1')")"
+echo "==> Setting iOS build number ${BUILD_NUMBER}"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "$ROOT_DIR/ios/eljiran/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :aps-environment production" "$ROOT_DIR/ios/eljiran/eljiran.entitlements" 2>/dev/null || true
 
 WORKSPACE="$ROOT_DIR/ios/eljiran.xcworkspace"
 SCHEME="eljiran"
