@@ -22,8 +22,10 @@ echo "==> Generating native iOS project"
 npx expo prebuild --platform ios --non-interactive
 
 BUILD_NUMBER="$(node -e "const app=require('./app.json'); console.log(app.expo.ios.buildNumber || '1')")"
-echo "==> Setting iOS build number ${BUILD_NUMBER}"
+MARKETING_VERSION="$(node -e "const app=require('./app.json'); console.log(app.expo.version || '1.0.0')")"
+echo "==> Setting iOS version ${MARKETING_VERSION} (${BUILD_NUMBER})"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "$ROOT_DIR/ios/eljiran/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${MARKETING_VERSION}" "$ROOT_DIR/ios/eljiran/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Set :aps-environment production" "$ROOT_DIR/ios/eljiran/eljiran.entitlements" 2>/dev/null || true
 
 WORKSPACE="$ROOT_DIR/ios/eljiran.xcworkspace"
