@@ -18,13 +18,54 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
 
 async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
     """Get user by phone number (Egyptian-aware country-code normalization)."""
-    from app.utils.phone import phone_lookup_candidates
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.utils.phone import normalize_phone, phone_lookup_candidates
 
     candidates = phone_lookup_candidates(phone)
     if not candidates:
         return None
-    result = await db.execute(select(User).where(User.phone.in_(candidates)))
-    return result.scalar_one_or_none()
+    users = list(
+        (await db.execute(select(User).where(User.phone.in_(candidates)))).scalars().all()
+    )
+    if not users:
+        return None
+
+    normalized = normalize_phone(phone)
+    ids = [user.id for user in users]
+    membership_rows = (
+        await db.execute(
+            select(
+                UserCompoundMembership.user_id,
+                UserCompoundMembership.verification_status,
+                UserCompoundMembership.verification_source,
+            ).where(UserCompoundMembership.user_id.in_(ids))
+        )
+    ).all()
+    memberships_by_user: dict[int, list[tuple[str | None, str | None]]] = {}
+    for user_id, status, source in membership_rows:
+        memberships_by_user.setdefault(int(user_id), []).append((status, source))
+
+    def score(user: User) -> tuple:
+        mems = memberships_by_user.get(user.id, [])
+        verified = any(status == "VERIFIED" for status, _ in mems)
+        chat_import = any(source == "CHAT_IMPORT" for _, source in mems)
+        return (
+            1 if user.compound_id else 0,
+            1 if verified else 0,
+            1 if chat_import else 0,
+            1 if (user.creation_source or "") == "CHAT_IMPORT" else 0,
+            1 if normalized and user.phone == normalized else 0,
+            -int(user.id),
+        )
+
+    winner = max(users, key=score)
+    if (
+        normalized
+        and winner.phone != normalized
+        and not any(other.phone == normalized and other.id != winner.id for other in users)
+    ):
+        winner.phone = normalized
+    return winner
 
 
 async def create_user_by_phone(

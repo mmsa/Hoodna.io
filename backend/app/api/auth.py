@@ -727,8 +727,15 @@ async def get_current_user_info(
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user information with verification status."""
+    from app.crud.user_compound_membership import get_membership_compound_ids
     from app.crud.verification import get_user_documents, compute_verification_status
     from app.models.enums import DocumentType, UserStatus, UserRole
+
+    if current_user.compound_id is None:
+        verified_ids = await get_membership_compound_ids(db, current_user.id)
+        if verified_ids:
+            current_user.compound_id = sorted(verified_ids)[0]
+            await db.flush()
     
     # Fetch documents for residents who still need verification so clients can
     # distinguish "needs upload" (UNVERIFIED) vs "under review" (PENDING).

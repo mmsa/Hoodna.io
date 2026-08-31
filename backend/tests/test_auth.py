@@ -488,7 +488,7 @@ async def test_phone_otp_confirms_chat_import_invite(async_client: AsyncClient, 
     from app.crud.user_compound_membership import ensure_pending_compound_membership
     from app.utils.phone import normalize_phone
 
-    phone = "+201777777777"
+    phone = "+201001234567"
     user = await create_user_by_phone(
         db_session, phone, "Imported Neighbour", creation_source="CHAT_IMPORT"
     )
@@ -514,3 +514,48 @@ async def test_phone_otp_confirms_chat_import_invite(async_client: AsyncClient, 
     assert payload["compound_id"] == compound.id
     assert payload["is_verified_for_current_compound"] is True
     assert payload["verification_status"] == "APPROVED"
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_phone_otp_matches_uk_number_misimported_as_egypt(
+    async_client: AsyncClient, db_session
+):
+    """UK 07… used to be stored as +20; OTP with +44 must still open that compound."""
+    import time
+    from app.api.auth import otp_storage
+    from app.crud.user_compound_membership import ensure_pending_compound_membership
+    from app.models.enums import UserStatus
+    from app.models.user import User
+
+    imported = User(
+        name="Mohamed",
+        email="phone_207539673391@hoodna.local",
+        phone="207539673391",
+        password_hash="",
+        status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=True,
+        email_verified=True,
+        creation_source="CHAT_IMPORT",
+    )
+    db_session.add(imported)
+    await db_session.flush()
+    compound = Compound(name="UK Import Compound", country="Egypt")
+    db_session.add(compound)
+    await db_session.flush()
+    await ensure_pending_compound_membership(
+        db_session, imported.id, compound.id, source="CHAT_IMPORT"
+    )
+    await db_session.commit()
+
+    otp_storage["447539673391"] = {"otp": "111222", "expires_at": time.time() + 600}
+    verify = await async_client.post(
+        "/api/auth/verify",
+        json={"phone": "+447539673391", "otp_code": "111222"},
+    )
+    assert verify.status_code == 200
+    payload = verify.json()["user"]
+    assert payload["id"] == imported.id
+    assert payload["compound_id"] == compound.id
+    assert payload["is_verified_for_current_compound"] is True
+    assert payload["status"] == "APPROVED"

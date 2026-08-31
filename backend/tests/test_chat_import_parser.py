@@ -270,6 +270,23 @@ def test_membership_body_phones_become_users():
     assert sara["normalized"].get("phone") is None
 
 
+def test_import_keeps_any_country_code():
+    sample = """\
+[1/15/26, 10:01:22 AM] +44 7539 673391: Hello from the UK
+[1/15/26, 10:02:00 AM] +971 50 123 4567: Hello from Dubai
+[1/15/26, 10:03:00 AM] +33 6 34 07 35 01: Bonjour
+"""
+    parsed = detect_and_parse_bytes(sample.encode("utf-8"), "chat.txt")
+    phones = {
+        u["normalized"]["phone"]
+        for u in parsed.users
+        if u["normalized"].get("phone")
+    }
+    assert "447539673391" in phones
+    assert "33634073501" in phones
+    assert any(p.startswith("971") for p in phones)
+
+
 def test_parse_whatsapp_text():
     messages = parse_whatsapp_text(WHATSAPP_SAMPLE)
     assert len(messages) == 6

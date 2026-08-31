@@ -19,7 +19,7 @@ IMPORT_LOCAL_TZ = ZoneInfo("Africa/Cairo")
 LISTING_MAX_AGE = timedelta(days=183)  # ~6 months
 
 PHONE_RE = re.compile(
-    r"(?:\+|00)?(?:20)?0?1[0125]\d{8}|\+\d{8,15}|\d{10,15}"
+    r"\+[1-9]\d{7,14}|\b00[1-9]\d{7,14}\b|(?:\+|00)?(?:20)?0?1[0125]\d{8}|\d{10,15}"
 )
 # Full-string phone / mostly-phone sender (WhatsApp shows number when contact not saved)
 PHONE_LIKE_SENDER_RE = re.compile(
@@ -174,11 +174,11 @@ NEW_ROOT_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 PHONE_IN_TEXT_RE = re.compile(
-    r"(?:\+|00)?(?:20)?0?1[0125][\d\s\-()]{7,12}|\+\d{8,15}"
+    r"(?:\+|00)[1-9][\d\s\xa0\-()]{7,20}|(?<!\d)(?:20)?0?1[0125][\d\s\-()]{7,12}(?!\d)"
 )
-# Spaced WhatsApp formatting (+20 114 412 3448, +33 6 34…) including NBSP
+# Spaced WhatsApp formatting (+20 114…, +44 7539…, +33 6 34…) including NBSP
 PHONE_CANDIDATE_RE = re.compile(
-    r"(?:\+|00)(?:[\d\s\xa0\-().]){8,24}|(?<!\d)(?:20)?0?1[0125](?:[\d\s\xa0\-()]){7,16}(?!\d)"
+    r"(?:\+|00)\s*[1-9](?:[\d\s\xa0\-().]){7,22}|(?<!\d)(?:20)?0?1[0125](?:[\d\s\xa0\-()]){7,16}(?!\d)"
 )
 # Only harvest body phones from membership / system identity lines (not casual chat).
 MEMBERSHIP_PHONE_CONTEXT_RE = re.compile(

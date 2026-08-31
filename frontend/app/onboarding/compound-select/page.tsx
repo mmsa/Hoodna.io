@@ -11,6 +11,7 @@ import api from '@/lib/api'
 import { formatCompoundName } from '@/lib/format-compound'
 import { useAuth } from '@/hooks/use-auth'
 import { SignOutButton } from '@/components/sign-out-button'
+import { getPostAuthWebRoute } from '@/lib/resident-routing'
 
 interface Compound {
   id: number
@@ -42,10 +43,14 @@ export default function CompoundSelectPage() {
       router.replace('/moderator/status')
       return
     }
+
+    if (user.compound_id) {
+      router.replace(getPostAuthWebRoute(user))
+    }
   }, [user, userLoading, router])
   
   // Early return if user is service provider or moderator (prevent rendering)
-  if (!userLoading && user && (user.role === 'SERVICE_PROVIDER' || user.role === 'COMPOUND_MOD')) {
+  if (!userLoading && user && (user.role === 'SERVICE_PROVIDER' || user.role === 'COMPOUND_MOD' || user.compound_id)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

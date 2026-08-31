@@ -73,14 +73,21 @@ function OtpVerifyForm() {
         otp_code: otp.trim(),
         name: showNameInput ? name.trim() : undefined,
       })
-      const { access_token, refresh_token } = response.data
+      const { access_token, refresh_token, user: verifiedUser } = response.data
       if (!access_token || !refresh_token || !persistAuthTokens(access_token, refresh_token)) {
         setError('Failed to store authentication token')
         return
       }
-      const me = await api.get('/api/auth/me')
-      persistUserRole(me.data?.role)
-      window.location.href = getPostAuthWebRoute(me.data)
+      persistUserRole(verifiedUser?.role)
+      let destUser = verifiedUser
+      try {
+        const me = await api.get('/api/auth/me')
+        destUser = me.data?.compound_id ? me.data : verifiedUser || me.data
+        persistUserRole(destUser?.role)
+      } catch {
+        // Verify payload is enough to route when /me is briefly unavailable.
+      }
+      window.location.href = getPostAuthWebRoute(destUser)
     } catch (err: any) {
       const detail = String(err?.response?.data?.detail || err?.message || '')
       if (detail.toLowerCase().includes('name is required')) {
