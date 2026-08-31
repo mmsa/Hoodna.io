@@ -1,5 +1,5 @@
 """CRUD helpers for user verified compound memberships."""
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import Text, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.compound import Compound
@@ -120,26 +120,42 @@ def _users_sharing_phone_filter(phone: str, *, exclude_user_id: int | None = Non
 async def _adopt_compounds_from_chat_import_items(db: AsyncSession, user: User) -> None:
     """If this phone was in a published chat import, attach that compound."""
     from app.models.chat_import import ChatImportItem, ChatImportJob
-    from app.utils.phone import phone_storage_match_values
+    from app.utils.phone import phone_lookup_candidates
 
     if not user.phone:
         return
-    values = phone_storage_match_values(user.phone)
-    if not values:
+    digits = phone_lookup_candidates(user.phone)
+    if not digits:
         return
-    phone_match = or_(
-        *[cast(ChatImportItem.normalized, String).like(f"%{value}%") for value in values]
+
+    json_phone = func.coalesce(ChatImportItem.normalized["phone"].as_string(), "")
+    json_phone_digits = json_phone
+    for ch in ("+", " ", "-", "(", ")", "\u00a0"):
+        json_phone_digits = func.replace(json_phone_digits, ch, "")
+
+    rows = await db.execute(
+        select(ChatImportJob.compound_id)
+        .join(ChatImportItem, ChatImportItem.job_id == ChatImportJob.id)
+        .where(
+            or_(
+                ChatImportItem.matched_user_id == user.id,
+                json_phone_digits.in_(digits),
+            )
+        )
+        .distinct()
     )
-    try:
+    compound_ids = [int(cid) for cid in rows.scalars().all() if cid]
+    if not compound_ids:
+        # WhatsApp lines sometimes keep the number only in raw_payload.
+        raw_text = cast(ChatImportItem.raw_payload, Text)
+        raw_match = or_(*[raw_text.like(f"%{digit}%") for digit in digits if len(digit) >= 10])
         rows = await db.execute(
             select(ChatImportJob.compound_id)
             .join(ChatImportItem, ChatImportItem.job_id == ChatImportJob.id)
-            .where(or_(ChatImportItem.matched_user_id == user.id, phone_match))
+            .where(raw_match)
             .distinct()
         )
-    except Exception:
-        return
-    compound_ids = [int(cid) for cid in rows.scalars().all() if cid]
+        compound_ids = [int(cid) for cid in rows.scalars().all() if cid]
     if not compound_ids:
         return
     existing = set(
