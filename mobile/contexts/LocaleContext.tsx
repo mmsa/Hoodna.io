@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { I18nManager, View } from "react-native";
+import { View } from "react-native";
 import {
   createContext,
   useCallback,
@@ -31,14 +31,6 @@ type LocaleContextValue = {
 };
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
-
-function applyRtlLayout(locale: SupportedLocale) {
-  const shouldUseRtl = isRTL(locale);
-  if (I18nManager.isRTL !== shouldUseRtl) {
-    I18nManager.allowRTL(true);
-    I18nManager.forceRTL(shouldUseRtl);
-  }
-}
 
 function LocaleShell({
   locale,
@@ -93,7 +85,6 @@ export function AppLocaleProvider({ children }: { children: ReactNode }) {
       const resolved = stored === "en" || stored === "ar" ? stored : detectDeviceLocale();
       const normalized = normalizeLocale(resolved);
       setLocaleState(normalized);
-      applyRtlLayout(normalized);
       setReady(true);
     });
     return () => {
@@ -106,7 +97,6 @@ export function AppLocaleProvider({ children }: { children: ReactNode }) {
       const normalized = normalizeLocale(nextLocale);
       setLocaleState(normalized);
       await SecureStore.setItemAsync(LOCALE_STORAGE_KEY, normalized);
-      applyRtlLayout(normalized);
       if (isAuthenticated) {
         try {
           await apiClient.updateUserPreferences({ locale: normalized });

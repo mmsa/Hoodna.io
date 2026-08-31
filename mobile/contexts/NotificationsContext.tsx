@@ -10,7 +10,6 @@ import {
 import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { requestPushPermission } from "@/lib/push-notifications";
 
 type NotificationsContextValue = {
   unreadCount: number;
@@ -35,24 +34,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     } catch {
       // Keep last known count on transient failures
     }
-  }, [apiClient, user]);
-
-  useEffect(() => {
-    if (!user) {
-      setUnreadCount(0);
-      return;
-    }
-    let active = true;
-    void apiClient
-      .getUserPreferences()
-      .then((preferences) => {
-        if (!active || !preferences.push_notifications) return;
-        return requestPushPermission();
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
   }, [apiClient, user]);
 
   useEffect(() => {

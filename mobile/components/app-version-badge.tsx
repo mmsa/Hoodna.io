@@ -16,7 +16,12 @@ function resolveVersionLabel(): string {
 }
 
 export function AppVersionBadge() {
-  const insets = useSafeAreaInsets();
+  let insets = { bottom: 8, right: 8 };
+  try {
+    insets = useSafeAreaInsets();
+  } catch {
+    // Root can mount before SafeAreaProvider on some release builds.
+  }
   const label = resolveVersionLabel();
 
   return (
