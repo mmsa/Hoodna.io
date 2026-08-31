@@ -19,7 +19,7 @@ echo "==> Building shared packages"
 npm run build:packages
 
 echo "==> Generating native iOS project"
-npx expo prebuild --platform ios --non-interactive
+npx expo prebuild --platform ios --clean --non-interactive
 
 BUILD_NUMBER="$(node -e "const app=require('./app.json'); console.log(app.expo.ios.buildNumber || '1')")"
 MARKETING_VERSION="$(node -e "const app=require('./app.json'); console.log(app.expo.version || '1.0.0')")"
