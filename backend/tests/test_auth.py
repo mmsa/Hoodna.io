@@ -695,7 +695,7 @@ async def test_me_attaches_compound_from_chat_import_item(async_client: AsyncCli
             kind=ChatImportItemKind.USER,
             decision=ChatImportItemDecision.APPROVED,
             raw_payload={},
-            normalized={"phone": "+44 7539 673391", "name": "Mohamed"},
+            normalized={"phone": "\u202a+44 7539 673391\u202c", "name": "Mohamed"},
         )
     )
     user = User(

@@ -91,8 +91,23 @@ async def get_membership_compound_ids(db: AsyncSession, user_id: int) -> set[int
 
 
 def _phone_digits_expr(column):
+    from app.utils.phone import PHONE_SQL_STRIP_CHARS
+
     expr = column
-    for ch in ("+", " ", "-", "(", ")", "\u00a0"):
+    for ch in PHONE_SQL_STRIP_CHARS:
+        expr = func.replace(expr, ch, "")
+    return expr
+
+
+def _sql_only_digits(column, *, dialect_name: str):
+    """Keep only 0-9 from a JSON/text column so WhatsApp bidi/spacing still matches."""
+    from app.utils.phone import PHONE_SQL_STRIP_CHARS
+
+    text_col = func.coalesce(cast(column, Text), "")
+    if dialect_name == "postgresql":
+        return func.regexp_replace(text_col, "[^0-9]", "", "g")
+    expr = text_col
+    for ch in PHONE_SQL_STRIP_CHARS:
         expr = func.replace(expr, ch, "")
     return expr
 
@@ -120,18 +135,30 @@ def _users_sharing_phone_filter(phone: str, *, exclude_user_id: int | None = Non
 async def _adopt_compounds_from_chat_import_items(db: AsyncSession, user: User) -> None:
     """If this phone was in a published chat import, attach that compound."""
     from app.models.chat_import import ChatImportItem, ChatImportJob
-    from app.utils.phone import phone_lookup_candidates
+    from app.utils.phone import normalize_phone, phone_lookup_candidates
 
     if not user.phone:
         return
-    digits = phone_lookup_candidates(user.phone)
-    if not digits:
+    canonical = normalize_phone(user.phone)
+    digits = [d for d in phone_lookup_candidates(user.phone) if len(d) >= 10]
+    if not canonical or not digits:
         return
 
+    bind = getattr(db, "bind", None)
+    if bind is None:
+        try:
+            bind = db.get_bind()
+        except Exception:
+            bind = None
+    dialect_name = bind.dialect.name if bind is not None else "sqlite"
     json_phone = func.coalesce(ChatImportItem.normalized["phone"].as_string(), "")
-    json_phone_digits = json_phone
-    for ch in ("+", " ", "-", "(", ")", "\u00a0"):
-        json_phone_digits = func.replace(json_phone_digits, ch, "")
+    json_phone_digits = _sql_only_digits(json_phone, dialect_name=dialect_name)
+    normalized_blob_digits = _sql_only_digits(
+        ChatImportItem.normalized, dialect_name=dialect_name
+    )
+    raw_blob_digits = _sql_only_digits(ChatImportItem.raw_payload, dialect_name=dialect_name)
+    needle_match = or_(*[normalized_blob_digits.like(f"%{d}%") for d in digits])
+    raw_match = or_(*[raw_blob_digits.like(f"%{d}%") for d in digits])
 
     rows = await db.execute(
         select(ChatImportJob.compound_id)
@@ -140,22 +167,13 @@ async def _adopt_compounds_from_chat_import_items(db: AsyncSession, user: User) 
             or_(
                 ChatImportItem.matched_user_id == user.id,
                 json_phone_digits.in_(digits),
+                needle_match,
+                raw_match,
             )
         )
         .distinct()
     )
     compound_ids = [int(cid) for cid in rows.scalars().all() if cid]
-    if not compound_ids:
-        # WhatsApp lines sometimes keep the number only in raw_payload.
-        raw_text = cast(ChatImportItem.raw_payload, Text)
-        raw_match = or_(*[raw_text.like(f"%{digit}%") for digit in digits if len(digit) >= 10])
-        rows = await db.execute(
-            select(ChatImportJob.compound_id)
-            .join(ChatImportItem, ChatImportItem.job_id == ChatImportJob.id)
-            .where(raw_match)
-            .distinct()
-        )
-        compound_ids = [int(cid) for cid in rows.scalars().all() if cid]
     if not compound_ids:
         return
     existing = set(

@@ -17,6 +17,7 @@ _BIDI_AND_SPACE = (
     "\u202f",
     "\xa0",
 )
+PHONE_SQL_STRIP_CHARS = _BIDI_AND_SPACE + ("+", " ", "-", "(", ")")
 
 
 def is_placeholder_import_phone(phone: str | None) -> bool:
