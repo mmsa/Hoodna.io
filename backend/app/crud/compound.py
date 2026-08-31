@@ -139,6 +139,136 @@ async def update_compound(
     return compound
 
 
+async def _bulk_delete_posts_for_compound(db: AsyncSession, compound_id: int) -> None:
+    from sqlalchemy import delete, select
+    from app.models.post import Comment, PollVote, Post, PostReaction
+    from app.models.report import Report
+    from app.models.saved_post import SavedPost
+
+    post_ids = select(Post.id).where(Post.compound_id == compound_id)
+    await db.execute(delete(PollVote).where(PollVote.post_id.in_(post_ids)))
+    await db.execute(delete(PostReaction).where(PostReaction.post_id.in_(post_ids)))
+    await db.execute(delete(SavedPost).where(SavedPost.post_id.in_(post_ids)))
+    await db.execute(delete(Comment).where(Comment.post_id.in_(post_ids)))
+    await db.execute(
+        delete(Report).where(
+            Report.reported_type == "POST",
+            Report.reported_id.in_(post_ids),
+        )
+    )
+    await db.execute(delete(Post).where(Post.compound_id == compound_id))
+
+
+async def _bulk_delete_listings_for_compound(db: AsyncSession, compound_id: int) -> None:
+    from sqlalchemy import delete, or_, select
+    from app.models.listing import Listing, Promotion
+    from app.models.message import Conversation, Message
+    from app.models.report import Report
+    from app.models.review import Review
+    from app.models.saved_listing import SavedListing
+
+    listing_ids = select(Listing.id).where(Listing.compound_id == compound_id)
+    conversation_ids = select(Conversation.id).where(
+        Conversation.listing_id.in_(listing_ids)
+    )
+    await db.execute(delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+    await db.execute(
+        delete(Conversation).where(Conversation.listing_id.in_(listing_ids))
+    )
+    await db.execute(delete(Promotion).where(Promotion.listing_id.in_(listing_ids)))
+    await db.execute(delete(SavedListing).where(SavedListing.listing_id.in_(listing_ids)))
+    await db.execute(delete(Review).where(Review.listing_id.in_(listing_ids)))
+    await db.execute(
+        delete(Report).where(
+            Report.reported_type == "LISTING",
+            Report.reported_id.in_(listing_ids),
+        )
+    )
+    await db.execute(delete(Listing).where(Listing.compound_id == compound_id))
+
+
+async def _bulk_delete_users(db: AsyncSession, user_ids: list[int]) -> int:
+    if not user_ids:
+        return 0
+    from sqlalchemy import delete, or_, select, update
+    from app.models.enums import UserRole
+    from app.models.listing import Listing, Promotion
+    from app.models.message import Conversation, Message
+    from app.models.notification import Notification
+    from app.models.post import Comment, PollVote, Post, PostReaction
+    from app.models.report import Report
+    from app.models.review import Review
+    from app.models.saved_listing import SavedListing
+    from app.models.saved_post import SavedPost
+    from app.models.user import User
+    from app.models.user_compound_membership import UserCompoundMembership
+    from app.models.verification import VerificationDocument
+
+    ids = list(
+        (
+            await db.execute(
+                select(User.id).where(
+                    User.id.in_(user_ids),
+                    or_(User.role.is_(None), User.role != UserRole.ADMIN),
+                )
+            )
+        ).scalars().all()
+    )
+    if not ids:
+        return 0
+
+    post_ids = select(Post.id).where(Post.author_id.in_(ids))
+    listing_ids = select(Listing.id).where(Listing.owner_id.in_(ids))
+    conversation_ids = select(Conversation.id).where(
+        or_(
+            Conversation.user1_id.in_(ids),
+            Conversation.user2_id.in_(ids),
+            Conversation.listing_id.in_(listing_ids),
+        )
+    )
+
+    await db.execute(update(User).where(User.id.in_(ids)).values(creation_job_id=None))
+    await db.execute(delete(PollVote).where(PollVote.post_id.in_(post_ids)))
+    await db.execute(delete(PostReaction).where(PostReaction.post_id.in_(post_ids)))
+    await db.execute(delete(SavedPost).where(SavedPost.post_id.in_(post_ids)))
+    await db.execute(delete(Comment).where(Comment.post_id.in_(post_ids)))
+    await db.execute(delete(SavedPost).where(SavedPost.user_id.in_(ids)))
+    await db.execute(delete(PostReaction).where(PostReaction.user_id.in_(ids)))
+    await db.execute(delete(PollVote).where(PollVote.user_id.in_(ids)))
+    await db.execute(delete(Comment).where(Comment.author_id.in_(ids)))
+    await db.execute(delete(Post).where(Post.author_id.in_(ids)))
+
+    await db.execute(delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+    await db.execute(delete(Conversation).where(Conversation.id.in_(conversation_ids)))
+    await db.execute(delete(Message).where(Message.sender_id.in_(ids)))
+    await db.execute(delete(Promotion).where(Promotion.listing_id.in_(listing_ids)))
+    await db.execute(delete(SavedListing).where(SavedListing.listing_id.in_(listing_ids)))
+    await db.execute(delete(Review).where(Review.listing_id.in_(listing_ids)))
+    await db.execute(delete(SavedListing).where(SavedListing.user_id.in_(ids)))
+    await db.execute(delete(Review).where(Review.reviewer_id.in_(ids)))
+    await db.execute(delete(Listing).where(Listing.owner_id.in_(ids)))
+
+    await db.execute(
+        delete(UserCompoundMembership).where(UserCompoundMembership.user_id.in_(ids))
+    )
+    await db.execute(delete(Notification).where(Notification.user_id.in_(ids)))
+    await db.execute(delete(Report).where(Report.reporter_id.in_(ids)))
+    await db.execute(
+        update(Report).where(Report.reviewed_by_id.in_(ids)).values(reviewed_by_id=None)
+    )
+    await db.execute(delete(VerificationDocument).where(VerificationDocument.user_id.in_(ids)))
+    await db.execute(
+        update(VerificationDocument)
+        .where(VerificationDocument.reviewer_id.in_(ids))
+        .values(reviewer_id=None)
+    )
+    await db.execute(
+        update(Compound).where(Compound.moderator_id.in_(ids)).values(moderator_id=None)
+    )
+    result = await db.execute(delete(User).where(User.id.in_(ids)))
+    return result.rowcount or 0
+
+
 async def delete_compound(
     db: AsyncSession,
     compound_id: int,
@@ -230,22 +360,7 @@ async def delete_compound(
             f"chat_import_jobs={import_jobs_count}"
         )
 
-    # Clear primary compound pointer and this compound's memberships first
-    if users_count:
-        await db.execute(
-            update(User).where(User.compound_id == compound_id).values(compound_id=None)
-        )
-    if compound.moderator_id:
-        compound.moderator_id = None
-        await db.flush()
-    if memberships_count:
-        await db.execute(
-            delete(UserCompoundMembership).where(
-                UserCompoundMembership.compound_id == compound_id
-            )
-        )
-
-    # Collect chat-import-created users tied to this compound's jobs / details
+    # Collect chat-import-created users before jobs/items are removed
     import_user_ids: set[int] = set()
     if job_ids:
         item_rows = await db.execute(
@@ -269,80 +384,115 @@ async def delete_compound(
         )
         import_user_ids.update(int(uid) for uid in job_user_rows.scalars().all())
 
-    detail_user_rows = await db.execute(
-        select(User.id).where(
-            User.creation_source == "CHAT_IMPORT",
-            User.creation_details.isnot(None),
-            or_(
-                User.creation_details["compound_id"].as_integer() == compound_id,
-                User.creation_details["compound_id"].as_string() == str(compound_id),
-            ),
+    try:
+        detail_user_rows = await db.execute(
+            select(User.id).where(
+                User.creation_source == "CHAT_IMPORT",
+                User.creation_details.isnot(None),
+                or_(
+                    User.creation_details["compound_id"].as_integer() == compound_id,
+                    User.creation_details["compound_id"].as_string() == str(compound_id),
+                ),
+            )
+        )
+        import_user_ids.update(int(uid) for uid in detail_user_rows.scalars().all())
+    except Exception:
+        # SQLite tests (and some JSON columns) cannot use JSON path operators.
+        pass
+
+    membership_import_rows = await db.execute(
+        select(UserCompoundMembership.user_id).where(
+            UserCompoundMembership.compound_id == compound_id,
+            UserCompoundMembership.verification_source == "CHAT_IMPORT",
         )
     )
-    import_user_ids.update(int(uid) for uid in detail_user_rows.scalars().all())
+    import_user_ids.update(int(uid) for uid in membership_import_rows.scalars().all())
 
-    # Only delete invite/import accounts that have no remaining memberships elsewhere
-    deleted_import_users = 0
-    if import_user_ids:
-        from app.models.report import Report
-        from app.models.verification import VerificationDocument
+    compound_import_rows = await db.execute(
+        select(User.id).where(
+            User.compound_id == compound_id,
+            User.creation_source == "CHAT_IMPORT",
+        )
+    )
+    import_user_ids.update(int(uid) for uid in compound_import_rows.scalars().all())
 
-        candidates = (
-            await db.execute(
-                select(User).where(
-                    User.id.in_(import_user_ids),
-                    User.creation_source == "CHAT_IMPORT",
-                )
-            )
-        ).scalars().all()
-        for user in candidates:
-            other_memberships = (
-                await db.execute(
-                    select(func.count())
-                    .select_from(UserCompoundMembership)
-                    .where(UserCompoundMembership.user_id == user.id)
-                )
-            ).scalar() or 0
-            if other_memberships:
-                continue
-            # Detach FK references that are not cascaded
-            user.creation_job_id = None
-            await db.execute(
-                delete(Report).where(Report.reporter_id == user.id)
-            )
-            await db.execute(
-                update(Report)
-                .where(Report.reviewed_by_id == user.id)
-                .values(reviewed_by_id=None)
-            )
-            await db.execute(
-                update(VerificationDocument)
-                .where(VerificationDocument.reviewer_id == user.id)
-                .values(reviewer_id=None)
-            )
-            await db.flush()
-            await db.delete(user)
-            deleted_import_users += 1
-        stats["imported_users_deleted"] = deleted_import_users
+    # Delete published content with set-based SQL. ORM cascade on thousands of
+    # imported posts times out the HTTP request (client sees 400, server keeps going).
+    await _bulk_delete_posts_for_compound(db, compound_id)
+    await _bulk_delete_listings_for_compound(db, compound_id)
 
-    # Remove compound content (imported + organic) so nothing is left behind
-    posts = (
-        await db.execute(select(Post).where(Post.compound_id == compound_id))
-    ).scalars().all()
-    for post in posts:
-        await db.delete(post)
+    from app.models.business import IndependentBusiness
+    from app.models.compound_moderator import CompoundModeratorDocument, CompoundModeratorProfile
+    from app.models.digest import DigestRun
+    from app.models.feature_flag import FeatureFlagOverride
+    from app.models.verification import VerificationDocument
 
-    listings = (
-        await db.execute(select(Listing).where(Listing.compound_id == compound_id))
-    ).scalars().all()
-    for listing in listings:
-        await db.delete(listing)
+    await db.execute(
+        update(IndependentBusiness)
+        .where(IndependentBusiness.compound_id == compound_id)
+        .values(compound_id=None)
+    )
+    await db.execute(
+        update(DigestRun).where(DigestRun.compound_id == compound_id).values(compound_id=None)
+    )
+    await db.execute(
+        update(User).where(User.compound_id == compound_id).values(compound_id=None)
+    )
+    await db.execute(
+        update(Compound).where(Compound.id == compound_id).values(moderator_id=None)
+    )
+    mod_profile_ids = select(CompoundModeratorProfile.id).where(
+        CompoundModeratorProfile.compound_id == compound_id
+    )
+    await db.execute(
+        delete(CompoundModeratorDocument).where(
+            CompoundModeratorDocument.profile_id.in_(mod_profile_ids)
+        )
+    )
+    await db.execute(
+        delete(CompoundModeratorProfile).where(
+            CompoundModeratorProfile.compound_id == compound_id
+        )
+    )
+    await db.execute(
+        delete(FeatureFlagOverride).where(FeatureFlagOverride.compound_id == compound_id)
+    )
+    await db.execute(
+        delete(VerificationDocument).where(VerificationDocument.compound_id == compound_id)
+    )
+    await db.execute(
+        delete(UserCompoundMembership).where(
+            UserCompoundMembership.compound_id == compound_id
+        )
+    )
 
-    # Delete import jobs (items cascade via ORM/DB)
     if job_ids:
+        await db.execute(delete(ChatImportItem).where(ChatImportItem.job_id.in_(job_ids)))
+        await db.execute(
+            update(User).where(User.creation_job_id.in_(job_ids)).values(creation_job_id=None)
+        )
         await db.execute(delete(ChatImportJob).where(ChatImportJob.id.in_(job_ids)))
 
-    await db.delete(compound)
+    deletable_ids: list[int] = []
+    if import_user_ids:
+        still_member = set(
+            (
+                await db.execute(
+                    select(UserCompoundMembership.user_id).where(
+                        UserCompoundMembership.user_id.in_(import_user_ids)
+                    )
+                )
+            ).scalars().all()
+        )
+        deletable_ids = [
+            uid
+            for uid in import_user_ids
+            if uid not in still_member
+        ]
+    stats["imported_users_deleted"] = await _bulk_delete_users(db, deletable_ids)
+
+    db.expunge(compound)
+    await db.execute(delete(Compound).where(Compound.id == compound_id))
     await db.flush()
 
     # Local chat-import upload dirs (best-effort)

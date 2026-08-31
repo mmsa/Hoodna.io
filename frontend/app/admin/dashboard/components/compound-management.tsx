@@ -137,6 +137,7 @@ export default function CompoundManagement() {
       if (!deleting) return
       await api.delete(`/api/admin/compounds/${deleting.id}`, {
         params: forceDelete ? { force: true } : undefined,
+        timeout: 120000,
       })
     },
     onSuccess: () => {

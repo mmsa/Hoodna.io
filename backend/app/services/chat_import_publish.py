@@ -35,8 +35,10 @@ from app.models.user import User
 from app.models.user_compound_membership import UserCompoundMembership
 from app.services.chat_import_parser import (
     _sender_display,
+    ensure_listing_normalized,
     is_phone_like_sender,
     is_placeholder_import_phone,
+    is_stale_listing_timestamp,
     normalize_phone,
     parse_import_timestamp,
     redact_phones,
@@ -160,37 +162,284 @@ async def resolve_or_create_invited_user(
     return user
 
 
+def _item_identity(
+    compound_id: int, normalized: dict[str, Any]
+) -> tuple[str | None, str | None, str]:
+    phone = normalize_phone(normalized.get("phone")) if normalized.get("phone") else None
+    if phone and is_placeholder_import_phone(phone):
+        phone = None
+    display = _safe_public_name(normalized.get("name"), phone)
+    email = None if phone else stable_chat_import_email(compound_id, display)
+    return phone, email, display
+
+
+async def _bulk_ensure_pending_memberships(
+    db: AsyncSession, user_ids: set[int], compound_id: int
+) -> None:
+    if not user_ids or not compound_id:
+        return
+    existing = set(
+        (
+            await db.execute(
+                select(UserCompoundMembership.user_id).where(
+                    UserCompoundMembership.compound_id == compound_id,
+                    UserCompoundMembership.user_id.in_(user_ids),
+                )
+            )
+        ).scalars().all()
+    )
+    db.add_all(
+        [
+            UserCompoundMembership(
+                user_id=user_id,
+                compound_id=compound_id,
+                verification_status="PENDING",
+                verification_source="CHAT_IMPORT",
+            )
+            for user_id in user_ids
+            if user_id not in existing
+        ]
+    )
+    await db.flush()
+
+
+async def _bulk_resolve_users_for_job(
+    db: AsyncSession,
+    job: ChatImportJob,
+    items: list[ChatImportItem],
+) -> dict[int, User]:
+    """Match or create authors for every item in one load + one insert flush."""
+    from app.services.user_creation import apply_creation_provenance
+    from app.utils.phone import phone_lookup_candidates
+
+    import_details = {
+        "original_filename": job.original_filename,
+        "chat_source": getattr(job.source, "value", job.source),
+        "uploaded_by_id": job.uploaded_by_id,
+        "compound_id": job.compound_id,
+        "note": "Imported from group chat",
+        "phone_in_export": True,
+    }
+
+    identities: dict[int, tuple[str | None, str | None, str]] = {}
+    phones: set[str] = set()
+    emails: set[str] = set()
+    for item in items:
+        phone, email, display = _item_identity(job.compound_id, dict(item.normalized or {}))
+        identities[item.id] = (phone, email, display)
+        if phone:
+            phones.add(phone)
+        elif email:
+            emails.add(email)
+
+    lookup_phones: set[str] = set()
+    for phone in phones:
+        lookup_phones.update(phone_lookup_candidates(phone) or [phone])
+
+    phone_to_user: dict[str, User] = {}
+    if lookup_phones:
+        rows = (
+            await db.execute(select(User).where(User.phone.in_(lookup_phones)))
+        ).scalars().all()
+        for user in rows:
+            if user.phone:
+                phone_to_user[user.phone] = user
+                for candidate in phone_lookup_candidates(user.phone):
+                    phone_to_user[candidate] = user
+
+    email_to_user: dict[str, User] = {}
+    if emails:
+        rows = (
+            await db.execute(select(User).where(User.email.in_(emails)))
+        ).scalars().all()
+        for user in rows:
+            email_to_user[user.email] = user
+
+    new_users: list[User] = []
+    created_phones: set[str] = set()
+    created_emails: set[str] = set()
+    for phone, email, display in identities.values():
+        if phone:
+            if phone in phone_to_user or phone in created_phones:
+                continue
+            created_phones.add(phone)
+            user = User(
+                name=display,
+                email=f"phone_{phone}@hoodna.local",
+                phone=phone,
+                password_hash="",
+                status=UserStatus.PENDING_VERIFICATION,
+                phone_verified=True,
+                email_verified=True,
+                profile_setup_required=True,
+                creation_source="CHAT_IMPORT",
+                creation_details={**import_details, "phone_in_export": True},
+                creation_job_id=job.id,
+            )
+            new_users.append(user)
+            phone_to_user[phone] = user
+        elif email:
+            if email in email_to_user or email in created_emails:
+                continue
+            created_emails.add(email)
+            user = User(
+                name=display,
+                email=email,
+                phone=None,
+                password_hash="",
+                status=UserStatus.PENDING_VERIFICATION,
+                phone_verified=True,
+                email_verified=True,
+                profile_setup_required=True,
+                creation_source="CHAT_IMPORT",
+                creation_details={
+                    **import_details,
+                    "note": "Imported from group chat (no phone in export)",
+                    "phone_in_export": False,
+                },
+                creation_job_id=job.id,
+            )
+            new_users.append(user)
+            email_to_user[email] = user
+
+    if new_users:
+        db.add_all(new_users)
+        await db.flush()
+        for user in new_users:
+            if user.phone:
+                for candidate in phone_lookup_candidates(user.phone) or [user.phone]:
+                    phone_to_user[candidate] = user
+
+    seen_existing: set[int] = set()
+    for user in [*phone_to_user.values(), *email_to_user.values()]:
+        if user.id in seen_existing or user in new_users:
+            continue
+        seen_existing.add(user.id)
+        display = user.name
+        apply_creation_provenance(
+            user,
+            source="CHAT_IMPORT",
+            details=import_details,
+            job_id=job.id,
+            overwrite=False,
+        )
+        if not user.password_hash:
+            user.profile_setup_required = True
+
+    item_to_user: dict[int, User] = {}
+    all_user_ids: set[int] = set()
+    for item in items:
+        phone, email, display = identities[item.id]
+        if phone:
+            user = phone_to_user.get(phone)
+        else:
+            user = email_to_user.get(email) if email else None
+        if not user:
+            continue
+        if display and display != "Neighbour":
+            if (
+                not user.name
+                or user.name.startswith("phone_")
+                or is_phone_like_sender(user.name)
+                or user.name == "Neighbour"
+            ):
+                user.name = display
+        elif user.name and is_phone_like_sender(user.name):
+            user.name = "Neighbour"
+        if user.phone and is_placeholder_import_phone(user.phone):
+            user.phone = None
+        item_to_user[item.id] = user
+        if user.id:
+            all_user_ids.add(user.id)
+
+    await _bulk_ensure_pending_memberships(db, all_user_ids, job.compound_id)
+    return item_to_user
+
+
 def listing_fallback_title(normalized: dict[str, Any]) -> str:
     content = (normalized.get("content") or "Imported listing").strip()
     return content.splitlines()[0][:120]
 
 
-async def _resolve_author(
-    db: AsyncSession,
+def _post_from_normalized(
     *,
-    job: ChatImportJob,
-    item: ChatImportItem,
-    phone_to_user: dict[str, User],
-    touched_user_ids: set[int] | None = None,
-) -> User:
-    normalized = dict(item.normalized or {})
-    phone = normalize_phone(normalized.get("phone")) if normalized.get("phone") else None
-    if phone and phone in phone_to_user:
-        author = phone_to_user[phone]
-    else:
-        author = await resolve_or_create_invited_user(
-            db,
-            compound_id=job.compound_id,
-            phone=phone,
-            name=normalized.get("name"),
-            job=job,
-        )
-        if author.phone:
-            phone_to_user[author.phone] = author
-    item.matched_user_id = author.id
-    if touched_user_ids is not None:
-        touched_user_ids.add(author.id)
-    return author
+    compound_id: int,
+    author_id: int,
+    content: str,
+    normalized: dict[str, Any],
+) -> Post:
+    category_raw = str(normalized.get("post_category") or "GENERAL").upper()
+    try:
+        post_category = PostCategory(category_raw)
+    except ValueError:
+        post_category = PostCategory.GENERAL
+    if post_category == PostCategory.ANNOUNCEMENT:
+        post_category = PostCategory.DISCUSSION
+    if post_category == PostCategory.MARKETPLACE:
+        post_category = PostCategory.GENERAL
+    post_kwargs: dict[str, Any] = dict(
+        compound_id=compound_id,
+        author_id=author_id,
+        content=content,
+        category=post_category,
+        is_urgent=post_category == PostCategory.ALERT,
+    )
+    created_at = _original_created_at(normalized)
+    if created_at is not None:
+        post_kwargs["created_at"] = created_at
+    return Post(**post_kwargs)
+
+
+def _listing_from_normalized(
+    *,
+    compound_id: int,
+    owner_id: int,
+    normalized: dict[str, Any],
+) -> Listing | None:
+    normalized = ensure_listing_normalized(normalized)
+    if is_stale_listing_timestamp(
+        normalized.get("created_at") or normalized.get("timestamp")
+    ):
+        return None
+    title = redact_phones(
+        (normalized.get("title") or listing_fallback_title(normalized)).strip()
+    )
+    description = redact_phones(
+        (normalized.get("description") or normalized.get("content") or "").strip()
+    )
+    intent_raw = (normalized.get("intent") or "SELL").upper()
+    intent = ListingIntent.RENT if intent_raw == "RENT" else ListingIntent.SELL
+    category_raw = (normalized.get("category") or "ITEM").upper()
+    try:
+        category = ListingCategory(category_raw)
+    except ValueError:
+        category = ListingCategory.ITEM
+    if category == ListingCategory.SERVICE:
+        category = ListingCategory.ITEM
+    price_val = normalized.get("price")
+    price = None
+    if price_val is not None and price_val != "":
+        try:
+            price = Decimal(str(price_val))
+        except Exception:
+            price = None
+    listing_kwargs: dict[str, Any] = dict(
+        compound_id=compound_id,
+        owner_id=owner_id,
+        category=category,
+        title=title[:200],
+        description=description or None,
+        price=price,
+        currency=normalized.get("currency") or "EGP",
+        intent=intent,
+        image_urls=[],
+        attributes=None,
+        status=ListingStatus.ACTIVE,
+    )
+    created_at = _original_created_at(normalized)
+    if created_at is not None:
+        listing_kwargs["created_at"] = created_at
+    return Listing(**listing_kwargs)
 
 
 async def publish_chat_import_job(
@@ -221,48 +470,43 @@ async def publish_chat_import_job(
         "skipped_already_published": 0,
         "errors": 0,
     }
-    phone_to_user: dict[str, User] = {}
-    touched_user_ids: set[int] = set()
+    item_to_user = await _bulk_resolve_users_for_job(db, job, items)
     # message_index → published Post.id
     message_index_to_post_id: dict[int, int] = {}
 
     for item in items:
-        if item.kind != ChatImportItemKind.USER:
-            continue
-        if item.published_entity_id:
-            stats["skipped_already_published"] += 1
-            continue
-        normalized = item.normalized or {}
-        user = await resolve_or_create_invited_user(
-            db,
-            compound_id=job.compound_id,
-            phone=normalized.get("phone"),
-            name=normalized.get("name"),
-            job=job,
-        )
-        phone_key = user.phone or ""
-        phone_to_user[phone_key] = user
-        touched_user_ids.add(user.id)
-        item.matched_user_id = user.id
-        item.published_entity_type = "USER"
-        item.published_entity_id = user.id
+        author = item_to_user.get(item.id)
+        if author:
+            item.matched_user_id = author.id
+        if item.kind == ChatImportItemKind.USER:
+            if item.published_entity_id:
+                stats["skipped_already_published"] += 1
+                continue
+            if not author:
+                stats["errors"] += 1
+                item.reject_reason = "Could not resolve user"
+                continue
+            item.published_entity_type = "USER"
+            item.published_entity_id = author.id
+        elif item.kind == ChatImportItemKind.POST and item.published_entity_id:
+            msg_index = (item.normalized or {}).get("message_index")
+            if isinstance(msg_index, int):
+                message_index_to_post_id[msg_index] = item.published_entity_id
 
-    # Pass 1: posts + listings (roots)
+    pending_posts: list[tuple[ChatImportItem, Post, int | None]] = []
+    pending_listings: list[tuple[ChatImportItem, Listing]] = []
     for item in items:
         if item.kind not in (ChatImportItemKind.POST, ChatImportItemKind.LISTING):
             continue
         if item.published_entity_id:
             stats["skipped_already_published"] += 1
             continue
+        author = item_to_user.get(item.id)
+        if not author:
+            stats["errors"] += 1
+            item.reject_reason = "Could not resolve author"
+            continue
         normalized = dict(item.normalized or {})
-        author = await _resolve_author(
-            db,
-            job=job,
-            item=item,
-            phone_to_user=phone_to_user,
-            touched_user_ids=touched_user_ids,
-        )
-
         try:
             if item.kind == ChatImportItemKind.POST:
                 content = redact_phones((normalized.get("content") or "").strip())
@@ -270,176 +514,116 @@ async def publish_chat_import_job(
                     item.decision = ChatImportItemDecision.REJECTED
                     item.reject_reason = "Empty content"
                     continue
-                created_at = _original_created_at(normalized)
-                category_raw = str(normalized.get("post_category") or "GENERAL").upper()
-                try:
-                    post_category = PostCategory(category_raw)
-                except ValueError:
-                    post_category = PostCategory.GENERAL
-                # Official ANNOUNCEMENT is reserved for compound mods
-                if post_category == PostCategory.ANNOUNCEMENT:
-                    post_category = PostCategory.DISCUSSION
-                if post_category == PostCategory.MARKETPLACE:
-                    post_category = PostCategory.GENERAL
-                post_kwargs = dict(
+                post = _post_from_normalized(
                     compound_id=job.compound_id,
                     author_id=author.id,
                     content=content,
-                    category=post_category,
-                    is_urgent=post_category == PostCategory.ALERT,
+                    normalized=normalized,
                 )
-                if created_at is not None:
-                    post_kwargs["created_at"] = created_at
-                post = Post(**post_kwargs)
-                db.add(post)
-                await db.flush()
-                item.published_entity_type = "POST"
-                item.published_entity_id = post.id
                 msg_index = normalized.get("message_index")
-                if isinstance(msg_index, int):
-                    message_index_to_post_id[msg_index] = post.id
-                stats["posts_published"] += 1
-            else:
-                from app.services.chat_import_parser import (
-                    ensure_listing_normalized,
-                    is_stale_listing_timestamp,
+                pending_posts.append(
+                    (item, post, msg_index if isinstance(msg_index, int) else None)
                 )
-
-                normalized = ensure_listing_normalized(normalized)
-                if is_stale_listing_timestamp(
-                    normalized.get("created_at") or normalized.get("timestamp")
-                ):
+            else:
+                listing = _listing_from_normalized(
+                    compound_id=job.compound_id,
+                    owner_id=author.id,
+                    normalized=normalized,
+                )
+                if listing is None:
                     item.decision = ChatImportItemDecision.REJECTED
                     item.reject_reason = "Listing older than 6 months"
                     stats["listings_skipped_stale"] += 1
                     continue
-                title = redact_phones(
-                    (normalized.get("title") or listing_fallback_title(normalized)).strip()
-                )
-                description = redact_phones(
-                    (
-                        normalized.get("description") or normalized.get("content") or ""
-                    ).strip()
-                )
-                intent_raw = (normalized.get("intent") or "SELL").upper()
-                intent = ListingIntent.RENT if intent_raw == "RENT" else ListingIntent.SELL
-                category_raw = (normalized.get("category") or "ITEM").upper()
-                try:
-                    category = ListingCategory(category_raw)
-                except ValueError:
-                    category = ListingCategory.ITEM
-                # Chat import cannot create SERVICE marketplace rows without a provider profile
-                if category == ListingCategory.SERVICE:
-                    category = ListingCategory.ITEM
-                price_val = normalized.get("price")
-                price = None
-                if price_val is not None and price_val != "":
-                    try:
-                        price = Decimal(str(price_val))
-                    except Exception:
-                        price = None
-                created_at = _original_created_at(normalized)
-                listing_kwargs = dict(
-                    compound_id=job.compound_id,
-                    owner_id=author.id,
-                    category=category,
-                    title=title[:200],
-                    description=description or None,
-                    price=price,
-                    currency=normalized.get("currency") or "EGP",
-                    intent=intent,
-                    image_urls=[],
-                    # Category attribute schemas are strict; leave null for imports
-                    attributes=None,
-                    status=ListingStatus.ACTIVE,
-                )
-                if created_at is not None:
-                    listing_kwargs["created_at"] = created_at
-                listing = Listing(**listing_kwargs)
-                db.add(listing)
-                await db.flush()
-                item.published_entity_type = "LISTING"
-                item.published_entity_id = listing.id
-                stats["listings_published"] += 1
+                pending_listings.append((item, listing))
         except Exception as exc:  # noqa: BLE001
             stats["errors"] += 1
             item.reject_reason = str(exc)[:500]
 
-    # Pass 2: comments under parent posts
+    if pending_posts:
+        db.add_all(post for _, post, _ in pending_posts)
+        await db.flush()
+        for item, post, msg_index in pending_posts:
+            item.published_entity_type = "POST"
+            item.published_entity_id = post.id
+            if msg_index is not None:
+                message_index_to_post_id[msg_index] = post.id
+            stats["posts_published"] += 1
+
+    if pending_listings:
+        db.add_all(listing for _, listing in pending_listings)
+        await db.flush()
+        for item, listing in pending_listings:
+            item.published_entity_type = "LISTING"
+            item.published_entity_id = listing.id
+            stats["listings_published"] += 1
+
+    orphan_posts: list[tuple[ChatImportItem, Post]] = []
+    pending_comments: list[tuple[ChatImportItem, Comment]] = []
     for item in items:
         if item.kind != ChatImportItemKind.COMMENT:
             continue
         if item.published_entity_id:
             stats["skipped_already_published"] += 1
             continue
+        author = item_to_user.get(item.id)
+        if not author:
+            stats["errors"] += 1
+            item.reject_reason = "Could not resolve author"
+            continue
         normalized = dict(item.normalized or {})
-        author = await _resolve_author(
-            db,
-            job=job,
-            item=item,
-            phone_to_user=phone_to_user,
-            touched_user_ids=touched_user_ids,
-        )
         content = redact_phones((normalized.get("content") or "").strip())
         if not content:
             item.decision = ChatImportItemDecision.REJECTED
             item.reject_reason = "Empty content"
             continue
-
         parent_index = normalized.get("parent_message_index")
         post_id = (
             message_index_to_post_id.get(parent_index)
             if isinstance(parent_index, int)
             else None
         )
-
         try:
             created_at = _original_created_at(normalized)
             if post_id is None:
-                # Orphan comment → publish as its own post
-                category_raw = str(normalized.get("post_category") or "GENERAL").upper()
-                try:
-                    post_category = PostCategory(category_raw)
-                except ValueError:
-                    post_category = PostCategory.GENERAL
-                if post_category in (PostCategory.ANNOUNCEMENT, PostCategory.MARKETPLACE):
-                    post_category = PostCategory.DISCUSSION
-                post_kwargs = dict(
+                post = _post_from_normalized(
                     compound_id=job.compound_id,
                     author_id=author.id,
                     content=content,
-                    category=post_category,
-                    is_urgent=post_category == PostCategory.ALERT,
+                    normalized=normalized,
                 )
-                if created_at is not None:
-                    post_kwargs["created_at"] = created_at
-                post = Post(**post_kwargs)
-                db.add(post)
-                await db.flush()
-                item.published_entity_type = "POST"
-                item.published_entity_id = post.id
-                item.kind = ChatImportItemKind.POST
-                stats["posts_published"] += 1
+                orphan_posts.append((item, post))
                 continue
-
-            comment_kwargs = dict(
+            comment_kwargs: dict[str, Any] = dict(
                 post_id=post_id,
                 author_id=author.id,
                 content=content,
             )
             if created_at is not None:
                 comment_kwargs["created_at"] = created_at
-            comment = Comment(**comment_kwargs)
-            db.add(comment)
-            await db.flush()
-            item.published_entity_type = "COMMENT"
-            item.published_entity_id = comment.id
-            stats["comments_published"] += 1
+            pending_comments.append((item, Comment(**comment_kwargs)))
         except Exception as exc:  # noqa: BLE001
             stats["errors"] += 1
             item.reject_reason = str(exc)[:500]
 
-    stats["users_created_or_matched"] = len(touched_user_ids)
+    if orphan_posts:
+        db.add_all(post for _, post in orphan_posts)
+        await db.flush()
+        for item, post in orphan_posts:
+            item.published_entity_type = "POST"
+            item.published_entity_id = post.id
+            item.kind = ChatImportItemKind.POST
+            stats["posts_published"] += 1
+
+    if pending_comments:
+        db.add_all(comment for _, comment in pending_comments)
+        await db.flush()
+        for item, comment in pending_comments:
+            item.published_entity_type = "COMMENT"
+            item.published_entity_id = comment.id
+            stats["comments_published"] += 1
+
+    stats["users_created_or_matched"] = len({u.id for u in item_to_user.values() if u.id})
     job.stats = {**(job.stats or {}), "publish": stats}
     job.status = ChatImportJobStatus.COMPLETED
     job.completed_at = datetime.now(timezone.utc)
@@ -470,19 +654,19 @@ async def replace_job_items_from_parse(
 ) -> None:
     await db.execute(delete(ChatImportItem).where(ChatImportItem.job_id == job.id))
     await db.flush()
-    for payload in [*users, *items]:
-        kind = ChatImportItemKind(payload["kind"])
-        decision = ChatImportItemDecision(payload.get("decision") or "PENDING")
-        db.add(
-            ChatImportItem(
-                job_id=job.id,
-                kind=kind,
-                decision=decision,
-                raw_payload=payload.get("raw_payload") or {},
-                normalized=payload.get("normalized") or {},
-                reject_reason=payload.get("reject_reason"),
-            )
+    rows = [
+        ChatImportItem(
+            job_id=job.id,
+            kind=ChatImportItemKind(payload["kind"]),
+            decision=ChatImportItemDecision(payload.get("decision") or "PENDING"),
+            raw_payload=payload.get("raw_payload") or {},
+            normalized=payload.get("normalized") or {},
+            reject_reason=payload.get("reject_reason"),
         )
+        for payload in [*users, *items]
+    ]
+    if rows:
+        db.add_all(rows)
     job.stats = stats
     job.status = ChatImportJobStatus.PREVIEW
     job.error_message = None
