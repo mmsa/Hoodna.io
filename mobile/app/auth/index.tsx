@@ -17,11 +17,11 @@ export default function AuthSelectionScreen() {
         <Text style={styles.subtitle}>{t("brand.taglineAuth")}</Text>
       </View>
       <View style={styles.actions}>
-        <Button accessibilityLabel={t("auth.signInWithEmail")} onPress={() => router.push("/auth/login")} size="large">
-          {t("auth.signInWithEmail")}
-        </Button>
-        <Button accessibilityLabel={t("auth.continueWithPhone")} onPress={() => router.push("/auth/phone-login")} size="large" variant="outline">
+        <Button accessibilityLabel={t("auth.continueWithPhone")} onPress={() => router.push("/auth/phone-login")} size="large">
           {t("auth.continueWithPhone")}
+        </Button>
+        <Button accessibilityLabel={t("auth.signInWithEmail")} onPress={() => router.push("/auth/login")} size="large" variant="outline">
+          {t("auth.signInWithEmail")}
         </Button>
         <Button accessibilityLabel={t("auth.createAccount")} onPress={() => router.push("/auth/signup")} variant="ghost">
           {t("auth.createAccount")}

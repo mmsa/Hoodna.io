@@ -45,6 +45,12 @@ export default function LoginScreen() {
     } catch (error: any) {
       let errorMessage = error.message || t("auth.invalidCredentials");
       if (
+        String(errorMessage).toLowerCase().includes("verification code") ||
+        String(errorMessage).toLowerCase().includes("does not have a password")
+      ) {
+        errorMessage = t("auth.noPasswordSet");
+      }
+      if (
         errorMessage.includes("Cannot connect") ||
         errorMessage.includes("Network error") ||
         errorMessage.includes("timed out")
@@ -64,6 +70,7 @@ export default function LoginScreen() {
           {t("auth.welcomeBack")}
         </Text>
         <Text style={styles.subtitle}>{t("auth.signInSubtitle")}</Text>
+        <Text style={[styles.subtitle, { marginTop: 12 }]}>{t("auth.importedAccountHint")}</Text>
       </View>
 
       <View style={styles.form}>

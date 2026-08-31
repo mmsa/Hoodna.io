@@ -50,8 +50,20 @@ export const en = {
     switchFailed: "Failed to switch compound",
   },
   auth: {
-    signInWithEmail: "Sign in with email or phone",
-    continueWithPhone: "Continue with phone",
+    signInWithEmail: "Sign in with password",
+    continueWithPhone: "Sign in with a phone code",
+    orDivider: "or",
+    importedAccountHint:
+      "If your number was imported from WhatsApp, you don't have a password yet. Sign in with a phone code.",
+    noPasswordSet:
+      "This account doesn't have a password. Sign in with a phone code, or set one with Forgot password.",
+    useEmail: "Use email",
+    usePhone: "Use phone",
+    sendResetCode: "Send reset code",
+    resetCodeSent: "Enter the code we sent, then choose a new password.",
+    phoneAlreadyRegisteredHint:
+      "This phone is already registered. Sign in with a phone code instead.",
+    nameRequiredForNewAccount: "Enter your name to finish creating your account.",
     createAccount: "New here? Create an account",
     createAccountLink: "Sign up",
     noAccount: "Don't have an account?",
@@ -89,7 +101,7 @@ export const en = {
     newPassword: "New password",
     confirmPassword: "Confirm password",
     forgotPasswordTitle: "Forgot password?",
-    forgotPasswordSubtitle: "Enter your email and we'll send reset instructions",
+    forgotPasswordSubtitle: "Reset using your email or the phone number on your account",
     sendResetLink: "Send reset link",
     resetSent: "Check your email for reset instructions",
     invalidCredentials: "Invalid email/phone or password",

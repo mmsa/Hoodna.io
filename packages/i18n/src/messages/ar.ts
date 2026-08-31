@@ -52,8 +52,20 @@ export const ar: MessageTree = {
     switchFailed: "تعذر تبديل المجمع",
   },
   auth: {
-    signInWithEmail: "تسجيل الدخول بالبريد أو الهاتف",
-    continueWithPhone: "المتابعة بالهاتف",
+    signInWithEmail: "تسجيل الدخول بكلمة المرور",
+    continueWithPhone: "تسجيل الدخول برمز الهاتف",
+    orDivider: "أو",
+    importedAccountHint:
+      "إذا استُورد رقمك من واتساب، فليس لديك كلمة مرور بعد. سجّل الدخول برمز الهاتف.",
+    noPasswordSet:
+      "هذا الحساب بلا كلمة مرور. سجّل الدخول برمز الهاتف، أو عيّن كلمة مرور من نسيت كلمة المرور.",
+    useEmail: "استخدم البريد",
+    usePhone: "استخدم الهاتف",
+    sendResetCode: "إرسال رمز إعادة التعيين",
+    resetCodeSent: "أدخل الرمز الذي أرسلناه ثم اختر كلمة مرور جديدة.",
+    phoneAlreadyRegisteredHint:
+      "هذا الرقم مسجّل بالفعل. سجّل الدخول برمز الهاتف.",
+    nameRequiredForNewAccount: "أدخل اسمك لإكمال إنشاء الحساب.",
     createAccount: "جديد هنا؟ أنشئ حسابًا",
     createAccountLink: "إنشاء حساب",
     noAccount: "ليس لديك حساب؟",
@@ -91,7 +103,7 @@ export const ar: MessageTree = {
     newPassword: "كلمة المرور الجديدة",
     confirmPassword: "تأكيد كلمة المرور",
     forgotPasswordTitle: "نسيت كلمة المرور؟",
-    forgotPasswordSubtitle: "أدخل بريدك وسنرسل تعليمات إعادة التعيين",
+    forgotPasswordSubtitle: "أعد التعيين عبر البريد أو رقم الهاتف المرتبط بالحساب",
     sendResetLink: "إرسال رابط إعادة التعيين",
     resetSent: "تحقق من بريدك لتعليمات إعادة التعيين",
     invalidCredentials: "البريد/الهاتف أو كلمة المرور غير صحيحة",

@@ -49,6 +49,12 @@ export const ResetPasswordRequestSchema = z.object({
   new_password: z.string().min(6),
 });
 
+export const ResetPasswordPhoneRequestSchema = z.object({
+  phone: z.string().min(7),
+  otp_code: z.string().min(4).max(12),
+  new_password: z.string().min(6),
+});
+
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 export type PhoneAuthStartRequest = z.infer<typeof PhoneAuthStartRequestSchema>;
 export type PhoneAuthStartResponse = z.infer<typeof PhoneAuthStartResponseSchema>;
@@ -57,4 +63,5 @@ export type UserLogin = z.infer<typeof UserLoginSchema>;
 export type UserSignup = z.infer<typeof UserSignupSchema>;
 export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequestSchema>;
+export type ResetPasswordPhoneRequest = z.infer<typeof ResetPasswordPhoneRequestSchema>;
 

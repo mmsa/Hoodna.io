@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.auth import (
     UserSignup, UserLogin, TokenResponse, RefreshTokenRequest, 
-    ForgotPasswordRequest, ResetPasswordRequest,
+    ForgotPasswordRequest, ResetPasswordRequest, ResetPasswordPhoneRequest,
     PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest,
     ConfirmPhoneOtpRequest, ConfirmEmailOtpRequest,
 )
@@ -92,6 +92,7 @@ async def redeem_registration_referral(
 @router.options("/me")
 @router.options("/forgot-password")
 @router.options("/reset-password")
+@router.options("/reset-password-phone")
 @router.options("/start")
 @router.options("/verify")
 async def options_handler():
@@ -111,6 +112,30 @@ def generate_otp() -> str:
 
 def _is_placeholder_email(email: str | None) -> bool:
     return bool(email and str(email).endswith("@hoodna.local"))
+
+
+def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
+    """Validate and consume a stored phone OTP, or raise HTTPException."""
+    import time
+
+    stored_otp = otp_storage.get(phone_normalized)
+    if not stored_otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP not found. Please request a new one.",
+        )
+    if time.time() > stored_otp["expires_at"]:
+        otp_storage.pop(phone_normalized, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTP expired. Please request a new one.",
+        )
+    if stored_otp["otp"] != otp_code:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid OTP code",
+        )
+    otp_storage.pop(phone_normalized, None)
 
 
 def _user_needs_contact_verification(user: User) -> bool:
@@ -222,31 +247,8 @@ async def phone_auth_verify(
             detail="Invalid phone number",
         )
     
-    # Check OTP
-    stored_otp = otp_storage.get(phone_normalized)
-    if not stored_otp:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP not found. Please request a new one."
-        )
-    
-    import time
-    if time.time() > stored_otp["expires_at"]:
-        del otp_storage[phone_normalized]
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP expired. Please request a new one."
-        )
-    
-    if stored_otp["otp"] != request.otp_code:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid OTP code"
-        )
-    
-    # OTP verified, remove it
-    del otp_storage[phone_normalized]
-    
+    _consume_phone_otp(phone_normalized, request.otp_code)
+
     # Get or create user (lookup uses same country-code normalization)
     user = await get_user_by_phone(db, phone_normalized)
     if not user:
@@ -327,7 +329,10 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     if existing_phone:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone number already registered",
+            detail=(
+                "This phone is already registered. Sign in with a verification "
+                "code, or use Forgot password."
+            ),
         )
 
     if user_data.email:
@@ -476,11 +481,14 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
             detail="Incorrect email/phone or password",
         )
 
-    # Phone-OTP accounts may have an empty password hash
+    # Chat-import / phone-OTP accounts have an empty password hash
     if not user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email/phone or password",
+            detail=(
+                "This account does not have a password. Sign in with a "
+                "verification code sent to your phone."
+            ),
         )
 
     password_valid = verify_password(credentials.password, user.password_hash)
@@ -1512,6 +1520,48 @@ async def forgot_password(
     if settings.ENVIRONMENT != "production" and user and not email_sent:
         response["reset_link"] = reset_link
     return response
+
+
+@router.post("/reset-password-phone")
+async def reset_password_phone(
+    request: ResetPasswordPhoneRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Set a new password after verifying a phone OTP. Does not create accounts."""
+    from app.utils.phone import normalize_phone
+
+    phone_normalized = normalize_phone(request.phone)
+    if not phone_normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid phone number",
+        )
+
+    _consume_phone_otp(phone_normalized, request.otp_code)
+
+    user = await get_user_by_phone(db, phone_normalized)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired code. Please try again.",
+        )
+    if user.status.value == "BANNED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is banned",
+        )
+
+    user.password_hash = get_password_hash(request.new_password)
+    user.phone_verified = True
+    await db.commit()
+
+    if not _is_placeholder_email(user.email):
+        send_password_reset_confirmation_email(user.email)
+
+    logger.info("Password reset via phone OTP for user %s", user.id)
+    return {
+        "message": "Password has been reset successfully. You can now login with your new password."
+    }
 
 
 @router.post("/reset-password")

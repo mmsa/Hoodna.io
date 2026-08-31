@@ -14,6 +14,7 @@ import Link from 'next/link'
 import Cookies from 'js-cookie'
 import { useFeatureConfig } from '@/components/feature-config-provider'
 import { track } from '@/lib/telemetry'
+import { useTranslation } from '@/components/locale-provider'
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -33,6 +34,7 @@ type SignupForm = z.infer<typeof signupSchema>
 export default function SignupPage() {
   const searchParams = useSearchParams()
   const { isEnabled, isLoading: flagsLoading } = useFeatureConfig()
+  const { t } = useTranslation()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const referralCode = searchParams?.get?.('ref')?.trim() || ''
@@ -123,7 +125,8 @@ export default function SignupPage() {
       }
       window.location.href = '/auth/verify-contact'
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Signup failed')
+      const detail = String(err.response?.data?.detail || 'Signup failed')
+      setError(/already registered/i.test(detail) ? t('auth.phoneAlreadyRegisteredHint') : detail)
       // Clear cookies on error
       Cookies.remove('access_token', { path: '/' })
       Cookies.remove('refresh_token', { path: '/' })
@@ -153,8 +156,15 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
-                {error}
+              <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm space-y-2">
+                <p>{error}</p>
+                {/already registered/i.test(error) && (
+                  <p>
+                    <Link href="/auth/phone-login" className="text-primary hover:underline">
+                      {t('auth.continueWithPhone')}
+                    </Link>
+                  </p>
+                )}
               </div>
             )}
             {referralCode ? (

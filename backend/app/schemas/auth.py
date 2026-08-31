@@ -42,6 +42,12 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class ResetPasswordPhoneRequest(BaseModel):
+    phone: str
+    otp_code: str = Field(..., min_length=4, max_length=12)
+    new_password: str = Field(..., min_length=6)
+
+
 class PhoneAuthStartRequest(BaseModel):
     phone: str
 

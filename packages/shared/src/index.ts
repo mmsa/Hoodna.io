@@ -5,12 +5,14 @@ export type {
   UserLogin,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  ResetPasswordPhoneRequest,
 } from "./schemas/auth";
 export {
   UserSignupSchema,
   UserLoginSchema,
   ForgotPasswordRequestSchema,
   ResetPasswordRequestSchema,
+  ResetPasswordPhoneRequestSchema,
 } from "./schemas/auth";
 export * from "./schemas/verification";
 export * from "./schemas/post";

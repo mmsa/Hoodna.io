@@ -397,3 +397,82 @@ async def test_local_upload_rejects_foreign_profile_path(
         files={"file": ("secrets.png", image_buffer.getvalue(), "image/png")},
     )
     assert invalid.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_login_without_password_prompts_phone_otp(async_client: AsyncClient, db_session):
+    """Imported / phone-OTP accounts cannot use password login until they set one."""
+    from app.crud.user import create_user_by_phone
+
+    await create_user_by_phone(db_session, "+201555555555", "Imported Neighbour")
+    await db_session.commit()
+
+    response = await async_client.post(
+        "/api/auth/login",
+        json={"email": "+201555555555", "password": "guessing"},
+    )
+    assert response.status_code == 401
+    detail = response.json()["detail"].lower()
+    assert "verification code" in detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_signup_duplicate_phone_points_to_otp_login(async_client: AsyncClient):
+    first = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "First User",
+            "phone": "+201444444444",
+            "password": "password123",
+        },
+    )
+    assert first.status_code == 201
+
+    duplicate = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "Second User",
+            "phone": "+201444444444",
+            "password": "password123",
+        },
+    )
+    assert duplicate.status_code == 400
+    detail = duplicate.json()["detail"].lower()
+    assert "already registered" in detail
+    assert "verification code" in detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_reset_password_via_phone_otp(async_client: AsyncClient, db_session):
+    """Phone OTP can set a password on an imported account."""
+    import time
+    from app.api.auth import otp_storage
+    from app.crud.user import create_user_by_phone
+    from app.utils.phone import normalize_phone
+
+    phone = "+201666666666"
+    await create_user_by_phone(db_session, phone, "Imported Neighbour")
+    await db_session.commit()
+
+    normalized = normalize_phone(phone)
+    otp_storage[normalized] = {"otp": "123456", "expires_at": time.time() + 600}
+
+    reset = await async_client.post(
+        "/api/auth/reset-password-phone",
+        json={
+            "phone": phone,
+            "otp_code": "123456",
+            "new_password": "newpass1",
+        },
+    )
+    assert reset.status_code == 200
+
+    login = await async_client.post(
+        "/api/auth/login",
+        json={"email": phone, "password": "newpass1"},
+    )
+    assert login.status_code == 200
+    assert "access_token" in login.json()

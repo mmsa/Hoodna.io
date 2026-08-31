@@ -7,6 +7,7 @@ import {
   UserSignup,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  ResetPasswordPhoneRequest,
 } from "./schemas/auth";
 import { User } from "./schemas/user";
 import { VerificationStatusResponse, PresignRequest, PresignResponse, DocumentSubmit } from "./schemas/verification";
@@ -179,6 +180,13 @@ export class ApiClient {
 
   async resetPassword(data: ResetPasswordRequest): Promise<{ message: string }> {
     return this.request<{ message: string }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resetPasswordPhone(data: ResetPasswordPhoneRequest): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/api/auth/reset-password-phone", {
       method: "POST",
       body: JSON.stringify(data),
     });

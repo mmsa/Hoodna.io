@@ -30,6 +30,20 @@ function isPlatformStaffRole(role: string | null | undefined): boolean {
   return role === 'ADMIN' || role === 'MODERATOR'
 }
 
+const AUTH_COOKIE_OPTS = { expires: 30, path: '/', sameSite: 'lax' as const }
+
+export function clearAuthTokens() {
+  Cookies.remove('access_token', { path: '/' })
+  Cookies.remove('refresh_token', { path: '/' })
+}
+
+export function persistAuthTokens(accessToken: string, refreshToken: string): boolean {
+  clearAuthTokens()
+  Cookies.set('access_token', accessToken, AUTH_COOKIE_OPTS)
+  Cookies.set('refresh_token', refreshToken, AUTH_COOKIE_OPTS)
+  return Cookies.get('access_token') === accessToken
+}
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {

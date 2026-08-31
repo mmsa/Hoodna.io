@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import api, { persistUserRole } from '@/lib/api'
-import Cookies from 'js-cookie'
+import api, { persistAuthTokens, persistUserRole, clearAuthTokens } from '@/lib/api'
 import Link from 'next/link'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
 import { useTranslation } from '@/components/locale-provider'
@@ -22,23 +21,18 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
-export default function LoginPage() {
+function LoginFormInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { t } = useTranslation()
 
-  // Security: Remove sensitive data from URL immediately
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
-      const hasSensitiveData = url.searchParams.has('password')
-      
-      if (hasSensitiveData) {
-        // Remove password from URL
+      if (url.searchParams.has('password')) {
         url.searchParams.delete('password')
-        // Replace URL without sensitive data
         window.history.replaceState({}, '', url.toString())
       }
     }
@@ -51,9 +45,8 @@ export default function LoginPage() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      // Only pre-fill email - NEVER password
       email: searchParams?.get?.('email') || '',
-      password: '', // Always empty - never from URL
+      password: '',
     },
   })
 
@@ -62,40 +55,19 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // Clear any existing cookies first to prevent cross-user issues
-      Cookies.remove('access_token', { path: '/' })
-      Cookies.remove('refresh_token', { path: '/' })
-
       const response = await api.post('/api/auth/login', data)
       const { access_token, refresh_token } = response.data
 
-      // Verify we got valid tokens
       if (!access_token || !refresh_token) {
         setError('Failed to receive authentication tokens')
         return
       }
 
-      // Set cookies with proper options to prevent cross-user issues
-      Cookies.set('access_token', access_token, {
-        expires: 30, // 30 days
-        path: '/',
-        sameSite: 'lax',
-      })
-      Cookies.set('refresh_token', refresh_token, {
-        expires: 30, // 30 days
-        path: '/',
-        sameSite: 'lax',
-      })
-
-      // Verify token was stored correctly
-      const storedToken = Cookies.get('access_token')
-      if (!storedToken || storedToken !== access_token) {
+      if (!persistAuthTokens(access_token, refresh_token)) {
         setError('Failed to store authentication token')
         return
       }
 
-      // Force a hard refresh to clear all React Query caches and state
-      // This ensures we don't show stale user data from a previous session
       const me = await api.get('/api/auth/me')
       persistUserRole(me.data?.role)
       const dest = getPostAuthWebRoute(me.data)
@@ -105,21 +77,20 @@ export default function LoginPage() {
         router.push(dest)
       }
     } catch (err: any) {
-      // Provide more detailed error messages
       if (err.response) {
-        // Backend returned an error response
         const errorDetail = err.response?.data?.detail || err.response?.data?.message || 'Login failed'
-        setError(errorDetail)
+        const lower = String(errorDetail).toLowerCase()
+        setError(
+          lower.includes('verification code') || lower.includes('does not have a password')
+            ? t('auth.noPasswordSet')
+            : errorDetail
+        )
       } else if (err.request) {
-        // Request was made but no response received (network/CORS issue)
         setError('Unable to connect to server. Please check your connection and try again.')
       } else {
-        // Something else went wrong
         setError(err.message || 'Login failed. Please try again.')
       }
-      // Clear cookies on error
-      Cookies.remove('access_token', { path: '/' })
-      Cookies.remove('refresh_token', { path: '/' })
+      clearAuthTokens()
     } finally {
       setLoading(false)
     }
@@ -132,7 +103,19 @@ export default function LoginPage() {
           <CardTitle>{t('auth.signIn')}</CardTitle>
           <CardDescription>{t('auth.signInSubtitle')}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-600">{t('auth.importedAccountHint')}</p>
+          <Button asChild className="w-full" size="lg">
+            <Link href="/auth/phone-login">{t('auth.continueWithPhone')}</Link>
+          </Button>
+          <div className="relative py-1">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">{t('auth.orDivider')}</span>
+            </div>
+          </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
@@ -165,8 +148,8 @@ export default function LoginPage() {
                 <p className="text-sm text-red-600">{errors.password.message}</p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t('auth.signingIn') : t('auth.signIn')}
+            <Button type="submit" variant="outline" className="w-full" disabled={loading}>
+              {loading ? t('auth.signingIn') : t('auth.signInWithEmail')}
             </Button>
             <div className="text-center text-sm space-y-2">
               <div>
@@ -185,5 +168,21 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6 text-center text-gray-600">Loading...</CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <LoginFormInner />
+    </Suspense>
   )
 }
