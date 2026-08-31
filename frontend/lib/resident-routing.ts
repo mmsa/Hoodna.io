@@ -30,7 +30,7 @@ export function isVerifiedForCurrentCompound(user: {
     return true
   }
   if (!compoundId || !user.verified_compound_ids?.length) {
-    return user.is_verified_for_current_compound === true
+    return false
   }
   return user.verified_compound_ids.includes(compoundId)
 }
