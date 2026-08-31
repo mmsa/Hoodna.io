@@ -290,15 +290,28 @@ async def phone_auth_verify(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is banned"
         )
-    
-    # Create tokens
+
+    # Phone OTP is the contact proof for this number.
+    user.phone_verified = True
+
+    # Imported neighbours: proving the WhatsApp phone confirms the compound invite
+    # so they are not sent to document verification / an empty "under review" loop.
+    from app.services.chat_import_publish import (
+        confirm_all_pending_chat_import_memberships,
+    )
+
+    await confirm_all_pending_chat_import_memberships(db, user)
+    await db.commit()
+    await db.refresh(user)
+
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-    
+    user_payload = await get_current_user_info(user, db)
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=user
+        user=user_payload,
     )
 
 
@@ -852,10 +865,10 @@ async def complete_profile(
     """
     from datetime import datetime, timezone
 
-    from sqlalchemy import select
-    from app.models.user_compound_membership import UserCompoundMembership
     from app.models.enums import UserRole, UserStatus
-    from app.services.chat_import_publish import confirm_chat_import_membership
+    from app.services.chat_import_publish import (
+        confirm_all_pending_chat_import_memberships,
+    )
     from app.services.imported_content_consent import (
         discard_imported_content,
         needs_imported_content_choice,
@@ -898,19 +911,9 @@ async def complete_profile(
         current_user.role = UserRole.USER
 
     # Confirm any pending chat-import invites (admin already reviewed the import).
-    result = await db.execute(
-        select(UserCompoundMembership.compound_id).where(
-            UserCompoundMembership.user_id == current_user.id,
-            UserCompoundMembership.verification_status == "PENDING",
-            UserCompoundMembership.verification_source == "CHAT_IMPORT",
-        )
+    invite_compound_ids = await confirm_all_pending_chat_import_memberships(
+        db, current_user
     )
-    invite_compound_ids = list(result.scalars().all())
-    for compound_id in invite_compound_ids:
-        try:
-            await confirm_chat_import_membership(db, current_user, compound_id)
-        except ValueError:
-            continue
 
     if current_user.status == UserStatus.PENDING_VERIFICATION and invite_compound_ids:
         current_user.status = UserStatus.APPROVED

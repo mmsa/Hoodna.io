@@ -39,10 +39,6 @@ export default function VerificationScreen() {
       router.replace("/(tabs)/home");
       return;
     }
-    if (user.verification_status === "PENDING") {
-      router.replace("/verification-pending");
-      return;
-    }
     loadStatus();
   }, [user]);
 

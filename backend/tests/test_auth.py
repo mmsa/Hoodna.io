@@ -476,3 +476,41 @@ async def test_reset_password_via_phone_otp(async_client: AsyncClient, db_sessio
     )
     assert login.status_code == 200
     assert "access_token" in login.json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_phone_otp_confirms_chat_import_invite(async_client: AsyncClient, db_session):
+    """Proving an imported phone should verify the compound, not leave a pending invite."""
+    import time
+    from app.api.auth import otp_storage
+    from app.crud.user import create_user_by_phone
+    from app.crud.user_compound_membership import ensure_pending_compound_membership
+    from app.utils.phone import normalize_phone
+
+    phone = "+201777777777"
+    user = await create_user_by_phone(
+        db_session, phone, "Imported Neighbour", creation_source="CHAT_IMPORT"
+    )
+    compound = Compound(name="Imported Compound", country="Egypt")
+    db_session.add(compound)
+    await db_session.flush()
+    await ensure_pending_compound_membership(
+        db_session, user.id, compound.id, source="CHAT_IMPORT"
+    )
+    await db_session.commit()
+
+    normalized = normalize_phone(phone)
+    otp_storage[normalized] = {"otp": "654321", "expires_at": time.time() + 600}
+
+    verify = await async_client.post(
+        "/api/auth/verify",
+        json={"phone": phone, "otp_code": "654321"},
+    )
+    assert verify.status_code == 200
+    payload = verify.json()["user"]
+    assert payload["phone_verified"] is True
+    assert payload["status"] == "APPROVED"
+    assert payload["compound_id"] == compound.id
+    assert payload["is_verified_for_current_compound"] is True
+    assert payload["verification_status"] == "APPROVED"

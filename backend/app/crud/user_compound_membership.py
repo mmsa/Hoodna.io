@@ -59,11 +59,15 @@ async def ensure_pending_compound_membership(
     )
     membership = existing.scalar_one_or_none()
     if membership:
-        # Keep VERIFIED as-is; only fill source on still-pending rows.
-        if membership.verification_status != "VERIFIED":
-            membership.verification_status = "PENDING"
-            membership.verification_source = source
-            await db.flush()
+        # Keep VERIFIED as-is. Never replace a chat-import invite with a
+        # generic request — that strips the path that auto-approves residents.
+        if membership.verification_status == "VERIFIED":
+            return
+        if membership.verification_source == "CHAT_IMPORT" and source != "CHAT_IMPORT":
+            return
+        membership.verification_status = "PENDING"
+        membership.verification_source = source
+        await db.flush()
         return
     db.add(
         UserCompoundMembership(

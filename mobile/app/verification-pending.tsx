@@ -21,6 +21,7 @@ import {
   verificationDocumentsNeedReupload,
 } from "@/lib/resident-routing";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
+import { CompoundInviteCard } from "@/components/compound-invite-card";
 
 export default function VerificationPendingScreen() {
   const { user, loading: authLoading, apiClient, refreshUser, logout } = useAuth();
@@ -28,11 +29,16 @@ export default function VerificationPendingScreen() {
   const [status, setStatus] = useState<VerificationStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [inviteCount, setInviteCount] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const data = await apiClient.getVerificationStatus();
+      const [data, invites] = await Promise.all([
+        apiClient.getVerificationStatus(),
+        apiClient.getCompoundInvites().catch(() => []),
+      ]);
       setStatus(data);
+      setInviteCount(Array.isArray(invites) ? invites.length : 0);
       await refreshUser();
     } catch (error) {
       console.error("Failed to load verification status:", error);
@@ -69,12 +75,11 @@ export default function VerificationPendingScreen() {
 
   useEffect(() => {
     if (authLoading || loading || !user || status === null) return;
+    if (inviteCount > 0) return;
     if (
       !hasDocs &&
       !hasPendingDocument &&
-      user.verification_status !== "PENDING" &&
-      user.status !== "REJECTED" &&
-      user.status !== "BANNED"
+      user.verification_status !== "PENDING"
     ) {
       router.replace("/verification");
     }
@@ -84,8 +89,9 @@ export default function VerificationPendingScreen() {
     loading,
     status,
     hasDocs,
-    hasPendingDocument,
-    router,
+        hasPendingDocument,
+        inviteCount,
+        router,
   ]);
 
   useEffect(() => {
@@ -132,6 +138,8 @@ export default function VerificationPendingScreen() {
         }
       >
         <VerificationCompoundBar currentCompoundName={status?.compound_name} onCompoundChange={load} />
+
+        <CompoundInviteCard />
 
         <View style={{ alignItems: "center", marginBottom: 32, marginTop: 8 }}>
           <View

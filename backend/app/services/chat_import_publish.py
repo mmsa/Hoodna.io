@@ -581,3 +581,31 @@ async def confirm_chat_import_membership(
         "verification_status": "VERIFIED",
         "user_status": user.status.value if hasattr(user.status, "value") else user.status,
     }
+
+
+async def confirm_all_pending_chat_import_memberships(
+    db: AsyncSession,
+    user: User,
+) -> list[int]:
+    """Grant verified access for every pending chat-import invite on this account."""
+    result = await db.execute(
+        select(UserCompoundMembership.compound_id).where(
+            UserCompoundMembership.user_id == user.id,
+            UserCompoundMembership.verification_status == "PENDING",
+            UserCompoundMembership.verification_source == "CHAT_IMPORT",
+        )
+    )
+    invite_compound_ids = list(result.scalars().all())
+    confirmed: list[int] = []
+    for compound_id in invite_compound_ids:
+        try:
+            await confirm_chat_import_membership(db, user, compound_id)
+            confirmed.append(compound_id)
+        except ValueError:
+            continue
+    if confirmed and user.status == UserStatus.PENDING_VERIFICATION:
+        user.status = UserStatus.APPROVED
+    if confirmed and user.role is None:
+        user.role = UserRole.USER
+    await db.flush()
+    return confirmed
