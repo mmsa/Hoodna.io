@@ -19,14 +19,13 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
 async def get_user_by_phone(db: AsyncSession, phone: str) -> User | None:
     """Get user by phone number (Egyptian-aware country-code normalization)."""
     from app.models.user_compound_membership import UserCompoundMembership
-    from app.utils.phone import normalize_phone, phone_lookup_candidates
+    from app.utils.phone import normalize_phone
+    from app.crud.user_compound_membership import _users_sharing_phone_filter
 
-    candidates = phone_lookup_candidates(phone)
-    if not candidates:
+    filt = _users_sharing_phone_filter(phone)
+    if filt is None:
         return None
-    users = list(
-        (await db.execute(select(User).where(User.phone.in_(candidates)))).scalars().all()
-    )
+    users = list((await db.execute(select(User).where(filt))).scalars().all())
     if not users:
         return None
 

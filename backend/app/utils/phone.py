@@ -121,6 +121,27 @@ def phone_lookup_candidates(raw: str | None) -> list[str]:
     return candidates
 
 
+def phone_storage_match_values(raw: str | None) -> list[str]:
+    """Phone strings as they may be stored on users or chat-import JSON."""
+    values: list[str] = []
+    for candidate in phone_lookup_candidates(raw):
+        for form in (candidate, f"+{candidate}", f"00{candidate}"):
+            if form not in values:
+                values.append(form)
+        parsed = _try_parse("+" + candidate)
+        if parsed:
+            intl = phonenumbers.format_number(
+                parsed, phonenumbers.PhoneNumberFormat.INTERNATIONAL
+            )
+            national = phonenumbers.format_number(
+                parsed, phonenumbers.PhoneNumberFormat.NATIONAL
+            )
+            for form in (intl, national):
+                if form and form not in values:
+                    values.append(form)
+    return values
+
+
 def format_phone_display(phone: str | None) -> str | None:
     """Human-readable +CC… for UI (storage stays digits-only)."""
     normalized = normalize_phone(phone) if phone else None

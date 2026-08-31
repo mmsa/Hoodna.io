@@ -662,3 +662,62 @@ async def test_me_adopts_verified_membership_from_phone_twin(
     assert payload["compound_id"] == compound.id
     assert payload["is_verified_for_current_compound"] is True
     assert payload["status"] == "APPROVED"
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_me_attaches_compound_from_chat_import_item(async_client: AsyncClient, db_session):
+    """Phone that only exists on an import item should still join that compound."""
+    from app.core.security import create_access_token
+    from app.models.chat_import import ChatImportItem, ChatImportJob
+    from app.models.enums import (
+        ChatImportItemDecision,
+        ChatImportItemKind,
+        ChatImportJobStatus,
+        ChatImportSource,
+    )
+
+    compound = Compound(name="Imported Chat Compound", country="Egypt")
+    db_session.add(compound)
+    await db_session.flush()
+    job = ChatImportJob(
+        compound_id=compound.id,
+        source=ChatImportSource.WHATSAPP,
+        status=ChatImportJobStatus.COMPLETED,
+        original_filename="chat.txt",
+        stats={},
+    )
+    db_session.add(job)
+    await db_session.flush()
+    db_session.add(
+        ChatImportItem(
+            job_id=job.id,
+            kind=ChatImportItemKind.USER,
+            decision=ChatImportItemDecision.APPROVED,
+            raw_payload={},
+            normalized={"phone": "+44 7539 673391", "name": "Mohamed"},
+        )
+    )
+    user = User(
+        name="Mohamed",
+        email="mohamed-import-item@hoodna.local",
+        phone="447539673391",
+        password_hash="",
+        role=UserRole.USER,
+        status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=True,
+        email_verified=True,
+        compound_id=None,
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    token = create_access_token(data={"sub": user.id})
+    me = await async_client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert me.status_code == 200
+    payload = me.json()
+    assert payload["compound_id"] == compound.id
+    assert payload["is_verified_for_current_compound"] is True
+    assert payload["status"] == "APPROVED"

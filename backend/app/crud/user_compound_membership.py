@@ -1,5 +1,5 @@
 """CRUD helpers for user verified compound memberships."""
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.compound import Compound
@@ -90,22 +90,87 @@ async def get_membership_compound_ids(db: AsyncSession, user_id: int) -> set[int
     return set(result.scalars().all())
 
 
-async def _adopt_memberships_from_phone_twins(db: AsyncSession, user: User) -> None:
-    """Copy compound memberships from duplicate accounts that share this phone."""
-    from app.utils.phone import phone_lookup_candidates
+def _phone_digits_expr(column):
+    expr = column
+    for ch in ("+", " ", "-", "(", ")", "\u00a0"):
+        expr = func.replace(expr, ch, "")
+    return expr
+
+
+def _users_sharing_phone_filter(phone: str, *, exclude_user_id: int | None = None):
+    from app.utils.phone import phone_lookup_candidates, phone_storage_match_values
+
+    values = phone_storage_match_values(phone)
+    digits = phone_lookup_candidates(phone)
+    if not values and not digits:
+        return None
+    clauses = []
+    if values:
+        clauses.append(User.phone.in_(values))
+    if digits:
+        clauses.append(_phone_digits_expr(User.phone).in_(digits))
+    filt = or_(*clauses) if len(clauses) > 1 else clauses[0]
+    if exclude_user_id is not None:
+        from sqlalchemy import and_
+
+        return and_(filt, User.id != exclude_user_id)
+    return filt
+
+
+async def _adopt_compounds_from_chat_import_items(db: AsyncSession, user: User) -> None:
+    """If this phone was in a published chat import, attach that compound."""
+    from app.models.chat_import import ChatImportItem, ChatImportJob
+    from app.utils.phone import phone_storage_match_values
 
     if not user.phone:
         return
-    candidates = phone_lookup_candidates(user.phone)
-    if not candidates:
+    values = phone_storage_match_values(user.phone)
+    if not values:
         return
-    twins = list(
+    phone_match = or_(
+        *[cast(ChatImportItem.normalized, String).like(f"%{value}%") for value in values]
+    )
+    try:
+        rows = await db.execute(
+            select(ChatImportJob.compound_id)
+            .join(ChatImportItem, ChatImportItem.job_id == ChatImportJob.id)
+            .where(or_(ChatImportItem.matched_user_id == user.id, phone_match))
+            .distinct()
+        )
+    except Exception:
+        return
+    compound_ids = [int(cid) for cid in rows.scalars().all() if cid]
+    if not compound_ids:
+        return
+    existing = set(
         (
             await db.execute(
-                select(User).where(User.phone.in_(candidates), User.id != user.id)
+                select(UserCompoundMembership.compound_id).where(
+                    UserCompoundMembership.user_id == user.id
+                )
             )
         ).scalars().all()
     )
+    for compound_id in compound_ids:
+        if compound_id in existing:
+            continue
+        await ensure_pending_compound_membership(
+            db, user.id, compound_id, source="CHAT_IMPORT"
+        )
+        existing.add(compound_id)
+    if user.compound_id is None and compound_ids:
+        user.compound_id = compound_ids[0]
+    await db.flush()
+
+
+async def _adopt_memberships_from_phone_twins(db: AsyncSession, user: User) -> None:
+    """Copy compound memberships from duplicate accounts that share this phone."""
+    if not user.phone:
+        return
+    filt = _users_sharing_phone_filter(user.phone, exclude_user_id=user.id)
+    if filt is None:
+        return
+    twins = list((await db.execute(select(User).where(filt))).scalars().all())
     if not twins:
         return
     existing = set(
@@ -151,6 +216,13 @@ async def sync_primary_compound_from_memberships(db: AsyncSession, user: User) -
     from app.models.enums import UserRole
 
     await _adopt_memberships_from_phone_twins(db, user)
+    await _adopt_compounds_from_chat_import_items(db, user)
+    if getattr(user, "phone_verified", False):
+        from app.services.chat_import_publish import (
+            confirm_all_pending_chat_import_memberships,
+        )
+
+        await confirm_all_pending_chat_import_memberships(db, user)
     verified = await get_membership_compound_ids(db, user.id)
     if verified and (user.compound_id is None or user.compound_id not in verified):
         user.compound_id = sorted(verified)[0]

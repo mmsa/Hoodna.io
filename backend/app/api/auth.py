@@ -117,15 +117,28 @@ def _is_placeholder_email(email: str | None) -> bool:
 def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
     """Validate and consume a stored phone OTP, or raise HTTPException."""
     import time
+    from app.utils.phone import phone_lookup_candidates
 
-    stored_otp = otp_storage.get(phone_normalized)
+    keys: list[str] = []
+    for key in [phone_normalized, *phone_lookup_candidates(phone_normalized)]:
+        if key not in keys:
+            keys.append(key)
+
+    stored_otp = None
+    matched_key = None
+    for key in keys:
+        stored_otp = otp_storage.get(key)
+        if stored_otp:
+            matched_key = key
+            break
     if not stored_otp:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="OTP not found. Please request a new one.",
         )
     if time.time() > stored_otp["expires_at"]:
-        otp_storage.pop(phone_normalized, None)
+        for key in keys:
+            otp_storage.pop(key, None)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="OTP expired. Please request a new one.",
@@ -135,7 +148,17 @@ def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid OTP code",
         )
-    otp_storage.pop(phone_normalized, None)
+    for key in keys:
+        otp_storage.pop(key, None)
+
+
+def _store_phone_otp(phone_normalized: str, otp_code: str) -> None:
+    import time
+    from app.utils.phone import phone_lookup_candidates
+
+    payload = {"otp": otp_code, "expires_at": time.time() + 600}
+    for key in [phone_normalized, *phone_lookup_candidates(phone_normalized)]:
+        otp_storage[key] = payload
 
 
 def _user_needs_contact_verification(user: User) -> bool:
@@ -195,10 +218,7 @@ async def phone_auth_start(
     # Store OTP (expires in 10 minutes)
     import time
 
-    otp_storage[phone_normalized] = {
-        "otp": otp_code,
-        "expires_at": time.time() + 600,  # 10 minutes
-    }
+    _store_phone_otp(phone_normalized, otp_code)
 
     sms_configured = sms_delivery_configured()
     if sms_configured:
