@@ -44,13 +44,13 @@ export default function CompoundSelectPage() {
       return
     }
 
-    if (user.compound_id) {
+    if (user.compound_id || (user.verified_compound_ids && user.verified_compound_ids.length > 0)) {
       router.replace(getPostAuthWebRoute(user))
     }
   }, [user, userLoading, router])
   
   // Early return if user is service provider or moderator (prevent rendering)
-  if (!userLoading && user && (user.role === 'SERVICE_PROVIDER' || user.role === 'COMPOUND_MOD' || user.compound_id)) {
+  if (!userLoading && user && (user.role === 'SERVICE_PROVIDER' || user.role === 'COMPOUND_MOD' || user.compound_id || (user.verified_compound_ids && user.verified_compound_ids.length > 0))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

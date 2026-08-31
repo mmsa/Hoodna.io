@@ -301,6 +301,9 @@ async def phone_auth_verify(
     )
 
     await confirm_all_pending_chat_import_memberships(db, user)
+    from app.crud.user_compound_membership import sync_primary_compound_from_memberships
+
+    await sync_primary_compound_from_memberships(db, user)
     await db.commit()
     await db.refresh(user)
 
@@ -727,15 +730,14 @@ async def get_current_user_info(
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user information with verification status."""
-    from app.crud.user_compound_membership import get_membership_compound_ids
+    from app.crud.user_compound_membership import (
+        get_verified_compound_ids,
+        sync_primary_compound_from_memberships,
+    )
     from app.crud.verification import get_user_documents, compute_verification_status
     from app.models.enums import DocumentType, UserStatus, UserRole
 
-    if current_user.compound_id is None:
-        verified_ids = await get_membership_compound_ids(db, current_user.id)
-        if verified_ids:
-            current_user.compound_id = sorted(verified_ids)[0]
-            await db.flush()
+    await sync_primary_compound_from_memberships(db, current_user)
     
     # Fetch documents for residents who still need verification so clients can
     # distinguish "needs upload" (UNVERIFIED) vs "under review" (PENDING).
@@ -747,8 +749,6 @@ async def get_current_user_info(
         docs = await get_user_documents(db, current_user.id, current_user.compound_id)
         national_id = docs[DocumentType.NATIONAL_ID]
         contract = docs[DocumentType.CONTRACT]
-
-    from app.crud.user_compound_membership import get_verified_compound_ids
 
     # Platform admins/moderators browse any compound without resident verification
     is_platform_staff = current_user.role in (UserRole.ADMIN, UserRole.MODERATOR)

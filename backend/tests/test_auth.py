@@ -559,3 +559,106 @@ async def test_phone_otp_matches_uk_number_misimported_as_egypt(
     assert payload["compound_id"] == compound.id
     assert payload["is_verified_for_current_compound"] is True
     assert payload["status"] == "APPROVED"
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_me_sets_compound_from_verified_membership(async_client: AsyncClient, db_session):
+    """Verified membership with a null users.compound_id must still route into the compound."""
+    from app.core.security import create_access_token
+    from app.models.user_compound_membership import UserCompoundMembership
+
+    compound = Compound(name="Hydrate Compound", country="Egypt")
+    db_session.add(compound)
+    await db_session.flush()
+    user = User(
+        name="Mohamed",
+        email="mohamed-hydrate@hoodna.local",
+        phone="447539673391",
+        password_hash="",
+        role=UserRole.USER,
+        status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=True,
+        email_verified=True,
+        compound_id=None,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    db_session.add(
+        UserCompoundMembership(
+            user_id=user.id,
+            compound_id=compound.id,
+            verification_status="VERIFIED",
+            verification_source="CHAT_IMPORT",
+        )
+    )
+    await db_session.commit()
+
+    token = create_access_token(data={"sub": user.id})
+    me = await async_client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert me.status_code == 200
+    payload = me.json()
+    assert payload["compound_id"] == compound.id
+    assert payload["is_verified_for_current_compound"] is True
+    assert payload["status"] == "APPROVED"
+    assert compound.id in (payload.get("verified_compound_ids") or [])
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_me_adopts_verified_membership_from_phone_twin(
+    async_client: AsyncClient, db_session
+):
+    from app.core.security import create_access_token
+    from app.models.user_compound_membership import UserCompoundMembership
+
+    compound = Compound(name="Twin Compound", country="Egypt")
+    db_session.add(compound)
+    await db_session.flush()
+    imported = User(
+        name="Imported Mohamed",
+        email="phone_207539673391@hoodna.local",
+        phone="207539673391",
+        password_hash="",
+        role=UserRole.USER,
+        status=UserStatus.APPROVED,
+        phone_verified=True,
+        email_verified=True,
+        compound_id=compound.id,
+        creation_source="CHAT_IMPORT",
+    )
+    session_user = User(
+        name="Mohamed",
+        email="phone_447539673391@hoodna.local",
+        phone="447539673391",
+        password_hash="",
+        role=UserRole.USER,
+        status=UserStatus.PENDING_VERIFICATION,
+        phone_verified=True,
+        email_verified=True,
+        compound_id=None,
+    )
+    db_session.add_all([imported, session_user])
+    await db_session.flush()
+    db_session.add(
+        UserCompoundMembership(
+            user_id=imported.id,
+            compound_id=compound.id,
+            verification_status="VERIFIED",
+            verification_source="CHAT_IMPORT",
+        )
+    )
+    await db_session.commit()
+
+    token = create_access_token(data={"sub": session_user.id})
+    me = await async_client.get(
+        "/api/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert me.status_code == 200
+    payload = me.json()
+    assert payload["id"] == session_user.id
+    assert payload["compound_id"] == compound.id
+    assert payload["is_verified_for_current_compound"] is True
+    assert payload["status"] == "APPROVED"

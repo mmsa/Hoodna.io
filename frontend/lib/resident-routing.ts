@@ -6,6 +6,16 @@ export function isPlatformStaff(role: string | null | undefined): boolean {
  * Where a resident/USER should land based on compound + verification.
  * verification_status from /me: UNVERIFIED | PENDING | APPROVED | REJECTED
  */
+export function effectiveCompoundId(user: {
+  compound_id?: number | null
+  verified_compound_ids?: number[] | null
+}): number | null {
+  if (user.compound_id != null) return user.compound_id
+  const verified = user.verified_compound_ids
+  if (verified?.length) return verified[0]
+  return null
+}
+
 export function isVerifiedForCurrentCompound(user: {
   role?: string | null
   compound_id?: number | null
@@ -13,15 +23,16 @@ export function isVerifiedForCurrentCompound(user: {
   is_verified_for_current_compound?: boolean | null
 }): boolean {
   if (isPlatformStaff(user.role)) {
-    return user.compound_id != null
+    return effectiveCompoundId(user) != null
   }
-  if (user.is_verified_for_current_compound != null) {
-    return user.is_verified_for_current_compound
+  const compoundId = effectiveCompoundId(user)
+  if (user.is_verified_for_current_compound === true) {
+    return true
   }
-  if (!user.compound_id || !user.verified_compound_ids?.length) {
-    return false
+  if (!compoundId || !user.verified_compound_ids?.length) {
+    return user.is_verified_for_current_compound === true
   }
-  return user.verified_compound_ids.includes(user.compound_id)
+  return user.verified_compound_ids.includes(compoundId)
 }
 
 export function getResidentWebRoute(user: {
@@ -37,11 +48,11 @@ export function getResidentWebRoute(user: {
     return '/profile'
   }
 
-  if (!user.compound_id) {
+  if (!effectiveCompoundId(user)) {
     return '/onboarding/compound-select'
   }
 
-  if (user.status === 'APPROVED' && isVerifiedForCurrentCompound(user)) {
+  if (isVerifiedForCurrentCompound(user) && (user.status === 'APPROVED' || user.status === 'PENDING_VERIFICATION')) {
     return '/feed'
   }
 

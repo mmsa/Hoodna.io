@@ -90,6 +90,79 @@ async def get_membership_compound_ids(db: AsyncSession, user_id: int) -> set[int
     return set(result.scalars().all())
 
 
+async def _adopt_memberships_from_phone_twins(db: AsyncSession, user: User) -> None:
+    """Copy compound memberships from duplicate accounts that share this phone."""
+    from app.utils.phone import phone_lookup_candidates
+
+    if not user.phone:
+        return
+    candidates = phone_lookup_candidates(user.phone)
+    if not candidates:
+        return
+    twins = list(
+        (
+            await db.execute(
+                select(User).where(User.phone.in_(candidates), User.id != user.id)
+            )
+        ).scalars().all()
+    )
+    if not twins:
+        return
+    existing = set(
+        (
+            await db.execute(
+                select(UserCompoundMembership.compound_id).where(
+                    UserCompoundMembership.user_id == user.id
+                )
+            )
+        ).scalars().all()
+    )
+    twin_rows = list(
+        (
+            await db.execute(
+                select(UserCompoundMembership).where(
+                    UserCompoundMembership.user_id.in_([twin.id for twin in twins])
+                )
+            )
+        ).scalars().all()
+    )
+    for row in twin_rows:
+        if row.compound_id in existing:
+            continue
+        db.add(
+            UserCompoundMembership(
+                user_id=user.id,
+                compound_id=row.compound_id,
+                verification_status=row.verification_status,
+                verification_source=row.verification_source,
+            )
+        )
+        existing.add(row.compound_id)
+    if user.compound_id is None:
+        for twin in twins:
+            if twin.compound_id:
+                user.compound_id = twin.compound_id
+                break
+    await db.flush()
+
+
+async def sync_primary_compound_from_memberships(db: AsyncSession, user: User) -> set[int]:
+    """Attach verified neighbourhoods onto users.compound_id so clients can route to feed."""
+    from app.models.enums import UserRole
+
+    await _adopt_memberships_from_phone_twins(db, user)
+    verified = await get_membership_compound_ids(db, user.id)
+    if verified and (user.compound_id is None or user.compound_id not in verified):
+        user.compound_id = sorted(verified)[0]
+    if verified:
+        if user.status == UserStatus.PENDING_VERIFICATION:
+            user.status = UserStatus.APPROVED
+        if user.role is None:
+            user.role = UserRole.USER
+    await db.flush()
+    return verified
+
+
 def _compound_name_from_doc_llm(doc: VerificationDocument) -> str | None:
     """Best-effort compound name from LLM extraction on an approved document."""
     if not doc.llm_extracted_info or not isinstance(doc.llm_extracted_info, dict):

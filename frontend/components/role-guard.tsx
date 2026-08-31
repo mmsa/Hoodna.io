@@ -127,7 +127,13 @@ export function RoleGuard({ children }: RoleGuardProps) {
     }
 
     if (isResidentRole(user.role)) {
-      if (user.status === 'APPROVED' && isVerifiedForCurrentCompound(user)) {
+      if (isVerifiedForCurrentCompound(user) && (user.status === 'APPROVED' || user.status === 'PENDING_VERIFICATION')) {
+        if (
+          pathname.startsWith('/onboarding/compound-select') ||
+          pathname.startsWith('/verification')
+        ) {
+          router.replace(getResidentWebRoute(user))
+        }
         return
       }
 
