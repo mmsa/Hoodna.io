@@ -83,7 +83,7 @@ export function AdminUserCompoundManager({
     for (const compound of compoundsData || []) {
       byId.set(compound.id, compound)
     }
-    return [...byId.values()]
+    return Array.from(byId.values())
   }, [compoundsData, memberships])
 
   const filteredCompounds = compoundsData || []
