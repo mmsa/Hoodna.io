@@ -27,7 +27,18 @@ const PUBLIC_ROUTES = [
   '/auth/verify-contact',
   '/',
   '/features',
+  '/privacy',
+  '/terms',
+  '/support',
+  '/delete-account',
 ]
+
+function isPublicPath(pathname: string | null) {
+  if (!pathname) return false
+  return PUBLIC_ROUTES.some(
+    (route) => pathname === route || (route !== '/' && pathname.startsWith(route)),
+  )
+}
 
 export function RoleGuard({ children }: RoleGuardProps) {
   const router = useRouter()
@@ -43,12 +54,9 @@ export function RoleGuard({ children }: RoleGuardProps) {
     if (isLoading) return
     if (!pathname) return
 
-    if (PUBLIC_ROUTES.some((route) => pathname === route || (route !== '/' && pathname.startsWith(route)))) {
+    if (isPublicPath(pathname)) {
       return
     }
-
-    // Marketing / public content that doesn't need auth
-    if (pathname.startsWith('/features')) return
 
     if (!user) {
       // Allow landing and auth only
@@ -161,8 +169,9 @@ export function RoleGuard({ children }: RoleGuardProps) {
     }
   }, [user, isLoading, pathname, router])
 
-  // Defer loading UI until after hydration so SSR markup matches the first client render.
-  if (mounted && isLoading) {
+  // Never block marketing/legal pages on /api/auth/me. A hung session fetch
+  // was leaving eljiran.io on a blank spinner for logged-in visitors.
+  if (mounted && isLoading && !isPublicPath(pathname)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

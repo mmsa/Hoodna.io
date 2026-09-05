@@ -46,10 +46,61 @@ export function persistAuthTokens(accessToken: string, refreshToken: string): bo
 
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+let refreshInFlight: Promise<string | null> | null = null
+
+function isPublicPathname(pathname: string) {
+  return (
+    pathname === '/' ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/features') ||
+    pathname.startsWith('/privacy') ||
+    pathname.startsWith('/terms') ||
+    pathname.startsWith('/support') ||
+    pathname.startsWith('/delete-account')
+  )
+}
+
+function forceSignOut() {
+  clearAuthTokens()
+  persistUserRole(null)
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight
+
+  refreshInFlight = (async () => {
+    const refreshToken = Cookies.get('refresh_token')
+    if (!refreshToken) return null
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/auth/refresh`,
+        { refresh_token: refreshToken },
+        {
+          timeout: 15000,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+      const { access_token, refresh_token } = response.data
+      if (!access_token) return null
+      persistAuthTokens(access_token, refresh_token || refreshToken)
+      return access_token as string
+    } catch {
+      return null
+    }
+  })()
+
+  try {
+    return await refreshInFlight
+  } finally {
+    refreshInFlight = null
+  }
+}
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
@@ -133,36 +184,19 @@ api.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true
-
-      try {
-        const refreshToken = Cookies.get('refresh_token')
-        if (refreshToken) {
-          const response = await axios.post(
-            `${API_URL}/api/auth/refresh`,
-            {
-              refresh_token: refreshToken,
-            },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          )
-          const { access_token, refresh_token } = response.data
-          Cookies.set('access_token', access_token)
-          Cookies.set('refresh_token', refresh_token)
-          originalRequest.headers.Authorization = `Bearer ${access_token}`
-          return api(originalRequest)
-        }
-      } catch (refreshError) {
-        Cookies.remove('access_token')
-        Cookies.remove('refresh_token')
-        persistUserRole(null)
-        window.location.href = '/auth/login'
-        return Promise.reject(refreshError)
+      const accessToken = await refreshAccessToken()
+      if (accessToken) {
+        originalRequest.headers = originalRequest.headers || {}
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`
+        return api(originalRequest)
       }
+      forceSignOut()
+      if (typeof window !== 'undefined' && pathname && !isPublicPathname(pathname)) {
+        window.location.href = '/auth/login'
+      }
+      return Promise.reject(error)
     }
 
     return Promise.reject(error)

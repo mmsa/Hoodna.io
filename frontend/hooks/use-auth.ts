@@ -34,37 +34,29 @@ export function useAuth() {
   const token = typeof window !== 'undefined' ? Cookies.get('access_token') : null
   const isAuthenticated = !!token
 
-  // Invalidate user cache when token changes to prevent stale data
   useEffect(() => {
-    if (token) {
-      // Invalidate cache to force fresh fetch with new token
-      queryClient.invalidateQueries({ queryKey: ['current-user'] })
-    } else {
-      // Clear cache if no token
+    if (!token) {
       persistUserRole(null)
       queryClient.setQueryData(['current-user'], null)
     }
   }, [token, queryClient])
 
-  const { data: user, isLoading, error, refetch } = useQuery<User | null>({
-    queryKey: ['current-user', token], // Include token in query key to prevent stale data
+  const { data: user, isPending, isFetching, isError, refetch } = useQuery<User | null>({
+    queryKey: ['current-user', token],
     queryFn: async () => {
       if (!token) return null
       try {
         const response = await api.get('/api/auth/me')
         const userData = response.data
-        // Verify the token matches the user (safety check)
         if (userData && typeof window !== 'undefined') {
           const currentToken = Cookies.get('access_token')
           if (!currentToken || currentToken !== token) {
-            // Token changed, return null to force re-fetch
             return null
           }
           persistUserRole(userData.role)
         }
         return userData
       } catch (error) {
-        // If 401, user is not authenticated
         if ((error as any).response?.status === 401) {
           Cookies.remove('access_token', { path: '/' })
           Cookies.remove('refresh_token', { path: '/' })
@@ -77,9 +69,10 @@ export function useAuth() {
     },
     enabled: isAuthenticated && !!token,
     retry: false,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache user data
+    staleTime: 30 * 1000,
   })
+
+  const isLoading = Boolean(token) && isPending && isFetching && !isError
 
   const logout = useCallback(async () => {
     try {
@@ -100,7 +93,7 @@ export function useAuth() {
   }, [queryClient])
 
   return {
-    user,
+    user: isError ? null : user ?? null,
     isAuthenticated,
     isLoading,
     isAdmin: user?.role === 'ADMIN' || user?.role === 'MODERATOR',

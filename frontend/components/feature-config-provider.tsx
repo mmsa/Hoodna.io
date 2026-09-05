@@ -35,11 +35,12 @@ type FeatureConfigContextValue = {
 const FeatureConfigContext = createContext<FeatureConfigContextValue | null>(null)
 
 export function FeatureConfigProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const query = useQuery({
-    queryKey: ["feature-config", isAuthenticated],
+    queryKey: ["feature-config", user?.id ?? "anon"],
+    enabled: !authLoading,
     queryFn: async () => {
-      const endpoint = isAuthenticated ? "/api/config/me" : "/api/config/public"
+      const endpoint = user ? "/api/config/me" : "/api/config/public"
       const response = await api.get(endpoint)
       return FeatureConfigSchema.parse(response.data)
     },

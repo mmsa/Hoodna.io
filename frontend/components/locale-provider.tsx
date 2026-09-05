@@ -52,12 +52,12 @@ function readStoredLocale(): SupportedLocale | null {
 }
 
 function LocaleBootstrap() {
-  const { isAuthenticated } = useAuth()
+  const { user } = useAuth()
   const { ready, setLocale } = useLocale()
   const preferences = useQuery({
-    queryKey: ['user-preferences'],
+    queryKey: ['user-preferences', user?.id],
     queryFn: async () => (await api.get('/api/auth/me/preferences')).data as { locale?: SupportedLocale },
-    enabled: ready && isAuthenticated,
+    enabled: ready && Boolean(user),
     retry: false,
   })
 
