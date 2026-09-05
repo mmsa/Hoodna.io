@@ -7,6 +7,7 @@ const links = [
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/support", label: "Support" },
+  { href: "/delete-account", label: "Delete account" },
 ]
 
 export function SiteFooter({ className }: { className?: string }) {

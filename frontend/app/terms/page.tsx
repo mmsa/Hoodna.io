@@ -124,7 +124,8 @@ export default function TermsOfServicePage() {
         <h2>10. Suspension and termination</h2>
         <p>
           You may stop using eljiran at any time and may request account deletion through
-          the product or by contacting support. We may suspend or terminate access if you
+          the product, at <Link href="/delete-account">https://eljiran.io/delete-account</Link>,
+          or by contacting support. We may suspend or terminate access if you
           violate these terms, create risk, fail verification requirements, or if we
           discontinue the service.
         </p>

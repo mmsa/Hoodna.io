@@ -65,8 +65,10 @@ export default function SupportPage() {
         <h2>Privacy and account deletion</h2>
         <p>
           You can review how we handle personal data in our{" "}
-          <Link href="/privacy">Privacy Policy</Link>. To request account deletion, use
-          the delete-account option in Settings when available, or email{" "}
+          <Link href="/privacy">Privacy Policy</Link>. Step-by-step account deletion
+          instructions are at{" "}
+          <Link href="/delete-account">https://eljiran.io/delete-account</Link>. You can
+          also use the delete-account option in Settings, or email{" "}
           <a href={`mailto:${ELJIRAN_SUPPORT_EMAIL}`}>{ELJIRAN_SUPPORT_EMAIL}</a> from the
           address associated with your account.
         </p>

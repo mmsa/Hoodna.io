@@ -163,8 +163,9 @@ export default function PrivacyPolicyPage() {
           <li>Ask questions about how we process your information</li>
         </ul>
         <p>
-          In the app or website settings, you can submit an account deletion request. You
-          can also email{" "}
+          Follow the steps at{" "}
+          <Link href="/delete-account">https://eljiran.io/delete-account</Link>, or submit
+          a deletion request in the app or website settings. You can also email{" "}
           <a href={`mailto:${ELJIRAN_SUPPORT_EMAIL}`}>{ELJIRAN_SUPPORT_EMAIL}</a>. We may
           need to verify your identity before completing certain requests.
         </p>
