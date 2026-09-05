@@ -38,6 +38,7 @@ export function AdminUserCompoundManager({
   const [primaryId, setPrimaryId] = useState<number | null>(null)
   const [approveUser, setApproveUser] = useState(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   useEffect(() => {
     const verifiedIds = memberships
@@ -52,25 +53,40 @@ export function AdminUserCompoundManager({
     setApproveUser(false)
   }, [memberships, primaryCompoundId, userId])
 
-  const { data: compoundsData, isLoading: loadingCompounds } = useQuery({
-    queryKey: ['admin-compounds-list'],
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(handle)
+  }, [search])
+
+  const { data: compoundsData, isLoading: loadingCompounds, isError: compoundsError } = useQuery({
+    queryKey: ['admin-compounds-search', debouncedSearch],
     queryFn: async () => {
-      const response = await api.get('/api/compounds?limit=500')
-      return (response.data.items || response.data || []) as Compound[]
+      const response = await api.get('/api/admin/compounds', {
+        params: {
+          limit: 200,
+          ...(debouncedSearch ? { q: debouncedSearch } : {}),
+        },
+      })
+      return (response.data.items || []) as Compound[]
     },
   })
 
-  const compounds = useMemo(() => compoundsData || [], [compoundsData])
+  const compounds = useMemo(() => {
+    const byId = new Map<number, Compound>()
+    for (const membership of memberships) {
+      byId.set(membership.compound_id, {
+        id: membership.compound_id,
+        name: membership.compound_name || `Compound ${membership.compound_id}`,
+        area: membership.compound_area,
+      })
+    }
+    for (const compound of compoundsData || []) {
+      byId.set(compound.id, compound)
+    }
+    return [...byId.values()]
+  }, [compoundsData, memberships])
 
-  const filteredCompounds = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return compounds
-    return compounds.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.area && c.area.toLowerCase().includes(q))
-    )
-  }, [compounds, search])
+  const filteredCompounds = compoundsData || []
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -166,6 +182,8 @@ export function AdminUserCompoundManager({
             <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
             Loading compounds…
           </div>
+        ) : compoundsError ? (
+          <p className="p-3 text-sm text-red-600">Could not load compounds. Refresh and try again.</p>
         ) : filteredCompounds.length === 0 ? (
           <p className="p-3 text-sm text-gray-500">No compounds match your search</p>
         ) : (

@@ -20,7 +20,7 @@ async def list_compounds(
     status: Optional[str] = Query(None, description="Filter by status_2025"),
     developer: Optional[str] = Query(None, description="Filter by developer"),
     category: Optional[str] = Query(None, description="Filter by category"),
-    limit: int = Query(50, ge=1, le=200, description="Maximum number of results"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     db: AsyncSession = Depends(get_db)
 ):
@@ -35,7 +35,7 @@ async def list_compounds(
     - **status**: Filter by status_2025 (must be one of: Ready to Move, Under Construction, Mixed/Phased)
     - **developer**: Filter by developer (case-insensitive partial match)
     - **category**: Filter by category (case-insensitive partial match)
-    - **limit**: Maximum number of results (1-200, default 50)
+    - **limit**: Maximum number of results (1-500, default 50)
     - **offset**: Offset for pagination (default 0)
     """
     # Validate status if provided
