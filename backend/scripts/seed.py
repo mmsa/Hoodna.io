@@ -42,39 +42,50 @@ async def seed_admin():
     admin_name = os.getenv("ADMIN_NAME", "Admin User")
 
     db_url = get_db_url()
-    engine = create_async_engine(db_url, echo=False)
-    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
-    async with async_session() as session:
-        result = await session.execute(select(User).where(User.email == admin_email))
-        admin_user = result.scalar_one_or_none()
-
-        if not admin_user:
-            admin_user = User(
-                name=admin_name,
-                email=admin_email,
-                password_hash=get_password_hash(admin_password),
-                role=UserRole.ADMIN,
-                status=UserStatus.APPROVED,
-                creation_source="SEED_ADMIN",
-                creation_details={"note": "Seeded admin account"},
+    last_error: Exception | None = None
+    for attempt in range(1, 6):
+        engine = create_async_engine(db_url, echo=False)
+        try:
+            async_session = async_sessionmaker(
+                engine, class_=AsyncSession, expire_on_commit=False
             )
-            session.add(admin_user)
-            await session.flush()
-            print(f"✅ Created admin user: {admin_email}")
-        else:
-            admin_user.password_hash = get_password_hash(admin_password)
-            admin_user.role = UserRole.ADMIN
-            admin_user.status = UserStatus.APPROVED
-            if admin_name:
-                admin_user.name = admin_name
-            await session.flush()
-            print(f"✅ Updated admin user: {admin_email}")
+            async with async_session() as session:
+                result = await session.execute(select(User).where(User.email == admin_email))
+                admin_user = result.scalar_one_or_none()
 
-        await session.commit()
-        print("Admin user seeding completed!")
+                if not admin_user:
+                    admin_user = User(
+                        name=admin_name,
+                        email=admin_email,
+                        password_hash=get_password_hash(admin_password),
+                        role=UserRole.ADMIN,
+                        status=UserStatus.APPROVED,
+                        creation_source="SEED_ADMIN",
+                        creation_details={"note": "Seeded admin account"},
+                    )
+                    session.add(admin_user)
+                    await session.flush()
+                    print(f"✅ Created admin user: {admin_email}")
+                else:
+                    admin_user.password_hash = get_password_hash(admin_password)
+                    admin_user.role = UserRole.ADMIN
+                    admin_user.status = UserStatus.APPROVED
+                    if admin_name:
+                        admin_user.name = admin_name
+                    await session.flush()
+                    print(f"✅ Updated admin user: {admin_email}")
 
-    await engine.dispose()
+                await session.commit()
+                print("Admin user seeding completed!")
+            return
+        except OSError as exc:
+            last_error = exc
+            print(f"⚠️  Admin seed attempt {attempt}/5 failed to connect: {exc}")
+            await asyncio.sleep(2 * attempt)
+        finally:
+            await engine.dispose()
+
+    raise last_error or RuntimeError("Admin seed failed")
 
 
 if __name__ == "__main__":
