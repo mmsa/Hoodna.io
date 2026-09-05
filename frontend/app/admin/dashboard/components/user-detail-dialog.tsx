@@ -1,6 +1,7 @@
 'use client'
 
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,11 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import api from '@/lib/api'
 import { formatDocumentType, formatModeratorStatus, formatProviderStatus, formatUserRole, formatUserStatus } from '@/lib/format-enums'
 import { SignedFileLink } from '@/components/signed-file'
 import { AdminUserCompoundManager } from './admin-user-compound-manager'
+import { ADMIN_ASSIGNABLE_ROLES, canonicalAdminRole, type AdminAssignableRole } from './admin-user-roles'
 
 export interface AdminUserDetail {
   id: number
@@ -116,6 +121,64 @@ function statusBadgeClass(status: string) {
   }
 }
 
+function AdminUserRoleEditor({
+  userId,
+  role,
+  onUpdated,
+}: {
+  userId: number
+  role?: string
+  onUpdated?: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [selectedRole, setSelectedRole] = useState<AdminAssignableRole>(canonicalAdminRole(role))
+
+  useEffect(() => {
+    setSelectedRole(canonicalAdminRole(role))
+  }, [role, userId])
+
+  const mutation = useMutation({
+    mutationFn: async (nextRole: AdminAssignableRole) => {
+      const response = await api.patch(`/api/admin/users/${userId}/role`, { role: nextRole })
+      return response.data
+    },
+    onSuccess: () => {
+      toast.success('Role updated')
+      queryClient.invalidateQueries({ queryKey: ['admin-user-detail', userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      onUpdated?.()
+    },
+    onError: (error: { response?: { data?: { detail?: string } }; message?: string }) => {
+      toast.error(error.response?.data?.detail || error.message || 'Could not update role')
+    },
+  })
+
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AdminAssignableRole)}>
+        <SelectTrigger id="admin-user-role" className="sm:max-w-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ADMIN_ASSIGNABLE_ROLES.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        size="sm"
+        disabled={mutation.isPending || selectedRole === canonicalAdminRole(role)}
+        onClick={() => mutation.mutate(selectedRole)}
+      >
+        {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save role'}
+      </Button>
+    </div>
+  )
+}
+
 export default function UserDetailDialog({
   userId,
   open,
@@ -167,6 +230,11 @@ export default function UserDetailDialog({
                 </span>
               )}
             </div>
+
+            <section className="space-y-2">
+              <Label htmlFor="admin-user-role">Role</Label>
+              <AdminUserRoleEditor userId={user.id} role={user.role} onUpdated={onUserUpdated} />
+            </section>
 
             <section>
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Account</h3>

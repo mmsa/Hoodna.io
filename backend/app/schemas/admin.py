@@ -81,6 +81,35 @@ class AdminUserCompoundsUpdate(BaseModel):
     approve_user: bool = False
 
 
+class AdminUserRoleUpdate(BaseModel):
+    role: UserRole
+
+
+class AdminUserBulkRoleUpdate(BaseModel):
+    user_ids: List[int]
+    role: UserRole
+
+    @field_validator("user_ids")
+    @classmethod
+    def user_ids_limits(cls, value: List[int]) -> List[int]:
+        ids = list(dict.fromkeys(int(item) for item in value))
+        if not ids:
+            raise ValueError("Select at least one user")
+        if len(ids) > 200:
+            raise ValueError("Too many users (max 200)")
+        return ids
+
+
+class AdminUserBulkRoleFailure(BaseModel):
+    user_id: int
+    detail: str
+
+
+class AdminUserBulkRoleResponse(BaseModel):
+    updated: int
+    failed: List[AdminUserBulkRoleFailure]
+
+
 class AdminUserDetailResponse(BaseModel):
     id: int
     name: str

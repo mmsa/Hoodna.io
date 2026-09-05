@@ -210,6 +210,21 @@ async def update_user_status(
     return user
 
 
+async def update_user_role(
+    db: AsyncSession,
+    user_id: int,
+    role: UserRole,
+) -> User:
+    """Set a user's role."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise ValueError("User not found")
+    user.role = role
+    await db.flush()
+    await db.refresh(user)
+    return user
+
+
 async def get_compound_moderators_and_admins(
     db: AsyncSession, compound_id: Optional[int]
 ) -> List[User]:

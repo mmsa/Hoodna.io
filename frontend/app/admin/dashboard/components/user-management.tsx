@@ -35,6 +35,7 @@ import api from '@/lib/api'
 import { toast } from 'sonner'
 import { formatUserRole, formatUserStatus } from '@/lib/format-enums'
 import UserDetailDialog from './user-detail-dialog'
+import { ADMIN_ASSIGNABLE_ROLES, type AdminAssignableRole } from './admin-user-roles'
 
 interface AdminUser {
   id: number
@@ -116,6 +117,7 @@ export default function UserManagement() {
   const [detailUserId, setDetailUserId] = useState<number | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkRole, setBulkRole] = useState<AdminAssignableRole>('RESIDENT')
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
@@ -282,6 +284,35 @@ export default function UserManagement() {
     bulkStatusMutation.mutate({ userIds, action })
   }
 
+  const bulkRoleMutation = useMutation({
+    mutationFn: async ({ userIds, role }: { userIds: number[]; role: AdminAssignableRole }) => {
+      const response = await api.post('/api/admin/users/bulk-role', { user_ids: userIds, role })
+      return response.data as { updated: number; failed: Array<{ user_id: number; detail: string }> }
+    },
+    onSuccess: ({ updated, failed }) => {
+      if (failed.length === 0) {
+        toast.success(`Set role on ${updated} user${updated === 1 ? '' : 's'}`)
+      } else {
+        toast.error(`${updated} updated, ${failed.length} failed${failed[0]?.detail ? `: ${failed[0].detail}` : ''}`)
+      }
+      setSelectedIds(new Set())
+      invalidate()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Bulk role update failed')
+    },
+  })
+
+  const runBulkRole = () => {
+    const userIds = Array.from(selectedIds)
+    if (userIds.length === 0) return
+    const label = ADMIN_ASSIGNABLE_ROLES.find((option) => option.value === bulkRole)?.label || bulkRole
+    if (!window.confirm(`Set role to ${label} for ${userIds.length} selected user${userIds.length === 1 ? '' : 's'}?`)) {
+      return
+    }
+    bulkRoleMutation.mutate({ userIds, role: bulkRole })
+  }
+
   const deleteMutation = useMutation({
     mutationFn: async (userId: number) => {
       const response = await api.delete(`/api/admin/users/${userId}`)
@@ -416,6 +447,29 @@ export default function UserManagement() {
             <div className="flex flex-wrap items-center gap-2">
               {selectedCount > 0 ? (
                 <>
+                  <Select value={bulkRole} onValueChange={(value) => setBulkRole(value as AdminAssignableRole)}>
+                    <SelectTrigger className="h-9 w-[180px]">
+                      <SelectValue placeholder="Set role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ADMIN_ASSIGNABLE_ROLES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={bulkRoleMutation.isPending || bulkStatusMutation.isPending}
+                    onClick={runBulkRole}
+                  >
+                    {bulkRoleMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    Set role
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

@@ -15,6 +15,9 @@ from app.schemas.admin import (
     AdminUserActivityStats,
     AdminCompoundMembershipItem,
     AdminUserCompoundsUpdate,
+    AdminUserRoleUpdate,
+    AdminUserBulkRoleUpdate,
+    AdminUserBulkRoleResponse,
 )
 from app.schemas.verification import VerificationDocumentResponse
 from app.schemas.user import UserResponse
@@ -58,6 +61,74 @@ from app.schemas.moderation import AuditLogListResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+ASSIGNABLE_USER_ROLES = {
+    UserRole.RESIDENT,
+    UserRole.USER,
+    UserRole.SERVICE_PROVIDER,
+    UserRole.COMPOUND_MOD,
+    UserRole.MODERATOR,
+    UserRole.ADMIN,
+}
+
+
+def _canonical_user_role(role: UserRole) -> UserRole:
+    return UserRole.RESIDENT if role == UserRole.USER else role
+
+
+async def _apply_admin_role_change(
+    db: AsyncSession,
+    *,
+    actor: User,
+    target: User,
+    new_role: UserRole,
+) -> None:
+    new_role = _canonical_user_role(new_role)
+    if new_role not in ASSIGNABLE_USER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid role",
+        )
+
+    actor_is_platform_admin = actor.role == UserRole.ADMIN
+    target_is_admin = target.role == UserRole.ADMIN
+    granting_admin = new_role == UserRole.ADMIN
+
+    if (target_is_admin or granting_admin) and not actor_is_platform_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only a platform admin can change the Admin role",
+        )
+
+    if target.id == actor.id and target_is_admin and new_role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot remove your own Admin role",
+        )
+
+    if target_is_admin and new_role != UserRole.ADMIN:
+        admin_count = (
+            await db.execute(select(func.count(User.id)).where(User.role == UserRole.ADMIN))
+        ).scalar() or 0
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot demote the last platform admin",
+            )
+
+    previous = target.role.value if target.role else None
+    from app.crud.user import update_user_role
+
+    await update_user_role(db, target.id, new_role)
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            event_type="user.role.update",
+            entity_type="USER",
+            entity_id=str(target.id),
+            data={"from": previous, "to": new_role.value},
+        )
+    )
 
 
 class VerificationListResponse(BaseModel):
@@ -325,6 +396,62 @@ async def get_user_detail(
         activity=AdminUserActivityStats(**activity_counts),
         **user_creation_fields(user),
     )
+
+
+@router.patch("/users/{user_id}/role", response_model=AdminUserDetailResponse)
+async def admin_set_user_role(
+    user_id: int,
+    body: AdminUserRoleUpdate,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set any user's role. Only platform admins can grant or change the ADMIN role."""
+    from app.crud.user import get_user_by_id
+
+    target = await get_user_by_id(db, user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    await _apply_admin_role_change(db, actor=current_user, target=target, new_role=body.role)
+    await db.commit()
+    logger.info("Admin %s set role for user %s to %s", current_user.id, user_id, body.role.value)
+    return await get_user_detail(user_id, current_user, db)
+
+
+@router.post("/users/bulk-role", response_model=AdminUserBulkRoleResponse)
+async def admin_bulk_set_user_role(
+    body: AdminUserBulkRoleUpdate,
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set the same role on many users. Partial success is returned per user."""
+    from app.crud.user import get_user_by_id
+
+    updated = 0
+    failed: list[dict] = []
+    for user_id in body.user_ids:
+        target = await get_user_by_id(db, user_id)
+        if not target:
+            failed.append({"user_id": user_id, "detail": "User not found"})
+            continue
+        try:
+            await _apply_admin_role_change(
+                db, actor=current_user, target=target, new_role=body.role
+            )
+            updated += 1
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, str) else "Could not update role"
+            failed.append({"user_id": user_id, "detail": detail})
+
+    await db.commit()
+    logger.info(
+        "Admin %s bulk-set role %s: updated=%s failed=%s",
+        current_user.id,
+        body.role.value,
+        updated,
+        len(failed),
+    )
+    return AdminUserBulkRoleResponse(updated=updated, failed=failed)
 
 
 @router.put("/users/{user_id}/compounds", response_model=AdminUserDetailResponse)
