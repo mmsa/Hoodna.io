@@ -16,3 +16,8 @@ export function canonicalAdminRole(role?: string | null): AdminAssignableRole {
   if (role === 'ADMIN') return 'ADMIN'
   return 'RESIDENT'
 }
+
+/** True when the API already stored a role we should treat as saved. */
+export function hasSavedAdminRole(role?: string | null): boolean {
+  return Boolean(role)
+}

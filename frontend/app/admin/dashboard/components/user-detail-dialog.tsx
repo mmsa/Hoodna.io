@@ -18,7 +18,7 @@ import api from '@/lib/api'
 import { formatDocumentType, formatModeratorStatus, formatProviderStatus, formatUserRole, formatUserStatus } from '@/lib/format-enums'
 import { SignedFileLink } from '@/components/signed-file'
 import { AdminUserCompoundManager } from './admin-user-compound-manager'
-import { ADMIN_ASSIGNABLE_ROLES, canonicalAdminRole, type AdminAssignableRole } from './admin-user-roles'
+import { ADMIN_ASSIGNABLE_ROLES, canonicalAdminRole, hasSavedAdminRole, type AdminAssignableRole } from './admin-user-roles'
 
 export interface AdminUserDetail {
   id: number
@@ -170,7 +170,10 @@ function AdminUserRoleEditor({
       <Button
         type="button"
         size="sm"
-        disabled={mutation.isPending || selectedRole === canonicalAdminRole(role)}
+        disabled={
+          mutation.isPending ||
+          (hasSavedAdminRole(role) && selectedRole === canonicalAdminRole(role))
+        }
         onClick={() => mutation.mutate(selectedRole)}
       >
         {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save role'}
