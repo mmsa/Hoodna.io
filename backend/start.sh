@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run migrations then start the API (used by Render)
-alembic upgrade head
+# Postgres on Render can refuse connections for a few seconds after a restart.
+# Alembic is required (schema), so retry instead of failing the whole deploy.
+max_attempts="${ALEMBIC_MAX_ATTEMPTS:-8}"
+delay_seconds="${ALEMBIC_RETRY_DELAY:-5}"
+attempt=1
+until alembic upgrade head; do
+  if [ "${attempt}" -ge "${max_attempts}" ]; then
+    echo "❌ alembic upgrade head failed after ${max_attempts} attempts"
+    exit 1
+  fi
+  echo "⚠️  alembic failed (attempt ${attempt}/${max_attempts}); retrying in ${delay_seconds}s"
+  attempt=$((attempt + 1))
+  sleep "${delay_seconds}"
+done
 
 # Seed Egypt compounds if the table is empty (idempotent; skips when data exists).
 # Do not block API boot if seeding fails — log and continue.
