@@ -9,6 +9,7 @@ import type { AccountDeletionRequest, UserPreferences } from "@hoodna/shared";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { LanguagePicker } from "@/components/LanguagePicker";
 import { Header } from "@/components/Header";
+import { AboutAppCard } from "@/components/app-version-badge";
 import {
   openSystemNotificationSettings,
   registerDeviceForPush,
@@ -492,6 +493,8 @@ export default function SettingsScreen() {
               ))
             ) : <Text style={{ color: "#6B7280" }}>{t("settings.preferencesUnavailable")}</Text>}
           </View>
+
+          <AboutAppCard />
 
           <View style={{ backgroundColor: "#FFF7F7", borderRadius: 16, padding: 20, marginBottom: 28, borderWidth: 1, borderColor: "#FECACA" }}>
             <Text style={{ fontSize: 18, fontWeight: "600", color: "#991B1B" }}>{t("settings.deleteAccount")}</Text>

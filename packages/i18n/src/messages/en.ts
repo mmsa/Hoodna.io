@@ -485,6 +485,12 @@ export const en = {
     settingsSaved: "Settings saved successfully!",
     error: "Error",
     failedToSave: "Failed to save settings",
+    aboutTitle: "About eljiran",
+    aboutVersion: "Version {version}",
+    aboutWhatsNew: "What's new",
+    aboutChange1: "Clearer errors when the feed or an upload fails, instead of a blank screen.",
+    aboutChange2: "Neighbour profiles and marketplace labels are easier to read.",
+    aboutChange3: "Push alerts for neighbourhood activity, once you allow notifications.",
   },
   providerOnboarding: {
     title: "Service Provider Onboarding",

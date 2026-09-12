@@ -1,9 +1,9 @@
 import { Platform, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
-import { usePathname } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-function resolveVersionLabel(): string {
+import { useTranslation } from "@/contexts/LocaleContext";
+
+export function resolveVersionLabel(): string {
   const version = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "0.0.0";
   const build =
     Constants.nativeBuildVersion ||
@@ -13,61 +13,75 @@ function resolveVersionLabel(): string {
         ? String(Constants.expoConfig.android.versionCode)
         : undefined);
 
-  return build ? `v${version} (${build})` : `v${version}`;
+  return build ? `${version} (${build})` : version;
 }
 
-/** Tab bar is a fixed 72pt; keep this chip sitting just above it. */
-const TAB_BAR_HEIGHT = 72;
+const WHATS_NEW_KEYS = [
+  "settings.aboutChange1",
+  "settings.aboutChange2",
+  "settings.aboutChange3",
+] as const;
 
-export function AppVersionBadge() {
-  let insets = { bottom: 8, right: 8 };
-  try {
-    insets = useSafeAreaInsets();
-  } catch {
-    // Root can mount before SafeAreaProvider on some release builds.
-  }
-  const label = resolveVersionLabel();
-  const pathname = usePathname();
-  // Tab routes have no "/auth" prefix; the badge must sit above the 72pt bar
-  // or it paints on top of the Profile label.
-  const onTabs =
-    pathname === "/home" ||
-    pathname === "/market" ||
-    pathname === "/services" ||
-    pathname === "/messages" ||
-    pathname === "/profile" ||
-    pathname.startsWith("/(tabs)");
+/** Version and release notes live in Settings → About, not as a floating overlay. */
+export function AboutAppCard() {
+  const { t } = useTranslation();
+  const version = resolveVersionLabel();
 
   return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.wrap,
-        {
-          bottom: Math.max(insets.bottom, 8) + (onTabs ? TAB_BAR_HEIGHT : 0),
-          right: Math.max(insets.right, 12),
-        },
-      ]}
-    >
-      <Text style={styles.text}>{label}</Text>
+    <View style={styles.card}>
+      <Text style={styles.title}>{t("settings.aboutTitle")}</Text>
+      <Text style={styles.version}>{t("settings.aboutVersion", { version })}</Text>
+      <Text style={styles.whatsNew}>{t("settings.aboutWhatsNew")}</Text>
+      {WHATS_NEW_KEYS.map((key) => (
+        <View key={key} style={styles.row}>
+          <Text style={styles.bullet}>•</Text>
+          <Text style={styles.change}>{t(key)}</Text>
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    position: "absolute",
-    zIndex: 9999,
-    backgroundColor: "rgba(249, 248, 241, 0.92)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-  text: {
-    fontSize: 11,
-    lineHeight: 14,
+  title: {
+    fontSize: 18,
     fontWeight: "600",
-    letterSpacing: 0.2,
-    color: "rgba(28, 25, 23, 0.55)",
+    color: "#111827",
+  },
+  version: {
+    color: "#6B7280",
+    marginTop: 6,
+    fontSize: 14,
+  },
+  whatsNew: {
+    color: "#111827",
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginBottom: 8,
+  },
+  bullet: {
+    color: "#158074",
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  change: {
+    flex: 1,
+    color: "#374151",
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

@@ -486,6 +486,12 @@ export const ar: MessageTree = {
     settingsSaved: "تم حفظ الإعدادات بنجاح!",
     error: "خطأ",
     failedToSave: "فشل حفظ الإعدادات",
+    aboutTitle: "عن الجيران",
+    aboutVersion: "الإصدار {version}",
+    aboutWhatsNew: "ما الجديد",
+    aboutChange1: "أخطاء أوضح عند فشل الخلاصة أو الرفع، بدل شاشة فارغة.",
+    aboutChange2: "ملفات الجيران وتسميات السوق أصبحت أسهل للقراءة.",
+    aboutChange3: "تنبيهات فورية لنشاط الحي بعد السماح بالإشعارات.",
   },
   providerOnboarding: {
     title: "تسجيل مقدم الخدمة",
