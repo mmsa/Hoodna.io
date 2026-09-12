@@ -69,7 +69,14 @@ export function HomeShortcuts() {
             <View style={styles.iconWrap}>
               <Ionicons color={colors.primary} name={item.icon} size={28} />
             </View>
-            <Text style={styles.label}>{item.label}</Text>
+            <Text
+              style={styles.label}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {item.label}
+            </Text>
           </AppPressable>
         ))}
       </View>
@@ -99,13 +106,13 @@ const styles = StyleSheet.create({
   tile: {
     flexGrow: 1,
     flexBasis: "22%",
-    minWidth: 72,
+    minWidth: 78,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: palette.surfaceMuted,
     borderRadius: radii.xl,
     paddingVertical: spacing[5],
-    paddingHorizontal: spacing[2],
+    paddingHorizontal: spacing[1],
     minHeight: 112,
   },
   pressed: {
@@ -123,8 +130,11 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textMain,
-    fontSize: typography.size.bodySmall,
+    fontSize: typography.size.caption,
+    lineHeight: typography.lineHeight.caption,
     fontWeight: typography.weight.semibold,
     textAlign: "center",
+    width: "100%",
+    paddingHorizontal: 2,
   },
 });
