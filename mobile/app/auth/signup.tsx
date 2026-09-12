@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MIN_PASSWORD_LENGTH } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCode } from "@/lib/referral";
 import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
@@ -50,7 +51,7 @@ export default function SignupScreen() {
     if (email.trim() && !email.includes("@")) {
       newErrors.email = t("auth.invalidEmail");
     }
-    if (!password || password.length < 6) {
+    if (!password || password.length < MIN_PASSWORD_LENGTH) {
       newErrors.password = t("auth.passwordMinLength");
     }
     setErrors(newErrors);

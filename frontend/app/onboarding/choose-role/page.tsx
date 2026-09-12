@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, Wrench, Shield, ArrowRight } from 'lucide-react'
 import api from '@/lib/api'
-import { useAuth } from '@/hooks/use-auth'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { toast } from 'sonner'
 import { getPostAuthWebRoute, needsContactVerification } from '@/lib/resident-routing'
 import { SignOutButton } from '@/components/sign-out-button'
@@ -21,7 +21,7 @@ if (typeof globalThis.location === 'undefined') {
 
 export default function ChooseRolePage() {
   const router = useRouter()
-  const { user, isLoading: userLoading } = useAuth()
+  const { user, isLoading: userLoading } = useRequireAuth()
   const queryClient = useQueryClient()
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
 

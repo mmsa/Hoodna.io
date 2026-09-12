@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, XCircle, Loader2, LogOut, Upload } from 'lucide-react'
 import api from '@/lib/api'
-import { useAuth } from '@/hooks/use-auth'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import Cookies from 'js-cookie'
 import { getResidentWebRoute, isPlatformStaff, isResidentRole, isVerifiedForCurrentCompound } from '@/lib/resident-routing'
 import { UploadedDocumentCard } from '@/components/uploaded-document-card'
@@ -21,7 +21,7 @@ interface VerificationStatus {
 export default function VerificationPendingPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const { user, isLoading: userLoading, refreshUser } = useAuth()
+  const { user, isLoading: userLoading, refreshUser } = useRequireAuth()
 
   const { data: status, isLoading } = useQuery<VerificationStatus>({
     queryKey: ['verification-status'],

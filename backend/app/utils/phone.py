@@ -86,8 +86,18 @@ def normalize_phone(raw: str | None) -> str | None:
         return _to_storage(parsed)
 
     # No country code: Egyptian local mobiles only — never invent +44/+33/etc.
-    parsed = _try_parse(cleaned, region="EG")
-    if parsed and phonenumbers.is_valid_number(parsed):
+    local = _try_parse(cleaned, region="EG")
+    if local and phonenumbers.is_valid_number(local):
+        return _to_storage(local)
+
+    # Accept a bare international number that is possible but not in
+    # libphonenumber's validity metadata (new carrier ranges, less-covered
+    # countries). Without this the function is not idempotent: it would reject
+    # the very value it returns for the "+"-prefixed form of the same number,
+    # so re-normalizing a stored phone yields None and every lookup keyed on
+    # the stored value silently misses. A leading zero means a national trunk
+    # prefix rather than a country code, so those are still rejected.
+    if parsed and not digits.startswith("0"):
         return _to_storage(parsed)
 
     return None

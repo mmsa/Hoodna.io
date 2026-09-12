@@ -9,7 +9,7 @@ import { Combobox, ComboboxOption } from '@/components/ui/combobox'
 import { Label } from '@/components/ui/label'
 import api from '@/lib/api'
 import { formatCompoundName } from '@/lib/format-compound'
-import { useAuth } from '@/hooks/use-auth'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { SignOutButton } from '@/components/sign-out-button'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
 
@@ -25,7 +25,7 @@ export default function CompoundSelectPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams?.get?.('returnTo') || '/feed'
-  const { user, isLoading: userLoading, refreshUser } = useAuth()
+  const { user, isLoading: userLoading, refreshUser } = useRequireAuth()
   const [selectedCompoundId, setSelectedCompoundId] = useState<number | null>(null)
   const [error, setError] = useState('')
 

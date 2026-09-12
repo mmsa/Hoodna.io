@@ -14,6 +14,8 @@ from app.crud.notification import (
 )
 from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.services.push import register_push_token, unregister_push_token
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
 router = APIRouter()
@@ -121,3 +123,52 @@ async def delete_notification_endpoint(
         )
 
     return {"message": "Notification deleted"}
+
+
+class PushTokenRequest(BaseModel):
+    """A device registering itself for push delivery."""
+
+    token: str = Field(min_length=10, max_length=255)
+    platform: Optional[str] = Field(default=None, max_length=16)
+    device_name: Optional[str] = Field(default=None, max_length=120)
+
+    @field_validator("token")
+    @classmethod
+    def _validate_token(cls, value: str) -> str:
+        token = value.strip()
+        # Reject anything that is not an Expo token outright rather than storing
+        # junk that will only fail later at send time.
+        if not (
+            token.startswith("ExponentPushToken[")
+            or token.startswith("ExpoPushToken[")
+        ) or not token.endswith("]"):
+            raise ValueError("Not a valid Expo push token")
+        return token
+
+
+@router.post("/push-tokens", status_code=status.HTTP_204_NO_CONTENT)
+async def register_device_push_token(
+    request: PushTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register this device to receive push notifications."""
+    await register_push_token(
+        db,
+        current_user.id,
+        request.token,
+        platform=request.platform,
+        device_name=request.device_name,
+    )
+    return None
+
+
+@router.delete("/push-tokens", status_code=status.HTTP_204_NO_CONTENT)
+async def unregister_device_push_token(
+    request: PushTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stop sending push notifications to this device, e.g. on sign-out."""
+    await unregister_push_token(db, current_user.id, request.token)
+    return None

@@ -1,11 +1,30 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from app.models.enums import UserRole
 from app.schemas.user import UserResponse
 
+# Server-side password policy. Clients also validate, but this is the boundary
+# that actually protects accounts.
+MIN_PASSWORD_LENGTH = 8
+# bcrypt silently truncates beyond 72 bytes, so reject longer input outright
+# instead of accepting a password that is not fully checked at login.
+MAX_PASSWORD_LENGTH = 72
+
+
+def _validate_password(value: str) -> str:
+    if len(value.encode("utf-8")) > MAX_PASSWORD_LENGTH:
+        raise ValueError(
+            f"Password must be {MAX_PASSWORD_LENGTH} characters or fewer"
+        )
+    if len(value) < MIN_PASSWORD_LENGTH:
+        raise ValueError(
+            f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
+        )
+    return value
+
 
 class UserSignup(BaseModel):
-    name: str
+    name: str = Field(..., min_length=2, max_length=80)
     phone: str = Field(..., min_length=7, max_length=32)
     password: str
     email: Optional[EmailStr] = None
@@ -14,12 +33,27 @@ class UserSignup(BaseModel):
         default=None, min_length=4, max_length=64
     )
 
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        cleaned = " ".join(value.split())
+        if len(cleaned) < 2:
+            raise ValueError("Name must be at least 2 characters")
+        return cleaned
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, value: str) -> str:
+        return _validate_password(value)
+
 
 class UserLogin(BaseModel):
     """Password login. `email` accepts an email address or a mobile phone number."""
 
     email: str = Field(..., min_length=3, max_length=255)
-    password: str
+    # Not length-validated against the policy: existing accounts predate it and
+    # a login error must not reveal the policy. Capped to bound hashing cost.
+    password: str = Field(..., max_length=1024)
 
 
 class TokenResponse(BaseModel):
@@ -38,18 +72,28 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
+    token: str = Field(..., min_length=16, max_length=4096)
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def check_password(cls, value: str) -> str:
+        return _validate_password(value)
 
 
 class ResetPasswordPhoneRequest(BaseModel):
-    phone: str
+    phone: str = Field(..., min_length=7, max_length=32)
     otp_code: str = Field(..., min_length=4, max_length=12)
-    new_password: str = Field(..., min_length=6)
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def check_password(cls, value: str) -> str:
+        return _validate_password(value)
 
 
 class PhoneAuthStartRequest(BaseModel):
-    phone: str
+    phone: str = Field(..., min_length=7, max_length=32)
 
 
 class PhoneAuthStartResponse(BaseModel):
@@ -58,9 +102,9 @@ class PhoneAuthStartResponse(BaseModel):
 
 
 class PhoneAuthVerifyRequest(BaseModel):
-    phone: str
-    otp_code: str
-    name: Optional[str] = None  # Required for new users
+    phone: str = Field(..., min_length=7, max_length=32)
+    otp_code: str = Field(..., min_length=4, max_length=12)
+    name: Optional[str] = Field(default=None, max_length=80)  # Required for new users
     referral_code: Optional[str] = Field(
         default=None, min_length=4, max_length=64
     )

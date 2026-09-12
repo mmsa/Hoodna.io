@@ -55,7 +55,9 @@ export default function LoginScreen() {
         errorMessage.includes("Network error") ||
         errorMessage.includes("timed out")
       ) {
-        errorMessage = `${errorMessage}\n\nAPI URL: ${API_BASE_URL}`;
+        // Showing the API hostname to a signed-out user is debug output, not
+        // help. Give advice they can act on instead.
+        errorMessage = t("auth.networkError");
       }
       Alert.alert(t("common.error"), errorMessage);
     } finally {

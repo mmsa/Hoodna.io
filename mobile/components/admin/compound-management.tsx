@@ -37,8 +37,10 @@ export function AdminCompoundManagement() {
     try {
       const params = new URLSearchParams({ limit: "50", skip: "0" });
       if (search.trim()) params.set("q", search.trim());
-      const data = await apiClient.request(`/api/admin/compounds?${params}`);
-      setItems(data?.items || []);
+      const data = await apiClient.request<{ items?: CompoundRow[] }>(
+        `/api/admin/compounds?${params}`
+      );
+      setItems(data?.items ?? []);
     } catch (error: any) {
       Alert.alert("Error", error?.message || "Failed to load compounds");
       setItems([]);

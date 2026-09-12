@@ -17,6 +17,7 @@ from app.models import (  # noqa: F401
     moderation,
     notification,
     post,
+    push_token,
     report,
     review,
     saved_listing,

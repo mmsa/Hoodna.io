@@ -44,13 +44,24 @@ function authHeaders(): HeadersInit {
 }
 
 /**
+ * Uploads must not inherit the shared 20s API timeout. The backend accepts
+ * documents up to 15 MB, which is several minutes on a slow mobile connection,
+ * and a timeout here silently breaks verification onboarding.
+ */
+const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000
+
+const UPLOAD_FAILED_MESSAGE =
+  'Upload failed. Check your connection and try again, or email hello@eljiran.io if this keeps happening.'
+
+/**
  * Upload a browser File to a presigned URL.
  * Production uses API → S3 proxy; dev may use local disk or direct S3 PUT.
  */
 export async function uploadToPresignedUrl(
   presignedUrl: string,
   file: File,
-  contentType?: string
+  contentType?: string,
+  onProgress?: (percent: number) => void
 ): Promise<void> {
   const mimeType = contentType || resolveUploadContentType(file)
 
@@ -62,10 +73,25 @@ export async function uploadToPresignedUrl(
     if (filePath) {
       formData.append('file_path', filePath)
     }
-    // axios adds Bearer token + retries on 401
-    await api.post(apiUploadPath(presignedUrl), formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    try {
+      // axios adds Bearer token + retries on 401
+      await api.post(apiUploadPath(presignedUrl), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: UPLOAD_TIMEOUT_MS,
+        onUploadProgress: onProgress
+          ? (event) => {
+              if (event.total) {
+                onProgress(Math.round((event.loaded / event.total) * 100))
+              }
+            }
+          : undefined,
+      })
+    } catch (error) {
+      // Surface the server's own validation message (file too large, wrong
+      // type) but never a raw response body or stack.
+      const detail = (error as any)?.response?.data?.detail
+      throw new Error(typeof detail === 'string' ? detail : UPLOAD_FAILED_MESSAGE)
+    }
     return
   }
 
@@ -86,10 +112,7 @@ export async function uploadToPresignedUrl(
   }
 
   if (!uploadResponse.ok) {
-    const errorText = await uploadResponse.text().catch(() => '')
-    throw new Error(
-      `Upload failed (${uploadResponse.status}): ${errorText || uploadResponse.statusText}`
-    )
+    throw new Error(UPLOAD_FAILED_MESSAGE)
   }
 }
 

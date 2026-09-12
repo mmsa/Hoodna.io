@@ -309,10 +309,14 @@ def is_listing_offer(text: str) -> bool:
         return False
     if is_wanted_inquiry(cleaned):
         return False
-    # Emoji / joke one-liners with a casual "هبيع" are not listings
+    # Emoji / joke one-liners with a casual "هبيع" are not listings.
+    # Scoped to the Arabic colloquial sell-verbs only: English "selling" plus an
+    # item is a genuine offer ("Selling iPhone 13 for 18000 EGP"), and a stated
+    # price is itself strong evidence the sender is not joking.
     if (
         _letter_count(cleaned) < 28
-        and re.search(r"هبيع|هابيع|بتباع|selling", cleaned, re.IGNORECASE)
+        and re.search(r"هبيع|هابيع|بتباع", cleaned)
+        and extract_price(cleaned) is None
         and (
             re.search(r"[\U0001F300-\U0001FAFF]|😂|🤣|تعبان|يظهر", cleaned)
             or (

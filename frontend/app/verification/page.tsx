@@ -14,7 +14,7 @@ import {
 import api from "@/lib/api";
 import { Upload, CheckCircle, XCircle, Clock, FileCheck, ShieldCheck, Sparkles, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
+import { useRequireAuth } from "@/hooks/use-require-auth";
 import { UploadedDocumentCard } from "@/components/uploaded-document-card";
 import { uploadToPresignedUrl, resolveUploadContentType } from "@/lib/upload";
 import { isPlatformStaff, isVerifiedForCurrentCompound } from "@/lib/resident-routing";
@@ -55,7 +55,9 @@ export default function VerificationPage() {
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user, isLoading: userLoading } = useAuth();
+  // Verification requires a session; without this a signed-out visitor would
+  // sit on the loading spinner below forever.
+  const { user, isLoading: userLoading } = useRequireAuth();
   const [uploading, setUploading] = useState<DocumentType | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   // Store uploaded file URLs before submission

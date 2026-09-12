@@ -151,6 +151,39 @@ async def get_upload_user_id(
     )
 
 
+async def _assert_can_read_file(db: AsyncSession, user: User, file_url: str) -> None:
+    """Guard identity documents behind ownership.
+
+    Every logged-in user may stream a file whose URL they already hold, which is
+    acceptable for listing and profile images. Verification documents are
+    national IDs and residency contracts, so those are restricted to the
+    uploader and platform staff.
+    """
+    from sqlalchemy import select
+
+    from app.models.verification import VerificationDocument
+    from app.services.s3 import extract_s3_object_key
+
+    key = extract_s3_object_key(file_url) or ""
+    if not key.startswith("verification/"):
+        return
+
+    if user.role in (UserRole.ADMIN, UserRole.MODERATOR, UserRole.COMPOUND_MOD):
+        return
+
+    result = await db.execute(
+        select(VerificationDocument.user_id).where(
+            VerificationDocument.file_url == file_url
+        )
+    )
+    owner_ids = set(result.scalars().all())
+    if owner_ids and user.id not in owner_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this file",
+        )
+
+
 async def get_download_user_id(
     file_url: str = Query(...),
     download_token: Optional[str] = Query(None),
@@ -176,6 +209,7 @@ async def get_download_user_id(
                 if user_id is not None:
                     user = await db.get(User, user_id)
                     if user is not None:
+                        await _assert_can_read_file(db, user, stored)
                         return user.id
 
     if download_token:
@@ -185,6 +219,7 @@ async def get_download_user_id(
         if user_id is not None:
             user = await db.get(User, user_id)
             if user is not None:
+                await _assert_can_read_file(db, user, stored)
                 return user.id
         logger.warning("Download token rejected for file_url=%s", stored)
     else:

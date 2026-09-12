@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { PublicUserProfile } from "@hoodna/shared";
-import { spacing, typography } from "@hoodna/tokens";
+import { palette, spacing, typography } from "@hoodna/tokens";
 
 import { Avatar } from "@/components/ui";
 import { colors } from "@/constants/colors";
@@ -144,33 +144,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
   headerTitle: {
-    ...typography.subtitle,
+    fontSize: typography.size.titleSmall,
+    lineHeight: typography.lineHeight.titleSmall,
     color: colors.text,
-    fontWeight: "600",
+    fontWeight: typography.weight.semibold,
   },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: colors.textMuted, textAlign: "center", padding: spacing.lg },
-  content: { padding: spacing.lg, gap: spacing.lg },
-  hero: { alignItems: "center", gap: spacing.sm },
-  name: { ...typography.title, color: colors.text, fontWeight: "700" },
-  verified: { color: colors.primary, fontWeight: "600" },
+  errorText: { color: colors.textMuted, textAlign: "center", padding: spacing[4] },
+  content: { padding: spacing[4], gap: spacing[4] },
+  hero: { alignItems: "center", gap: spacing[2] },
+  name: {
+    fontSize: typography.size.title,
+    lineHeight: typography.lineHeight.title,
+    color: colors.text,
+    fontWeight: typography.weight.bold,
+  },
+  verified: { color: colors.primary, fontWeight: typography.weight.semibold },
   meta: { color: colors.textMuted },
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.backgroundCard,
     borderRadius: 12,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing[3],
+    gap: spacing[2],
   },
   row: { color: colors.text },
   button: {
     backgroundColor: colors.primary,
     borderRadius: 12,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing[3],
     alignItems: "center",
   },
-  buttonText: { color: "#fff", fontWeight: "600" },
+  buttonText: { color: palette.onPrimary, fontWeight: typography.weight.semibold },
 });

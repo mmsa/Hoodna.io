@@ -9,7 +9,14 @@ import {
 } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 
+import { useRouter } from "expo-router";
+
 import { useAuth } from "@/contexts/AuthContext";
+import { notificationPath } from "@/lib/notification-path";
+import {
+  addNotificationTapListener,
+  registerDeviceForPush,
+} from "@/lib/push-notifications";
 
 type NotificationsContextValue = {
   unreadCount: number;
@@ -21,6 +28,7 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(nul
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { apiClient, user } = useAuth();
+  const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
 
   const refreshUnreadCount = useCallback(async () => {
@@ -57,6 +65,24 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const sub = AppState.addEventListener("change", onChange);
     return () => sub.remove();
   }, [refreshUnreadCount, user]);
+
+  // Register this device once a session exists. Keyed on the user id so a new
+  // account signing in on the same phone takes ownership of the token, and so a
+  // restored session on app launch re-registers (tokens can be reissued).
+  useEffect(() => {
+    if (!user) return;
+    void registerDeviceForPush(apiClient);
+  }, [apiClient, user?.id]);
+
+  // Opening a push should land on the same screen the notification list would.
+  useEffect(() => {
+    const subscription = addNotificationTapListener((data) => {
+      const path = data ? notificationPath(data) : null;
+      router.push((path ?? "/notifications") as never);
+      void refreshUnreadCount();
+    });
+    return () => subscription?.remove();
+  }, [refreshUnreadCount, router]);
 
   const value = useMemo(
     () => ({ unreadCount, refreshUnreadCount, setUnreadCount }),

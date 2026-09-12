@@ -48,3 +48,30 @@ def test_placeholder_rejected():
 
 def test_format_display():
     assert format_phone_display("201001234567") == "+201001234567"
+
+
+def test_normalization_is_idempotent():
+    """Re-normalizing a stored phone must return the same value.
+
+    Every lookup keyed on the stored column (login, compound membership sync,
+    chat-import matching) re-normalizes it, so a value that normalizes to None
+    on the second pass makes the account unreachable.
+    """
+    raw_numbers = [
+        "+201001234567",
+        "01001234567",
+        "+201444444444",  # possible but not in libphonenumber's valid ranges
+        "+9715012345678",
+        "+447539673391",
+        "+1 415 555 2671",
+        "+966 50 123 4567",
+    ]
+    for raw in raw_numbers:
+        once = normalize_phone(raw)
+        assert once is not None, raw
+        assert normalize_phone(once) == once, raw
+
+
+def test_national_trunk_prefix_is_not_read_as_country_code():
+    """A leading zero is a trunk prefix, never a country code."""
+    assert normalize_phone("01444444444") is None

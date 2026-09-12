@@ -9,7 +9,8 @@ import { useNotifications } from "@/contexts/NotificationsContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { formatRelativeTime } from "@hoodna/i18n";
 import { colors } from "@/constants/colors";
-import { getNotificationRoute, Notification, NotificationListResponse } from "@hoodna/shared";
+import { Notification, NotificationListResponse } from "@hoodna/shared";
+import { notificationPath } from "@/lib/notification-path";
 import { useTelemetry } from "@/contexts/TelemetryContext";
 
 function formatTime(dateString: string, locale: "en" | "ar"): string {
@@ -152,23 +153,9 @@ export default function NotificationsScreen() {
         await apiClient.markNotificationRead(notification.id);
       }
       track("notification_opened", { notification_id: notification.id, notification_type: notification.type });
-      const destination = getNotificationRoute(notification);
-      if (destination.type === "post") {
-        router.push(`/post/${destination.id}`);
-      } else if (destination.type === "listing") {
-        router.push(`/listing/${destination.id}`);
-      } else if (destination.type === "message") {
-        router.push(`/messages/${destination.id}`);
-      } else if (destination.type === "verification") {
-        router.push("/verification");
-      } else if (destination.type === "business") {
-        router.push(`/businesses/${destination.slug}`);
-      } else if (destination.type === "digest") {
-        router.push("/digest");
-      } else if (notification.type.startsWith("BUSINESS_CLAIM")) {
-        router.push("/business-claims");
-      } else if (notification.type === "REFERRAL_ACCEPTED") {
-        router.push("/invite-neighbours");
+      const destination = notificationPath(notification);
+      if (destination) {
+        router.push(destination as never);
       }
 
       loadNotifications();

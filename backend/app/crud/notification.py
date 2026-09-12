@@ -9,8 +9,15 @@ from typing import Optional
 async def create_notification(
     db: AsyncSession,
     notification_data: NotificationCreate,
+    *,
+    send_push: bool = True,
 ) -> Notification:
-    """Create a new notification."""
+    """Create a new notification and mirror it to the user's devices.
+
+    Every notification in the product funnels through here, so this is the one
+    place a push needs to be sent from. Delivery is best-effort and never raises,
+    so a push outage cannot fail the action that produced the notification.
+    """
     notification = Notification(
         user_id=notification_data.user_id,
         type=notification_data.type,
@@ -23,6 +30,26 @@ async def create_notification(
     db.add(notification)
     await db.flush()
     await db.refresh(notification)
+
+    if send_push:
+        # Imported here to keep this module free of a service-layer import cycle.
+        from app.services.push import send_push_to_users
+
+        await send_push_to_users(
+            db,
+            [notification.user_id],
+            title=notification.title,
+            body=notification.message,
+            data={
+                "notification_id": notification.id,
+                "type": notification.type.value
+                if hasattr(notification.type, "value")
+                else str(notification.type),
+                "related_id": notification.related_id,
+                "related_type": notification.related_type,
+            },
+        )
+
     return notification
 
 

@@ -16,7 +16,9 @@ import { useTranslation } from '@/components/locale-provider'
 
 const loginSchema = z.object({
   email: z.string().min(3, 'Enter your email or phone number'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  // Not held to the sign-up policy: accounts created before it still have
+  // shorter passwords and must be able to sign in.
+  password: z.string().min(1, 'Enter your password'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>

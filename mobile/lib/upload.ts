@@ -13,6 +13,32 @@ function isApiUploadUrl(presignedUrl: string): boolean {
   );
 }
 
+const UPLOAD_FAILED_MESSAGE =
+  "Upload failed. Check your connection and try again.";
+
+/**
+ * Turn a failed upload response into a message worth showing in an alert.
+ * The server's own `detail` is user-facing copy (file too large, wrong type);
+ * anything else would be a raw body or HTML error page, so it is replaced.
+ */
+async function uploadError(response: Response): Promise<Error> {
+  if (response.status === 413) {
+    return new Error("That file is too large. Please choose a smaller one.");
+  }
+  if (response.status === 401 || response.status === 403) {
+    return new Error("Your session expired. Please sign in again.");
+  }
+  try {
+    const body = await response.json();
+    if (typeof body?.detail === "string" && body.detail.length < 300) {
+      return new Error(body.detail);
+    }
+  } catch {
+    // Non-JSON body — fall through to the generic message.
+  }
+  return new Error(UPLOAD_FAILED_MESSAGE);
+}
+
 /**
  * Upload a device file (camera roll / camera capture) to a presigned URL.
  * React Native requires FormData with { uri, type, name } — not Blob from fetch(uri).
@@ -42,10 +68,7 @@ export async function uploadLocalFileToPresignedUrl(
     });
 
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text().catch(() => "");
-      throw new Error(
-        `Upload failed (${uploadResponse.status}): ${errorText || uploadResponse.statusText}`
-      );
+      throw await uploadError(uploadResponse);
     }
     return;
   }
@@ -61,10 +84,7 @@ export async function uploadLocalFileToPresignedUrl(
   });
 
   if (!uploadResponse.ok) {
-    const errorText = await uploadResponse.text().catch(() => "");
-    throw new Error(
-      `Upload failed (${uploadResponse.status}): ${errorText || uploadResponse.statusText}`
-    );
+    throw await uploadError(uploadResponse);
   }
 }
 
@@ -94,10 +114,7 @@ export async function uploadToPresignedUrl(
       headers,
     });
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text().catch(() => "");
-      throw new Error(
-        `Upload failed (${uploadResponse.status}): ${errorText || uploadResponse.statusText}`
-      );
+      throw await uploadError(uploadResponse);
     }
     return;
   }
@@ -112,9 +129,6 @@ export async function uploadToPresignedUrl(
   });
 
   if (!uploadResponse.ok) {
-    const errorText = await uploadResponse.text().catch(() => "");
-    throw new Error(
-      `Upload failed (${uploadResponse.status}): ${errorText || uploadResponse.statusText}`
-    );
+    throw await uploadError(uploadResponse);
   }
 }

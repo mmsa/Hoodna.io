@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MIN_PASSWORD_LENGTH } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 
@@ -34,7 +35,7 @@ export default function ResetPasswordScreen() {
   }, [params]);
 
   async function handleSubmit() {
-    if (!password || password.length < 6) {
+    if (!password || password.length < MIN_PASSWORD_LENGTH) {
       setError(t("auth.passwordMinLength"));
       return;
     }

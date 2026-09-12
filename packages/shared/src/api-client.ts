@@ -609,6 +609,24 @@ export class ApiClient {
     return this.request<{ unread_count: number }>("/api/notifications/unread-count");
   }
 
+  async registerPushToken(data: {
+    token: string;
+    platform?: string;
+    device_name?: string;
+  }): Promise<void> {
+    await this.request<void>("/api/notifications/push-tokens", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async unregisterPushToken(token: string): Promise<void> {
+    await this.request<void>("/api/notifications/push-tokens", {
+      method: "DELETE",
+      body: JSON.stringify({ token }),
+    });
+  }
+
   async markNotificationRead(notificationId: number): Promise<any> {
     return this.request<any>(`/api/notifications/${notificationId}/read`, {
       method: "PATCH",

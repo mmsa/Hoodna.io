@@ -8,6 +8,7 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import { ApiClient, User } from "@hoodna/shared";
 import { API_BASE_URL } from "@/lib/config";
+import { unregisterDeviceForPush } from "@/lib/push-notifications";
 
 interface AuthContextType {
   user: User | null;
@@ -100,6 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [apiClient]);
 
   const logout = useCallback(async () => {
+    // Detach the device first, while the token is still valid. Otherwise this
+    // phone keeps receiving the signed-out user's notifications.
+    await unregisterDeviceForPush(apiClient);
     await SecureStore.deleteItemAsync("accessToken");
     await SecureStore.deleteItemAsync("refreshToken");
     apiClient.setAccessToken(null);

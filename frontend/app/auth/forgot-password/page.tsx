@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { normalizePhone } from '@hoodna/shared'
+import { MIN_PASSWORD_LENGTH, normalizePhone } from '@hoodna/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
   const resetWithPhone = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 6) {
+    if (password.length < MIN_PASSWORD_LENGTH) {
       setError(t('auth.passwordMinLength'))
       return
     }

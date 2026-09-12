@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+/**
+ * Must match the server policy in backend/app/schemas/auth.py. A client
+ * minimum below the server's produces a 422 the user cannot act on.
+ */
+export const MIN_PASSWORD_LENGTH = 8;
+/** bcrypt only hashes the first 72 bytes, so longer input is rejected outright. */
+export const MAX_PASSWORD_LENGTH = 72;
+
+export const passwordSchema = z
+  .string()
+  .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+  .max(MAX_PASSWORD_LENGTH, `Password must be ${MAX_PASSWORD_LENGTH} characters or fewer`);
+
 export const TokenResponseSchema = z.object({
   access_token: z.string(),
   refresh_token: z.string(),
@@ -24,19 +37,23 @@ export const PhoneAuthVerifyRequestSchema = z.object({
 export const UserLoginSchema = z.object({
   /** Email address or mobile phone number */
   email: z.string().min(3, "Enter your email or phone number"),
-  password: z.string().min(6),
+  // Deliberately not held to the signup policy: accounts created before it
+  // still have shorter passwords and must be able to sign in.
+  password: z.string().min(1, "Enter your password"),
 });
 
 export const UserSignupSchema = z.object({
-  name: z.string().min(2),
+  name: z.string().trim().min(2).max(80),
   phone: z.string().min(7, "Phone number is required"),
-  password: z.string().min(6),
+  password: passwordSchema,
   email: z
     .string()
     .email("Invalid email address")
     .optional()
     .or(z.literal("")),
-  role: z.enum(['RESIDENT', 'SERVICE_PROVIDER', 'COMPOUND_MOD']),
+  // Optional: the role is chosen after sign-up on the choose-role step, and the
+  // server accepts a null role for exactly that flow.
+  role: z.enum(["RESIDENT", "SERVICE_PROVIDER", "COMPOUND_MOD"]).optional(),
   referral_code: z.string().trim().min(4).max(64).optional(),
 });
 
@@ -46,13 +63,13 @@ export const ForgotPasswordRequestSchema = z.object({
 
 export const ResetPasswordRequestSchema = z.object({
   token: z.string(),
-  new_password: z.string().min(6),
+  new_password: passwordSchema,
 });
 
 export const ResetPasswordPhoneRequestSchema = z.object({
   phone: z.string().min(7),
   otp_code: z.string().min(4).max(12),
-  new_password: z.string().min(6),
+  new_password: passwordSchema,
 });
 
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;

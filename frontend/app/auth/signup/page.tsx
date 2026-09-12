@@ -15,11 +15,12 @@ import Cookies from 'js-cookie'
 import { useFeatureConfig } from '@/components/feature-config-provider'
 import { track } from '@/lib/telemetry'
 import { useTranslation } from '@/components/locale-provider'
+import { passwordSchema } from '@hoodna/shared'
 
 const signupSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(80),
   phone: z.string().min(7, 'Phone number is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: passwordSchema,
   email: z
     .string()
     .trim()

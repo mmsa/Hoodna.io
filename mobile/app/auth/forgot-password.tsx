@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { normalizePhone } from "@hoodna/shared";
+import { MIN_PASSWORD_LENGTH, normalizePhone } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 
@@ -71,7 +71,7 @@ export default function ForgotPasswordScreen() {
       setError(t("auth.enterOtp"));
       return;
     }
-    if (password.length < 6) {
+    if (password.length < MIN_PASSWORD_LENGTH) {
       setError(t("auth.passwordMinLength"));
       return;
     }

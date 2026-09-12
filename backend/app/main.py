@@ -71,36 +71,40 @@ from app.services.storage import (
     LOCAL_STORAGE_DIR,
 )
 
+logger = logging.getLogger(__name__)
+
+# The interactive docs enumerate every admin and internal endpoint, so they are
+# only served outside production.
 app = FastAPI(
     title="eljiran.io API",
     description="Verified neighborhood community + marketplace",
     version="1.0.0",
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 install_observability(app)
 
-# CORS middleware - must be added before other middleware
-# Handle all origins in development, or specific origins in production
-# Ensure localhost:3001 is included for Next.js dev server fallback
-cors_origins = settings.cors_origin_list if settings.cors_origin_list else ["*"]
-# Add localhost:3001 if not already present (for Next.js port fallback)
-if cors_origins != ["*"] and "http://localhost:3001" not in cors_origins:
-    cors_origins.append("http://localhost:3001")
-if cors_origins != ["*"]:
-    for public_origin in ("https://eljiran.io", "https://www.eljiran.io"):
-        if public_origin not in cors_origins:
-            cors_origins.append(public_origin)
+# CORS: an explicit allow-list is required because credentials are allowed —
+# "*" with credentials is rejected by browsers and would be unsafe regardless.
+cors_origins = list(settings.cors_origin_list)
+if not settings.is_production:
+    for dev_origin in ("http://localhost:3000", "http://localhost:3001"):
+        if dev_origin not in cors_origins:
+            cors_origins.append(dev_origin)
+for public_origin in ("https://eljiran.io", "https://www.eljiran.io"):
+    if public_origin not in cors_origins:
+        cors_origins.append(public_origin)
 
-# Debug: Log CORS origins on startup
-logger = logging.getLogger(__name__)
-logger.info(f"CORS allowed origins: {cors_origins}")
+logger.info("CORS allowed origins: %s", cors_origins)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Use wildcard to allow all methods including OPTIONS
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-Id"],
+    expose_headers=["x-request-id"],
     max_age=3600,
 )
 
@@ -154,36 +158,6 @@ app.include_router(link_preview.router, prefix="/api", tags=["link-preview"])
 
 # Mount static files for local storage (development only)
 if use_local_storage():
-    # Serve uploaded files
-    @app.get("/api/uploads/{file_path:path}")
-    async def serve_uploaded_file(file_path: str):
-        """Serve uploaded files from local storage."""
-        import logging
-        logger = logging.getLogger(__name__)
-
-        # Resolve via helper so legacy unpadded month URLs still work
-        full_path = get_local_file_path(f"/api/uploads/{file_path}")
-        if full_path is None:
-            full_path = LOCAL_STORAGE_DIR / file_path
-
-        logger.info(
-            f"Serving file: {file_path}, full_path: {full_path}, exists: {full_path.exists()}"
-        )
-
-        resolved_storage = LOCAL_STORAGE_DIR.resolve()
-        try:
-            full_resolved = full_path.resolve()
-        except FileNotFoundError:
-            full_resolved = full_path
-
-        if not full_path.exists() or not str(full_resolved).startswith(str(resolved_storage)):
-            logger.warning(
-                f"File not found: {full_path}, LOCAL_STORAGE_DIR: {resolved_storage}"
-            )
-            raise HTTPException(status_code=404, detail="File not found")
-
-        return FileResponse(full_path)
-
     # Handle file uploads for local storage
     @app.post("/api/uploads/upload")
     async def upload_file(
@@ -317,7 +291,7 @@ async def _handle_s3_upload(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload to storage: {e}",
+            detail="Upload failed. Please try again.",
         )
 
     logger.info(
@@ -440,10 +414,11 @@ async def get_upload_presigned_url(
             presigned_url=presigned_url,
             file_url=file_url
         )
-    except Exception as e:
+    except Exception:
+        logger.error("presign_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate presigned URL: {str(e)}"
+            detail="Could not prepare the upload. Please try again.",
         )
 
 
@@ -460,10 +435,11 @@ async def get_upload_signed_url(
     try:
         url = build_download_proxy_url(file_url.strip(), current_user.id)
         return {"url": url, "expires_in": 900}
-    except Exception as e:
+    except Exception:
+        logger.error("signed_url_failed", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate view URL: {e}",
+            detail="Could not open this file. Please try again.",
         )
 
 
@@ -475,3 +451,34 @@ async def root():
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "healthy"}
+
+
+# Registered last on purpose. Starlette matches routes in registration order, so
+# this greedy path parameter would otherwise shadow every specific
+# /api/uploads/* route above it — `GET /api/uploads/download` and
+# `GET /api/uploads/signed-url` would return "File not found" instead of
+# streaming the file, breaking private file access whenever local storage is in
+# use. Keep any new /api/uploads/* route above this one.
+if use_local_storage():
+
+    @app.get("/api/uploads/{file_path:path}")
+    async def serve_uploaded_file(file_path: str):
+        """Serve uploaded files from local storage."""
+        # Resolve via helper so legacy unpadded month URLs still work
+        full_path = get_local_file_path(f"/api/uploads/{file_path}")
+        if full_path is None:
+            full_path = LOCAL_STORAGE_DIR / file_path
+
+        resolved_storage = LOCAL_STORAGE_DIR.resolve()
+        try:
+            full_resolved = full_path.resolve()
+        except FileNotFoundError:
+            full_resolved = full_path
+
+        if not full_path.exists() or not str(full_resolved).startswith(
+            str(resolved_storage)
+        ):
+            logger.warning("local_file_not_found path=%s", file_path)
+            raise HTTPException(status_code=404, detail="File not found")
+
+        return FileResponse(full_path)

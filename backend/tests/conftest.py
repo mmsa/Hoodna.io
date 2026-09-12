@@ -31,6 +31,16 @@ TestSessionLocal = async_sessionmaker(
 )
 
 
+@pytest.fixture(scope="function", autouse=True)
+def reset_rate_limits():
+    """Rate-limit counters are process-global, so isolate them per test."""
+    from app.core import rate_limit
+
+    rate_limit.clear_all()
+    yield
+    rate_limit.clear_all()
+
+
 @pytest.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """

@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     
     # App
     ENVIRONMENT: str = "development"
+    # Verbose SQL logging. Never enable in production (leaks bound parameters).
+    SQL_ECHO: bool = False
     FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for email links
     # Public backend URL for local-storage upload/file links (set to LAN IP for physical devices)
     BACKEND_URL: str = "http://localhost:8000"
@@ -207,9 +209,64 @@ class Settings(BaseSettings):
             if item.strip()
         }
     
+    @property
+    def is_production(self) -> bool:
+        return (self.ENVIRONMENT or "").strip().lower() == "production"
+
     class Config:
         env_file = [".env", "../.env"]  # Look in current dir and parent dir
         case_sensitive = True
 
 
 settings = Settings()
+
+
+INSECURE_SECRET_KEYS = {
+    "your-secret-key-change-in-production",
+    "change-me",
+    "secret",
+    "changeme",
+}
+
+
+def validate_production_settings(config: Settings) -> None:
+    """Fail fast rather than boot production with development defaults.
+
+    A forgeable SECRET_KEY means anyone can mint an admin JWT, so this must
+    never degrade to a warning.
+    """
+    if not config.is_production:
+        return
+
+    errors: list[str] = []
+
+    if config.SECRET_KEY.strip() in INSECURE_SECRET_KEYS or len(
+        config.SECRET_KEY.strip()
+    ) < 32:
+        errors.append(
+            "SECRET_KEY must be set to a unique value of at least 32 characters "
+            "(generate with `openssl rand -hex 32`)."
+        )
+
+    if "localhost" in config.DATABASE_URL or "127.0.0.1" in config.DATABASE_URL:
+        errors.append("DATABASE_URL still points at localhost.")
+
+    insecure_origins = [
+        origin
+        for origin in config.cors_origin_list
+        if origin == "*" or "localhost" in origin or "127.0.0.1" in origin
+    ]
+    if insecure_origins:
+        errors.append(
+            "CORS_ORIGINS must not include wildcards or localhost in production: "
+            f"{insecure_origins}"
+        )
+
+    if errors:
+        raise RuntimeError(
+            "Refusing to start with an insecure production configuration:\n  - "
+            + "\n  - ".join(errors)
+        )
+
+
+validate_production_settings(settings)

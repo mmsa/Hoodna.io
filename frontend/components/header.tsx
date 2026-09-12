@@ -177,7 +177,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-card/90 shadow-card backdrop-blur-md supports-[backdrop-filter]:bg-card/75">
       <div className="eljiran-shell px-4 sm:px-6">
-        <div className="flex h-[4.25rem] items-center gap-4">
+        <div className="flex h-[4.25rem] items-center gap-2 sm:gap-4">
           {/* Logo */}
           <div className="flex min-w-0 shrink-0 items-center gap-3">
             <Link href="/" className="brand-lock flex shrink-0 items-center gap-2">
@@ -231,7 +231,7 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 rounded-full hover:bg-muted"
+                    className="relative h-11 w-11 rounded-full hover:bg-muted"
                   >
                     <MessageCircle className="h-5 w-5 text-muted-foreground" />
                     {unreadMessagesCount > 0 && (
@@ -250,7 +250,7 @@ export function Header() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 rounded-full hover:bg-muted"
+                    className="relative h-11 w-11 rounded-full hover:bg-muted"
                   >
                     <Bookmark className="h-5 w-5 text-muted-foreground" />
                     {savedCount > 0 && (
@@ -264,7 +264,7 @@ export function Header() {
                 {/* User Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                    <Button variant="ghost" className="relative h-11 w-11 rounded-full p-0">
                       <Avatar name={user.name} src={user.avatar_url} size="md" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -382,13 +382,18 @@ export function Header() {
                 </Button>
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              // Tighter spacing and padding below sm: at a 320px viewport the
+              // brand plus these three controls do not fit at full size and
+              // push the whole page into horizontal scroll.
+              <div className="flex items-center gap-1 sm:gap-2">
                 <LanguageToggle />
                 <Link href="/auth/login">
-                  <Button variant="ghost">{t('nav.signIn')}</Button>
+                  <Button variant="ghost" className="px-2 sm:px-5">
+                    {t('nav.signIn')}
+                  </Button>
                 </Link>
                 {isEnabled('user_registration') ? <Link href="/auth/signup">
-                  <Button>
+                  <Button className="px-3 sm:px-5">
                     {t('nav.signUp')}
                   </Button>
                 </Link> : null}

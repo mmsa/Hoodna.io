@@ -1,11 +1,17 @@
 """
 Seed script to create/update the initial admin user.
 
-Default credentials (override with ADMIN_EMAIL / ADMIN_PASSWORD env vars):
-  admin@admin.com / mmsammsa
+ADMIN_EMAIL and ADMIN_PASSWORD are required. Outside development there are no
+defaults: a hardcoded admin password would be a publicly known credential for
+the whole platform. The seed is skipped (not failed) when they are unset so a
+deploy is never blocked by a missing optional bootstrap step.
+
+An existing admin's password is only rewritten when ADMIN_RESET_PASSWORD=true,
+so redeploys cannot silently revert a rotated admin password.
 """
 import asyncio
 import os
+import sys
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
@@ -34,12 +40,33 @@ from app.core.security import get_password_hash
 from app.models.enums import UserRole, UserStatus
 from scripts.utils import get_db_url
 
+MIN_ADMIN_PASSWORD_LENGTH = 12
+
 
 async def seed_admin():
-    """Seed the database with admin user."""
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@admin.com").strip().lower()
-    admin_password = os.getenv("ADMIN_PASSWORD", "mmsammsa")
+    """Create the initial admin user from ADMIN_EMAIL / ADMIN_PASSWORD."""
+    admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+    admin_password = os.getenv("ADMIN_PASSWORD", "")
     admin_name = os.getenv("ADMIN_NAME", "Admin User")
+    reset_password = os.getenv("ADMIN_RESET_PASSWORD", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+    if not admin_email or not admin_password:
+        print(
+            "ℹ️  Skipping admin seed: set ADMIN_EMAIL and ADMIN_PASSWORD to "
+            "bootstrap the first admin account."
+        )
+        return
+
+    if len(admin_password) < MIN_ADMIN_PASSWORD_LENGTH:
+        print(
+            f"❌ ADMIN_PASSWORD must be at least {MIN_ADMIN_PASSWORD_LENGTH} "
+            "characters. Admin seed aborted."
+        )
+        sys.exit(1)
 
     db_url = get_db_url()
     last_error: Exception | None = None
@@ -67,13 +94,13 @@ async def seed_admin():
                     await session.flush()
                     print(f"✅ Created admin user: {admin_email}")
                 else:
-                    admin_user.password_hash = get_password_hash(admin_password)
                     admin_user.role = UserRole.ADMIN
                     admin_user.status = UserStatus.APPROVED
-                    if admin_name:
-                        admin_user.name = admin_name
+                    if reset_password:
+                        admin_user.password_hash = get_password_hash(admin_password)
+                        print(f"✅ Reset password for admin user: {admin_email}")
                     await session.flush()
-                    print(f"✅ Updated admin user: {admin_email}")
+                    print(f"✅ Ensured admin role for: {admin_email}")
 
                 await session.commit()
                 print("Admin user seeding completed!")

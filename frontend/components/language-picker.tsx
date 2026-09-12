@@ -83,7 +83,7 @@ export function LanguageToggle({ className }: { className?: string }) {
 
   if (!ready) {
     return (
-      <Button variant="ghost" size="sm" className={cn('gap-1.5 px-2', className)} disabled>
+      <Button variant="ghost" size="sm" className={cn('h-11 gap-1.5 px-2', className)} disabled>
         <Loader2 className="h-4 w-4 animate-spin" />
       </Button>
     )
@@ -95,7 +95,7 @@ export function LanguageToggle({ className }: { className?: string }) {
         <Button
           variant="ghost"
           size="sm"
-          className={cn('gap-1.5 px-2 font-semibold', className)}
+          className={cn('h-11 gap-1.5 px-2 font-semibold', className)}
           aria-label={t('landing.language')}
         >
           <Globe className="h-4 w-4" />

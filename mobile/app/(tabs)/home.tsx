@@ -20,7 +20,7 @@ import { HomeShortcuts } from "@/components/home/home-shortcuts";
 import { NeighbourPostCard } from "@/components/home/neighbour-post-card";
 import { AppBrandBar } from "@/components/AppBrandBar";
 import { CompoundInviteCard } from "@/components/compound-invite-card";
-import { AppPressable, Button } from "@/components/ui";
+import { AppPressable, Button, ErrorState } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompound } from "@/contexts/CompoundContext";
@@ -36,6 +36,7 @@ export default function HomeScreen() {
   const [postsLimit, setPostsLimit] = useState(15);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [question, setQuestion] = useState("");
   const [askAnswer, setAskAnswer] = useState("");
@@ -56,6 +57,7 @@ export default function HomeScreen() {
     const compoundId = activeCompoundId;
 
     setLoading(true);
+    setLoadFailed(false);
     setPosts([]);
     setPostsLimit(15);
     setHasMorePosts(true);
@@ -77,7 +79,9 @@ export default function HomeScreen() {
         setHasMorePosts((feedPosts || []).length >= 15);
       } catch (error) {
         if (!cancelled) {
-          console.error("Failed to load feed:", error);
+          // An unreachable API must not look like a neighbourhood with nothing
+          // to say; the list renders a retry state instead of the empty state.
+          setLoadFailed(true);
           setPosts([]);
         }
       } finally {
@@ -112,8 +116,9 @@ export default function HomeScreen() {
       setPosts(sorted);
       setPostsLimit(15);
       setHasMorePosts((feedPosts || []).length >= 15);
+      setLoadFailed(false);
     } catch (error) {
-      console.error("Failed to refresh feed:", error);
+      setLoadFailed(true);
     } finally {
       setRefreshing(false);
     }
@@ -357,20 +362,28 @@ export default function HomeScreen() {
           />
         )}
         ListEmptyComponent={
-          <View style={styles.emptyFeed}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="chatbubbles-outline" size={36} color={colors.primary} />
+          loadFailed ? (
+            <ErrorState
+              title="We couldn't load your feed"
+              description="Check your connection and try again."
+              onRetry={handleRefresh}
+            />
+          ) : (
+            <View style={styles.emptyFeed}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="chatbubbles-outline" size={36} color={colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>Your feed is quiet for now</Text>
+              <Text style={styles.emptyBody}>
+                Say hello to your neighbours — share a question, update, or recommendation.
+              </Text>
+              {canPost ? (
+                <Button onPress={() => router.push("/create-post")} size="medium" style={styles.emptyCta}>
+                  Start a post
+                </Button>
+              ) : null}
             </View>
-            <Text style={styles.emptyTitle}>Your feed is quiet for now</Text>
-            <Text style={styles.emptyBody}>
-              Say hello to your neighbours — share a question, update, or recommendation.
-            </Text>
-            {canPost ? (
-              <Button onPress={() => router.push("/create-post")} size="medium" style={styles.emptyCta}>
-                Start a post
-              </Button>
-            ) : null}
-          </View>
+          )
         }
         contentContainerStyle={styles.listContent}
       />

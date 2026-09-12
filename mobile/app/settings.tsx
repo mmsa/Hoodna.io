@@ -11,6 +11,7 @@ import { LanguagePicker } from "@/components/LanguagePicker";
 import { Header } from "@/components/Header";
 import {
   openSystemNotificationSettings,
+  registerDeviceForPush,
   requestPushPermission,
 } from "@/lib/push-notifications";
 
@@ -129,6 +130,11 @@ export default function SettingsScreen() {
     setPreferences({ ...preferences, [key]: value });
     try {
       setPreferences(await apiClient.updateUserPreferences({ [key]: value }));
+      if (key === "push_notifications" && value) {
+        // Permission alone delivers nothing — the device also has to be
+        // registered server-side before any push can reach it.
+        await registerDeviceForPush(apiClient);
+      }
     } catch {
       setPreferences(previous);
       Alert.alert(t("settings.couldNotSave"), t("settings.notificationNotChanged"));

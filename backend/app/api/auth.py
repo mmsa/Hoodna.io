@@ -52,8 +52,10 @@ from datetime import timedelta
 from app.core.config import settings
 from app.services.feature_flags import is_feature_enabled
 from typing import Optional
-import random
+import secrets
 import string
+
+from app.core import rate_limit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -104,61 +106,160 @@ async def options_handler():
 otp_storage: dict[str, dict] = {}
 email_otp_storage: dict[str, dict] = {}
 
+# Wrong codes allowed before the OTP is destroyed and must be re-requested.
+OTP_MAX_VERIFY_ATTEMPTS = 5
+
+# Rate limits come in two flavours and they are tuned very differently.
+#
+# Per-identifier limits (an account, phone number or email) are the real
+# brute-force defence: they are tight, and an attacker cannot escape them
+# because they are keyed on the thing being attacked.
+#
+# Per-IP limits are only defence-in-depth against a scripted run from one host.
+# They must stay generous: mobile carriers in Egypt put very large numbers of
+# subscribers behind a single NAT address, so a tight per-IP cap would lock out
+# crowds of legitimate users who merely share an egress IP. A caller can also
+# spoof X-Forwarded-For, so these are best-effort by nature.
+LOGIN_LIMIT_PER_IP = 300
+LOGIN_LIMIT_PER_IDENTIFIER = 10
+LOGIN_WINDOW_SECONDS = 900
+
+OTP_VERIFY_LIMIT_PER_IP = 300
+OTP_VERIFY_LIMIT_PER_PHONE = 10
+OTP_VERIFY_WINDOW_SECONDS = 900
+
+SIGNUP_LIMIT_PER_IP = 60
+FORGOT_PASSWORD_LIMIT_PER_IP = 60
+FORGOT_PASSWORD_LIMIT_PER_EMAIL = 5
+RESET_PASSWORD_LIMIT_PER_IP = 100
+HOUR_SECONDS = 3600
+
 
 def generate_otp() -> str:
     """Generate a 6-digit OTP code."""
-    return "".join(random.choices(string.digits, k=6))
+    return "".join(secrets.choice(string.digits) for _ in range(6))
 
 
 def _is_placeholder_email(email: str | None) -> bool:
     return bool(email and str(email).endswith("@hoodna.local"))
 
 
-def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
-    """Validate and consume a stored phone OTP, or raise HTTPException."""
-    import time
+def _otp_keys(phone_normalized: str) -> list[str]:
+    """All storage keys an OTP for this number may be filed under."""
     from app.utils.phone import phone_lookup_candidates
 
     keys: list[str] = []
     for key in [phone_normalized, *phone_lookup_candidates(phone_normalized)]:
         if key not in keys:
             keys.append(key)
+    return keys
+
+
+def _clear_phone_otp(phone_normalized: str) -> None:
+    for key in _otp_keys(phone_normalized):
+        otp_storage.pop(key, None)
+
+
+def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
+    """Validate and consume a stored phone OTP, or raise HTTPException.
+
+    A 6-digit code is only safe with a hard attempt cap: without one an
+    attacker who knows a phone number can enumerate the whole code space and
+    take over the account.
+    """
+    import secrets
+    import time
+
+    keys = _otp_keys(phone_normalized)
 
     stored_otp = None
-    matched_key = None
     for key in keys:
         stored_otp = otp_storage.get(key)
         if stored_otp:
-            matched_key = key
             break
     if not stored_otp:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP not found. Please request a new one.",
+            detail="That code is no longer valid. Request a new one.",
         )
     if time.time() > stored_otp["expires_at"]:
-        for key in keys:
-            otp_storage.pop(key, None)
+        _clear_phone_otp(phone_normalized)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP expired. Please request a new one.",
+            detail="That code has expired. Request a new one.",
         )
-    if stored_otp["otp"] != otp_code:
+
+    if not secrets.compare_digest(str(stored_otp["otp"]), (otp_code or "").strip()):
+        stored_otp["attempts"] = int(stored_otp.get("attempts", 0)) + 1
+        if stored_otp["attempts"] >= OTP_MAX_VERIFY_ATTEMPTS:
+            _clear_phone_otp(phone_normalized)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many incorrect codes. Request a new one.",
+            )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid OTP code",
+            detail="That code is incorrect.",
         )
-    for key in keys:
-        otp_storage.pop(key, None)
+    _clear_phone_otp(phone_normalized)
 
 
 def _store_phone_otp(phone_normalized: str, otp_code: str) -> None:
     import time
-    from app.utils.phone import phone_lookup_candidates
 
-    payload = {"otp": otp_code, "expires_at": time.time() + 600}
-    for key in [phone_normalized, *phone_lookup_candidates(phone_normalized)]:
+    payload = {"otp": otp_code, "expires_at": time.time() + 600, "attempts": 0}
+    for key in _otp_keys(phone_normalized):
         otp_storage[key] = payload
+
+
+def _store_email_otp(email: str, otp_code: str, user_id: int | None = None) -> None:
+    import time
+
+    email_otp_storage[email] = {
+        "otp": otp_code,
+        "expires_at": time.time() + 600,
+        "attempts": 0,
+        "user_id": user_id,
+    }
+
+
+def _consume_email_otp(email: str, otp_code: str) -> None:
+    """Validate and consume an email OTP with the same attempt cap as phone."""
+    import secrets
+    import time
+
+    stored = email_otp_storage.get(email)
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That code is no longer valid. Request a new one.",
+        )
+    if time.time() > stored["expires_at"]:
+        email_otp_storage.pop(email, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That code has expired. Request a new one.",
+        )
+    if not secrets.compare_digest(str(stored["otp"]), (otp_code or "").strip()):
+        stored["attempts"] = int(stored.get("attempts", 0)) + 1
+        if stored["attempts"] >= OTP_MAX_VERIFY_ATTEMPTS:
+            email_otp_storage.pop(email, None)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many incorrect codes. Request a new one.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That code is incorrect.",
+        )
+    email_otp_storage.pop(email, None)
+
+
+def _password_fingerprint(password_hash: str | None) -> str:
+    """Short digest of the stored hash, used to make reset tokens single-use."""
+    import hashlib
+
+    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
 
 
 def _user_needs_contact_verification(user: User) -> bool:
@@ -216,8 +317,6 @@ async def phone_auth_start(
     otp_code = generate_otp()
 
     # Store OTP (expires in 10 minutes)
-    import time
-
     _store_phone_otp(phone_normalized, otp_code)
 
     sms_configured = sms_delivery_configured()
@@ -226,7 +325,7 @@ async def phone_auth_start(
             await send_otp_sms(phone_normalized, otp_code)
         except SmsDeliveryError as exc:
             # Drop stored OTP so a failed send cannot be guessed from a prior race
-            otp_storage.pop(phone_normalized, None)
+            _clear_phone_otp(phone_normalized)
             logger.error(
                 "otp_sms_delivery_failed",
                 extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
@@ -245,16 +344,18 @@ async def phone_auth_start(
             otp_code=otp_code,
         )
 
-    otp_storage.pop(phone_normalized, None)
+    _clear_phone_otp(phone_normalized)
+    logger.error("otp_delivery_not_configured")
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="OTP delivery not configured. Set SMS_PROVIDER=smsto with SMSTO_API_KEY.",
+        detail="Verification codes are temporarily unavailable. Please try again later.",
     )
 
 
 @router.post("/verify", response_model=TokenResponse)
 async def phone_auth_verify(
     request: PhoneAuthVerifyRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Verify OTP and return tokens. Creates user if doesn't exist."""
@@ -266,7 +367,20 @@ async def phone_auth_verify(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid phone number",
         )
-    
+
+    rate_limit.enforce(
+        "otp_verify_ip",
+        rate_limit.client_ip(http_request),
+        limit=OTP_VERIFY_LIMIT_PER_IP,
+        window_seconds=OTP_VERIFY_WINDOW_SECONDS,
+    )
+    rate_limit.enforce(
+        "otp_verify_phone",
+        phone_normalized,
+        limit=OTP_VERIFY_LIMIT_PER_PHONE,
+        window_seconds=OTP_VERIFY_WINDOW_SECONDS,
+    )
+
     _consume_phone_otp(phone_normalized, request.otp_code)
 
     # Get or create user (lookup uses same country-code normalization)
@@ -339,9 +453,21 @@ async def phone_auth_verify(
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
+async def signup(
+    user_data: UserSignup,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     """Sign up a new user and return authentication tokens."""
     from app.utils.phone import normalize_phone
+
+    rate_limit.enforce(
+        "signup_ip",
+        rate_limit.client_ip(http_request),
+        limit=SIGNUP_LIMIT_PER_IP,
+        window_seconds=HOUR_SECONDS,
+        message="Too many sign-up attempts. Please try again later.",
+    )
 
     phone_normalized = normalize_phone(user_data.phone)
     if not phone_normalized:
@@ -432,13 +558,8 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
         send_otp_sms,
         sms_delivery_configured,
     )
-    import time
-
     otp_code = generate_otp()
-    otp_storage[phone_normalized] = {
-        "otp": otp_code,
-        "expires_at": time.time() + 600,
-    }
+    _store_phone_otp(phone_normalized, otp_code)
     if sms_delivery_configured():
         try:
             check_otp_rate_limits(phone=phone_normalized, client_ip=None)
@@ -455,11 +576,7 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
     email_otp_code = None
     if has_real_email:
         email_otp_code = generate_otp()
-        email_otp_storage[user_data.email] = {
-            "otp": email_otp_code,
-            "expires_at": time.time() + 600,
-            "user_id": user.id,
-        }
+        _store_email_otp(user_data.email, email_otp_code, user.id)
         sent = send_email_verification_email(user_data.email, email_otp_code)
         if not sent and settings.ENVIRONMENT == "development":
             logger.info(
@@ -493,17 +610,37 @@ async def signup(user_data: UserSignup, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(
+    credentials: UserLogin,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     """Login with email or phone number + password."""
-    import logging
-    logger = logging.getLogger(__name__)
-
     identifier = (credentials.email or "").strip()
     if not identifier:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email/phone or password",
         )
+
+    # Per-identifier and per-IP caps so neither a single account nor a
+    # credential-stuffing run can be brute forced.
+    request_ip = rate_limit.client_ip(http_request)
+    too_many = "Too many sign-in attempts. Please wait a few minutes and try again."
+    rate_limit.enforce(
+        "login_ip",
+        request_ip,
+        limit=LOGIN_LIMIT_PER_IP,
+        window_seconds=LOGIN_WINDOW_SECONDS,
+        message=too_many,
+    )
+    rate_limit.enforce(
+        "login_identifier",
+        identifier.casefold(),
+        limit=LOGIN_LIMIT_PER_IDENTIFIER,
+        window_seconds=LOGIN_WINDOW_SECONDS,
+        message=too_many,
+    )
 
     if "@" in identifier:
         user = await get_user_by_email(db, identifier.lower())
@@ -538,8 +675,10 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     if user.status.value == "BANNED":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is banned",
+            detail="This account has been suspended. Contact support for help.",
         )
+
+    rate_limit.reset("login_identifier", identifier.casefold())
 
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
@@ -559,7 +698,6 @@ async def confirm_signup_phone(
     db: AsyncSession = Depends(get_db),
 ):
     """Confirm phone ownership with OTP after password signup."""
-    import time
     from app.utils.phone import normalize_phone
 
     if getattr(current_user, "phone_verified", False):
@@ -572,25 +710,7 @@ async def confirm_signup_phone(
             detail="No phone number on this account",
         )
 
-    stored = otp_storage.get(phone_normalized)
-    if not stored:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP not found. Please request a new code.",
-        )
-    if time.time() > stored["expires_at"]:
-        otp_storage.pop(phone_normalized, None)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP expired. Please request a new code.",
-        )
-    if stored["otp"] != body.otp_code.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OTP code",
-        )
-
-    otp_storage.pop(phone_normalized, None)
+    _consume_phone_otp(phone_normalized, body.otp_code)
     current_user.phone_verified = True
     await db.flush()
     return {"message": "Phone verified", "phone_verified": True}
@@ -603,8 +723,6 @@ async def confirm_signup_email(
     db: AsyncSession = Depends(get_db),
 ):
     """Confirm email ownership with OTP after password signup."""
-    import time
-
     if getattr(current_user, "email_verified", False):
         return {"message": "Email already verified", "email_verified": True}
 
@@ -613,25 +731,7 @@ async def confirm_signup_email(
         await db.flush()
         return {"message": "Email verified", "email_verified": True}
 
-    stored = email_otp_storage.get(current_user.email)
-    if not stored:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP not found. Please request a new code.",
-        )
-    if time.time() > stored["expires_at"]:
-        email_otp_storage.pop(current_user.email, None)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP expired. Please request a new code.",
-        )
-    if stored["otp"] != body.otp_code.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OTP code",
-        )
-
-    email_otp_storage.pop(current_user.email, None)
+    _consume_email_otp(current_user.email, body.otp_code)
     current_user.email_verified = True
     await db.flush()
     return {"message": "Email verified", "email_verified": True}
@@ -643,7 +743,6 @@ async def resend_contact_otp(
     current_user: User = Depends(get_current_user),
 ):
     """Resend phone and/or email verification codes for the logged-in user."""
-    import time
     from app.utils.phone import normalize_phone
     from app.services.sms import (
         OtpRateLimitError,
@@ -660,10 +759,7 @@ async def resend_contact_otp(
         if phone_normalized:
             client_ip = request.client.host if request.client else None
             otp_code = generate_otp()
-            otp_storage[phone_normalized] = {
-                "otp": otp_code,
-                "expires_at": time.time() + 600,
-            }
+            _store_phone_otp(phone_normalized, otp_code)
             if sms_delivery_configured():
                 try:
                     check_otp_rate_limits(phone=phone_normalized, client_ip=client_ip)
@@ -683,11 +779,7 @@ async def resend_contact_otp(
         and not _is_placeholder_email(current_user.email)
     ):
         email_otp_code = generate_otp()
-        email_otp_storage[current_user.email] = {
-            "otp": email_otp_code,
-            "expires_at": time.time() + 600,
-            "user_id": current_user.id,
-        }
+        _store_email_otp(current_user.email, email_otp_code, current_user.id)
         sent = send_email_verification_email(current_user.email, email_otp_code)
         result["email_sent"] = sent
         if not sent and settings.ENVIRONMENT == "development":
@@ -1510,12 +1602,25 @@ async def unload_my_compound_sample_content(
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Request a password reset. Sends reset token (in production, via email)."""
-    import logging
-    logger = logging.getLogger(__name__)
-    
+    rate_limit.enforce(
+        "forgot_password_ip",
+        rate_limit.client_ip(http_request),
+        limit=FORGOT_PASSWORD_LIMIT_PER_IP,
+        window_seconds=HOUR_SECONDS,
+        message="Too many password reset requests. Please try again later.",
+    )
+    rate_limit.enforce(
+        "forgot_password_email",
+        request.email.casefold().strip(),
+        limit=FORGOT_PASSWORD_LIMIT_PER_EMAIL,
+        window_seconds=HOUR_SECONDS,
+        message="Too many password reset requests. Please try again later.",
+    )
+
     # Normalize email
     email_lower = request.email.lower().strip()
     user = await get_user_by_email(db, email_lower)
@@ -1525,7 +1630,15 @@ async def forgot_password(
     
     # Always return success to prevent email enumeration
     if user:
-        reset_token = create_password_reset_token(data={"sub": user.id, "email": user.email})
+        # Binding the token to the current password hash makes it single-use:
+        # once the password changes the token no longer validates.
+        reset_token = create_password_reset_token(
+            data={
+                "sub": user.id,
+                "email": user.email,
+                "pwd": _password_fingerprint(user.password_hash),
+            }
+        )
         frontend = settings.effective_frontend_url
         reset_link = f"{frontend}/auth/reset-password?token={reset_token}"
         
@@ -1555,6 +1668,7 @@ async def forgot_password(
 @router.post("/reset-password-phone")
 async def reset_password_phone(
     request: ResetPasswordPhoneRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Set a new password after verifying a phone OTP. Does not create accounts."""
@@ -1566,6 +1680,19 @@ async def reset_password_phone(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid phone number",
         )
+
+    rate_limit.enforce(
+        "otp_verify_ip",
+        rate_limit.client_ip(http_request),
+        limit=OTP_VERIFY_LIMIT_PER_IP,
+        window_seconds=OTP_VERIFY_WINDOW_SECONDS,
+    )
+    rate_limit.enforce(
+        "otp_verify_phone",
+        phone_normalized,
+        limit=OTP_VERIFY_LIMIT_PER_PHONE,
+        window_seconds=OTP_VERIFY_WINDOW_SECONDS,
+    )
 
     _consume_phone_otp(phone_normalized, request.otp_code)
 
@@ -1597,88 +1724,69 @@ async def reset_password_phone(
 @router.post("/reset-password")
 async def reset_password(
     request: ResetPasswordRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Reset password using a reset token."""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    # Decode and verify reset token
     import urllib.parse
+
+    rate_limit.enforce(
+        "reset_password_ip",
+        rate_limit.client_ip(http_request),
+        limit=RESET_PASSWORD_LIMIT_PER_IP,
+        window_seconds=HOUR_SECONDS,
+    )
+
     token = urllib.parse.unquote(request.token.strip())
-    
-    logger.info(f"Attempting to decode reset token. Length: {len(token)}")
-    
     payload = decode_token(token)
-    
-    if payload is None:
-        # Try decoding without verification to see what's in the token
-        try:
-            from jose import jwt as jose_jwt
-            unverified = jose_jwt.decode(token, key="", options={"verify_signature": False})
-            logger.warning(f"Token decodes without verification: {unverified}")
-            logger.warning(f"Token type in payload: {unverified.get('type')}")
-            logger.warning(f"Token expiry: {unverified.get('exp')}")
-            # Check if expired
-            from datetime import datetime
-            exp_timestamp = unverified.get('exp')
-            if exp_timestamp:
-                exp_time = datetime.fromtimestamp(exp_timestamp)
-                now = datetime.utcnow()
-                logger.warning(f"Token expires at: {exp_time}, Current time: {now}, Expired: {exp_time < now}")
-        except Exception as e:
-            logger.error(f"Token doesn't decode at all: {e}")
-        
-        logger.warning(f"Failed to decode reset token. Full token: {token}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token. Please request a new password reset."
-        )
-    
-    logger.info(f"Token decoded successfully. Type: {payload.get('type')}, User ID: {payload.get('sub')}")
-    
-    if payload.get("type") != "password_reset":
-        logger.warning(f"Invalid token type: {payload.get('type')}, expected: password_reset")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid reset token type"
-        )
-    
+
+    # One message for every failure mode: the reason a token is rejected must
+    # not help an attacker, and the token itself must never reach the logs.
+    invalid_token = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "This password reset link is invalid or has expired. "
+            "Request a new one to continue."
+        ),
+    )
+
+    if payload is None or payload.get("type") != "password_reset":
+        logger.warning("password_reset_token_rejected")
+        raise invalid_token
+
     user_id = payload.get("sub")
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid reset token"
-        )
-    
-    # Convert user_id to int if it's a string (from JWT - python-jose converts to string)
+        raise invalid_token
+
     if isinstance(user_id, str):
         try:
             user_id = int(user_id)
         except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid user ID in token"
-            )
-    
-    # Get user
+            raise invalid_token
+
     user = await db.get(User, user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+        raise invalid_token
+
+    # Reject a token that was already used (or issued before another change).
+    expected_fingerprint = payload.get("pwd")
+    if expected_fingerprint is not None and expected_fingerprint != _password_fingerprint(
+        user.password_hash
+    ):
+        logger.warning(
+            "password_reset_token_replayed", extra={"user_id": user.id}
         )
-    
-    # Update password
+        raise invalid_token
+
     user.password_hash = get_password_hash(request.new_password)
     await db.commit()
     await db.refresh(user)
-    
-    logger.info(f"Password reset successful for user {user.email}")
-    
-    # Send confirmation email
-    send_password_reset_confirmation_email(user.email)
-    
+
+    logger.info("password_reset_completed", extra={"user_id": user.id})
+
+    if not _is_placeholder_email(user.email):
+        send_password_reset_confirmation_email(user.email)
+
     return {
         "message": "Password has been reset successfully. You can now login with your new password."
     }

@@ -40,7 +40,8 @@ export function NeighbourPostCard({
 }: {
   post: Post;
   apiClient?: ApiClient;
-  currentUser?: { id?: number; role?: string } | null;
+  // role is null until the user picks one on the choose-role step.
+  currentUser?: { id?: number; role?: string | null } | null;
   onPostDeleted?: (postId: number) => void;
 }) {
   const router = useRouter();
