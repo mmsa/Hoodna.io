@@ -159,6 +159,54 @@ async def test_email_signup_referral_and_write_once_attribution(async_client, db
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+async def test_moderator_referral_signup_skips_document_verification(
+    async_client, db_session, monkeypatch
+):
+    _disable_otp_delivery(monkeypatch)
+    compound = Compound(name="Palm Hills Village Garden (VGK)", country="Egypt")
+    db_session.add(compound)
+    await db_session.flush()
+    inviter = User(
+        name="Compound Mod",
+        email="moderator-invite@example.com",
+        password_hash="x",
+        role=UserRole.MODERATOR,
+        status=UserStatus.APPROVED,
+        compound_id=compound.id,
+    )
+    db_session.add(inviter)
+    await db_session.flush()
+    compound.moderator_id = inviter.id
+    invite = await create_referral_invite(db_session, inviter.id)
+    await db_session.commit()
+
+    response = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "Invited Neighbour",
+            "email": "mod-invited@example.com",
+            "phone": "+201555000088",
+            "password": "password123",
+            "platform": "web",
+            "referral_code": invite.code,
+        },
+    )
+    assert response.status_code == 201
+    me = await async_client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {response.json()['access_token']}"},
+    )
+    assert me.status_code == 200
+    payload = me.json()
+    assert payload["status"] == "APPROVED"
+    assert payload["compound_id"] == compound.id
+    assert payload["is_verified_for_current_compound"] is True
+    user = await _user_by_email(db_session, "mod-invited@example.com")
+    assert user.verified_at is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 async def test_phone_otp_registration_attribution_and_referral(async_client, db_session):
     import time
 

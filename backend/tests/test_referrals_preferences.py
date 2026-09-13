@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -17,10 +18,20 @@ from app.crud.referral import (
     redeem_referral,
     referral_invite_response,
 )
-from app.models.enums import AccountDeletionStatus, ReferralInviteStatus
+from app.models.compound import Compound
+from app.models.compound_moderator import CompoundModeratorProfile
+from app.models.enums import (
+    AccountDeletionStatus,
+    ModeratorStatus,
+    ReferralInviteStatus,
+    UserRole,
+    UserStatus,
+)
 from app.db.base import Base
 from app.models.user import User
+from app.models.user_compound_membership import UserCompoundMembership
 from app.schemas.account import UserPreferencesUpdate
+from app.services.moderator_invite import grant_moderator_invite_access
 
 
 async def add_user(db_session, email: str) -> User:
@@ -82,6 +93,88 @@ def test_invite_url_uses_auth_signup_and_keeps_ref_and_utm():
         assert "utm_medium=referral" in payload.invite_url
         assert "utm_campaign=invite" in payload.invite_url
         assert "://signup?" not in payload.invite_url
+
+    asyncio.run(with_session(exercise))
+
+
+def test_moderator_invite_skips_document_verification():
+    async def exercise(db_session):
+        compound = Compound(name="VGK", country="Egypt")
+        db_session.add(compound)
+        await db_session.flush()
+        moderator = User(
+            name="mod",
+            email="mod-invite@example.com",
+            password_hash="test",
+            role=UserRole.COMPOUND_MOD,
+            status=UserStatus.APPROVED,
+        )
+        neighbour = User(
+            name="neighbour",
+            email="mod-invitee@example.com",
+            password_hash="test",
+            status=UserStatus.PENDING_VERIFICATION,
+        )
+        db_session.add_all([moderator, neighbour])
+        await db_session.flush()
+        db_session.add(
+            CompoundModeratorProfile(
+                user_id=moderator.id,
+                compound_id=compound.id,
+                moderator_status=ModeratorStatus.APPROVED,
+            )
+        )
+        await db_session.flush()
+
+        granted = await grant_moderator_invite_access(
+            db_session, moderator.id, neighbour.id
+        )
+        assert granted is True
+        assert neighbour.status == UserStatus.APPROVED
+        assert neighbour.compound_id == compound.id
+        assert neighbour.role == UserRole.RESIDENT
+        membership = (
+            await db_session.execute(
+                select(UserCompoundMembership).where(
+                    UserCompoundMembership.user_id == neighbour.id,
+                    UserCompoundMembership.compound_id == compound.id,
+                )
+            )
+        ).scalar_one()
+        assert membership.verification_status == "VERIFIED"
+        assert membership.verification_source == "MODERATOR_INVITE"
+
+    asyncio.run(with_session(exercise))
+
+
+def test_resident_invite_does_not_skip_verification():
+    async def exercise(db_session):
+        compound = Compound(name="La Mirada", country="Egypt")
+        db_session.add(compound)
+        await db_session.flush()
+        resident = User(
+            name="resident",
+            email="resident-invite@example.com",
+            password_hash="test",
+            role=UserRole.RESIDENT,
+            status=UserStatus.APPROVED,
+            compound_id=compound.id,
+        )
+        neighbour = User(
+            name="neighbour",
+            email="resident-invitee@example.com",
+            password_hash="test",
+            status=UserStatus.PENDING_VERIFICATION,
+        )
+        db_session.add_all([resident, neighbour])
+        await db_session.flush()
+
+        granted = await grant_moderator_invite_access(
+            db_session, resident.id, neighbour.id
+        )
+        assert granted is False
+        assert neighbour.status == UserStatus.PENDING_VERIFICATION
+        assert neighbour.compound_id is None
 
     asyncio.run(with_session(exercise))
 

@@ -76,12 +76,16 @@ async def redeem_registration_referral(
     except ReferralUnavailableError as exc:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc))
 
+    from app.services.moderator_invite import grant_moderator_invite_access
+
+    granted = await grant_moderator_invite_access(db, invite.inviter_id, user_id)
     logger.info(
         "referral_registration_completed",
         extra={
             "user_id": user_id,
             "referral_invite_id": invite.id,
             "inviter_id": invite.inviter_id,
+            "moderator_invite_verified": granted,
         },
     )
 
