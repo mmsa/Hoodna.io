@@ -59,13 +59,13 @@ export function ListingFilters({
       <div className="relative">
         <Search
           aria-hidden="true"
-          className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         />
         <Input
           value={value.search}
           onChange={(event) => set("search", event.target.value)}
           placeholder="Search what neighbours are selling…"
-          className="eljiran-search w-full"
+          className="eljiran-search w-full ps-11"
         />
       </div>
 
