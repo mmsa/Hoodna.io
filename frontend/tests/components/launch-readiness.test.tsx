@@ -23,7 +23,22 @@ describe("referral links", () => {
     )
     expect(buildReferralInviteUrl("invite + one", "https://example.com")).toContain("utm_source=referral")
     expect(buildReferralSharePayload("abc123", "https://example.com").url).toContain(
-      "signup?ref=abc123",
+      "auth/signup?ref=abc123",
+    )
+  })
+})
+
+describe("legacy /signup invite redirect", () => {
+  it("forwards /signup to /auth/signup so old ref and UTM links keep working", async () => {
+    const nextConfig = require("../../next.config.js")
+    const redirects = await nextConfig.redirects()
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "/signup",
+          destination: "/auth/signup",
+        }),
+      ]),
     )
   })
 })

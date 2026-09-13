@@ -15,6 +15,7 @@ from app.crud.referral import (
     SelfReferralError,
     create_referral_invite,
     redeem_referral,
+    referral_invite_response,
 )
 from app.models.enums import AccountDeletionStatus, ReferralInviteStatus
 from app.db.base import Base
@@ -66,6 +67,21 @@ def test_referral_codes_are_unique_and_redeem_once():
 
         with pytest.raises(DuplicateReferralError):
             await redeem_referral(db_session, second.code, accepted.id)
+
+    asyncio.run(with_session(exercise))
+
+
+def test_invite_url_uses_auth_signup_and_keeps_ref_and_utm():
+    async def exercise(db_session):
+        inviter = await add_user(db_session, "invite-url@example.com")
+        invite = await create_referral_invite(db_session, inviter.id)
+        payload = referral_invite_response(invite)
+        assert "/auth/signup?ref=" in payload.invite_url
+        assert f"ref={invite.code}" in payload.invite_url
+        assert "utm_source=referral" in payload.invite_url
+        assert "utm_medium=referral" in payload.invite_url
+        assert "utm_campaign=invite" in payload.invite_url
+        assert "://signup?" not in payload.invite_url
 
     asyncio.run(with_session(exercise))
 

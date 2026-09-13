@@ -21,6 +21,15 @@ const nextConfig = {
       headers: [{ key: 'Content-Type', value: 'application/json' }],
     },
   ],
+  // Old invite/share URLs used /signup; the App Router page is /auth/signup.
+  // Query string (ref, UTM, etc.) is forwarded by Next.js automatically.
+  redirects: async () => [
+    {
+      source: '/signup',
+      destination: '/auth/signup',
+      permanent: false,
+    },
+  ],
   // Enable standalone output for Docker optimization
   output: 'standalone',
 }

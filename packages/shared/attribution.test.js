@@ -7,6 +7,8 @@ const {
   mergeFirstTouch,
   withUtmParams,
   SHARE_UTM,
+  buildReferralInviteUrl,
+  buildEljiranDeepLink,
 } = require("./dist");
 
 test("parses UTM, referral, and known social referrers", () => {
@@ -67,4 +69,15 @@ test("withUtmParams keeps existing ref and does not overwrite utm", () => {
   const again = withUtmParams(url, SHARE_UTM.whatsappInvite);
   assert.match(again, /utm_source=referral/);
   assert.doesNotMatch(again, /utm_source=whatsapp/);
+});
+
+test("new invite URLs use /auth/signup and keep ref plus UTM", () => {
+  const url = buildReferralInviteUrl("abc123", "https://eljiran.io");
+  assert.match(url, /^https:\/\/eljiran\.io\/auth\/signup\?/);
+  assert.match(url, /ref=abc123/);
+  assert.match(url, /utm_source=referral/);
+  assert.match(url, /utm_medium=referral/);
+  assert.match(url, /utm_campaign=invite/);
+  const deep = buildEljiranDeepLink({ type: "referral", code: "abc123" });
+  assert.match(deep, /^eljiran:\/\/auth\/signup\?ref=abc123/);
 });

@@ -22,7 +22,7 @@ export type EljiranRoute =
 function routePath(route: EljiranRoute): string {
   switch (route.type) {
     case "home": return "/";
-    case "referral": return `/signup?ref=${encodeURIComponent(route.code)}`;
+    case "referral": return `/auth/signup?ref=${encodeURIComponent(route.code)}`;
     case "business": return `/businesses/${encodeURIComponent(route.slug)}`;
     case "post": return `/posts/${route.id}`;
     case "listing": return `/listing/${route.id}`;
