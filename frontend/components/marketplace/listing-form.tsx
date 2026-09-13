@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import api from "@/lib/api"
-import { uploadToPresignedUrl } from "@/lib/upload"
+import { resolveUploadContentType, uploadToPresignedUrl } from "@/lib/upload"
 import { cn } from "@/lib/utils"
 import { categoryMeta, friendlyListingValue } from "./listing-meta"
 
@@ -197,7 +197,9 @@ export function ListingForm({
   }
 
   async function uploadFile(file: File) {
-    if (!file.type.startsWith("image/")) {
+    const contentType = resolveUploadContentType(file)
+    const allowed = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"])
+    if (!allowed.has(contentType)) {
       setFailedFiles((current) => [...current, file.name])
       return
     }
@@ -206,9 +208,9 @@ export function ListingForm({
     try {
       const response = await api.post("/api/listings/images/presign", {
         file_name: file.name,
-        file_type: file.type,
+        file_type: contentType,
       })
-      await uploadToPresignedUrl(response.data.presigned_url, file)
+      await uploadToPresignedUrl(response.data.presigned_url, file, contentType)
       setImages((current) => [...current, response.data.file_url])
     } catch {
       setFailedFiles((current) => [...current, file.name])

@@ -608,17 +608,23 @@ MAX_IMAGE_SIZE_MB = 5
 MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024
 
 
+def _canonical_listing_image_mime(file_type: str) -> str:
+    mime = (file_type or "").strip().lower()
+    if mime in {"image/jpg", "image/pjpeg"}:
+        return "image/jpeg"
+    return mime
+
+
 def validate_image_upload(file_name: str, file_type: str) -> None:
     """Validate image upload for marketplace listings."""
-    # Check file type
-    if file_type.lower() not in [t.lower() for t in ALLOWED_IMAGE_TYPES]:
+    mime = _canonical_listing_image_mime(file_type)
+    if mime not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_IMAGE_TYPES)}",
+            detail=f"Invalid file type. Allowed types: {', '.join(sorted(ALLOWED_IMAGE_TYPES))}",
         )
 
-    # Check file extension matches MIME type
-    file_ext = file_name.split(".")[-1].lower() if "." in file_name else ""
+    file_ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
     ext_to_mime = {
         "jpg": "image/jpeg",
         "jpeg": "image/jpeg",
@@ -626,13 +632,11 @@ def validate_image_upload(file_name: str, file_type: str) -> None:
         "webp": "image/webp",
     }
 
-    if file_ext and file_ext in ext_to_mime:
-        expected_mime = ext_to_mime[file_ext]
-        if file_type.lower() != expected_mime.lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File extension '{file_ext}' does not match MIME type '{file_type}'",
-            )
+    if file_ext and file_ext in ext_to_mime and mime != ext_to_mime[file_ext]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File extension '{file_ext}' does not match MIME type '{file_type}'",
+        )
 
 
 @router.post("/images/presign", response_model=PresignResponse)
@@ -647,7 +651,7 @@ async def get_listing_image_presigned_url(
     try:
         presigned_url, file_url = generate_presigned_put_url(
             file_name=request.file_name,
-            file_type=request.file_type,
+            file_type=_canonical_listing_image_mime(request.file_type),
             folder="listings",
             user_id=current_user.id,
         )

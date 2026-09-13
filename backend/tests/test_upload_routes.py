@@ -57,3 +57,21 @@ async def test_upload_routes_are_registered_before_the_catch_all():
         assert paths.index(specific) < catch_all, (
             f"{specific} must be registered before the catch-all route"
         )
+
+
+def test_listing_image_accepts_jpg_alias_and_facebook_filename():
+    from fastapi import HTTPException
+
+    from app.api.marketplace import validate_image_upload
+
+    validate_image_upload(
+        "19748670_10159020989345707_6768795057239370294_n.jpg",
+        "image/jpg",
+    )
+    validate_image_upload(
+        "19748670_10159020989345707_6768795057239370294_n.jpg",
+        "image/jpeg",
+    )
+    with pytest.raises(HTTPException) as mismatch:
+        validate_image_upload("photo.png", "image/jpeg")
+    assert mismatch.value.status_code == 400
