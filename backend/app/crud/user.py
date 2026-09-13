@@ -128,6 +128,7 @@ async def create_chat_import_user(
         creation_source="CHAT_IMPORT",
         creation_details=details,
         creation_job_id=creation_job_id,
+        attribution={"source": "chat_import", "medium": "import"},
     )
     db.add(db_user)
     await db.flush()

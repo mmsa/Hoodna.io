@@ -51,7 +51,6 @@ export function FeatureConfigProvider({ children }: { children: ReactNode }) {
   const config = query.data || { flags: SAFE_DEFAULTS }
 
   useEffect(() => {
-    track("app_opened", { source_screen: "web_app" })
     const onError = (event: ErrorEvent) => reportError(event.error || new Error(event.message), { error_kind: "render" })
     const onRejection = (event: PromiseRejectionEvent) => reportError(event.reason, { error_kind: "unhandled_promise" })
     window.addEventListener("error", onError)
@@ -61,6 +60,11 @@ export function FeatureConfigProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("unhandledrejection", onRejection)
     }
   }, [])
+
+  useEffect(() => {
+    if (authLoading || !user) return
+    track("app_opened", { source_screen: "web_app" })
+  }, [authLoading, user])
 
   return (
     <FeatureConfigContext.Provider

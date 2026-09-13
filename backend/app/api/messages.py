@@ -85,6 +85,9 @@ async def create_message(
             listing_title=listing.title or "Listing",
         )
 
+    from app.services.growth import maybe_set_activated_at
+
+    await maybe_set_activated_at(db, current_user)
     await db.commit()
     await db.refresh(message)
     await db.refresh(message.sender)
@@ -280,7 +283,9 @@ async def send_message_to_conversation(
         conversation_id=conversation_id,
         preview=content,
     )
+    from app.services.growth import maybe_set_activated_at
 
+    await maybe_set_activated_at(db, current_user)
     await db.commit()
     await db.refresh(message)
     await db.refresh(message.sender)

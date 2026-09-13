@@ -1,3 +1,5 @@
+import { SHARE_UTM, withUtmParams } from "./attribution";
+
 export const ELJIRAN_WEB_ORIGIN = "https://eljiran.io";
 export const ELJIRAN_DEEP_LINK_SCHEME = "eljiran";
 export const ELJIRAN_SUPPORT_EMAIL = "hello@eljiran.io";
@@ -46,14 +48,16 @@ export function buildReferralInviteUrl(
   code: string,
   origin = ELJIRAN_WEB_ORIGIN,
 ): string {
-  return buildEljiranUrl({ type: "referral", code }, origin);
+  const url = buildEljiranUrl({ type: "referral", code }, origin);
+  return withUtmParams(url, SHARE_UTM.invite, origin);
 }
 
 export function buildBusinessUrl(
   slug: string,
   origin = ELJIRAN_WEB_ORIGIN,
 ): string {
-  return buildEljiranUrl({ type: "business", slug }, origin);
+  const url = buildEljiranUrl({ type: "business", slug }, origin);
+  return withUtmParams(url, SHARE_UTM.nativeShare, origin);
 }
 
 export interface SharePayload {

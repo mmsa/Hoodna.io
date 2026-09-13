@@ -16,6 +16,7 @@ import { useFeatureConfig } from '@/components/feature-config-provider'
 import { track } from '@/lib/telemetry'
 import { useTranslation } from '@/components/locale-provider'
 import { passwordSchema } from '@hoodna/shared'
+import { getWebFirstTouch } from '@/lib/attribution-store'
 
 const signupSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(80),
@@ -87,12 +88,19 @@ export default function SignupPage() {
       Cookies.remove('access_token', { path: '/' })
       Cookies.remove('refresh_token', { path: '/' })
 
+      const firstTouch = getWebFirstTouch()
       const response = await api.post('/api/auth/signup', {
         name: data.name,
         phone: data.phone,
         password: data.password,
         ...(data.email?.trim() ? { email: data.email.trim() } : {}),
-        ...(referralCode ? { referral_code: referralCode } : {}),
+        ...(referralCode || firstTouch?.referralCode
+          ? { referral_code: referralCode || firstTouch?.referralCode }
+          : {}),
+        platform: 'web',
+        ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+          ? { attribution: firstTouch.attribution }
+          : {}),
       })
       const { access_token, refresh_token } = response.data
 

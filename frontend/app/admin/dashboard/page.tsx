@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Wrench, Shield, Contact, SlidersHorizontal, Building2, MessageSquareText } from 'lucide-react'
+import { Users, Wrench, Shield, Contact, SlidersHorizontal, Building2, MessageSquareText, TrendingUp } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 
 import ResidentVerifications from './components/resident-verifications'
@@ -13,6 +13,7 @@ import UserManagement from './components/user-management'
 import EljiranOperations from './components/eljiran-operations'
 import CompoundManagement from './components/compound-management'
 import ChatImportPanel from './components/chat-import'
+import GrowthMetrics from './components/growth-metrics'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -60,6 +61,10 @@ export default function AdminDashboardPage() {
               <Shield className="w-4 h-4" />
               Moderators
             </TabsTrigger>
+            <TabsTrigger value="growth" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Growth
+            </TabsTrigger>
             <TabsTrigger value="operations" className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4" />
               Operations
@@ -88,6 +93,10 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="moderators" className="mt-0">
             <ModeratorReviews />
+          </TabsContent>
+
+          <TabsContent value="growth" className="mt-0">
+            <GrowthMetrics />
           </TabsContent>
 
           <TabsContent value="operations" className="mt-0">

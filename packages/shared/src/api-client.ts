@@ -54,7 +54,7 @@ import {
 } from "./schemas/feature-flags";
 import { AnalyticsEventBatch, ClientErrorReport } from "./schemas/analytics";
 import { DigestSummary } from "./schemas/digest";
-import { AdminAuditList, AdminBetaMetrics } from "./schemas/admin";
+import { AdminAuditList, AdminBetaMetrics, AdminGrowthMetrics } from "./schemas/admin";
 
 type RequestOptions = RequestInit & {
   timeout?: number;
@@ -1280,6 +1280,15 @@ export class ApiClient {
   }
 
   // Eljiran beta operations
+  async getAdminGrowthMetrics(weekStart?: string): Promise<AdminGrowthMetrics> {
+    const query = new URLSearchParams();
+    if (weekStart) query.set("week_start", weekStart);
+    const suffix = query.toString();
+    return this.request<AdminGrowthMetrics>(
+      `/api/admin/growth-metrics${suffix ? `?${suffix}` : ""}`,
+    );
+  }
+
   async getAdminBetaMetrics(params?: {
     date_from?: string;
     date_to?: string;

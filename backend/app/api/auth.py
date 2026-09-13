@@ -405,6 +405,14 @@ async def phone_auth_verify(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc) or "Invalid phone number",
             ) from exc
+        from app.services.growth import apply_first_touch_attribution
+
+        apply_first_touch_attribution(
+            user,
+            attribution=request.attribution.model_dump() if request.attribution else None,
+            platform=request.platform,
+            referral_code=request.referral_code,
+        )
         if request.referral_code:
             await redeem_registration_referral(
                 db, request.referral_code.strip(), user.id
@@ -544,6 +552,14 @@ async def signup(
         ),
         phone_verified=False,
         email_verified=not has_real_email,
+    )
+    from app.services.growth import apply_first_touch_attribution
+
+    apply_first_touch_attribution(
+        user,
+        attribution=user_data.attribution.model_dump() if user_data.attribution else None,
+        platform=user_data.platform,
+        referral_code=user_data.referral_code,
     )
     if user_data.referral_code:
         await redeem_registration_referral(

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import api, { persistAuthTokens, persistUserRole, clearAuthTokens } from '@/lib/api'
 import Link from 'next/link'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
+import { getWebFirstTouch } from '@/lib/attribution-store'
 import { useTranslation } from '@/components/locale-provider'
 
 function otpErrorMessage(err: any, t: (key: any) => string): string {
@@ -68,10 +69,16 @@ function OtpVerifyForm() {
 
     setLoading(true)
     try {
+      const firstTouch = getWebFirstTouch()
       const response = await api.post('/api/auth/verify', {
         phone: normalized,
         otp_code: otp.trim(),
         name: showNameInput ? name.trim() : undefined,
+        platform: 'web',
+        ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
+        ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+          ? { attribution: firstTouch.attribution }
+          : {}),
       })
       const { access_token, refresh_token, user: verifiedUser } = response.data
       if (!access_token || !refresh_token || !persistAuthTokens(access_token, refresh_token)) {

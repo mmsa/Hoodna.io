@@ -53,3 +53,40 @@ export type AdminBetaMetrics = z.infer<typeof AdminBetaMetricsSchema>;
 export type AuditActorType = z.infer<typeof AuditActorTypeSchema>;
 export type AdminAuditEntry = z.infer<typeof AdminAuditEntrySchema>;
 export type AdminAuditList = z.infer<typeof AdminAuditListSchema>;
+
+export const GrowthBreakdownRowSchema = z.object({
+  key: z.string(),
+  registrations: z.number().int().nonnegative(),
+  verified: z.number().int().nonnegative(),
+  activated: z.number().int().nonnegative(),
+  wavr: z.number().int().nonnegative(),
+});
+
+export const AdminGrowthMetricsSchema = z.object({
+  week_start: z.string(),
+  week_end: z.string(),
+  as_of: z.string(),
+  total_registrations: z.number().int().nonnegative(),
+  verified_residents: z.number().int().nonnegative(),
+  activated_verified_residents: z.number().int().nonnegative(),
+  activation_rate: z.number().min(0).max(1),
+  wavr: z.number().int().nonnegative(),
+  wau: z.number().int().nonnegative(),
+  mau: z.number().int().nonnegative(),
+  active_compounds: z.number().int().nonnegative(),
+  referral_registrations: z.number().int().nonnegative(),
+  referral_share: z.number().min(0).max(1),
+  d7_eligible: z.number().int().nonnegative(),
+  d7_returned: z.number().int().nonnegative(),
+  d7_return_rate: z.number().min(0).max(1),
+  d30_eligible: z.number().int().nonnegative(),
+  d30_returned: z.number().int().nonnegative(),
+  d30_return_rate: z.number().min(0).max(1),
+  by_source: z.array(GrowthBreakdownRowSchema),
+  by_campaign: z.array(GrowthBreakdownRowSchema),
+  by_platform: z.array(GrowthBreakdownRowSchema),
+  by_compound: z.array(GrowthBreakdownRowSchema),
+});
+
+export type GrowthBreakdownRow = z.infer<typeof GrowthBreakdownRowSchema>;
+export type AdminGrowthMetrics = z.infer<typeof AdminGrowthMetricsSchema>;

@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ELJIRAN_WEB_ORIGIN, type ApiClient, type Post } from "@hoodna/shared";
+import { ELJIRAN_WEB_ORIGIN, SHARE_UTM, withUtmParams, type ApiClient, type Post } from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { useRouter } from "expo-router";
 
@@ -73,7 +73,7 @@ export function NeighbourPostCard({
 
   async function handleShare() {
     try {
-      const postUrl = `${ELJIRAN_WEB_ORIGIN}/feed#post-${post.id}`;
+      const postUrl = withUtmParams(`${ELJIRAN_WEB_ORIGIN}/feed#post-${post.id}`, SHARE_UTM.nativeShare);
       await Share.share({
         title: `${post.author_name} on eljiran.io`,
         message: `${post.content}\n\n${postUrl}`,

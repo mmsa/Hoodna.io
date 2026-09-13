@@ -441,6 +441,9 @@ async def create_listing_endpoint(
         listing_id=listing.id,
         listing_title=listing.title or "Listing",
     )
+    from app.services.growth import maybe_set_activated_at
+
+    await maybe_set_activated_at(db, current_user)
     await db.commit()
     await db.refresh(listing)
     compound = await db.get(Compound, listing.compound_id)

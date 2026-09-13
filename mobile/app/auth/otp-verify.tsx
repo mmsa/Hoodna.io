@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { Alert, Platform, View, Text, TextInput, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { normalizePhone } from "@hoodna/shared";
+import { getMobileFirstTouch } from "@/lib/attribution";
+import { clearPendingReferralCode } from "@/lib/referral";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -87,11 +89,18 @@ export default function OTPVerifyScreen() {
 
     setLoading(true);
     try {
+      const firstTouch = await getMobileFirstTouch();
       const response = await apiClient.phoneAuthVerify({
         phone: normalizedPhone,
         otp_code: otp.trim(),
         name: showNameInput ? name.trim() : undefined,
+        platform: Platform.OS === "android" ? "android" : "ios",
+        ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
+        ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+          ? { attribution: firstTouch.attribution }
+          : {}),
       });
+      if (firstTouch?.referralCode) await clearPendingReferralCode();
 
       // login() already calls getMe() and sets the user
       // Navigation will happen automatically via useEffect when user state updates

@@ -36,7 +36,7 @@ function fingerprint(error: unknown): string | undefined {
 }
 
 export function TelemetryProvider({ children }: { children: React.ReactNode }) {
-  const { apiClient } = useAuth();
+  const { apiClient, user, loading } = useAuth();
   const analytics = useMemo(() => new FirstPartyApiAnalytics(apiClient, 1), [apiClient]);
 
   const captureError = useCallback(
@@ -68,8 +68,9 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
+    if (loading || !user) return;
     track("app_opened", {});
-  }, [track]);
+  }, [loading, track, user?.id]);
 
   useEffect(() => {
     const originalRequest = apiClient.request.bind(apiClient);

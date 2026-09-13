@@ -29,6 +29,10 @@ class User(Base):
     creation_job_id = Column(
         Integer, ForeignKey("chat_import_jobs.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    attribution = Column(JSON, nullable=True)
+    registration_platform = Column(String(16), nullable=True, index=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    activated_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships

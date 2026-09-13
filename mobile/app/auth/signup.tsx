@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { Alert, Platform, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MIN_PASSWORD_LENGTH } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
+import { captureMobileFirstTouch, getMobileFirstTouch } from "@/lib/attribution";
 import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCode } from "@/lib/referral";
 import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
@@ -18,7 +19,14 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
-  const params = useLocalSearchParams<{ ref?: string }>();
+  const params = useLocalSearchParams<{
+    ref?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    utm_term?: string;
+  }>();
   const { apiClient, login } = useAuth();
   const { isEnabled, loading: configLoading } = useFeatureConfig();
   const { track } = useTelemetry();
@@ -28,7 +36,9 @@ export default function SignupScreen() {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const code = params.ref || (await getPendingReferralCode());
+      await captureMobileFirstTouch({ query: params, path: "auth/signup" });
+      const stored = await getMobileFirstTouch();
+      const code = params.ref || stored?.referralCode || (await getPendingReferralCode());
       if (!active || !code) return;
       setReferralCode(code);
       await savePendingReferralCode(code);
@@ -63,17 +73,23 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
+      const firstTouch = await getMobileFirstTouch();
+      const code = referralCode || firstTouch?.referralCode;
       const response = await apiClient.signup({
         name,
         phone,
         password,
         ...(email.trim() ? { email: email.trim() } : {}),
-        referral_code: referralCode,
+        referral_code: code,
+        platform: Platform.OS === "android" ? "android" : "ios",
+        ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+          ? { attribution: firstTouch.attribution }
+          : {}),
       });
 
       await login(response.access_token, response.refresh_token);
       track("registration_completed", { method: "email" });
-      if (referralCode) {
+      if (code) {
         track("referral_registration_completed", {});
         await clearPendingReferralCode();
       }

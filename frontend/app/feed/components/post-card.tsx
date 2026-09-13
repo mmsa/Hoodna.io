@@ -1,5 +1,6 @@
 "use client"
 
+import { SHARE_UTM, withUtmParams } from "@hoodna/shared"
 import { useEffect, useState } from "react"
 import {
   Ban,
@@ -77,7 +78,7 @@ export function PostCard({
     Date.now() - new Date(post.created_at).getTime() < 3600000
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/feed#post-${post.id}`
+    const url = withUtmParams(`${window.location.origin}/feed#post-${post.id}`, SHARE_UTM.nativeShare)
     const shareData = {
       title: `${post.author_name} on eljiran.io`,
       text: post.content,

@@ -9,8 +9,9 @@ from app.core.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.models.user import User
-from app.schemas.beta_metrics import AdminBetaMetrics
+from app.schemas.beta_metrics import AdminBetaMetrics, AdminGrowthMetrics
 from app.services.beta_metrics import get_beta_metrics
+from app.services.growth_metrics import get_growth_metrics
 
 router = APIRouter()
 
@@ -44,3 +45,13 @@ async def beta_metrics(
             detail="Date range cannot exceed 366 days",
         )
     return await get_beta_metrics(db, date_from, date_to)
+
+
+@router.get("/growth-metrics", response_model=AdminGrowthMetrics)
+async def growth_metrics(
+    week_start: date | None = Query(default=None),
+    _: User = Depends(require_admin_only),
+    db: AsyncSession = Depends(get_db),
+):
+    """UTC-week marketing KPIs. Admin only; not exposed on public /me."""
+    return await get_growth_metrics(db, week_start)

@@ -28,10 +28,27 @@ export const PhoneAuthStartResponseSchema = z.object({
   otp_code: z.string().optional(),
 });
 
+export const RegistrationPlatformSchema = z.enum(["web", "ios", "android"]);
+
+export const AttributionPayloadSchema = z
+  .object({
+    source: z.string().trim().max(100).optional().nullable(),
+    medium: z.string().trim().max(100).optional().nullable(),
+    campaign: z.string().trim().max(100).optional().nullable(),
+    content: z.string().trim().max(100).optional().nullable(),
+    term: z.string().trim().max(100).optional().nullable(),
+    referrer_host: z.string().trim().max(100).optional().nullable(),
+    landing_path: z.string().trim().max(100).optional().nullable(),
+  })
+  .optional();
+
 export const PhoneAuthVerifyRequestSchema = z.object({
   phone: z.string(),
   otp_code: z.string(),
   name: z.string().optional(),
+  referral_code: z.string().trim().min(4).max(64).optional(),
+  platform: RegistrationPlatformSchema.optional(),
+  attribution: AttributionPayloadSchema,
 });
 
 export const UserLoginSchema = z.object({
@@ -55,6 +72,8 @@ export const UserSignupSchema = z.object({
   // server accepts a null role for exactly that flow.
   role: z.enum(["RESIDENT", "SERVICE_PROVIDER", "COMPOUND_MOD"]).optional(),
   referral_code: z.string().trim().min(4).max(64).optional(),
+  platform: RegistrationPlatformSchema.optional(),
+  attribution: AttributionPayloadSchema,
 });
 
 export const ForgotPasswordRequestSchema = z.object({

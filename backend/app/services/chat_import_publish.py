@@ -105,6 +105,11 @@ async def resolve_or_create_invited_user(
                 creation_job_id=job_id,
             )
             user.profile_setup_required = True
+            from app.services.growth import apply_first_touch_attribution
+
+            apply_first_touch_attribution(
+                user, attribution={"source": "chat_import", "medium": "import"}
+            )
         else:
             if display_name and display_name != "Neighbour":
                 if (
@@ -275,6 +280,7 @@ async def _bulk_resolve_users_for_job(
                 creation_source="CHAT_IMPORT",
                 creation_details={**import_details, "phone_in_export": True},
                 creation_job_id=job.id,
+                attribution={"source": "chat_import", "medium": "import"},
             )
             new_users.append(user)
             phone_to_user[phone] = user
@@ -298,6 +304,7 @@ async def _bulk_resolve_users_for_job(
                     "phone_in_export": False,
                 },
                 creation_job_id=job.id,
+                attribution={"source": "chat_import", "medium": "import"},
             )
             new_users.append(user)
             email_to_user[email] = user
@@ -759,6 +766,10 @@ async def confirm_chat_import_membership(
         user.status = UserStatus.APPROVED
     if user.role is None:
         user.role = UserRole.USER
+    from app.services.growth import mark_resident_verified, maybe_activate_chat_import
+
+    mark_resident_verified(user, membership)
+    await maybe_activate_chat_import(db, user)
     await db.flush()
     return {
         "compound_id": compound_id,

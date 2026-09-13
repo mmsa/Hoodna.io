@@ -347,6 +347,9 @@ async def create_post_endpoint(
         post_id=post.id,
         content=post.content or "",
     )
+    from app.services.growth import maybe_set_activated_at
+
+    await maybe_set_activated_at(db, current_user)
     await db.commit()
 
     # Refresh to get relationships
@@ -460,6 +463,9 @@ async def create_comment_endpoint(
         comment_id=comment.id,
         comment_content=comment.content,
     )
+    from app.services.growth import maybe_set_activated_at
+
+    await maybe_set_activated_at(db, current_user)
     await db.commit()
 
     # Refresh to get author relationship

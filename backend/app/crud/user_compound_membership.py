@@ -28,16 +28,26 @@ async def ensure_user_compound_membership(
     if membership:
         membership.verification_status = "VERIFIED"
         membership.verification_source = source
+        user = await db.get(User, user_id)
+        if user:
+            from app.services.growth import mark_resident_verified
+
+            mark_resident_verified(user, membership)
         await db.flush()
         return
-    db.add(
-        UserCompoundMembership(
-            user_id=user_id,
-            compound_id=compound_id,
-            verification_status="VERIFIED",
-            verification_source=source,
-        )
+    membership = UserCompoundMembership(
+        user_id=user_id,
+        compound_id=compound_id,
+        verification_status="VERIFIED",
+        verification_source=source,
     )
+    db.add(membership)
+    await db.flush()
+    user = await db.get(User, user_id)
+    if user:
+        from app.services.growth import mark_resident_verified
+
+        mark_resident_verified(user, membership)
     await db.flush()
 
 

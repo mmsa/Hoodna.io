@@ -1,7 +1,11 @@
 import { useEffect } from "react";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
-import { savePendingReferralCode } from "@/lib/referral";
+import { captureMobileFirstTouch, savePendingReferralCode } from "@/lib/attribution";
+
+function queryRecord(queryParams: Record<string, string | string[] | undefined> | null | undefined) {
+  return queryParams || {};
+}
 
 /** Route eljiran:// and https links into in-app screens (reset password, etc.). */
 export function DeepLinkHandler() {
@@ -11,6 +15,11 @@ export function DeepLinkHandler() {
     function handleUrl(url: string) {
       const parsed = Linking.parse(url);
       const path = parsed.path || "";
+      const query = queryRecord(
+        parsed.queryParams as Record<string, string | string[] | undefined> | null,
+      );
+      void captureMobileFirstTouch({ query, path });
+
       const token = typeof parsed.queryParams?.token === "string" ? parsed.queryParams.token : undefined;
       const referral =
         typeof parsed.queryParams?.ref === "string"
@@ -19,9 +28,13 @@ export function DeepLinkHandler() {
             ? parsed.queryParams.referral_code
             : undefined;
 
-      if ((path === "signup" || path === "auth/signup") && referral) {
-        void savePendingReferralCode(referral);
-        router.push(`/auth/signup?ref=${encodeURIComponent(referral)}`);
+      if (path === "signup" || path === "auth/signup") {
+        if (referral) void savePendingReferralCode(referral);
+        router.push(
+          referral
+            ? `/auth/signup?ref=${encodeURIComponent(referral)}`
+            : "/auth/signup",
+        );
         return;
       }
 

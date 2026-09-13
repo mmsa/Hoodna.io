@@ -1,5 +1,5 @@
+from typing import Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
 from app.models.enums import UserRole
 from app.schemas.user import UserResponse
 
@@ -23,6 +23,16 @@ def _validate_password(value: str) -> str:
     return value
 
 
+class AttributionIn(BaseModel):
+    source: Optional[str] = Field(default=None, max_length=100)
+    medium: Optional[str] = Field(default=None, max_length=100)
+    campaign: Optional[str] = Field(default=None, max_length=100)
+    content: Optional[str] = Field(default=None, max_length=100)
+    term: Optional[str] = Field(default=None, max_length=100)
+    referrer_host: Optional[str] = Field(default=None, max_length=100)
+    landing_path: Optional[str] = Field(default=None, max_length=100)
+
+
 class UserSignup(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
     phone: str = Field(..., min_length=7, max_length=32)
@@ -32,6 +42,8 @@ class UserSignup(BaseModel):
     referral_code: Optional[str] = Field(
         default=None, min_length=4, max_length=64
     )
+    platform: Optional[Literal["web", "ios", "android"]] = None
+    attribution: Optional[AttributionIn] = None
 
     @field_validator("name")
     @classmethod
@@ -108,6 +120,8 @@ class PhoneAuthVerifyRequest(BaseModel):
     referral_code: Optional[str] = Field(
         default=None, min_length=4, max_length=64
     )
+    platform: Optional[Literal["web", "ios", "android"]] = None
+    attribution: Optional[AttributionIn] = None
 
 
 class ConfirmPhoneOtpRequest(BaseModel):

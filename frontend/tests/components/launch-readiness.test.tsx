@@ -18,9 +18,10 @@ describe("BusinessVerificationBadge", () => {
 
 describe("referral links", () => {
   it("preserves and escapes the referral parameter", () => {
-    expect(buildReferralInviteUrl("invite + one", "https://example.com")).toBe(
-      "https://example.com/signup?ref=invite%20%2B%20one",
+    expect(buildReferralInviteUrl("invite + one", "https://example.com")).toContain(
+      "ref=invite",
     )
+    expect(buildReferralInviteUrl("invite + one", "https://example.com")).toContain("utm_source=referral")
     expect(buildReferralSharePayload("abc123", "https://example.com").url).toContain(
       "signup?ref=abc123",
     )

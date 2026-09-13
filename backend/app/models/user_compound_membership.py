@@ -18,6 +18,7 @@ class UserCompoundMembership(Base):
     verification_status = Column(String, nullable=False, default="PENDING", index=True)
     verification_source = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="compound_memberships")
     compound = relationship("Compound")

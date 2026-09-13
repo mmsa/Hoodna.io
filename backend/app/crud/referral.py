@@ -158,6 +158,7 @@ def referral_invite_response(invite: ReferralInvite) -> ReferralInviteResponse:
     }
     invite_url = (
         f"{settings.effective_frontend_url}/signup?ref={invite.code}"
+        "&utm_source=referral&utm_medium=referral&utm_campaign=invite"
     )
     return ReferralInviteResponse(
         id=invite.id,

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { Listing } from "@hoodna/shared";
-import { buildEljiranUrl } from "@hoodna/shared";
+import { buildEljiranUrl, SHARE_UTM, withUtmParams } from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { useEffect, useState } from "react";
 import {
@@ -150,10 +150,14 @@ export default function ListingDetailScreen() {
   return (
     <Screen padded={false}>
       <Header
-        rightAction={{ label: "Share", icon: "share-outline", onPress: () => Share.share({
-          title: listing.title,
-          message: `${listing.title}\n${listing.description || ""}\n${formatPrice(listing)}`,
-        }) }}
+        rightAction={{ label: "Share", icon: "share-outline", onPress: () => {
+          const url = withUtmParams(buildEljiranUrl({ type: "listing", id: listing.id }), SHARE_UTM.nativeShare);
+          void Share.share({
+            title: listing.title,
+            message: `${listing.title}\n${listing.description || ""}\n${formatPrice(listing)}\n${url}`,
+            url,
+          });
+        } }}
         showBackButton
         title={service ? "Service" : "Listing"}
       />
