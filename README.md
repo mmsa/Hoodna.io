@@ -16,7 +16,7 @@ eljiran.com is a verified neighborhood community and marketplace platform for co
 ### Core Functionality
 - User signup and authentication (JWT with refresh tokens)
 - Compound selection and assignment
-- Document verification (National ID + Residency/Ownership Contract)
+- Document verification (National ID or residency/ownership document)
 - Community feed with posts and comments
 - Marketplace listings (Property, Car, Item, Service)
 - Listing promotions (Cross-Compound, Public)
@@ -24,7 +24,7 @@ eljiran.com is a verified neighborhood community and marketplace platform for co
 
 ### Business Rules
 - Users must be verified to post, comment, or create listings
-- Verification requires both National ID and Contract documents
+- Verification requires one approved document: National ID or Contract
 - Manual admin review for MVP (architecture ready for automation)
 - Free listings within user's compound
 - Paid promotions for cross-compound or public visibility
@@ -525,7 +525,7 @@ npm run test:e2e          # Run E2E tests
 
 1. **Signup** → User creates account
 2. **Select Compound** → User chooses their compound
-3. **Upload Documents** → User uploads National ID and Contract
+3. **Upload Documents** → User uploads a National ID or Contract
 4. **Admin Approval** → Admin reviews and approves documents
 5. **User Approved** → User can now post and create listings
 6. **Create Listing** → User creates a marketplace listing

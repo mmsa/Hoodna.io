@@ -26,6 +26,18 @@ export const LISTING_INTENTS: Array<{ value: ListingIntent | ""; label: string }
   { value: "FREE", label: "Free" },
 ]
 
+export function listingIntentFilterLabel(category: string) {
+  return category === "PROPERTY" ? "Property listing type" : "Listing type"
+}
+
+export function listingIntentFilterOptions(category: string) {
+  if (category === "SERVICE") return []
+  if (category === "CAR" || category === "ITEM") {
+    return LISTING_INTENTS.filter((intent) => intent.value !== "RENT")
+  }
+  return LISTING_INTENTS
+}
+
 export const LISTING_SORT_OPTIONS = [
   { value: "date_desc", label: "Newest" },
   { value: "date_asc", label: "Oldest" },

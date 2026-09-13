@@ -155,8 +155,10 @@ export function ListingForm({
       furnishing: propertyAttributes?.furnishing,
     },
   })
-  const category = form.watch("category")
-  const intent = form.watch("intent")
+  const values = form.watch()
+  const category = values.category
+  const intent = values.intent
+  const canPublish = listingFormSchema.safeParse(values).success
   const categoryDetails = categoryMeta(category)
   const CategoryIcon = categoryDetails.icon
 
@@ -453,7 +455,7 @@ export function ListingForm({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={submitting || uploadingCount > 0}>
+        <Button type="submit" disabled={submitting || uploadingCount > 0 || !canPublish}>
           {submitting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
           {submitting ? "Saving…" : submitLabel}
         </Button>

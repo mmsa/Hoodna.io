@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/select"
 import {
   LISTING_CATEGORIES,
-  LISTING_INTENTS,
   LISTING_SORT_OPTIONS,
+  listingIntentFilterLabel,
+  listingIntentFilterOptions,
 } from "./listing-meta"
 
 export interface ListingFilterValues {
@@ -42,11 +43,16 @@ export function ListingFilters({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const set = (key: keyof ListingFilterValues, next: string) => {
     if (key === "category") {
-      onChange({ ...value, category: next })
+      const nextIntent =
+        (next === "CAR" || next === "ITEM") && value.intent === "RENT"
+          ? ""
+          : value.intent
+      onChange({ ...value, category: next, intent: nextIntent })
       return
     }
     onChange({ ...value, [key]: next })
   }
+  const intentOptions = listingIntentFilterOptions(value.category)
 
   const categories = includeServices
     ? LISTING_CATEGORIES
@@ -103,16 +109,16 @@ export function ListingFilters({
       {showAdvanced ? (
         <div className="eljiran-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            {value.category !== "SERVICE" ? (
+            {intentOptions.length > 0 ? (
               <Select
                 value={value.intent || "all"}
                 onValueChange={(next) => set("intent", next === "all" ? "" : next)}
               >
-                <SelectTrigger aria-label="Property listing type" className="rounded-[16px]">
+                <SelectTrigger aria-label={listingIntentFilterLabel(value.category)} className="rounded-[16px]">
                   <SelectValue placeholder="Sale or rent" />
                 </SelectTrigger>
                 <SelectContent>
-                  {LISTING_INTENTS.map((intent) => (
+                  {intentOptions.map((intent) => (
                     <SelectItem key={intent.value || "all"} value={intent.value || "all"}>
                       {intent.label}
                     </SelectItem>

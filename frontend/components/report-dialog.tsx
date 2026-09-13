@@ -129,7 +129,7 @@ export function ReportDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting}>
+          <Button onClick={submit} disabled={submitting || reason === ""}>
             {submitting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
             Submit report
           </Button>

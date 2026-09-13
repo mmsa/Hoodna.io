@@ -52,3 +52,10 @@ describe("report validation", () => {
     }).success).toBe(false)
   })
 })
+
+describe("canonical production invite origin", () => {
+  it("does not default referral links to vercel.app", () => {
+    expect(buildReferralInviteUrl("abc123")).toMatch(/^https:\/\/eljiran\.io\/auth\/signup/)
+    expect(buildReferralInviteUrl("abc123")).not.toContain("vercel.app")
+  })
+})

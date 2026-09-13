@@ -22,6 +22,7 @@ import Link from 'next/link'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { formatTimeAgo } from '@/lib/utils'
+import { formatFoundResults } from '@/lib/search-copy'
 import { track } from '@/lib/telemetry'
 
 interface SearchResult {
@@ -202,7 +203,7 @@ export default function SearchPage() {
             {/* Results Summary */}
             <div className="mb-6">
               <p className="text-sm text-gray-600">
-                Found <span className="font-semibold text-gray-900">{searchResults.total_results}</span> result{searchResults.total_results !== 1 ? 's' : ''} for "{debouncedQuery}"
+                {formatFoundResults(searchResults.total_results, debouncedQuery)}
               </p>
             </div>
 

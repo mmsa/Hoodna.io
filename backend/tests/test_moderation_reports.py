@@ -300,3 +300,14 @@ async def test_admin_audit_endpoint_rejects_non_admin(db_session):
             db=db_session,
         )
     assert error.value.status_code == 403
+
+
+def test_report_create_rejects_missing_reason():
+    from pydantic import ValidationError
+
+    from app.schemas.report import ReportCreate
+
+    with pytest.raises(ValidationError):
+        ReportCreate.model_validate(
+            {"reported_type": "POST", "reported_id": 1, "reason": ""}
+        )

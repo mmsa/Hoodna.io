@@ -4,7 +4,6 @@ import { useState } from "react"
 import {
   AccountDeletionRequestCreateSchema,
   UserPreferencesSchema,
-  buildReferralSharePayload,
   type ReferralMe,
   type ReferralStats,
   type UserPreferences,
@@ -53,7 +52,11 @@ function InviteNeighbours() {
 
   const share = async () => {
     if (!referral.data) return
-    const payload = buildReferralSharePayload(referral.data.code, window.location.origin)
+    const payload = {
+      title: "Join me on Eljiran",
+      message: `Join your neighbours on Eljiran: ${referral.data.invite_url}`,
+      url: referral.data.invite_url,
+    }
     try {
       if (navigator.share) {
         await navigator.share({ title: payload.title, text: payload.message, url: payload.url })

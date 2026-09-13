@@ -13,6 +13,9 @@ def normalize_database_url(url: str) -> str:
     return url
 
 
+CANONICAL_PRODUCTION_FRONTEND_URL = "https://eljiran.io"
+
+
 def parse_cors_origins(value: Any) -> List[str]:
     """Accept JSON list, comma-separated string, or already-parsed list."""
     if value is None:
@@ -28,6 +31,46 @@ def parse_cors_origins(value: Any) -> List[str]:
             return [str(item).strip() for item in parsed if str(item).strip()]
         return [part.strip() for part in raw.split(",") if part.strip()]
     return ["http://localhost:3000"]
+
+
+def _is_unusable_public_origin(url: str) -> bool:
+    lowered = (url or "").strip().lower()
+    return (
+        not lowered
+        or "localhost" in lowered
+        or "127.0.0.1" in lowered
+        or "vercel.app" in lowered
+    )
+
+
+def resolve_public_frontend_url(
+    environment: str,
+    frontend_url: str,
+    cors_origins: List[str],
+) -> str:
+    """Public origin for emails and invite links.
+
+    Production must never emit a Vercel preview host, even if FRONTEND_URL is
+    still set to eljiran.vercel.app.
+    """
+    url = (frontend_url or "").strip().rstrip("/")
+    if (environment or "").strip().lower() == "production":
+        if not _is_unusable_public_origin(url):
+            return url
+        preferred: List[str] = []
+        fallback: List[str] = []
+        for origin in cors_origins:
+            candidate = str(origin).strip().rstrip("/")
+            if not candidate.startswith("http") or _is_unusable_public_origin(
+                candidate
+            ):
+                continue
+            if "eljiran.io" in candidate.lower():
+                preferred.append(candidate)
+            else:
+                fallback.append(candidate)
+        return (preferred or fallback or [CANONICAL_PRODUCTION_FRONTEND_URL])[0]
+    return url or "http://localhost:3000"
 
 
 class Settings(BaseSettings):
@@ -172,15 +215,12 @@ class Settings(BaseSettings):
 
     @property
     def effective_frontend_url(self) -> str:
-        """Public web URL for links in emails (never localhost in production)."""
-        url = (self.FRONTEND_URL or "").strip().rstrip("/")
-        if self.ENVIRONMENT == "production" and (
-            not url or url.startswith("http://localhost") or url.startswith("https://localhost")
-        ):
-            for origin in self.cors_origin_list:
-                if origin.startswith("http") and "localhost" not in origin:
-                    return origin.rstrip("/")
-        return url or "http://localhost:3000"
+        """Public web URL for links in emails and invites."""
+        return resolve_public_frontend_url(
+            self.ENVIRONMENT,
+            self.FRONTEND_URL,
+            self.cors_origin_list,
+        )
 
     @property
     def feature_flag_defaults(self) -> Dict[str, bool]:

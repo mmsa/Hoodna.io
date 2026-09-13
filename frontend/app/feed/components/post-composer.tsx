@@ -213,6 +213,7 @@ export function PostComposer({
           ) : null}
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Select
+              key={category}
               value={category}
               onValueChange={(value) => setCategory(value as PostCategory)}
             >
@@ -221,7 +222,9 @@ export function PostComposer({
                 aria-label="Post category"
                 className="h-10 w-full rounded-full border-border/70 bg-card sm:w-40"
               >
-                <SelectValue />
+                <SelectValue>
+                  {POST_CATEGORIES.find((item) => item.value === category)?.label ?? category}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {POST_CATEGORIES.map((item) => (

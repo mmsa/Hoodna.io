@@ -11,7 +11,6 @@ import {
   MapPin,
   MessageCircle,
   Trash2,
-  TrendingUp,
   User,
 } from "lucide-react"
 
@@ -198,7 +197,6 @@ export default function ListingPage({ params }: { params: { id: string } }) {
                 ) : (
                   <>
                     <Button className="w-full" asChild><Link href={`/marketplace/edit/${listing.id}`}><Edit className="h-4 w-4" />Edit listing</Link></Button>
-                    <Button className="w-full" variant="outline" asChild><Link href={`/promote/${listing.id}`}><TrendingUp className="h-4 w-4" />Promote listing</Link></Button>
                     <Button
                       className="w-full"
                       variant="destructive"

@@ -695,7 +695,7 @@ export default function FeedPage() {
               )}
             </Section>
 
-            {regularPosts.length > 0 && (
+            {regularPosts.length > 0 ? (
               <Section
                 className="mb-8"
                 title={t("feed.communityDiscussions")}
@@ -762,6 +762,39 @@ export default function FeedPage() {
                     </p>
                   )}
                 </div>
+              </Section>
+            ) : (
+              <Section
+                className="mb-8"
+                title={t("feed.communityDiscussions")}
+                description={t("feed.communityDiscussionsDesc")}
+              >
+                <EmptyState
+                  icon={<MessageCircle className="h-5 w-5" />}
+                  title={
+                    feedFilter !== "ALL" || feedQuery.trim()
+                      ? t("feed.noMatchingPosts")
+                      : t("feed.emptyPosts")
+                  }
+                  description={
+                    feedFilter !== "ALL" || feedQuery.trim()
+                      ? t("feed.noMatchingPostsDesc")
+                      : t("feed.noPostsDesc")
+                  }
+                  action={
+                    feedFilter !== "ALL" || feedQuery.trim() ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setFeedFilter("ALL");
+                          setFeedQuery("");
+                        }}
+                      >
+                        {t("feed.clearFilters")}
+                      </Button>
+                    ) : undefined
+                  }
+                />
               </Section>
             )}
 
@@ -971,13 +1004,6 @@ export default function FeedPage() {
               </Section>
             )}
 
-            {posts && posts.length === 0 && (
-              <EmptyState
-                icon={<MessageCircle className="h-5 w-5" />}
-                title={t("feed.emptyPosts")}
-                description={t("feed.noPostsDesc")}
-              />
-            )}
           </div>
 
           <aside className="hidden w-72 shrink-0 xl:block">

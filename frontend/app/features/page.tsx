@@ -43,7 +43,7 @@ export default function FeaturesPage() {
     {
       icon: FileText,
       title: "Verification",
-      description: "Upload your ID and residency documents to get verified and access all features",
+      description: "Upload your National ID or a residency/ownership document to get verified and access all features",
       link: "/verification",
       color: "bg-accent",
       iconClass: "text-accent-foreground",
@@ -220,25 +220,25 @@ export default function FeaturesPage() {
             <div className="flex items-start gap-3">
               <Home className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <strong>Header Navigation:</strong> Use the top navigation bar to quickly access Feed and Marketplace
+                <strong>Side navigation:</strong> Open Feed, Marketplace, Services, and Saved from the left-hand navigation. The header is primarily search and account icons.
               </div>
             </div>
             <div className="flex items-start gap-3">
               <User className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <strong>User Menu:</strong> Click your avatar (top right) to access Profile, Settings, Verification, and Admin Panel
+                <strong>Account menu:</strong> Click your avatar to open Profile and Settings. Admin Panel appears only for platform staff.
               </div>
             </div>
             <div className="flex items-start gap-3">
               <ShoppingBag className="w-5 h-5 text-green-600 mt-0.5" />
               <div>
-                <strong>Marketplace:</strong> Browse listings, create new listings, or filter by category (Property, Car, Item, Service)
+                <strong>Marketplace:</strong> Browse listings, create new listings, or filter by category (Property, Vehicles, Items, Services)
               </div>
             </div>
             <div className="flex items-start gap-3">
               <MessageCircle className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <strong>Feed Tabs:</strong> On the Feed page, use tabs to filter between All content, Posts only, or Marketplace items
+                <strong>Feed filters:</strong> On the Feed page, use category chips and search to filter community posts. Marketplace listings have their own section and page.
               </div>
             </div>
           </div>

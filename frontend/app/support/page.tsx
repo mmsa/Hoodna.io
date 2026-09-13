@@ -43,10 +43,11 @@ export default function SupportPage() {
         </p>
         <h3>Verification</h3>
         <p>
-          Verification usually requires a National ID and a residency or ownership
-          document. Make sure images are clear, complete, and match the account details.
-          If your submission is rejected, check the reason in the app and resubmit with
-          clearer documents if needed.
+          Verification requires one document: a National ID or a residency/ownership
+          document that clearly shows your name and compound. Make sure images are
+          clear, complete, and match the account details. If your submission is
+          rejected, check the reason in the app and resubmit with a clearer document
+          if needed.
         </p>
         <h3>Listings and promotions</h3>
         <p>

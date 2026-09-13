@@ -37,8 +37,9 @@ export default function DeleteAccountPage() {
         <h2>Request deletion by email</h2>
         <p>
           If you cannot sign in, email{" "}
-          <a href={`mailto:${ELJIRAN_SUPPORT_EMAIL}`}>{ELJIRAN_SUPPORT_EMAIL}</a> from the
-          phone number or email on your eljiran account. Include:
+          <a href={`mailto:${ELJIRAN_SUPPORT_EMAIL}`}>{ELJIRAN_SUPPORT_EMAIL}</a> from
+          the email address associated with your account. If your account uses only a
+          phone number, include that number and be prepared to verify ownership. Include:
         </p>
         <ul>
           <li>The subject line: eljiran account deletion request</li>
@@ -57,7 +58,7 @@ export default function DeleteAccountPage() {
         <p>After a verified deletion request, we delete or anonymise:</p>
         <ul>
           <li>Your account profile (name, phone number, email, and login credentials)</li>
-          <li>Verification documents you uploaded (for example National ID and residency files)</li>
+          <li>Verification documents you uploaded (for example a National ID or residency file)</li>
           <li>Your posts, comments, messages, listing photos, and similar content tied to your account</li>
           <li>Device tokens and app diagnostics linked to your account</li>
         </ul>

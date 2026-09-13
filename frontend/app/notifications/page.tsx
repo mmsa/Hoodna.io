@@ -109,6 +109,16 @@ export default function NotificationsPage() {
   const pageSize = 50;
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
+  const { data: notificationCounts } = useQuery<NotificationListResponse>({
+    queryKey: ["notifications-counts"],
+    queryFn: async () => {
+      const response = await api.get("/api/notifications?skip=0&limit=1");
+      return response.data;
+    },
+    enabled: isAuthenticated,
+    refetchInterval: 30000,
+  });
+
   const { data: notificationsData, isLoading } = useQuery<NotificationListResponse>({
     queryKey: ["notifications", page, filter],
     queryFn: async () => {
@@ -126,9 +136,10 @@ export default function NotificationsPage() {
   });
 
   const notifications = notificationsData?.items || [];
-  const total = notificationsData?.total || 0;
-  const unreadCount = notificationsData?.unread_count || 0;
-  const totalPages = Math.ceil(total / pageSize);
+  const listTotal = notificationsData?.total || 0;
+  const total = notificationCounts?.total ?? (filter === "all" ? listTotal : 0);
+  const unreadCount = notificationCounts?.unread_count ?? notificationsData?.unread_count ?? 0;
+  const totalPages = Math.ceil(listTotal / pageSize);
 
   const markReadMutation = useMutation({
     mutationFn: async (notificationId: number) => {
@@ -136,6 +147,7 @@ export default function NotificationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-counts"] });
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
@@ -146,6 +158,7 @@ export default function NotificationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-counts"] });
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
       toast({
         title: t("notifications.markAllReadSuccess"),
@@ -160,6 +173,7 @@ export default function NotificationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-counts"] });
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
       toast({
         title: t("notifications.deleted"),

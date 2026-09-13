@@ -128,9 +128,12 @@ async def redeem_referral(
 
 
 async def get_referral_stats(db: AsyncSession, inviter_id: int) -> tuple[int, int]:
+    # PENDING rows are created when Settings loads GET /referrals/me so the
+    # resident can copy a link. Those unused codes are not completed invites.
     invitations_sent = await db.scalar(
         select(func.count(ReferralInvite.id)).where(
-            ReferralInvite.inviter_id == inviter_id
+            ReferralInvite.inviter_id == inviter_id,
+            ReferralInvite.status != ReferralInviteStatus.PENDING,
         )
     )
     registrations = await db.scalar(

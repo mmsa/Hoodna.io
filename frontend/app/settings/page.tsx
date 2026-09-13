@@ -57,6 +57,10 @@ export default function SettingsPage() {
     )
   }
 
+  const profileDirty =
+    name.trim() !== (user.name || "").trim() ||
+    (phone.trim() || "") !== (user.phone || "")
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -127,7 +131,7 @@ export default function SettingsPage() {
             >
               {t('settings.cancel')}
             </Button>
-            <Button onClick={handleSave} disabled={saving || name.trim() === ''}>
+            <Button onClick={handleSave} disabled={saving || name.trim() === '' || !profileDirty}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

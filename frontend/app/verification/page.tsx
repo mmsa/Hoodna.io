@@ -308,6 +308,30 @@ export default function VerificationPage() {
     return "bg-yellow-100 text-yellow-700 border-yellow-300";
   };
 
+  const verificationLoading = (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    </div>
+  );
+
+  // Approved residents must not see the upload form while session/verification
+  // is unresolved or while the feed redirect is in flight.
+  const hideUploadWhileRedirectingApprovedResident = Boolean(
+    user &&
+      user.status === "APPROVED" &&
+      isVerifiedForCurrentCompound(user) &&
+      user.role !== "SERVICE_PROVIDER" &&
+      user.role !== "COMPOUND_MOD" &&
+      !isPlatformStaff(user.role)
+  );
+
+  if (userLoading || !user || hideUploadWhileRedirectingApprovedResident) {
+    return verificationLoading;
+  }
+
   // Early return: Don't render anything if user doesn't have compound selected
   // BUT: Skip for service providers and moderators (they don't need compound_id)
   // This prevents any API calls from being made
@@ -332,18 +356,6 @@ export default function VerificationPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Please select a compound first...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading while user data is being fetched
-  if (userLoading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );

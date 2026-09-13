@@ -11,10 +11,13 @@ from app.crud.account import (
     get_or_create_preferences,
     update_preferences,
 )
+from app.core.config import resolve_public_frontend_url
 from app.crud.referral import (
     DuplicateReferralError,
     SelfReferralError,
     create_referral_invite,
+    get_or_create_referral_invite,
+    get_referral_stats,
     redeem_referral,
     referral_invite_response,
 )
@@ -82,6 +85,40 @@ def test_referral_codes_are_unique_and_redeem_once():
     asyncio.run(with_session(exercise))
 
 
+def test_production_frontend_url_rejects_vercel_preview_hosts():
+    assert (
+        resolve_public_frontend_url(
+            "production",
+            "https://eljiran.vercel.app",
+            ["https://eljiran.vercel.app", "https://eljiran.io"],
+        )
+        == "https://eljiran.io"
+    )
+    url = resolve_public_frontend_url(
+        "production",
+        "https://eljiran.vercel.app",
+        ["https://eljiran.vercel.app"],
+    )
+    assert url == "https://eljiran.io"
+    assert "vercel.app" not in url
+    assert (
+        resolve_public_frontend_url(
+            "production",
+            "https://eljiran.io",
+            ["https://eljiran.vercel.app"],
+        )
+        == "https://eljiran.io"
+    )
+    assert (
+        resolve_public_frontend_url(
+            "development",
+            "https://eljiran.vercel.app",
+            ["https://eljiran.io"],
+        )
+        == "https://eljiran.vercel.app"
+    )
+
+
 def test_invite_url_uses_auth_signup_and_keeps_ref_and_utm():
     async def exercise(db_session):
         inviter = await add_user(db_session, "invite-url@example.com")
@@ -93,6 +130,26 @@ def test_invite_url_uses_auth_signup_and_keeps_ref_and_utm():
         assert "utm_medium=referral" in payload.invite_url
         assert "utm_campaign=invite" in payload.invite_url
         assert "://signup?" not in payload.invite_url
+        assert "vercel.app" not in payload.invite_url
+
+    asyncio.run(with_session(exercise))
+
+
+def test_referral_stats_ignore_unused_pending_invite_from_get_or_create():
+    async def exercise(db_session):
+        inviter = await add_user(db_session, "stats-inviter@example.com")
+        neighbour = await add_user(db_session, "stats-neighbour@example.com")
+
+        await get_or_create_referral_invite(db_session, inviter.id)
+        sent, joined = await get_referral_stats(db_session, inviter.id)
+        assert sent == 0
+        assert joined == 0
+
+        invite = await get_or_create_referral_invite(db_session, inviter.id)
+        await redeem_referral(db_session, invite.code, neighbour.id)
+        sent, joined = await get_referral_stats(db_session, inviter.id)
+        assert sent == 1
+        assert joined == 1
 
     asyncio.run(with_session(exercise))
 

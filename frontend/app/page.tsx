@@ -233,37 +233,38 @@ export default function Home() {
         <div className="container mx-auto max-w-6xl">
           <div className="mb-12 text-center">
             <h2 className="text-3xl font-bold text-foreground md:text-4xl">{t('landing.testimonialsTitle')}</h2>
+            <p className="mt-3 text-sm text-muted-foreground">{t('landing.testimonialsDisclaimer')}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {[
               {
-                name: 'Ahmed Mohamed',
-                compound: formatCompoundName('Tagamoa New Cairo'),
-                text: 'Easy to connect with neighbours and sell furniture. Verification gave me confidence I was dealing with real residents.',
+                title: 'Marketplace',
+                compound: formatCompoundName('New Cairo'),
+                text: 'List furniture or household items for neighbours in your compound, without an agent in the middle.',
               },
               {
-                name: 'Sara Ali',
-                compound: formatCompoundName('Zayed'),
-                text: 'Finally a marketplace without agents. I sold my car directly to a neighbour in my compound.',
+                title: 'Direct deals',
+                compound: formatCompoundName('6th of October'),
+                text: 'Buy and sell locally with verified neighbours. Eljiran is not a party to resident payments or delivery.',
               },
               {
-                name: 'Mohamed Hassan',
+                title: 'Community feed',
                 compound: formatCompoundName('New Capital'),
-                text: 'The community feed keeps everyone in the loop. Great deals and real connections.',
+                text: 'Share updates, ask for help, and keep neighbourhood life organised in one place.',
               },
-            ].map((testimonial) => (
-              <Card key={testimonial.name} className="eljiran-card">
+            ].map((example) => (
+              <Card key={example.title} className="eljiran-card">
                 <CardContent className="p-6">
                   <div className="mb-4 flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                      {testimonial.name.charAt(0)}
+                      {example.title.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">{testimonial.compound}</p>
+                      <p className="font-semibold text-foreground">{example.title}</p>
+                      <p className="text-sm text-muted-foreground">{example.compound}</p>
                     </div>
                   </div>
-                  <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{testimonial.text}&rdquo;</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{example.text}&rdquo;</p>
                 </CardContent>
               </Card>
             ))}
