@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from "vitest"
 
 import { PostComposer } from "@/app/feed/components/post-composer"
 import { ReportDialog } from "@/components/report-dialog"
+import { ListingFilters } from "@/components/marketplace/listing-filters"
 import {
   listingIntentFilterLabel,
   listingIntentFilterOptions,
+  normalizeListingCategory,
 } from "@/components/marketplace/listing-meta"
 import { formatFoundResults } from "@/lib/search-copy"
 import { render, screen, waitFor } from "../utils/test-utils"
@@ -19,12 +21,55 @@ vi.mock("@/components/locale-provider", () => ({
 }))
 
 describe("marketplace intent filters", () => {
-  it("does not expose a property-specific control for vehicles", () => {
-    expect(listingIntentFilterLabel("CAR")).toBe("Listing type")
-    expect(listingIntentFilterOptions("CAR").map((item) => item.value)).not.toContain("RENT")
+  const emptyFilters = {
+    search: "",
+    intent: "",
+    sort: "date_desc",
+    minPrice: "",
+    maxPrice: "",
+  }
+
+  it("normalizes vehicle aliases to CAR and omits rent", () => {
+    expect(normalizeListingCategory("Vehicles")).toBe("CAR")
+    expect(normalizeListingCategory("VEHICLE")).toBe("CAR")
+    expect(listingIntentFilterOptions("CAR")).toEqual([])
+    expect(listingIntentFilterOptions("ITEM")).toEqual([])
+    expect(listingIntentFilterOptions("Vehicles")).toEqual([])
     expect(listingIntentFilterLabel("PROPERTY")).toBe("Property listing type")
     expect(listingIntentFilterOptions("PROPERTY").map((item) => item.value)).toContain("RENT")
     expect(listingIntentFilterOptions("SERVICE")).toEqual([])
+  })
+
+  it("does not render a property listing-type control for Vehicles or Items", async () => {
+    for (const category of ["CAR", "Vehicles", "ITEM"]) {
+      const { unmount } = render(
+        <ListingFilters
+          value={{ ...emptyFilters, category }}
+          onChange={() => undefined}
+          onClear={() => undefined}
+        />,
+      )
+      screen.getByRole("button", { name: /more/i }).click()
+      await waitFor(() => {
+        expect(screen.getByLabelText("Sort listings")).toBeInTheDocument()
+      })
+      expect(screen.queryByLabelText("Property listing type")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Listing type")).not.toBeInTheDocument()
+      expect(screen.queryByText("Sale or rent")).not.toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it("renders the property listing-type control only for Property", async () => {
+    render(
+      <ListingFilters
+        value={{ ...emptyFilters, category: "PROPERTY" }}
+        onChange={() => undefined}
+        onClear={() => undefined}
+      />,
+    )
+    screen.getByRole("button", { name: /more/i }).click()
+    expect(await screen.findByLabelText("Property listing type")).toBeInTheDocument()
   })
 })
 

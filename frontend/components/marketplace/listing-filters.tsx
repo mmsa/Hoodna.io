@@ -18,6 +18,7 @@ import {
   LISTING_SORT_OPTIONS,
   listingIntentFilterLabel,
   listingIntentFilterOptions,
+  normalizeListingCategory,
 } from "./listing-meta"
 
 export interface ListingFilterValues {
@@ -43,16 +44,19 @@ export function ListingFilters({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const set = (key: keyof ListingFilterValues, next: string) => {
     if (key === "category") {
+      const normalized = normalizeListingCategory(next)
       const nextIntent =
-        (next === "CAR" || next === "ITEM") && value.intent === "RENT"
+        (normalized === "CAR" || normalized === "ITEM") && value.intent === "RENT"
           ? ""
           : value.intent
-      onChange({ ...value, category: next, intent: nextIntent })
+      onChange({ ...value, category: normalized || next, intent: nextIntent })
       return
     }
     onChange({ ...value, [key]: next })
   }
+  const normalizedCategory = normalizeListingCategory(value.category)
   const intentOptions = listingIntentFilterOptions(value.category)
+  const showPropertyListingType = normalizedCategory === "PROPERTY"
 
   const categories = includeServices
     ? LISTING_CATEGORIES
@@ -114,8 +118,11 @@ export function ListingFilters({
                 value={value.intent || "all"}
                 onValueChange={(next) => set("intent", next === "all" ? "" : next)}
               >
-                <SelectTrigger aria-label={listingIntentFilterLabel(value.category)} className="rounded-[16px]">
-                  <SelectValue placeholder="Sale or rent" />
+                <SelectTrigger
+                  aria-label={listingIntentFilterLabel(value.category)}
+                  className="rounded-[16px]"
+                >
+                  <SelectValue placeholder={showPropertyListingType ? "Sale or rent" : "All types"} />
                 </SelectTrigger>
                 <SelectContent>
                   {intentOptions.map((intent) => (

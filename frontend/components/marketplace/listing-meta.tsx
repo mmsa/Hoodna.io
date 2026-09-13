@@ -26,16 +26,27 @@ export const LISTING_INTENTS: Array<{ value: ListingIntent | ""; label: string }
   { value: "FREE", label: "Free" },
 ]
 
+export function normalizeListingCategory(category: string): ListingCategory | "" {
+  const key = (category || "").trim().toUpperCase().replace(/[\s-]+/g, "_")
+  if (!key) return ""
+  if (key === "VEHICLE" || key === "VEHICLES" || key === "CAR" || key === "CARS") return "CAR"
+  if (key === "ITEM" || key === "ITEMS") return "ITEM"
+  if (key === "PROPERTY" || key === "PROPERTIES") return "PROPERTY"
+  if (key === "SERVICE" || key === "SERVICES") return "SERVICE"
+  return ""
+}
+
 export function listingIntentFilterLabel(category: string) {
-  return category === "PROPERTY" ? "Property listing type" : "Listing type"
+  return normalizeListingCategory(category) === "PROPERTY"
+    ? "Property listing type"
+    : "Listing type"
 }
 
 export function listingIntentFilterOptions(category: string) {
-  if (category === "SERVICE") return []
-  if (category === "CAR" || category === "ITEM") {
-    return LISTING_INTENTS.filter((intent) => intent.value !== "RENT")
-  }
-  return LISTING_INTENTS
+  const normalized = normalizeListingCategory(category)
+  if (normalized === "PROPERTY") return LISTING_INTENTS
+  if (normalized === "") return LISTING_INTENTS
+  return []
 }
 
 export const LISTING_SORT_OPTIONS = [
