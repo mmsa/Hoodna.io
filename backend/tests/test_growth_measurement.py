@@ -29,6 +29,61 @@ async def _user_by_email(db_session, email: str) -> User:
     return (await db_session.execute(select(User).where(User.email == email))).scalar_one()
 
 
+def _disable_otp_delivery(monkeypatch):
+    """Signup may generate OTP codes locally; providers must not be called."""
+
+    def _sms_must_not_send(*_args, **_kwargs):
+        raise AssertionError("SMS OTP must not be sent")
+
+    monkeypatch.setattr("app.services.sms.sms_delivery_configured", lambda: False)
+    monkeypatch.setattr("app.services.sms.send_otp_sms", _sms_must_not_send)
+    monkeypatch.setattr("app.api.auth.send_email_verification_email", lambda *_a, **_k: False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_signup_persists_utm_after_landing_path_only_first_touch(
+    async_client, db_session, monkeypatch
+):
+    """Browser first-touch was landing_path-only; later UTMs must persist on signup.
+
+    Mirrors production: localStorage {landing_path: '/'} then
+    /auth/signup?utm_source=chatgpt_test&utm_medium=test&utm_campaign=growth_tracking_test&utm_content=manual_test
+    Shared mergeFirstTouch would then send this attribution blob. No SMS/email.
+    """
+    _disable_otp_delivery(monkeypatch)
+
+    stored = {"landing_path": "/"}
+    later_utm = {
+        "source": "chatgpt_test",
+        "medium": "test",
+        "campaign": "growth_tracking_test",
+        "content": "manual_test",
+        "landing_path": "/auth/signup",
+    }
+    marketing_keys = ("source", "medium", "campaign", "content", "term")
+    merged = later_utm if not any(stored.get(key) for key in marketing_keys) else stored
+
+    response = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "UTM After Landing",
+            "email": "utm-after-landing@example.com",
+            "phone": "+201555000099",
+            "password": "password123",
+            "platform": "web",
+            "attribution": merged,
+        },
+    )
+    assert response.status_code == 201
+    user = await _user_by_email(db_session, "utm-after-landing@example.com")
+    assert user.registration_platform == "web"
+    assert user.attribution["source"] == "chatgpt_test"
+    assert user.attribution["medium"] == "test"
+    assert user.attribution["campaign"] == "growth_tracking_test"
+    assert user.attribution["content"] == "manual_test"
+
+
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_email_signup_persists_first_touch_attribution(async_client, db_session):

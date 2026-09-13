@@ -25,17 +25,18 @@ test("parses UTM, referral, and known social referrers", () => {
 
 test("landing_path-only storage does not lock out later UTMs", () => {
   const stored = mergeFirstTouch(null, {
-    attribution: { landing_path: "/", referrer_host: "eljiran.io" },
+    attribution: parseAttributionFromSearch("", { landingPath: "/" }),
   });
-  const withUtm = mergeFirstTouch(stored, {
-    attribution: {
-      source: "chatgpt_test",
-      medium: "test",
-      campaign: "growth_tracking_test",
-      content: "manual_test",
-      landing_path: "/auth/signup",
-    },
-  });
+  assert.equal(stored.attribution.landing_path, "/");
+  assert.equal(stored.attribution.source, undefined);
+
+  const incoming = {
+    attribution: parseAttributionFromSearch(
+      "?utm_source=chatgpt_test&utm_medium=test&utm_campaign=growth_tracking_test&utm_content=manual_test",
+      { landingPath: "/auth/signup" },
+    ),
+  };
+  const withUtm = mergeFirstTouch(stored, incoming);
   assert.equal(withUtm.attribution.source, "chatgpt_test");
   assert.equal(withUtm.attribution.medium, "test");
   assert.equal(withUtm.attribution.campaign, "growth_tracking_test");
