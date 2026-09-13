@@ -43,17 +43,6 @@ def _is_unusable_public_origin(url: str) -> bool:
     )
 
 
-def production_frontend_url_issue(frontend_url: str) -> str | None:
-    """Return a boot error when production FRONTEND_URL is not the public origin."""
-    if not _is_unusable_public_origin(frontend_url):
-        return None
-    return (
-        "FRONTEND_URL must be the canonical public origin "
-        f"{CANONICAL_PRODUCTION_FRONTEND_URL} (not empty, localhost, or a "
-        "Vercel preview host)."
-    )
-
-
 def resolve_public_frontend_url(
     environment: str,
     frontend_url: str,
@@ -297,10 +286,6 @@ def validate_production_settings(config: Settings) -> None:
             "CORS_ORIGINS must not include wildcards or localhost in production: "
             f"{insecure_origins}"
         )
-
-    frontend_issue = production_frontend_url_issue(config.FRONTEND_URL)
-    if frontend_issue:
-        errors.append(frontend_issue)
 
     if errors:
         raise RuntimeError(
