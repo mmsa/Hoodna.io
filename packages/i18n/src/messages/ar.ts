@@ -475,7 +475,7 @@ export const ar: MessageTree = {
     inviteNeighboursDescription: "شارك رابطك واطّلع على إحصاءات الدعوات",
     phoneNumberPlaceholder: "رقم هاتفك",
     deleteConfirmHint: "سيؤدي هذا إلى طلب حذف دائم. اكتب DELETE للتأكيد.",
-    deletePlaceholder: "DELETE",
+    deletePlaceholder: "اكتب DELETE",
     deleteReasonPlaceholder: "السبب (اختياري)",
     requestDeletion: "طلب حذف الحساب",
     requestReceived: "تم استلام الطلب",

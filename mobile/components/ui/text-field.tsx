@@ -34,6 +34,9 @@ function Field(
     onFocus,
     accessibilityLabel,
     accessibilityHint,
+    accessibilityValue,
+    value,
+    defaultValue,
     ...props
   }: TextFieldProps,
   ref: React.ForwardedRef<TextInput>,
@@ -41,6 +44,7 @@ function Field(
   const [focused, setFocused] = useState(false);
   const id = useId();
   const message = error || helperText;
+  const valueText = value == null ? String(defaultValue ?? "") : String(value);
 
   return (
     <View style={containerStyle}>
@@ -74,7 +78,10 @@ function Field(
           inputStyle,
         ]}
         textAlignVertical={multiline ? "top" : "center"}
+        value={value}
+        defaultValue={defaultValue}
         {...props}
+        accessibilityValue={accessibilityValue ?? { text: valueText }}
       />
       {message ? (
         <Text

@@ -27,6 +27,7 @@ from app.schemas.account import (
 from app.crud.account import (
     create_or_get_pending_deletion_request,
     deletion_request_response,
+    get_deletion_request,
     get_or_create_preferences,
     preferences_response,
     update_preferences,
@@ -1238,6 +1239,21 @@ async def patch_current_user_preferences(
         },
     )
     return preferences_response(preference)
+
+
+@router.get(
+    "/me/deletion-request",
+    response_model=AccountDeletionRequestResponse | None,
+)
+async def get_account_deletion_request(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the resident's existing deletion request, or null when none exists."""
+    existing = await get_deletion_request(db, current_user.id)
+    if existing is None:
+        return None
+    return deletion_request_response(existing)
 
 
 @router.post(

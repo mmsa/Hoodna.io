@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { Post } from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 
 import { Header } from "@/components/Header";
 import { NeighbourPostCard } from "@/components/home/neighbour-post-card";
-import { Button, EmptyState, LoadingState, Screen } from "@/components/ui";
+import { Button, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -15,13 +15,16 @@ export default function SavedPostsScreen() {
   const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       setPosts(await apiClient.getSavedPosts());
-    } catch (error: any) {
-      Alert.alert("Could not load saved posts", error?.message || "Please try again.");
+    } catch (loadError: any) {
+      setPosts([]);
+      setError(loadError?.message || "Please try again.");
     } finally {
       setLoading(false);
     }
@@ -36,7 +39,13 @@ export default function SavedPostsScreen() {
         <View style={[styles.tab, styles.activeTab]}><Text style={styles.activeText}>Posts</Text></View>
         <Button variant="ghost" size="small" onPress={() => router.replace("/saved-listings")}>Listings</Button>
       </View>
-      {loading ? <LoadingState label="Loading saved posts" /> : (
+      {loading ? <LoadingState label="Loading saved posts" /> : error ? (
+        <ErrorState
+          title="Could not load saved posts"
+          description={error}
+          onRetry={load}
+        />
+      ) : (
         <FlatList
           data={posts}
           keyExtractor={(post) => String(post.id)}

@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Header } from "@/components/Header";
+import { FEATURE_DIRECTORY_COPY } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/constants/colors";
 
@@ -75,7 +76,7 @@ export default function FeaturesScreen() {
     },
     {
       title: "Marketplace",
-      description: "Browse items for sale or rent inside your compound and create listings when you need to sell.",
+      description: FEATURE_DIRECTORY_COPY.marketplace,
       route: "/(tabs)/market",
       icon: "storefront",
       color: colors.success,
@@ -115,7 +116,7 @@ export default function FeaturesScreen() {
     },
     {
       title: "Verification",
-      description: "Upload your documents and track review progress to unlock posting, comments, and more.",
+      description: FEATURE_DIRECTORY_COPY.verification,
       route: "/verification",
       icon: "shield-checkmark",
       color: "#7C3AED",

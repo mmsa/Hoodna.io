@@ -8,6 +8,7 @@ import { useCompound } from "@/contexts/CompoundContext";
 import { Compound } from "@hoodna/shared";
 import { formatCompoundName, formatCompoundWithArea } from "@/utils/formatCompound";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { GO_BACK_ACCESSIBILITY_LABEL } from "@hoodna/shared";
 import { palette, radii, spacing, touchTarget, typography } from "@hoodna/tokens";
 
 type SwitchableCompound = {
@@ -140,7 +141,13 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
       <View style={styles.content}>
         {/* Back Button */}
         {showBackButton && (
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+          <TouchableOpacity
+            accessibilityLabel={GO_BACK_ACCESSIBILITY_LABEL}
+            accessibilityRole="button"
+            onPress={() => router.back()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
             <Ionicons name="arrow-back" size={24} color={palette.onPrimary} />
           </TouchableOpacity>
         )}
@@ -185,20 +192,31 @@ export function Header({ title, showLogo = true, showBackButton = false, rightAc
         {useTitleLayout && (
           <View style={styles.titleContainer}>
             {showLogo ? (
-              <TouchableOpacity
-                accessibilityLabel="Go to home"
-                accessibilityRole="button"
-                activeOpacity={0.7}
-                onPress={() => router.push("/(tabs)/home")}
-                style={styles.titleBrand}
-              >
-                <Image
-                  resizeMode="cover"
-                  source={require("@/assets/icon.png")}
-                  style={styles.logoIconCompact}
-                />
-                <BrandWordmark compact />
-              </TouchableOpacity>
+              showBackButton ? (
+                <View style={styles.titleBrand} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                  <Image
+                    resizeMode="cover"
+                    source={require("@/assets/icon.png")}
+                    style={styles.logoIconCompact}
+                  />
+                  <BrandWordmark compact />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  accessibilityLabel="Go to home"
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  onPress={() => router.push("/(tabs)/home")}
+                  style={styles.titleBrand}
+                >
+                  <Image
+                    resizeMode="cover"
+                    source={require("@/assets/icon.png")}
+                    style={styles.logoIconCompact}
+                  />
+                  <BrandWordmark compact />
+                </TouchableOpacity>
+              )
             ) : null}
             <Text style={styles.title}>{title}</Text>
             {compound && (

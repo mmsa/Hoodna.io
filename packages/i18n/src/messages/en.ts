@@ -474,7 +474,7 @@ export const en = {
     inviteNeighboursDescription: "Share your link and view invitation stats",
     phoneNumberPlaceholder: "Your phone number",
     deleteConfirmHint: "This requests permanent deletion. Type DELETE below to confirm.",
-    deletePlaceholder: "DELETE",
+    deletePlaceholder: "Type DELETE",
     deleteReasonPlaceholder: "Reason (optional)",
     requestDeletion: "Request account deletion",
     requestReceived: "Request received",

@@ -6,6 +6,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { AccountDeletionRequest, UserPreferences } from "@hoodna/shared";
+import {
+  ACCOUNT_DELETION_CONFIRMATION,
+  accessibleTextValue,
+  isAccountDeletionConfirmed,
+} from "@hoodna/shared";
 import { useFeature } from "@/contexts/FeatureConfigContext";
 import { LanguagePicker } from "@/components/LanguagePicker";
 import { Header } from "@/components/Header";
@@ -24,6 +29,7 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [preferencesError, setPreferencesError] = useState(false);
   const [deletionConfirmation, setDeletionConfirmation] = useState("");
   const [deletionReason, setDeletionReason] = useState("");
   const [deletionRequest, setDeletionRequest] = useState<AccountDeletionRequest | null>(null);
@@ -42,18 +48,47 @@ export default function SettingsScreen() {
     }
   }, [user]);
 
+  const loadAccountSettings = async () => {
+    setPreferencesLoading(true);
+    setPreferencesError(false);
+    try {
+      setPreferences(await apiClient.getUserPreferences());
+    } catch {
+      setPreferences(null);
+      setPreferencesError(true);
+    } finally {
+      setPreferencesLoading(false);
+    }
+    try {
+      setDeletionRequest(await apiClient.getAccountDeletionRequest());
+    } catch {
+      setDeletionRequest(null);
+    }
+  };
+
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      apiClient.getUserPreferences(),
-      apiClient.getAccountDeletionRequest(),
-    ]).then(([nextPreferences, nextDeletion]) => {
-      if (!active) return;
-      setPreferences(nextPreferences);
-      setDeletionRequest(nextDeletion);
-    }).catch(() => undefined).finally(() => {
-      if (active) setPreferencesLoading(false);
-    });
+    void (async () => {
+      setPreferencesLoading(true);
+      setPreferencesError(false);
+      try {
+        const nextPreferences = await apiClient.getUserPreferences();
+        if (active) setPreferences(nextPreferences);
+      } catch {
+        if (active) {
+          setPreferences(null);
+          setPreferencesError(true);
+        }
+      } finally {
+        if (active) setPreferencesLoading(false);
+      }
+      try {
+        const nextDeletion = await apiClient.getAccountDeletionRequest();
+        if (active) setDeletionRequest(nextDeletion);
+      } catch {
+        if (active) setDeletionRequest(null);
+      }
+    })();
     return () => {
       active = false;
     };
@@ -143,11 +178,11 @@ export default function SettingsScreen() {
   }
 
   async function requestDeletion() {
-    if (deletionConfirmation !== "DELETE") return;
+    if (!isAccountDeletionConfirmed(deletionConfirmation)) return;
     setDeleting(true);
     try {
       const request = await apiClient.requestAccountDeletion({
-        confirmation: "DELETE",
+                    confirmation: ACCOUNT_DELETION_CONFIRMATION,
         reason: deletionReason.trim() || undefined,
       });
       setDeletionRequest(request);
@@ -220,6 +255,7 @@ export default function SettingsScreen() {
               placeholder={t("settings.fullNamePlaceholder")}
               placeholderTextColor="#9CA3AF"
               value={name}
+              accessibilityValue={accessibleTextValue(name)}
               onChangeText={setName}
             />
 
@@ -258,6 +294,7 @@ export default function SettingsScreen() {
               placeholder={t("settings.phoneNumberPlaceholder")}
               placeholderTextColor="#9CA3AF"
               value={phone}
+              accessibilityValue={accessibleTextValue(phone)}
               onChangeText={setPhone}
               keyboardType="phone-pad"
             />
@@ -297,8 +334,17 @@ export default function SettingsScreen() {
             <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 12 }}>
               Choose what neighbours see when they open your profile. Your name is always visible.
             </Text>
-            {preferencesLoading || !preferences ? (
+            {preferencesLoading ? (
               <ActivityIndicator color="#158074" />
+            ) : preferencesError || !preferences ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading public profile preferences"
+                onPress={() => void loadAccountSettings()}
+                style={{ minHeight: 44, justifyContent: "center" }}
+              >
+                <Text style={{ color: "#158074", fontWeight: "600" }}>{t("common.retry")}</Text>
+              </TouchableOpacity>
             ) : (
               (
                 [
@@ -491,7 +537,17 @@ export default function SettingsScreen() {
                   />
                 </View>
               ))
-            ) : <Text style={{ color: "#6B7280" }}>{t("settings.preferencesUnavailable")}</Text>}
+            ) : preferencesError || !preferences ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading notification preferences"
+                onPress={() => void loadAccountSettings()}
+                style={{ minHeight: 44, justifyContent: "center" }}
+              >
+                <Text style={{ color: "#6B7280" }}>{t("settings.preferencesUnavailable")}</Text>
+                <Text style={{ color: "#158074", fontWeight: "600", marginTop: 8 }}>{t("common.retry")}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <AboutAppCard />
@@ -507,7 +563,9 @@ export default function SettingsScreen() {
                 </Text>
                 <TextInput
                   accessibilityLabel="Type DELETE to confirm account deletion"
+                  accessibilityValue={accessibleTextValue(deletionConfirmation)}
                   autoCapitalize="characters"
+                  autoCorrect={false}
                   value={deletionConfirmation}
                   onChangeText={setDeletionConfirmation}
                   placeholder={t("settings.deletePlaceholder")}
@@ -515,6 +573,7 @@ export default function SettingsScreen() {
                 />
                 <TextInput
                   accessibilityLabel="Optional account deletion reason"
+                  accessibilityValue={accessibleTextValue(deletionReason)}
                   value={deletionReason}
                   onChangeText={setDeletionReason}
                   placeholder={t("settings.deleteReasonPlaceholder")}
@@ -523,10 +582,10 @@ export default function SettingsScreen() {
                 />
                 <TouchableOpacity
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: deletionConfirmation !== "DELETE" || deleting }}
-                  disabled={deletionConfirmation !== "DELETE" || deleting}
+                  accessibilityState={{ disabled: !isAccountDeletionConfirmed(deletionConfirmation, deleting) }}
+                  disabled={!isAccountDeletionConfirmed(deletionConfirmation, deleting)}
                   onPress={requestDeletion}
-                  style={{ minHeight: 48, borderRadius: 10, backgroundColor: deletionConfirmation === "DELETE" ? "#DC2626" : "#FCA5A5", justifyContent: "center", marginTop: 12 }}
+                  style={{ minHeight: 48, borderRadius: 10, backgroundColor: isAccountDeletionConfirmed(deletionConfirmation) ? "#DC2626" : "#FCA5A5", justifyContent: "center", marginTop: 12 }}
                 >
                   {deleting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: "#FFFFFF", fontWeight: "700", textAlign: "center" }}>{t("settings.requestDeletion")}</Text>}
                 </TouchableOpacity>

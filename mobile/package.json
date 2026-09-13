@@ -18,7 +18,8 @@
     "build:ios:local": "bash scripts/build-ios-release.sh",
     "upload:ios": "bash scripts/upload-transporter.sh",
     "build:android": "eas build -p android --profile production",
-    "submit:android": "eas submit -p android --profile production --latest"
+    "submit:android": "eas submit -p android --profile production --latest",
+    "test": "npm run test --prefix ../packages/shared"
   },
   "dependencies": {
     "@hoodna/i18n": "file:../packages/i18n",

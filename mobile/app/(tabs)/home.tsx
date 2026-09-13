@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { Post } from "@hoodna/shared";
+import { accessibleTextValue } from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 
 import { CompoundHero } from "@/components/feed/compound-hero";
@@ -304,7 +305,7 @@ export default function HomeScreen() {
             <View style={styles.askCard}>
               <Text style={styles.askTitle}>{t("feed.ask")}</Text>
               <View style={styles.askRow}>
-                <TextInput value={question} onChangeText={setQuestion} placeholder={t("feed.askPlaceholder")} placeholderTextColor={colors.textMuted} style={styles.askInput} onSubmitEditing={askNeighbours} />
+                <TextInput value={question} onChangeText={setQuestion} accessibilityValue={accessibleTextValue(question)} placeholder={t("feed.askPlaceholder")} placeholderTextColor={colors.textMuted} style={styles.askInput} onSubmitEditing={askNeighbours} />
                 <TouchableOpacity onPress={askNeighbours} disabled={!question.trim() || asking} style={styles.askButton}>
                   {asking ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
                 </TouchableOpacity>

@@ -74,8 +74,10 @@ export default function InviteNeighboursScreen() {
             <Text style={styles.description}>Share your personal invitation link. New neighbours can use it when creating their account.</Text>
           </View>
           <View style={styles.stats}>
-            <View style={styles.stat}><Text style={styles.number}>{stats?.invitations_sent ?? 0}</Text><Text style={styles.label}>Invites sent</Text></View>
-            <View style={styles.stat}><Text style={styles.number}>{stats?.successful_registrations ?? 0}</Text><Text style={styles.label}>Joined</Text></View>
+            <View style={styles.stat}>
+              <Text style={styles.number}>{stats?.invitations_sent ?? 0}</Text>
+              <Text style={styles.label}>Completed sign-ups from your link</Text>
+            </View>
           </View>
           <Text selectable style={styles.link}>{invite?.invite_url}</Text>
           <Button

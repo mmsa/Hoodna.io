@@ -8,6 +8,12 @@ import type {
   ListingIntent,
   PropertyAttributes,
 } from "@hoodna/shared";
+import {
+  LISTING_FIELD_PLACEHOLDERS,
+  isListingPublishEnabled,
+  listingDraftToCreate,
+  type ListingFormDraft,
+} from "@hoodna/shared";
 import { palette, radii, spacing, typography } from "@hoodna/tokens";
 import { useEffect, useState } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -220,6 +226,28 @@ export default function CreateListingScreen() {
     setCategory(null);
   }
 
+  function listingDraft(): ListingFormDraft {
+    return {
+      category,
+      intent,
+      title,
+      description,
+      price,
+      itemCondition,
+      carMake,
+      carModel,
+      carYear,
+      carMileage,
+      carTransmission,
+      carFuelType,
+      propertyType,
+      bedrooms,
+      bathrooms,
+      areaSqm,
+      furnishing,
+    };
+  }
+
   function buildAttributes(): ListingAttributes | null | undefined {
     if (category === "SERVICE") return null;
     if (category === "ITEM") {
@@ -284,41 +312,37 @@ export default function CreateListingScreen() {
   }
 
   async function handleSubmit() {
-    if (!category) return;
-    if (!title.trim()) {
-      Alert.alert("Title required", "Add a clear title for your listing.");
+    if (!listingDraftToCreate(listingDraft())) {
+      if (!title.trim()) {
+        Alert.alert("Title required", "Add a clear title for your listing.");
+        return;
+      }
+      const parsedPrice = intent === "FREE" ? null : price.trim() ? Number(price) : null;
+      if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+        Alert.alert("Check the price", "Enter a valid non-negative price.");
+        return;
+      }
+      const attributes = buildAttributes();
+      if (attributes === undefined) return;
+      Alert.alert("Complete the listing", "Fill every required field before publishing.");
       return;
     }
-    const parsedPrice = intent === "FREE" ? null : price.trim() ? Number(price) : null;
-    if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
-      Alert.alert("Check the price", "Enter a valid non-negative price.");
-      return;
-    }
-    const attributes = buildAttributes();
-    if (attributes === undefined) return;
+    const data = listingDraftToCreate(listingDraft());
+    if (!data || !category) return;
     setSubmitting(true);
     try {
       const imageUrls = [...existingImages, ...(await uploadImages())];
-      const data: ListingCreate = {
-        category,
-        intent,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        price: parsedPrice,
-        currency: "EGP",
-        attributes,
-        image_urls: imageUrls,
-      };
+      const payload: ListingCreate = { ...data, image_urls: imageUrls };
       if (editId) {
         await apiClient.updateListing(editId, {
-          title: data.title,
-          description: data.description,
-          price: data.price,
-          attributes: data.attributes,
-          image_urls: data.image_urls,
+          title: payload.title,
+          description: payload.description,
+          price: payload.price,
+          attributes: payload.attributes,
+          image_urls: payload.image_urls,
         });
       } else {
-        await apiClient.createListing(data);
+        await apiClient.createListing(payload);
       }
       Alert.alert(editId ? "Listing updated" : "Listing published", "Your changes are live.", [
         { text: "Done", onPress: () => router.back() },
@@ -442,6 +466,7 @@ export default function CreateListingScreen() {
     },
   };
   const copy = headings[category];
+  const canPublish = isListingPublishEnabled(listingDraft());
 
   return (
     <KeyboardScreen contentContainerStyle={styles.screen} padded={false}>
@@ -494,12 +519,12 @@ export default function CreateListingScreen() {
         {category === "CAR" ? (
           <View style={styles.attributeSection}>
             <View style={styles.fieldRow}>
-              <TextField containerStyle={styles.halfField} label="Make" onChangeText={setCarMake} placeholder="Toyota" value={carMake} />
-              <TextField containerStyle={styles.halfField} label="Model" onChangeText={setCarModel} placeholder="Corolla" value={carModel} />
+              <TextField containerStyle={styles.halfField} label="Make" onChangeText={setCarMake} placeholder={LISTING_FIELD_PLACEHOLDERS.carMake} value={carMake} />
+              <TextField containerStyle={styles.halfField} label="Model" onChangeText={setCarModel} placeholder={LISTING_FIELD_PLACEHOLDERS.carModel} value={carModel} />
             </View>
             <View style={styles.fieldRow}>
-              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Year" onChangeText={setCarYear} placeholder="2021" value={carYear} />
-              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Mileage (km)" onChangeText={setCarMileage} placeholder="45000" value={carMileage} />
+              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Year" onChangeText={setCarYear} placeholder={LISTING_FIELD_PLACEHOLDERS.carYear} value={carYear} />
+              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Mileage (km)" onChangeText={setCarMileage} placeholder={LISTING_FIELD_PLACEHOLDERS.carMileage} value={carMileage} />
             </View>
             <Text style={styles.sectionLabel}>Transmission</Text>
             <View style={styles.chips}>
@@ -519,10 +544,10 @@ export default function CreateListingScreen() {
               {PROPERTY_TYPES.map((value) => <Chip key={value} label={friendlyOption(value)} onPress={() => setPropertyType(value)} selected={propertyType === value} />)}
             </View>
             <View style={styles.fieldRow}>
-              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Bedrooms" onChangeText={setBedrooms} placeholder="2" value={bedrooms} />
-              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Bathrooms" onChangeText={setBathrooms} placeholder="2" value={bathrooms} />
+              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Bedrooms" onChangeText={setBedrooms} placeholder={LISTING_FIELD_PLACEHOLDERS.bedrooms} value={bedrooms} />
+              <TextField containerStyle={styles.halfField} keyboardType="number-pad" label="Bathrooms" onChangeText={setBathrooms} placeholder={LISTING_FIELD_PLACEHOLDERS.bathrooms} value={bathrooms} />
             </View>
-            <TextField containerStyle={styles.attributeField} keyboardType="decimal-pad" label="Area (m²)" onChangeText={setAreaSqm} placeholder="120" value={areaSqm} />
+            <TextField containerStyle={styles.attributeField} keyboardType="decimal-pad" label="Area (m²)" onChangeText={setAreaSqm} placeholder={LISTING_FIELD_PLACEHOLDERS.areaSqm} value={areaSqm} />
             <Text style={styles.sectionLabel}>Furnishing</Text>
             <View style={styles.chips}>
               {FURNISHING.map((value) => <Chip key={value} label={friendlyOption(value)} onPress={() => setFurnishing(value)} selected={furnishing === value} />)}
@@ -530,37 +555,40 @@ export default function CreateListingScreen() {
           </View>
         ) : null}
 
-        {intent !== "FREE" ? <TextField
+        <TextField
           autoCapitalize="sentences"
           label="Title"
           maxLength={120}
           onChangeText={setTitle}
-          placeholder={copy.placeholder}
+          placeholder={LISTING_FIELD_PLACEHOLDERS.title[category]}
           returnKeyType="next"
           value={title}
-        /> : (
+        />
+        {intent === "FREE" ? (
           <View style={styles.saleOnly}>
             <Ionicons color={colors.primary} name="gift-outline" size={18} />
             <Text style={styles.saleOnlyText}>Free — no price needed</Text>
           </View>
-        )}
+        ) : null}
         <TextArea
           containerStyle={styles.field}
           label="Description"
           maxLength={2000}
           onChangeText={setDescription}
-          placeholder={copy.description}
+          placeholder={LISTING_FIELD_PLACEHOLDERS.description}
           value={description}
         />
-        <TextField
-          containerStyle={styles.field}
-          helperText={copy.price}
-          keyboardType="decimal-pad"
-          label="Price"
-          onChangeText={setPrice}
-          placeholder="0"
-          value={price}
-        />
+        {intent !== "FREE" ? (
+          <TextField
+            containerStyle={styles.field}
+            helperText={copy.price}
+            keyboardType="decimal-pad"
+            label="Price"
+            onChangeText={setPrice}
+            placeholder={LISTING_FIELD_PLACEHOLDERS.price}
+            value={price}
+          />
+        ) : null}
 
         <View style={styles.photoHeading}>
           <View>
@@ -592,7 +620,14 @@ export default function CreateListingScreen() {
           ) : null}
         </ScrollView>
 
-        <Button loading={submitting} loadingLabel="Saving" onPress={handleSubmit} size="large" style={styles.submit}>
+        <Button
+          disabled={!canPublish}
+          loading={submitting}
+          loadingLabel="Saving"
+          onPress={handleSubmit}
+          size="large"
+          style={styles.submit}
+        >
           {editId ? "Save changes" : service ? "Publish service" : "Publish listing"}
         </Button>
       </View>

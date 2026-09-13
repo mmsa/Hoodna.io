@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { accessibleTextValue } from "@hoodna/shared";
 import { PostCreate } from "@hoodna/shared";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -214,6 +215,7 @@ export default function CreatePostScreen() {
             placeholder="Share something with your community..."
             placeholderTextColor="#9CA3AF"
             value={content}
+            accessibilityValue={accessibleTextValue(content)}
             onChangeText={setContent}
             multiline
             numberOfLines={8}
@@ -227,6 +229,7 @@ export default function CreatePostScreen() {
                 placeholder="Question (optional)"
                 placeholderTextColor="#9CA3AF"
                 value={pollQuestion}
+                accessibilityValue={accessibleTextValue(pollQuestion)}
                 onChangeText={setPollQuestion}
               />
               {pollOptions.map((option, index) => (
@@ -236,6 +239,7 @@ export default function CreatePostScreen() {
                     placeholder={`Option ${index + 1}`}
                     placeholderTextColor="#9CA3AF"
                     value={option}
+                    accessibilityValue={accessibleTextValue(option)}
                     onChangeText={(value) => setPollOptions((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))}
                   />
                   {pollOptions.length > 2 ? <TouchableOpacity onPress={() => setPollOptions((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={{ justifyContent: "center", padding: 8 }}><Ionicons name="close" size={20} color="#6B7280" /></TouchableOpacity> : null}

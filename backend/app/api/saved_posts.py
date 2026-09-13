@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.schemas.community import PostResponse, CommentResponse
+from app.schemas.community import PostResponse
 from app.crud.saved_post import (
     save_post,
     unsave_post,
@@ -9,6 +9,7 @@ from app.crud.saved_post import (
     get_saved_posts,
 )
 from app.crud.post import get_post_by_id
+from app.api.community import _to_post_response
 from app.core.dependencies import get_current_approved_user
 from app.models.user import User
 from typing import List
@@ -75,37 +76,5 @@ async def get_saved_posts_endpoint(
 ):
     """Get all posts saved by the current user."""
     posts = await get_saved_posts(db, current_user.id, skip=skip, limit=limit)
-    
-    # Convert to response format
-    result = []
-    for post in posts:
-        compound_name = post.compound.name if post.compound else None
-        result.append(PostResponse(
-            id=post.id,
-            compound_id=post.compound_id,
-            compound_name=compound_name,
-            author_id=post.author_id,
-            author_name=post.author.name,
-            author_avatar_url=post.author.avatar_url,
-            author_status=post.author.status.value if post.author.status else None,
-            content=post.content,
-            category=post.category.value if post.category else None,
-            is_urgent=post.is_urgent if post.is_urgent else False,
-            created_at=post.created_at,
-            comments=[
-                CommentResponse(
-                    id=c.id,
-                    post_id=c.post_id,
-                    author_id=c.author_id,
-                    author_name=c.author.name,
-                    author_avatar_url=c.author.avatar_url,
-                    author_status=c.author.status.value if c.author.status else None,
-                    content=c.content,
-                    created_at=c.created_at,
-                )
-                for c in post.comments
-            ]
-        ))
-    
-    return result
+    return [_to_post_response(post, current_user.id, is_saved=True) for post in posts]
 

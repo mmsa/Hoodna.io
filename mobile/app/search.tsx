@@ -8,6 +8,7 @@ import { colors } from "@/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { formatCompoundName } from "@/utils/formatCompound";
 import { useTelemetry } from "@/contexts/TelemetryContext";
+import { accessibleTextValue } from "@hoodna/shared";
 // apiClient is available from useAuth hook
 
 interface SearchResult {
@@ -335,6 +336,7 @@ export default function SearchScreen() {
             placeholder="Search posts, listings, services..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
+            accessibilityValue={accessibleTextValue(searchQuery)}
             onChangeText={setSearchQuery}
             autoFocus
           />

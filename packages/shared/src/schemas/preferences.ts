@@ -45,10 +45,16 @@ export const PublicUserProfileSchema = z.object({
   visibility: ProfileVisibilitySchema,
 });
 
+export const ACCOUNT_DELETION_CONFIRMATION = "DELETE";
+
 export const AccountDeletionRequestCreateSchema = z.object({
-  confirmation: z.literal("DELETE"),
+  confirmation: z.literal(ACCOUNT_DELETION_CONFIRMATION),
   reason: z.string().trim().max(1000).optional(),
 });
+
+export function isAccountDeletionConfirmed(value: string, deleting = false): boolean {
+  return !deleting && value === ACCOUNT_DELETION_CONFIRMATION;
+}
 
 export const AccountDeletionRequestSchema = z.object({
   id: z.number().int().positive(),

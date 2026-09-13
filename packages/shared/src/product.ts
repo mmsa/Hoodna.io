@@ -1,3 +1,12 @@
+export const GO_BACK_ACCESSIBILITY_LABEL = "Go back";
+
+export const FEATURE_DIRECTORY_COPY = {
+  marketplace:
+    "Browse items and vehicles for sale, and properties for sale or rent, inside your compound.",
+  verification:
+    "Upload one National ID or one residency/ownership contract so we can verify you live here.",
+} as const;
+
 export const LISTING_CATEGORIES = [
   { value: "ITEM", label: "Item" },
   { value: "CAR", label: "Vehicle" },

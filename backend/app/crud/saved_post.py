@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 from app.models.saved_post import SavedPost
-from app.models.post import Post
+from app.models.post import Comment, Post
 from typing import List
 
 
@@ -81,7 +81,10 @@ async def get_saved_posts(
         .options(
             selectinload(Post.author),
             selectinload(Post.compound),
-            selectinload(Post.comments).selectinload("author")
+            selectinload(Post.comments).selectinload(Comment.author),
+            selectinload(Post.reactions),
+            selectinload(Post.poll_votes),
+            with_loader_criteria(Comment, Comment.deleted_at.is_(None)),
         )
         .where(
             SavedPost.user_id == user_id,
@@ -91,7 +94,7 @@ async def get_saved_posts(
         .offset(skip)
         .limit(limit)
     )
-    
+
     result = await db.execute(query)
-    return list(result.scalars().all())
+    return list(result.unique().scalars().all())
 

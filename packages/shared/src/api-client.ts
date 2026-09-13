@@ -1206,7 +1206,20 @@ export class ApiClient {
   }
 
   async getAccountDeletionRequest(): Promise<AccountDeletionRequest | null> {
-    return this.request<AccountDeletionRequest | null>("/api/auth/me/deletion-request");
+    try {
+      return await this.request<AccountDeletionRequest | null>("/api/auth/me/deletion-request");
+    } catch (error: any) {
+      const message = String(error?.message || "");
+      if (
+        message.includes("HTTP 404") ||
+        message.includes("HTTP 405") ||
+        /not found/i.test(message) ||
+        /method not allowed/i.test(message)
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   // Rollout configuration

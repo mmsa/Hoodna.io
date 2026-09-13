@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { BusinessSummary } from "@hoodna/shared";
+import { accessibleTextValue } from "@hoodna/shared";
 import { Header } from "@/components/Header";
 import { BusinessVerificationBadge } from "@/components/business-verification-badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
@@ -46,6 +47,7 @@ export default function BusinessDirectoryScreen() {
           placeholder="Search businesses or categories"
           placeholderTextColor={colors.textMuted}
           value={query}
+          accessibilityValue={accessibleTextValue(query)}
           onChangeText={setQuery}
           style={styles.input}
         />
