@@ -23,6 +23,25 @@ test("parses UTM, referral, and known social referrers", () => {
   assert.equal(fromWa.medium, "social");
 });
 
+test("landing_path-only storage does not lock out later UTMs", () => {
+  const stored = mergeFirstTouch(null, {
+    attribution: { landing_path: "/", referrer_host: "eljiran.io" },
+  });
+  const withUtm = mergeFirstTouch(stored, {
+    attribution: {
+      source: "chatgpt_test",
+      medium: "test",
+      campaign: "growth_tracking_test",
+      content: "manual_test",
+      landing_path: "/auth/signup",
+    },
+  });
+  assert.equal(withUtm.attribution.source, "chatgpt_test");
+  assert.equal(withUtm.attribution.medium, "test");
+  assert.equal(withUtm.attribution.campaign, "growth_tracking_test");
+  assert.equal(withUtm.attribution.content, "manual_test");
+});
+
 test("first-touch merge keeps existing attribution and can fill referral", () => {
   const first = mergeFirstTouch(null, {
     attribution: { source: "facebook", campaign: "a" },

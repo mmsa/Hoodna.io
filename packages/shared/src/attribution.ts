@@ -29,6 +29,9 @@ const ATTR_KEYS = [
   "landing_path",
 ] as const;
 
+/** UTM/referral fields that lock first-touch. Path/referrer are metadata only. */
+const FIRST_TOUCH_KEYS = ["source", "medium", "campaign", "content", "term"] as const;
+
 const SAFE = /^[A-Za-z0-9_.:/-]{1,100}$/;
 
 const REFERRER_SOURCE: Record<string, { source: string; medium: string }> = {
@@ -134,7 +137,7 @@ export function parseAttributionFromSearch(
 
 export function hasAttribution(payload: AttributionPayload | null | undefined): boolean {
   if (!payload) return false;
-  return ATTR_KEYS.some((key) => Boolean(payload[key]));
+  return FIRST_TOUCH_KEYS.some((key) => Boolean(payload[key]));
 }
 
 /** First stored touch wins. Empty incoming values do not fill later. */
