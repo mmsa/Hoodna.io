@@ -77,8 +77,15 @@ function InviteNeighbours() {
       <CardHeader><CardTitle>Invite neighbours</CardTitle><CardDescription>Grow your trusted local community with a personal invite link.</CardDescription></CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg bg-secondary p-4"><p className="text-2xl font-bold">{stats.data?.invitations_sent ?? "—"}</p><p className="text-sm text-gray-600">Invites sent</p></div>
-          <div className="rounded-lg bg-green-50 p-4"><p className="text-2xl font-bold">{stats.data?.successful_registrations ?? "—"}</p><p className="text-sm text-gray-600">Joined</p></div>
+          <div className="rounded-lg bg-secondary p-4">
+            <p className="text-2xl font-bold">{stats.data?.invitations_sent ?? "—"}</p>
+            <p className="text-sm text-gray-600">Invites sent</p>
+            <p className="mt-1 text-xs text-gray-500">Completed sign-ups from your link</p>
+          </div>
+          <div className="rounded-lg bg-green-50 p-4">
+            <p className="text-2xl font-bold">{stats.data?.successful_registrations ?? "—"}</p>
+            <p className="text-sm text-gray-600">Joined</p>
+          </div>
         </div>
         {referral.isLoading ? <p role="status" className="text-sm text-gray-600">Loading invite link…</p> : referral.data ? (
           <div className="flex flex-col gap-2 sm:flex-row">

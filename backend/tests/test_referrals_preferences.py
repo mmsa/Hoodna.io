@@ -86,37 +86,21 @@ def test_referral_codes_are_unique_and_redeem_once():
 
 
 def test_production_frontend_url_rejects_vercel_preview_hosts():
-    assert (
-        resolve_public_frontend_url(
-            "production",
-            "https://eljiran.vercel.app",
-            ["https://eljiran.vercel.app", "https://eljiran.io"],
-        )
-        == "https://eljiran.io"
-    )
-    url = resolve_public_frontend_url(
-        "production",
-        "https://eljiran.vercel.app",
-        ["https://eljiran.vercel.app"],
-    )
+    from app.core.config import production_frontend_url_issue
+
+    url = resolve_public_frontend_url("production", "https://eljiran.vercel.app")
     assert url == "https://eljiran.io"
     assert "vercel.app" not in url
     assert (
-        resolve_public_frontend_url(
-            "production",
-            "https://eljiran.io",
-            ["https://eljiran.vercel.app"],
-        )
+        resolve_public_frontend_url("production", "https://eljiran.io")
         == "https://eljiran.io"
     )
     assert (
-        resolve_public_frontend_url(
-            "development",
-            "https://eljiran.vercel.app",
-            ["https://eljiran.io"],
-        )
+        resolve_public_frontend_url("development", "https://eljiran.vercel.app")
         == "https://eljiran.vercel.app"
     )
+    assert production_frontend_url_issue("https://eljiran.vercel.app")
+    assert production_frontend_url_issue("https://eljiran.io") is None
 
 
 def test_invite_url_uses_auth_signup_and_keeps_ref_and_utm():
@@ -141,6 +125,13 @@ def test_referral_stats_ignore_unused_pending_invite_from_get_or_create():
         neighbour = await add_user(db_session, "stats-neighbour@example.com")
 
         await get_or_create_referral_invite(db_session, inviter.id)
+        sent, joined = await get_referral_stats(db_session, inviter.id)
+        assert sent == 0
+        assert joined == 0
+
+        unused = await get_or_create_referral_invite(db_session, inviter.id)
+        unused.status = ReferralInviteStatus.EXPIRED
+        await db_session.flush()
         sent, joined = await get_referral_stats(db_session, inviter.id)
         assert sent == 0
         assert joined == 0

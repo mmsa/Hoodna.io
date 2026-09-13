@@ -17,7 +17,6 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 import { useTranslation } from '@/components/locale-provider'
 import { SiteFooter } from '@/components/site-footer'
-import { formatCompoundName } from '@/lib/format-compound'
 
 export default function Home() {
   const { isAuthenticated } = useAuth()
@@ -226,49 +225,6 @@ export default function Home() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </section>
-
-      <section className="px-4 py-20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-foreground md:text-4xl">{t('landing.testimonialsTitle')}</h2>
-            <p className="mt-3 text-sm text-muted-foreground">{t('landing.testimonialsDisclaimer')}</p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                title: 'Marketplace',
-                compound: formatCompoundName('New Cairo'),
-                text: 'List furniture or household items for neighbours in your compound, without an agent in the middle.',
-              },
-              {
-                title: 'Direct deals',
-                compound: formatCompoundName('6th of October'),
-                text: 'Buy and sell locally with verified neighbours. Eljiran is not a party to resident payments or delivery.',
-              },
-              {
-                title: 'Community feed',
-                compound: formatCompoundName('New Capital'),
-                text: 'Share updates, ask for help, and keep neighbourhood life organised in one place.',
-              },
-            ].map((example) => (
-              <Card key={example.title} className="eljiran-card">
-                <CardContent className="p-6">
-                  <div className="mb-4 flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                      {example.title.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{example.title}</p>
-                      <p className="text-sm text-muted-foreground">{example.compound}</p>
-                    </div>
-                  </div>
-                  <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{example.text}&rdquo;</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         </div>
       </section>
 

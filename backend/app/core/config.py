@@ -43,33 +43,30 @@ def _is_unusable_public_origin(url: str) -> bool:
     )
 
 
+def production_frontend_url_issue(frontend_url: str) -> str | None:
+    """Return a boot error when production FRONTEND_URL is not the public origin."""
+    if not _is_unusable_public_origin(frontend_url):
+        return None
+    return (
+        "FRONTEND_URL must be the canonical public origin "
+        f"{CANONICAL_PRODUCTION_FRONTEND_URL} (not empty, localhost, or a "
+        "Vercel preview host)."
+    )
+
+
 def resolve_public_frontend_url(
     environment: str,
     frontend_url: str,
-    cors_origins: List[str],
 ) -> str:
-    """Public origin for emails and invite links.
+    """Public origin for emails and invite links, derived only from FRONTEND_URL.
 
-    Production must never emit a Vercel preview host, even if FRONTEND_URL is
-    still set to eljiran.vercel.app.
+    Production never emits a Vercel preview host. CORS is not consulted.
     """
     url = (frontend_url or "").strip().rstrip("/")
     if (environment or "").strip().lower() == "production":
         if not _is_unusable_public_origin(url):
             return url
-        preferred: List[str] = []
-        fallback: List[str] = []
-        for origin in cors_origins:
-            candidate = str(origin).strip().rstrip("/")
-            if not candidate.startswith("http") or _is_unusable_public_origin(
-                candidate
-            ):
-                continue
-            if "eljiran.io" in candidate.lower():
-                preferred.append(candidate)
-            else:
-                fallback.append(candidate)
-        return (preferred or fallback or [CANONICAL_PRODUCTION_FRONTEND_URL])[0]
+        return CANONICAL_PRODUCTION_FRONTEND_URL
     return url or "http://localhost:3000"
 
 
@@ -118,7 +115,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     # Verbose SQL logging. Never enable in production (leaks bound parameters).
     SQL_ECHO: bool = False
-    FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for email links
+    FRONTEND_URL: str = "http://localhost:3000"  # Canonical public web origin for emails and invites (https://eljiran.io in production)
     # Public backend URL for local-storage upload/file links (set to LAN IP for physical devices)
     BACKEND_URL: str = "http://localhost:8000"
 
@@ -219,7 +216,6 @@ class Settings(BaseSettings):
         return resolve_public_frontend_url(
             self.ENVIRONMENT,
             self.FRONTEND_URL,
-            self.cors_origin_list,
         )
 
     @property
@@ -301,6 +297,10 @@ def validate_production_settings(config: Settings) -> None:
             "CORS_ORIGINS must not include wildcards or localhost in production: "
             f"{insecure_origins}"
         )
+
+    frontend_issue = production_frontend_url_issue(config.FRONTEND_URL)
+    if frontend_issue:
+        errors.append(frontend_issue)
 
     if errors:
         raise RuntimeError(

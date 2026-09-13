@@ -45,6 +45,17 @@ describe("canonical referral origin", () => {
   })
 })
 
+describe("homepage marketing claims", () => {
+  it("does not present named or invented resident testimonials", async () => {
+    const { readFileSync } = await import("node:fs")
+    const { resolve } = await import("node:path")
+    const source = readFileSync(resolve(__dirname, "../../app/page.tsx"), "utf8")
+    expect(source).not.toMatch(/Ahmed Mohamed|Sara Ali|Mohamed Hassan/)
+    expect(source).not.toMatch(/From real compounds/)
+    expect(source).not.toMatch(/testimonialsTitle/)
+  })
+})
+
 describe("feed composer shortcuts", () => {
   it("shows Marketplace after Sell and keeps that as the combobox value", async () => {
     render(
