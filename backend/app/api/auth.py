@@ -164,12 +164,17 @@ def _clear_phone_otp(phone_normalized: str) -> None:
         otp_storage.pop(key, None)
 
 
-def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
-    """Validate and consume a stored phone OTP, or raise HTTPException.
+def _consume_phone_otp(
+    phone_normalized: str, otp_code: str, *, consume: bool = True
+) -> None:
+    """Validate a stored phone OTP, or raise HTTPException.
 
     A 6-digit code is only safe with a hard attempt cap: without one an
     attacker who knows a phone number can enumerate the whole code space and
     take over the account.
+
+    Set consume=False to keep the code after a successful check (e.g. new
+    signup still needs a display name). Clear it once the request will complete.
     """
     import secrets
     import time
@@ -205,7 +210,8 @@ def _consume_phone_otp(phone_normalized: str, otp_code: str) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="That code is incorrect.",
         )
-    _clear_phone_otp(phone_normalized)
+    if consume:
+        _clear_phone_otp(phone_normalized)
 
 
 def _store_phone_otp(phone_normalized: str, otp_code: str) -> None:
@@ -385,7 +391,7 @@ async def phone_auth_verify(
         window_seconds=OTP_VERIFY_WINDOW_SECONDS,
     )
 
-    _consume_phone_otp(phone_normalized, request.otp_code)
+    _consume_phone_otp(phone_normalized, request.otp_code, consume=False)
 
     # Get or create user (lookup uses same country-code normalization)
     user = await get_user_by_phone(db, phone_normalized)
@@ -402,6 +408,7 @@ async def phone_auth_verify(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Name is required for new users"
             )
+        _clear_phone_otp(phone_normalized)
         try:
             user = await create_user_by_phone(db, phone_normalized, request.name)
         except ValueError as exc:
@@ -429,7 +436,9 @@ async def phone_auth_verify(
                 details={"referral_code": request.referral_code.strip()},
                 overwrite=True,
             )
-    
+    else:
+        _clear_phone_otp(phone_normalized)
+
     # Check if banned
     if user.status.value == "BANNED":
         raise HTTPException(

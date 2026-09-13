@@ -49,6 +49,35 @@ async def test_otp_verify_locks_out_after_repeated_wrong_codes(
 
 @pytest.mark.asyncio
 @pytest.mark.unit
+async def test_otp_verify_keeps_code_when_new_user_name_is_missing(
+    async_client: AsyncClient,
+):
+    """Phone OTP must still work after the UI asks for a display name."""
+    from app.api.auth import _store_phone_otp, otp_storage
+    from app.utils.phone import normalize_phone
+
+    phone = "+201009998877"
+    normalized = normalize_phone(phone)
+    _store_phone_otp(normalized, "654321")
+
+    missing_name = await async_client.post(
+        "/api/auth/verify",
+        json={"phone": phone, "otp_code": "654321"},
+    )
+    assert missing_name.status_code == 400
+    assert "name" in missing_name.json()["detail"].lower()
+    assert any(key in otp_storage for key in (normalized, phone))
+
+    created = await async_client.post(
+        "/api/auth/verify",
+        json={"phone": phone, "otp_code": "654321", "name": "New Neighbour"},
+    )
+    assert created.status_code == 200
+    assert created.json()["user"]["name"] == "New Neighbour"
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
 async def test_login_is_rate_limited_per_identifier(async_client: AsyncClient):
     """Password login must not allow unlimited guesses."""
     signup = await async_client.post(
