@@ -1,8 +1,8 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { normalizePhone } from '@hoodna/shared'
+import { maskPhone, normalizePhone } from '@hoodna/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,11 +30,23 @@ function OtpVerifyForm() {
   const { t } = useTranslation()
   const phoneParam = searchParams?.get?.('phone') || ''
   const initialOtp = searchParams?.get?.('otpCode') || ''
+  const initialWait = Number(searchParams?.get?.('resendAfter') || 60)
   const [otp, setOtp] = useState(/^\d{6}$/.test(initialOtp) ? initialOtp : '')
   const [name, setName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
+  const [signupToken, setSignupToken] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resendIn, setResendIn] = useState(Number.isFinite(initialWait) && initialWait > 0 ? initialWait : 0)
+  const maskedPhone = maskPhone(phoneParam)
+
+  useEffect(() => {
+    if (resendIn <= 0) return
+    const timer = setInterval(() => {
+      setResendIn((seconds) => (seconds > 0 ? seconds - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [resendIn])
 
   const resend = async () => {
     const normalized = normalizePhone(phoneParam)
@@ -45,8 +57,10 @@ function OtpVerifyForm() {
     setError('')
     setLoading(true)
     try {
-      await api.post('/api/auth/start', { phone: normalized })
+      const response = await api.post('/api/auth/start', { phone: normalized })
       setOtp('')
+      const wait = Number(response.data?.resend_after_seconds ?? 60)
+      setResendIn(Number.isFinite(wait) && wait > 0 ? wait : 60)
     } catch (err: any) {
       setError(otpErrorMessage(err, t))
     } finally {
@@ -62,24 +76,38 @@ function OtpVerifyForm() {
       setError(t('auth.enterPhone'))
       return
     }
-    if (!otp.trim()) {
+    if (!signupToken && !otp.trim()) {
       setError(t('auth.enterOtp'))
+      return
+    }
+    if (signupToken && name.trim().length < 2) {
+      setError(t('auth.nameRequiredForNewAccount'))
       return
     }
 
     setLoading(true)
     try {
       const firstTouch = getWebFirstTouch()
-      const response = await api.post('/api/auth/verify', {
-        phone: normalized,
-        otp_code: otp.trim(),
-        name: showNameInput ? name.trim() : undefined,
-        platform: 'web',
-        ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
-        ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
-          ? { attribution: firstTouch.attribution }
-          : {}),
-      })
+      const response = signupToken
+        ? await api.post('/api/auth/complete-signup', {
+            signup_token: signupToken,
+            name: name.trim(),
+            platform: 'web',
+            ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
+            ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+              ? { attribution: firstTouch.attribution }
+              : {}),
+          })
+        : await api.post('/api/auth/verify', {
+            phone: normalized,
+            otp_code: otp.trim(),
+            name: showNameInput ? name.trim() : undefined,
+            platform: 'web',
+            ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
+            ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+              ? { attribution: firstTouch.attribution }
+              : {}),
+          })
       const { access_token, refresh_token, user: verifiedUser } = response.data
       if (!access_token || !refresh_token || !persistAuthTokens(access_token, refresh_token)) {
         setError('Failed to store authentication token')
@@ -97,7 +125,9 @@ function OtpVerifyForm() {
       window.location.href = getPostAuthWebRoute(destUser)
     } catch (err: any) {
       const detail = String(err?.response?.data?.detail || err?.message || '')
-      if (detail.toLowerCase().includes('name is required')) {
+      const token = err?.response?.data?.signup_token
+      if (detail.toLowerCase().includes('name is required') && typeof token === 'string') {
+        setSignupToken(token)
         setShowNameInput(true)
         setError(t('auth.nameRequiredForNewAccount'))
       } else {
@@ -114,7 +144,9 @@ function OtpVerifyForm() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>{t('auth.verifyCode')}</CardTitle>
-          <CardDescription>{t('auth.otpSentTo', { phone: phoneParam || '…' })}</CardDescription>
+          <CardDescription>
+            {t('auth.otpSentTo', { phone: maskedPhone || '…' })}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -155,9 +187,11 @@ function OtpVerifyForm() {
                 type="button"
                 className="text-primary hover:underline disabled:opacity-50"
                 onClick={resend}
-                disabled={loading}
+                disabled={loading || resendIn > 0}
               >
-                {t('auth.resendCode')}
+                {resendIn > 0
+                  ? t('auth.resendIn', { seconds: resendIn })
+                  : t('auth.resendCode')}
               </button>
               <div>
                 <Link href="/auth/phone-login" className="text-gray-600 hover:underline">

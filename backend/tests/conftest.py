@@ -32,13 +32,28 @@ TestSessionLocal = async_sessionmaker(
 
 
 @pytest.fixture(scope="function", autouse=True)
-def reset_rate_limits():
-    """Rate-limit counters are process-global, so isolate them per test."""
+def reset_rate_limits(monkeypatch):
+    """Rate-limit counters are process-global, so isolate them per test.
+
+    Phone OTP stays on the local development path unless a test opts into Akedly.
+    """
+    from app.api import auth as auth_mod
     from app.core import rate_limit
+    from app.services import sms as sms_mod
 
     rate_limit.clear_all()
+    sms_mod._phone_hits.clear()
+    sms_mod._ip_hits.clear()
+    sms_mod._last_phone_send.clear()
+    auth_mod.otp_storage.clear()
+    auth_mod._used_signup_jtis.clear()
+    monkeypatch.setattr(settings, "AKEDLY_API_KEY", "")
+    monkeypatch.setattr(settings, "AKEDLY_PIPELINE_ID", "")
     yield
     rate_limit.clear_all()
+    sms_mod._phone_hits.clear()
+    sms_mod._ip_hits.clear()
+    sms_mod._last_phone_send.clear()
 
 
 @pytest.fixture(scope="function")

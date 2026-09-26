@@ -1,12 +1,14 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.auth import (
     UserSignup, UserLogin, TokenResponse, RefreshTokenRequest, 
     ForgotPasswordRequest, ResetPasswordRequest, ResetPasswordPhoneRequest,
     PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest,
+    CompletePhoneSignupRequest,
     ConfirmPhoneOtpRequest, ConfirmEmailOtpRequest,
 )
 from app.schemas.user import (
@@ -40,7 +42,7 @@ from app.crud.referral import (
     redeem_referral,
 )
 from app.crud.user import get_user_by_email, create_user, get_user_by_phone, create_user_by_phone
-from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token, create_password_reset_token, get_password_hash
+from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token, create_password_reset_token, create_signup_verification_token, get_password_hash
 from app.services.email import (
     send_password_reset_email,
     send_password_reset_confirmation_email,
@@ -102,6 +104,7 @@ async def redeem_registration_referral(
 @router.options("/reset-password-phone")
 @router.options("/start")
 @router.options("/verify")
+@router.options("/complete-signup")
 async def options_handler():
     """Handle CORS preflight requests."""
     return {"message": "OK"}
@@ -165,17 +168,38 @@ def _clear_phone_otp(phone_normalized: str) -> None:
         otp_storage.pop(key, None)
 
 
-def _consume_phone_otp(
+# Single-use ids for signup-verification tokens. In-memory, same as OTP storage.
+_used_signup_jtis: set[str] = set()
+
+
+def _consume_signup_jti(jti: str) -> bool:
+    if not jti or jti in _used_signup_jtis:
+        return False
+    _used_signup_jtis.add(jti)
+    return True
+
+
+def _reject_phone_otp_attempt(phone_normalized: str, stored_otp: dict) -> None:
+    stored_otp["attempts"] = int(stored_otp.get("attempts", 0)) + 1
+    if stored_otp["attempts"] >= OTP_MAX_VERIFY_ATTEMPTS:
+        _clear_phone_otp(phone_normalized)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect codes. Request a new one.",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="That code is incorrect.",
+    )
+
+
+async def _consume_phone_otp(
     phone_normalized: str, otp_code: str, *, consume: bool = True
 ) -> None:
-    """Validate a stored phone OTP, or raise HTTPException.
+    """Validate a phone OTP, or raise HTTPException.
 
-    A 6-digit code is only safe with a hard attempt cap: without one an
-    attacker who knows a phone number can enumerate the whole code space and
-    take over the account.
-
-    Set consume=False to keep the code after a successful check (e.g. new
-    signup still needs a display name). Clear it once the request will complete.
+    When Akedly issued the code, Akedly checks it. A local plaintext code is
+    used only for development and tests, when no provider is configured.
     """
     import secrets
     import time
@@ -199,18 +223,53 @@ def _consume_phone_otp(
             detail="That code has expired. Request a new one.",
         )
 
-    if not secrets.compare_digest(str(stored_otp["otp"]), (otp_code or "").strip()):
-        stored_otp["attempts"] = int(stored_otp.get("attempts", 0)) + 1
-        if stored_otp["attempts"] >= OTP_MAX_VERIFY_ATTEMPTS:
+    transaction_req_id = stored_otp.get("transaction_req_id")
+    if transaction_req_id:
+        from app.services.akedly import (
+            AkedlyDeliveryError,
+            AkedlyOtpExpired,
+            AkedlyOtpIncorrect,
+            AkedlyOtpLocked,
+            verify_phone_otp,
+        )
+
+        try:
+            await verify_phone_otp(str(transaction_req_id), otp_code)
+        except AkedlyOtpIncorrect:
+            _reject_phone_otp_attempt(phone_normalized, stored_otp)
+        except AkedlyOtpLocked:
             _clear_phone_otp(phone_normalized)
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many incorrect codes. Request a new one.",
             )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="That code is incorrect.",
-        )
+        except AkedlyOtpExpired:
+            _clear_phone_otp(phone_normalized)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="That code has expired. Request a new one.",
+            )
+        except AkedlyDeliveryError as exc:
+            logger.error(
+                "otp_verify_provider_failed",
+                extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not verify the code. Please try again.",
+            ) from exc
+        if consume:
+            _clear_phone_otp(phone_normalized)
+        return
+
+    submitted = (otp_code or "").strip()
+    stored_code = str(stored_otp.get("otp") or "")
+    if (
+        "otp" not in stored_otp
+        or len(submitted) != len(stored_code)
+        or not secrets.compare_digest(stored_code, submitted)
+    ):
+        _reject_phone_otp_attempt(phone_normalized, stored_otp)
     if consume:
         _clear_phone_otp(phone_normalized)
 
@@ -221,6 +280,109 @@ def _store_phone_otp(phone_normalized: str, otp_code: str) -> None:
     payload = {"otp": otp_code, "expires_at": time.time() + 600, "attempts": 0}
     for key in _otp_keys(phone_normalized):
         otp_storage[key] = payload
+
+
+def _store_akedly_otp(
+    phone_normalized: str, transaction_req_id: str, expires_at: float
+) -> None:
+    payload = {
+        "transaction_req_id": transaction_req_id,
+        "expires_at": expires_at,
+        "attempts": 0,
+    }
+    for key in _otp_keys(phone_normalized):
+        otp_storage[key] = payload
+
+
+def _resend_after_seconds() -> int:
+    return max(0, int(settings.OTP_RESEND_COOLDOWN_SECONDS or 0))
+
+
+async def _issue_phone_otp(
+    phone_normalized: str,
+    client_ip: str | None,
+    *,
+    required: bool,
+) -> tuple[bool, str | None]:
+    """Issue a phone verification code.
+
+    Returns (sent, dev_code). dev_code is set only when no provider is
+    configured and the environment is development. Akedly is the source of
+    truth whenever it is configured, so the plaintext code is not stored.
+    """
+    from app.services.akedly import (
+        AkedlyDeliveryError,
+        AkedlyRateLimitError,
+        akedly_configured,
+        request_phone_otp,
+    )
+    from app.services.sms import (
+        OtpRateLimitError,
+        check_otp_rate_limits,
+        check_otp_resend_cooldown,
+        mark_otp_sent,
+    )
+
+    try:
+        check_otp_resend_cooldown(phone_normalized)
+        check_otp_rate_limits(phone=phone_normalized, client_ip=client_ip)
+    except OtpRateLimitError as exc:
+        if required:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(exc),
+            ) from exc
+        logger.warning(
+            "phone_otp_rate_limited",
+            extra={"phone_suffix": phone_normalized[-4:]},
+        )
+        return False, None
+
+    if akedly_configured():
+        try:
+            transaction_req_id, expires_at = await request_phone_otp(
+                phone_normalized, client_ip
+            )
+        except AkedlyRateLimitError as exc:
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many verification codes requested. Try again later.",
+                ) from exc
+            logger.warning(
+                "phone_otp_provider_rate_limited",
+                extra={"phone_suffix": phone_normalized[-4:]},
+            )
+            return False, None
+        except AkedlyDeliveryError as exc:
+            logger.error(
+                "otp_delivery_failed",
+                extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
+            )
+            if required:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Could not send verification code. Please try again.",
+                ) from exc
+            return False, None
+        _store_akedly_otp(phone_normalized, transaction_req_id, expires_at)
+        mark_otp_sent(phone_normalized)
+        return True, None
+
+    if settings.ENVIRONMENT == "development":
+        otp_code = generate_otp()
+        _store_phone_otp(phone_normalized, otp_code)
+        mark_otp_sent(phone_normalized)
+        logger.info("phone_dev_otp phone=...%s code=%s", phone_normalized[-4:], otp_code)
+        return True, otp_code
+
+    logger.error("otp_delivery_not_configured")
+    if required:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Verification codes are temporarily unavailable. Please try again later.",
+        )
+    return False, None
 
 
 def _store_email_otp(email: str, otp_code: str, user_id: int | None = None) -> None:
@@ -292,15 +454,8 @@ async def phone_auth_start(
     http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Start phone authentication by sending OTP (SMS.to / Twilio / WhatsApp)."""
+    """Start phone authentication by sending a verification code."""
     from app.utils.phone import normalize_phone
-    from app.services.sms import (
-        OtpRateLimitError,
-        SmsDeliveryError,
-        check_otp_rate_limits,
-        send_otp_sms,
-        sms_delivery_configured,
-    )
 
     phone_normalized = normalize_phone(request.phone)
     if not phone_normalized:
@@ -316,50 +471,13 @@ async def phone_auth_start(
     if forwarded:
         client_ip = forwarded.split(",")[0].strip() or client_ip
 
-    try:
-        check_otp_rate_limits(phone=phone_normalized, client_ip=client_ip)
-    except OtpRateLimitError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(exc),
-        ) from exc
-
-    # Generate OTP
-    otp_code = generate_otp()
-
-    # Store OTP (expires in 10 minutes)
-    _store_phone_otp(phone_normalized, otp_code)
-
-    sms_configured = sms_delivery_configured()
-    if sms_configured:
-        try:
-            await send_otp_sms(phone_normalized, otp_code)
-        except SmsDeliveryError as exc:
-            # Drop stored OTP so a failed send cannot be guessed from a prior race
-            _clear_phone_otp(phone_normalized)
-            logger.error(
-                "otp_sms_delivery_failed",
-                extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
-            )
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not send verification code. Please try again.",
-            ) from exc
-        # Never return otp_code when a production OTP channel was used
-        return PhoneAuthStartResponse(message="OTP sent successfully")
-
-    # Local engineering only: expose code when OTP channel is not configured
-    if settings.ENVIRONMENT == "development":
-        return PhoneAuthStartResponse(
-            message="OTP sent successfully (dev — SMS not configured)",
-            otp_code=otp_code,
-        )
-
-    _clear_phone_otp(phone_normalized)
-    logger.error("otp_delivery_not_configured")
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Verification codes are temporarily unavailable. Please try again later.",
+    _sent, dev_code = await _issue_phone_otp(
+        phone_normalized, client_ip, required=True
+    )
+    return PhoneAuthStartResponse(
+        message="OTP sent successfully",
+        otp_code=dev_code,
+        resend_after_seconds=_resend_after_seconds(),
     )
 
 
@@ -392,9 +510,8 @@ async def phone_auth_verify(
         window_seconds=OTP_VERIFY_WINDOW_SECONDS,
     )
 
-    _consume_phone_otp(phone_normalized, request.otp_code, consume=False)
+    await _consume_phone_otp(phone_normalized, request.otp_code, consume=True)
 
-    # Get or create user (lookup uses same country-code normalization)
     user = await get_user_by_phone(db, phone_normalized)
     if not user:
         if not await is_feature_enabled(
@@ -404,54 +521,72 @@ async def phone_auth_verify(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User registration is currently unavailable",
             )
-        if not request.name:
-            raise HTTPException(
+        if not (request.name or "").strip() or len(request.name.strip()) < 2:
+            signup_token = create_signup_verification_token(phone_normalized)
+            return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Name is required for new users"
+                content={
+                    "detail": "Name is required for new users",
+                    "signup_token": signup_token,
+                },
             )
-        _clear_phone_otp(phone_normalized)
-        try:
-            user = await create_user_by_phone(db, phone_normalized, request.name)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc) or "Invalid phone number",
-            ) from exc
-        from app.services.growth import apply_first_touch_attribution
-
-        apply_first_touch_attribution(
-            user,
+        user = await _create_phone_auth_user(
+            db,
+            phone_normalized,
+            request.name.strip(),
             attribution=request.attribution.model_dump() if request.attribution else None,
             platform=request.platform,
             referral_code=request.referral_code,
         )
-        if request.referral_code:
-            await redeem_registration_referral(
-                db, request.referral_code.strip(), user.id
-            )
-            from app.services.user_creation import apply_creation_provenance
+    return await _issue_phone_session(db, user)
 
-            apply_creation_provenance(
-                user,
-                source="PHONE_AUTH",
-                details={"referral_code": request.referral_code.strip()},
-                overwrite=True,
-            )
-    else:
-        _clear_phone_otp(phone_normalized)
 
-    # Check if banned
+async def _create_phone_auth_user(
+    db: AsyncSession,
+    phone_normalized: str,
+    name: str,
+    *,
+    attribution: dict | None,
+    platform: str | None,
+    referral_code: str | None,
+) -> User:
+    try:
+        user = await create_user_by_phone(db, phone_normalized, name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc) or "Invalid phone number",
+        ) from exc
+    from app.services.growth import apply_first_touch_attribution
+
+    apply_first_touch_attribution(
+        user,
+        attribution=attribution,
+        platform=platform,
+        referral_code=referral_code,
+    )
+    if referral_code:
+        await redeem_registration_referral(db, referral_code.strip(), user.id)
+        from app.services.user_creation import apply_creation_provenance
+
+        apply_creation_provenance(
+            user,
+            source="PHONE_AUTH",
+            details={"referral_code": referral_code.strip()},
+            overwrite=True,
+        )
+    return user
+
+
+async def _issue_phone_session(db: AsyncSession, user: User) -> TokenResponse:
     if user.status.value == "BANNED":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is banned"
+            detail="User is banned",
         )
 
-    # Phone OTP is the contact proof for this number.
     user.phone_verified = True
 
-    # Imported neighbours: proving the WhatsApp phone confirms the compound invite
-    # so they are not sent to document verification / an empty "under review" loop.
     from app.services.chat_import_publish import (
         confirm_all_pending_chat_import_memberships,
     )
@@ -466,12 +601,94 @@ async def phone_auth_verify(
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
     user_payload = await get_current_user_info(user, db)
-
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         user=user_payload,
     )
+
+
+_SIGNUP_TOKEN_INVALID = "That signup step is no longer valid. Request a new code."
+
+
+@router.post("/complete-signup", response_model=TokenResponse)
+async def complete_phone_signup(
+    body: CompletePhoneSignupRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create an account after OTP verification, using the signup token."""
+    from app.utils.phone import normalize_phone
+
+    payload = decode_token(body.signup_token.strip())
+    phone = payload.get("phone") if isinstance(payload, dict) else None
+    normalized = normalize_phone(phone) if isinstance(phone, str) else None
+    jti = payload.get("jti") if isinstance(payload, dict) else None
+    if (
+        not isinstance(payload, dict)
+        or payload.get("purpose") != "complete_signup"
+        or payload.get("phone_verified") is not True
+        or payload.get("type") != "signup_verification"
+        or not normalized
+        or normalized != phone
+        or not isinstance(jti, str)
+        or not jti
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_SIGNUP_TOKEN_INVALID,
+        )
+
+    name = body.name.strip()
+    if len(name) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name is required for new users",
+        )
+
+    rate_limit.enforce(
+        "otp_verify_ip",
+        rate_limit.client_ip(http_request),
+        limit=OTP_VERIFY_LIMIT_PER_IP,
+        window_seconds=OTP_VERIFY_WINDOW_SECONDS,
+    )
+    rate_limit.enforce(
+        "otp_verify_phone",
+        normalized,
+        limit=OTP_VERIFY_LIMIT_PER_PHONE,
+        window_seconds=OTP_VERIFY_WINDOW_SECONDS,
+    )
+
+    if not await is_feature_enabled(
+        db, "user_registration", anonymous_id=f"phone:{normalized}"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User registration is currently unavailable",
+        )
+
+    if await get_user_by_phone(db, normalized):
+        _consume_signup_jti(jti)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_SIGNUP_TOKEN_INVALID,
+        )
+
+    if not _consume_signup_jti(jti):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_SIGNUP_TOKEN_INVALID,
+        )
+
+    user = await _create_phone_auth_user(
+        db,
+        normalized,
+        name,
+        attribution=body.attribution.model_dump() if body.attribution else None,
+        platform=body.platform,
+        referral_code=body.referral_code,
+    )
+    return await _issue_phone_session(db, user)
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -580,28 +797,9 @@ async def signup(
             db, user_data.referral_code.strip(), user.id
         )
 
-    # Send phone OTP (required before onboarding)
-    from app.services.sms import (
-        OtpRateLimitError,
-        SmsDeliveryError,
-        check_otp_rate_limits,
-        send_otp_sms,
-        sms_delivery_configured,
-    )
-    otp_code = generate_otp()
-    _store_phone_otp(phone_normalized, otp_code)
-    if sms_delivery_configured():
-        try:
-            check_otp_rate_limits(phone=phone_normalized, client_ip=None)
-            await send_otp_sms(phone_normalized, otp_code)
-        except (SmsDeliveryError, OtpRateLimitError) as exc:
-            logger.warning(
-                "signup_otp_send_failed",
-                extra={"phone_suffix": phone_normalized[-4:], "error": str(exc)},
-            )
-            # Account exists; user can resend from verify-contact screen
-    elif settings.ENVIRONMENT == "development":
-        logger.info("signup_dev_otp phone=...%s code=%s", phone_normalized[-4:], otp_code)
+    # Send phone OTP (required before onboarding). A delivery failure does not
+    # roll back the account; the user can request another code.
+    await _issue_phone_otp(phone_normalized, client_ip=None, required=False)
 
     email_otp_code = None
     if has_real_email:
@@ -740,7 +938,7 @@ async def confirm_signup_phone(
             detail="No phone number on this account",
         )
 
-    _consume_phone_otp(phone_normalized, body.otp_code)
+    await _consume_phone_otp(phone_normalized, body.otp_code)
     current_user.phone_verified = True
     await db.flush()
     return {"message": "Phone verified", "phone_verified": True}
@@ -774,13 +972,6 @@ async def resend_contact_otp(
 ):
     """Resend phone and/or email verification codes for the logged-in user."""
     from app.utils.phone import normalize_phone
-    from app.services.sms import (
-        OtpRateLimitError,
-        SmsDeliveryError,
-        check_otp_rate_limits,
-        send_otp_sms,
-        sms_delivery_configured,
-    )
 
     result: dict = {"phone_sent": False, "email_sent": False}
 
@@ -788,21 +979,15 @@ async def resend_contact_otp(
         phone_normalized = normalize_phone(current_user.phone)
         if phone_normalized:
             client_ip = request.client.host if request.client else None
-            otp_code = generate_otp()
-            _store_phone_otp(phone_normalized, otp_code)
-            if sms_delivery_configured():
-                try:
-                    check_otp_rate_limits(phone=phone_normalized, client_ip=client_ip)
-                    await send_otp_sms(phone_normalized, otp_code)
-                    result["phone_sent"] = True
-                except (SmsDeliveryError, OtpRateLimitError) as exc:
-                    raise HTTPException(
-                        status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail=str(exc) or "Could not send verification code",
-                    ) from exc
-            elif settings.ENVIRONMENT == "development":
-                result["phone_sent"] = True
-                result["dev_phone_otp"] = otp_code
+            forwarded = request.headers.get("x-forwarded-for")
+            if forwarded:
+                client_ip = forwarded.split(",")[0].strip() or client_ip
+            sent, dev_code = await _issue_phone_otp(
+                phone_normalized, client_ip, required=True
+            )
+            result["phone_sent"] = sent
+            if dev_code:
+                result["dev_phone_otp"] = dev_code
 
     if (
         not getattr(current_user, "email_verified", False)
@@ -1739,7 +1924,7 @@ async def reset_password_phone(
         window_seconds=OTP_VERIFY_WINDOW_SECONDS,
     )
 
-    _consume_phone_otp(phone_normalized, request.otp_code)
+    await _consume_phone_otp(phone_normalized, request.otp_code)
 
     user = await get_user_by_phone(db, phone_normalized)
     if not user:

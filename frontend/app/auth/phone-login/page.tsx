@@ -47,6 +47,10 @@ export default function PhoneLoginPage() {
       if (otpCode && /^\d{6}$/.test(otpCode)) {
         params.set('otpCode', otpCode)
       }
+      const resendAfter = Number(response.data?.resend_after_seconds)
+      if (Number.isFinite(resendAfter) && resendAfter >= 0) {
+        params.set('resendAfter', String(resendAfter))
+      }
       router.push(`/auth/otp-verify?${params.toString()}`)
     } catch (err: any) {
       setError(otpErrorMessage(err, t))

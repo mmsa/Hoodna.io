@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Alert, Platform, View, Text, TextInput, TouchableOpacity } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { normalizePhone } from "@hoodna/shared";
+import { maskPhone, normalizePhone } from "@hoodna/shared";
 import { getMobileFirstTouch } from "@/lib/attribution";
 import { clearPendingReferralCode } from "@/lib/referral";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +20,9 @@ export default function OTPVerifyScreen() {
   const [otp, setOtp] = useState(initialOtp);
   const [name, setName] = useState("");
   const [showNameInput, setShowNameInput] = useState(false);
+  const [signupToken, setSignupToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(60);
   const { apiClient, login, user } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
@@ -32,6 +34,14 @@ export default function OTPVerifyScreen() {
       router.replace(getPostAuthRoute(user) as any);
     }
   }, [user, router]);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setInterval(() => {
+      setResendIn((seconds) => (seconds > 0 ? seconds - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendIn]);
 
   async function handleResend() {
     if (!phone) {
@@ -46,9 +56,10 @@ export default function OTPVerifyScreen() {
 
     setLoading(true);
     try {
-      await apiClient.phoneAuthStart({ phone: normalizedPhone });
+      const response = await apiClient.phoneAuthStart({ phone: normalizedPhone });
       setOtp("");
-      Alert.alert(t("common.success"), t("auth.resendCode"));
+      const wait = Number(response?.resend_after_seconds ?? 60);
+      setResendIn(Number.isFinite(wait) && wait > 0 ? wait : 60);
     } catch (error: any) {
       const message = String(error?.message || "");
       const lower = message.toLowerCase();
@@ -71,8 +82,12 @@ export default function OTPVerifyScreen() {
   }
 
   async function handleVerify() {
-    if (!otp.trim()) {
+    if (!signupToken && !otp.trim()) {
       Alert.alert(t("common.error"), t("auth.enterOtp"));
+      return;
+    }
+    if (signupToken && name.trim().length < 2) {
+      Alert.alert(t("common.error"), t("auth.nameRequiredForNewAccount"));
       return;
     }
 
@@ -90,23 +105,35 @@ export default function OTPVerifyScreen() {
     setLoading(true);
     try {
       const firstTouch = await getMobileFirstTouch();
-      const response = await apiClient.phoneAuthVerify({
-        phone: normalizedPhone,
-        otp_code: otp.trim(),
-        name: showNameInput ? name.trim() : undefined,
-        platform: Platform.OS === "android" ? "android" : "ios",
-        ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
-        ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
-          ? { attribution: firstTouch.attribution }
-          : {}),
-      });
+      const response = signupToken
+        ? await apiClient.completePhoneSignup({
+            signup_token: signupToken,
+            name: name.trim(),
+            platform: Platform.OS === "android" ? "android" : "ios",
+            ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
+            ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+              ? { attribution: firstTouch.attribution }
+              : {}),
+          })
+        : await apiClient.phoneAuthVerify({
+            phone: normalizedPhone,
+            otp_code: otp.trim(),
+            name: showNameInput ? name.trim() : undefined,
+            platform: Platform.OS === "android" ? "android" : "ios",
+            ...(firstTouch?.referralCode ? { referral_code: firstTouch.referralCode } : {}),
+            ...(firstTouch?.attribution && Object.keys(firstTouch.attribution).length
+              ? { attribution: firstTouch.attribution }
+              : {}),
+          });
       if (firstTouch?.referralCode) await clearPendingReferralCode();
 
       // login() already calls getMe() and sets the user
       // Navigation will happen automatically via useEffect when user state updates
       await login(response.access_token, response.refresh_token);
     } catch (error: any) {
-      if (error.message?.includes("Name is required")) {
+      const token = error?.signupToken;
+      if (error.message?.includes("Name is required") && typeof token === "string") {
+        setSignupToken(token);
         setShowNameInput(true);
         setTimeout(() => nameInputRef.current?.focus(), 100);
       } else {
@@ -145,7 +172,7 @@ export default function OTPVerifyScreen() {
           {t("auth.enterOtp")}
         </Text>
       <Text style={{ fontSize: 16, color: '#6C757D', marginBottom: 32 }}>
-        {t("auth.otpSentTo", { phone: phone || "…" })}
+        {t("auth.otpSentTo", { phone: maskPhone(phone) || "…" })}
       </Text>
 
       {showNameInput && (
@@ -214,13 +241,13 @@ export default function OTPVerifyScreen() {
         style={{
           paddingVertical: 12,
           alignItems: 'center',
-          opacity: loading ? 0.6 : 1,
+          opacity: loading || resendIn > 0 ? 0.6 : 1,
         }}
         onPress={handleResend}
-        disabled={loading}
+        disabled={loading || resendIn > 0}
       >
         <Text style={{ color: '#158074', fontSize: 14, fontWeight: '500' }}>
-          {t("auth.resendCode")}
+          {resendIn > 0 ? t("auth.resendIn", { seconds: resendIn }) : t("auth.resendCode")}
         </Text>
       </TouchableOpacity>
       </View>

@@ -40,3 +40,28 @@ export function formatPhoneDisplay(phone: string | null | undefined): string | n
   if (!normalized) return phone ?? null;
   return `+${normalized}`;
 }
+
+const THREE_DIGIT_CALLING_CODES = [
+  "212", "213", "216", "218",
+  "353", "354", "358",
+  "370", "371", "372", "373", "374", "375", "376", "380", "381", "382", "385", "386", "387", "389",
+  "420", "421", "423",
+  "960", "961", "962", "963", "964", "965", "966", "967", "968", "970", "971", "972", "973", "974", "975", "976", "977",
+  "992", "993", "994", "995", "996", "998",
+];
+
+/** Mask a phone for display, e.g. +44••••1234. */
+export function maskPhone(phone: string | null | undefined): string {
+  const digits = (normalizePhone(phone) ?? String(phone ?? "").replace(/[^\d]/g, "")).replace(
+    /[^\d]/g,
+    "",
+  );
+  if (!digits) return "";
+  if (digits.length < 6) return `+${digits}`;
+  const last4 = digits.slice(-4);
+  let prefixLen = 2;
+  if (digits.startsWith("1") && digits.length === 11) prefixLen = 1;
+  else if (THREE_DIGIT_CALLING_CODES.some((code) => digits.startsWith(code))) prefixLen = 3;
+  prefixLen = Math.min(prefixLen, digits.length - 4);
+  return `+${digits.slice(0, prefixLen)}••••${last4}`;
+}

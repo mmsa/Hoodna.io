@@ -67,6 +67,22 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
+def create_signup_verification_token(phone: str) -> str:
+    """Short-lived proof that this phone passed OTP, usable only to finish signup."""
+    import secrets
+
+    expire = datetime.utcnow() + timedelta(minutes=10)
+    to_encode = {
+        "phone": phone,
+        "phone_verified": True,
+        "purpose": "complete_signup",
+        "jti": secrets.token_urlsafe(18),
+        "exp": expire,
+        "type": "signup_verification",
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def create_password_reset_token(data: dict) -> str:
     """Create a JWT password reset token (expires in 1 hour)."""
     to_encode = data.copy()

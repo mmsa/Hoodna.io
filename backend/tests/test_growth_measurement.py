@@ -32,11 +32,11 @@ async def _user_by_email(db_session, email: str) -> User:
 def _disable_otp_delivery(monkeypatch):
     """Signup may generate OTP codes locally; providers must not be called."""
 
-    def _sms_must_not_send(*_args, **_kwargs):
-        raise AssertionError("SMS OTP must not be sent")
+    async def _provider_must_not_send(*_args, **_kwargs):
+        raise AssertionError("Phone OTP provider must not be called")
 
-    monkeypatch.setattr("app.services.sms.sms_delivery_configured", lambda: False)
-    monkeypatch.setattr("app.services.sms.send_otp_sms", _sms_must_not_send)
+    monkeypatch.setattr("app.services.akedly.akedly_configured", lambda: False)
+    monkeypatch.setattr("app.services.akedly.request_phone_otp", _provider_must_not_send)
     monkeypatch.setattr("app.api.auth.send_email_verification_email", lambda *_a, **_k: False)
 
 

@@ -135,20 +135,14 @@ class Settings(BaseSettings):
     # OpenAI (for LLM verification)
     OPENAI_API_KEY: str = ""  # Set in .env for LLM-powered verification
 
-    # Phone OTP. SMS_PROVIDER=smsto|twilio|whatsapp|none
-    SMS_PROVIDER: str = "none"
-    SMSTO_API_KEY: str = ""
-    SMSTO_SENDER_ID: str = "Eljiran"  # Max 11 chars alphanumeric where allowed
-    TWILIO_ACCOUNT_SID: str = ""
-    TWILIO_AUTH_TOKEN: str = ""
-    TWILIO_FROM_NUMBER: str = ""  # E.164 sender, e.g. +1...
-    WHATSAPP_TOKEN: str = ""  # Permanent Cloud API access token
-    WHATSAPP_PHONE_NUMBER_ID: str = ""  # From Meta WhatsApp > API Setup
-    WHATSAPP_OTP_TEMPLATE: str = "eljiran_auth_otp"  # Approved AUTHENTICATION template name
-    WHATSAPP_OTP_TEMPLATE_LANG: str = "en_US"
-    WHATSAPP_GRAPH_VERSION: str = "v21.0"
+    # Phone OTP via Akedly (server-side only). WhatsApp is requested when the
+    # pipeline allows a channel choice; otherwise Akedly's pipeline routing applies.
+    AKEDLY_API_KEY: str = ""
+    AKEDLY_PIPELINE_ID: str = ""
+    AKEDLY_API_BASE: str = "https://api.akedly.io/api/v1.2"
     OTP_MAX_PER_PHONE_PER_HOUR: int = 5
     OTP_MAX_PER_IP_PER_HOUR: int = 20
+    OTP_RESEND_COOLDOWN_SECONDS: int = 60
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -158,38 +152,8 @@ class Settings(BaseSettings):
         return v
 
     @property
-    def sms_provider(self) -> str:
-        return (self.SMS_PROVIDER or "none").strip().lower()
-
-    @property
-    def smsto_configured(self) -> bool:
-        return bool(self.sms_provider == "smsto" and self.SMSTO_API_KEY.strip())
-
-    @property
-    def twilio_configured(self) -> bool:
-        return bool(
-            self.sms_provider == "twilio"
-            and self.TWILIO_ACCOUNT_SID.strip()
-            and self.TWILIO_AUTH_TOKEN.strip()
-            and self.TWILIO_FROM_NUMBER.strip()
-        )
-
-    @property
-    def whatsapp_configured(self) -> bool:
-        return bool(
-            self.sms_provider == "whatsapp"
-            and self.WHATSAPP_TOKEN.strip()
-            and self.WHATSAPP_PHONE_NUMBER_ID.strip()
-            and self.WHATSAPP_OTP_TEMPLATE.strip()
-        )
-
-    @property
-    def otp_delivery_configured(self) -> bool:
-        return (
-            self.smsto_configured
-            or self.twilio_configured
-            or self.whatsapp_configured
-        )
+    def akedly_configured(self) -> bool:
+        return bool(self.AKEDLY_API_KEY.strip() and self.AKEDLY_PIPELINE_ID.strip())
 
     @property
     def cors_origin_list(self) -> List[str]:

@@ -54,26 +54,16 @@ services:
         value: Eljiran
       - key: OPENAI_API_KEY
         sync: false
-      - key: SMS_PROVIDER
-        value: "none"
-      - key: SMSTO_API_KEY
+      - key: AKEDLY_API_KEY
         sync: false
-      - key: SMSTO_SENDER_ID
-        value: "Eljiran"
-      - key: TWILIO_ACCOUNT_SID
+      - key: AKEDLY_PIPELINE_ID
         sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_FROM_NUMBER
-        sync: false
-      - key: WHATSAPP_TOKEN
-        sync: false
-      - key: WHATSAPP_PHONE_NUMBER_ID
-        sync: false
-      - key: WHATSAPP_OTP_TEMPLATE
-        value: "eljiran_auth_otp"
-      - key: WHATSAPP_OTP_TEMPLATE_LANG
-        value: "en_US"
+      - key: OTP_MAX_PER_PHONE_PER_HOUR
+        value: "5"
+      - key: OTP_MAX_PER_IP_PER_HOUR
+        value: "20"
+      - key: OTP_RESEND_COOLDOWN_SECONDS
+        value: "60"
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

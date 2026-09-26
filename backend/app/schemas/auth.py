@@ -110,13 +110,24 @@ class PhoneAuthStartRequest(BaseModel):
 
 class PhoneAuthStartResponse(BaseModel):
     message: str
-    otp_code: Optional[str] = None  # Only in dev/staging
+    otp_code: Optional[str] = None  # Only when no provider is configured in development
+    resend_after_seconds: int = 60
 
 
 class PhoneAuthVerifyRequest(BaseModel):
     phone: str = Field(..., min_length=7, max_length=32)
     otp_code: str = Field(..., min_length=4, max_length=12)
     name: Optional[str] = Field(default=None, max_length=80)  # Required for new users
+    referral_code: Optional[str] = Field(
+        default=None, min_length=4, max_length=64
+    )
+    platform: Optional[Literal["web", "ios", "android"]] = None
+    attribution: Optional[AttributionIn] = None
+
+
+class CompletePhoneSignupRequest(BaseModel):
+    signup_token: str = Field(..., min_length=20, max_length=4096)
+    name: str = Field(..., min_length=2, max_length=80)
     referral_code: Optional[str] = Field(
         default=None, min_length=4, max_length=64
     )

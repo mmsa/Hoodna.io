@@ -124,7 +124,12 @@ export class ApiClient {
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: response.statusText }));
         const errorMessage = (error as { detail?: string }).detail || `HTTP ${response.status}`;
-        throw new Error(errorMessage);
+        const failure = new Error(errorMessage) as Error & { signupToken?: string };
+        const signupToken = (error as { signup_token?: unknown }).signup_token;
+        if (typeof signupToken === "string") {
+          failure.signupToken = signupToken;
+        }
+        throw failure;
       }
 
       return response.json() as Promise<T>;
@@ -201,6 +206,19 @@ export class ApiClient {
 
   async phoneAuthVerify(data: PhoneAuthVerifyRequest): Promise<TokenResponse> {
     return this.request<TokenResponse>("/api/auth/verify", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async completePhoneSignup(data: {
+    signup_token: string;
+    name: string;
+    referral_code?: string;
+    platform?: "web" | "ios" | "android";
+    attribution?: PhoneAuthVerifyRequest["attribution"];
+  }): Promise<TokenResponse> {
+    return this.request<TokenResponse>("/api/auth/complete-signup", {
       method: "POST",
       body: JSON.stringify(data),
     });

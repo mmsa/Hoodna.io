@@ -26,6 +26,7 @@ export const PhoneAuthStartRequestSchema = z.object({
 export const PhoneAuthStartResponseSchema = z.object({
   message: z.string(),
   otp_code: z.string().optional(),
+  resend_after_seconds: z.number().int().nonnegative().optional(),
 });
 
 export const RegistrationPlatformSchema = z.enum(["web", "ios", "android"]);

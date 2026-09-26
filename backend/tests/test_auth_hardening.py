@@ -49,10 +49,10 @@ async def test_otp_verify_locks_out_after_repeated_wrong_codes(
 
 @pytest.mark.asyncio
 @pytest.mark.unit
-async def test_otp_verify_keeps_code_when_new_user_name_is_missing(
+async def test_signup_verification_token_finishes_new_user_without_resending_otp(
     async_client: AsyncClient,
 ):
-    """Phone OTP must still work after the UI asks for a display name."""
+    """A valid phone OTP asks for a name once, then the signup token finishes the account."""
     from app.api.auth import _store_phone_otp, otp_storage
     from app.utils.phone import normalize_phone
 
@@ -65,15 +65,23 @@ async def test_otp_verify_keeps_code_when_new_user_name_is_missing(
         json={"phone": phone, "otp_code": "654321"},
     )
     assert missing_name.status_code == 400
-    assert "name" in missing_name.json()["detail"].lower()
-    assert any(key in otp_storage for key in (normalized, phone))
+    assert missing_name.json()["detail"] == "Name is required for new users"
+    signup_token = missing_name.json()["signup_token"]
+    assert normalized not in otp_storage
 
     created = await async_client.post(
-        "/api/auth/verify",
-        json={"phone": phone, "otp_code": "654321", "name": "New Neighbour"},
+        "/api/auth/complete-signup",
+        json={"signup_token": signup_token, "name": "New Neighbour"},
     )
     assert created.status_code == 200
     assert created.json()["user"]["name"] == "New Neighbour"
+    assert created.json()["user"]["phone_verified"] is True
+
+    replay = await async_client.post(
+        "/api/auth/complete-signup",
+        json={"signup_token": signup_token, "name": "New Neighbour"},
+    )
+    assert replay.status_code == 400
 
 
 @pytest.mark.asyncio

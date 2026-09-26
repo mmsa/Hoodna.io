@@ -55,33 +55,23 @@ Optional but recommended for uploads/email:
 - `OPENAI_API_KEY`
 - Stripe keys if you use promotions
 
-### Phone OTP via SMS.to
+### Phone OTP via Akedly
 
-Production `/api/auth/start` sends an English SMS OTP through [SMS.to](https://sms.to/) (~€0.185/SMS to Egypt). Without these vars, production returns **503**. Twilio and WhatsApp remain supported as alternate `SMS_PROVIDER` values.
+Production `/api/auth/start` asks [Akedly](https://docs.akedly.io/authentication/v1-2) to send a verification code, preferring WhatsApp. The API validates the code with Akedly. Without these vars, production returns **503**.
 
-1. Create an [SMS.to](https://sms.to/) account and top up credit  
-2. Dashboard → **API Clients** → generate an **API key**  
-3. Send a manual test to your Egyptian number to confirm delivery  
-4. Set on Render `eljiran-api`:
+1. Create an Akedly pipeline on API version V1.2 and leave Cloudflare Turnstile off (the API solves proof-of-work on the server).
+2. Copy the API key and pipeline ID from the Akedly dashboard.
+3. Set them on Render `eljiran-api` only. Never put them in the web or mobile app.
 
 | Key | Value |
 |-----|--------|
-| `SMS_PROVIDER` | `smsto` |
-| `SMSTO_API_KEY` | from SMS.to API Clients |
-| `SMSTO_SENDER_ID` | optional, default `Eljiran` (max 11 chars; may be rewritten in Egypt) |
+| `AKEDLY_API_KEY` | Account & Billing → API Keys |
+| `AKEDLY_PIPELINE_ID` | Pipeline basic details |
 | `OTP_MAX_PER_PHONE_PER_HOUR` | optional, default `5` |
 | `OTP_MAX_PER_IP_PER_HOUR` | optional, default `20` |
+| `OTP_RESEND_COOLDOWN_SECONDS` | optional, default `60` |
 
-5. Redeploy the API. Never put the API key in the mobile app — only on the API.
-
-Local development without SMS.to still returns `otp_code` in the start response when `ENVIRONMENT=development` and no OTP provider is configured.
-
-### Alternate providers
-
-| `SMS_PROVIDER` | Required env vars |
-|----------------|-------------------|
-| `twilio` | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` |
-| `whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_OTP_TEMPLATE`, `WHATSAPP_OTP_TEMPLATE_LANG` |
+Local development without Akedly still returns `otp_code` in the start response when `ENVIRONMENT=development`.
 
 If no mail provider is configured, forgot-password still returns success but emails are **not** sent (check Render logs for the reset link).
 
