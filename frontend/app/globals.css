@@ -74,6 +74,13 @@ body.locale-ar {
     @apply mx-auto w-full max-w-[1280px];
   }
 
+  /* Full-bleed from inside the centered shell. Uses the inline axis so Arabic and English both sit on the screen. */
+  .eljiran-bleed {
+    width: 100vw;
+    max-width: 100vw;
+    margin-inline-start: calc(50% - 50vw);
+  }
+
   .eljiran-card {
     @apply overflow-hidden rounded-[16px] border border-border/60 bg-card;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
@@ -106,7 +113,40 @@ body.locale-ar {
     @apply text-xl font-bold text-primary;
   }
 
-  .eljiran-price-overlay {
-    @apply rounded-full bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground;
+  .eljiran-float {
+    animation: eljiran-float 7s ease-in-out infinite;
+  }
+
+  .eljiran-ping {
+    animation: eljiran-ping 2.4s ease-out infinite;
+  }
+
+  @keyframes eljiran-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes eljiran-ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    80%,
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .eljiran-float,
+    .eljiran-ping {
+      animation: none;
+    }
   }
 }

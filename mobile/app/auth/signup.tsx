@@ -9,6 +9,7 @@ import { clearPendingReferralCode, getPendingReferralCode, savePendingReferralCo
 import { useFeatureConfig } from "@/contexts/FeatureConfigContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
 import { useTranslation } from "@/contexts/LocaleContext";
+import { AuthPhoto } from "@/components/auth-photo";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -129,6 +130,11 @@ export default function SignupScreen() {
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
       >
+        <AuthPhoto
+          source={require("@/assets/marketing/neighbours-welcome.jpg")}
+          title={t("landing.sceneJoinTitle")}
+          subtitle={t("landing.sceneJoinBody")}
+        />
         <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
           {/* Header */}
           <View style={{ marginBottom: 32 }}>

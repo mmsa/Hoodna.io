@@ -15,6 +15,7 @@ import type { ListingView } from "@/components/marketplace/listing-meta"
 import { Button } from "@/components/ui/button"
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states"
 import { AppShell, PageLayout } from "@/components/ui/page-layout"
+import { ResidentBanner } from "@/components/resident-banner"
 import { useAuth } from "@/hooks/use-auth"
 import { useTranslation } from "@/components/locale-provider"
 import api from "@/lib/api"
@@ -149,29 +150,25 @@ export default function MarketplacePage() {
   return (
     <AppShell>
       <PageLayout width="full" className="space-y-6 pb-10">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              {t('marketplace.title')}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
-              {t('marketplace.buySellIn', { compound: compoundName })}
-            </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {t('marketplace.verifiedNeighboursOnly')}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/saved"><Bookmark className="h-4 w-4" />{t('marketplace.saved')}</Link>
-            </Button>
-            {canCreateListing ? (
-              <Button asChild>
-                <Link href="/marketplace/new"><Camera className="h-4 w-4" />{t('marketplace.postListing')}</Link>
+        <ResidentBanner
+          src="/marketing/porch-table.jpg"
+          alt={t('landing.altTable')}
+          eyebrow={t('marketplace.title')}
+          title={t('marketplace.buySellIn', { compound: compoundName })}
+          description={t('marketplace.verifiedNeighboursOnly')}
+          actions={
+            <>
+              <Button variant="outline" size="sm" className="border-white bg-white/10 text-white hover:bg-white/20" asChild>
+                <Link href="/saved"><Bookmark className="h-4 w-4" />{t('marketplace.saved')}</Link>
               </Button>
-            ) : null}
-          </div>
-        </div>
+              {canCreateListing ? (
+                <Button asChild>
+                  <Link href="/marketplace/new"><Camera className="h-4 w-4" />{t('marketplace.postListing')}</Link>
+                </Button>
+              ) : null}
+            </>
+          }
+        />
 
         <ListingFilters
           value={filters}

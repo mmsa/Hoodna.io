@@ -13,6 +13,7 @@ import api, { persistAuthTokens, persistUserRole, clearAuthTokens } from '@/lib/
 import Link from 'next/link'
 import { getPostAuthWebRoute } from '@/lib/resident-routing'
 import { useTranslation } from '@/components/locale-provider'
+import { AuthStage } from '@/components/auth-stage'
 
 const loginSchema = z.object({
   email: z.string().min(3, 'Enter your email or phone number'),
@@ -99,14 +100,9 @@ function LoginFormInner() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{t('auth.signIn')}</CardTitle>
-          <CardDescription>{t('auth.signInSubtitle')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">{t('auth.importedAccountHint')}</p>
+    <AuthStage scene="arrive" title={t('auth.welcomeBack')} subtitle={t('brand.taglineAuth')}>
+      <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('auth.importedAccountHint')}</p>
           <Button asChild className="w-full" size="lg">
             <Link href="/auth/phone-login">{t('auth.continueWithPhone')}</Link>
           </Button>
@@ -115,7 +111,7 @@ function LoginFormInner() {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">{t('auth.orDivider')}</span>
+              <span className="bg-card px-2 text-muted-foreground">{t('auth.orDivider')}</span>
             </div>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -160,16 +156,15 @@ function LoginFormInner() {
                 </Link>
               </div>
               <div>
-                <span className="text-gray-600">{t('auth.noAccount')} </span>
+                <span className="text-muted-foreground">{t('auth.noAccount')} </span>
                 <Link href="/auth/signup" className="text-primary hover:underline">
                   {t('auth.createAccountLink')}
                 </Link>
               </div>
             </div>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </AuthStage>
   )
 }
 

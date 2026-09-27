@@ -8,13 +8,13 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import api from '@/lib/api'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
 import { useFeatureConfig } from '@/components/feature-config-provider'
 import { track } from '@/lib/telemetry'
 import { useTranslation } from '@/components/locale-provider'
+import { AuthStage } from '@/components/auth-stage'
 import { passwordSchema } from '@hoodna/shared'
 import { getWebFirstTouch } from '@/lib/attribution-store'
 
@@ -146,24 +146,17 @@ export default function SignupPage() {
 
   if (!flagsLoading && !isEnabled('user_registration')) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader><CardTitle>Registration is paused</CardTitle><CardDescription>New account registration is not available right now. Please check back soon.</CardDescription></CardHeader>
-          <CardContent><Link href="/auth/login"><Button variant="outline" className="w-full">Sign in</Button></Link></CardContent>
-        </Card>
-      </div>
+      <AuthStage scene="join" title={t('auth.registrationPaused')} subtitle={t('auth.registrationPausedDesc')}>
+        <Link href="/auth/login">
+          <Button variant="outline" className="w-full">{t('auth.signIn')}</Button>
+        </Link>
+      </AuthStage>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create Account</CardTitle>
-          <CardDescription>Join your verified neighborhood community</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <AuthStage scene="join" title={t('auth.signUp')} subtitle={t('auth.signupSubtitle')}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm space-y-2">
                 <p>{error}</p>
@@ -182,47 +175,47 @@ export default function SignupPage() {
               </div>
             ) : null}
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">{t('auth.fullName')}</Label>
               <Input
                 id="name"
                 {...register('name')}
-                placeholder="John Doe"
+                placeholder={t('auth.fullNamePlaceholder')}
               />
               {errors.name && (
                 <p className="text-sm text-red-600">{errors.name.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t('auth.phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
                 {...register('phone')}
-                placeholder="Mobile with country code"
+                placeholder={t('auth.phonePlaceholder')}
               />
               {errors.phone && (
                 <p className="text-sm text-red-600">{errors.phone.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email (Optional)</Label>
+              <Label htmlFor="email">{t('auth.emailOptional')}</Label>
               <Input
                 id="email"
                 type="email"
                 {...register('email')}
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
               />
               {errors.email && (
                 <p className="text-sm text-red-600">{errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 type="password"
                 {...register('password')}
-                placeholder="••••••••"
+                placeholder={t('auth.passwordPlaceholder')}
               />
               {errors.password && (
                 <p className="text-sm text-red-600">{errors.password.message}</p>
@@ -230,17 +223,15 @@ export default function SignupPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : 'Sign Up'}
+              {loading ? t('auth.signingUp') : t('auth.signUp')}
             </Button>
             <div className="text-center text-sm">
-              <span className="text-gray-600">Already have an account? </span>
+              <span className="text-muted-foreground">{t('auth.alreadyHaveAccount')} </span>
               <Link href="/auth/login" className="text-primary hover:underline">
-                Sign in
+                {t('auth.signIn')}
               </Link>
             </div>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+    </AuthStage>
   )
 }

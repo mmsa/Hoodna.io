@@ -1,5 +1,5 @@
 import { palette, spacing, typography } from "@hoodna/tokens";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { ApiClient } from "@hoodna/shared";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -41,9 +41,11 @@ export function CompoundHero({
           style={styles.image}
         />
       ) : (
-        <View style={styles.placeholder}>
-          <Ionicons name="leaf-outline" size={48} color="rgba(255,255,255,0.55)" />
-        </View>
+        <Image
+          source={require("@/assets/marketing/compound-street.jpg")}
+          resizeMode="cover"
+          style={styles.image}
+        />
       )}
 
       <View style={styles.scrim} />

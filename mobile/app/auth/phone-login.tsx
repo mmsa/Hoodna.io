@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AuthPhoto } from "@/components/auth-photo";
 
 export default function PhoneLoginScreen() {
   const [phone, setPhone] = useState("");
@@ -77,6 +78,11 @@ export default function PhoneLoginScreen() {
         </TouchableOpacity>
         <Text style={{ fontSize: 20, fontWeight: "600", color: "#111827" }}>{t("auth.phoneLogin")}</Text>
       </View>
+      <AuthPhoto
+        source={require("@/assets/marketing/compound-gate.jpg")}
+        title={t("landing.sceneArriveTitle")}
+        subtitle={t("landing.sceneArriveBody")}
+      />
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 32 }}>
         <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#1B1B1B', marginBottom: 8 }}>
           {t("auth.welcomeTo")}

@@ -52,14 +52,14 @@ export function CompoundHero({
           />
         ) : (
           <Image
-            src="/icon_light.jpg"
+            src="/marketing/compound-street.jpg"
             alt=""
             fill
-            className="object-cover opacity-20"
+            className="object-cover"
             priority
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+        <div className="absolute inset-0 bg-[#10211e]/62" />
 
         <div className="relative flex min-h-[150px] max-w-[78%] items-center p-4 sm:max-w-[68%] sm:p-5">
           <div className="min-w-0">

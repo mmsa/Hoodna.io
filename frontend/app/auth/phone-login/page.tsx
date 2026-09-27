@@ -6,10 +6,10 @@ import { normalizePhone } from '@hoodna/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import api from '@/lib/api'
 import Link from 'next/link'
 import { useTranslation } from '@/components/locale-provider'
+import { AuthStage } from '@/components/auth-stage'
 
 function otpErrorMessage(err: any, t: (key: any) => string): string {
   const status = err?.response?.status
@@ -60,14 +60,8 @@ export default function PhoneLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{t('auth.phoneLogin')}</CardTitle>
-          <CardDescription>{t('auth.enterPhoneSubtitle')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
+    <AuthStage scene="arrive" title={t('auth.phoneLogin')} subtitle={t('auth.enterPhoneSubtitle')}>
+      <form onSubmit={onSubmit} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>
             )}
@@ -100,8 +94,6 @@ export default function PhoneLoginPage() {
               </div>
             </div>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+    </AuthStage>
   )
 }

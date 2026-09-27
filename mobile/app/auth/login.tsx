@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { palette, spacing, typography } from "@hoodna/tokens";
 
 import { Button, KeyboardScreen, TextField } from "@/components/ui";
+import { AuthPhoto } from "@/components/auth-photo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { API_BASE_URL } from "@/lib/config";
@@ -67,6 +68,11 @@ export default function LoginScreen() {
 
   return (
     <KeyboardScreen contentContainerStyle={styles.screen}>
+      <AuthPhoto
+        source={require("@/assets/marketing/compound-gate.jpg")}
+        title={t("landing.sceneArriveTitle")}
+        subtitle={t("landing.sceneArriveBody")}
+      />
       <View style={styles.header}>
         <Text accessibilityRole="header" style={styles.title}>
           {t("auth.welcomeBack")}

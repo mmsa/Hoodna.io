@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { AppShell, PageHeader, PageLayout } from "@/components/ui/page-layout"
+import { AppShell, PageLayout } from "@/components/ui/page-layout"
+import { ResidentBanner } from "@/components/resident-banner"
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states"
 import { useAuth } from "@/hooks/use-auth"
 import api from "@/lib/api"
@@ -150,7 +151,9 @@ export default function ServicesPage() {
   return (
     <AppShell>
       <PageLayout width="xl" className="space-y-6">
-        <PageHeader
+        <ResidentBanner
+          src="/marketing/compound-courtyard.jpg"
+          alt=""
           eyebrow={provider ? "Provider workspace" : "Your community"}
           title={provider ? "My services" : "Services"}
           description={provider ? "Manage the services residents can discover." : `Find local service providers in ${compoundName}.`}

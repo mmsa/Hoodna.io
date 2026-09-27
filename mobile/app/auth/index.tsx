@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ImageBackground } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "@/contexts/LocaleContext";
 import { spacing } from "@hoodna/tokens";
@@ -11,11 +11,18 @@ export default function AuthSelectionScreen() {
 
   return (
     <KeyboardScreen contentContainerStyle={styles.screen}>
-      <View style={styles.brand}>
-        <BrandWordmark variant="auth" />
-        <Text accessibilityRole="header" style={styles.title}>{t("brand.taglineLong")}</Text>
-        <Text style={styles.subtitle}>{t("brand.taglineAuth")}</Text>
-      </View>
+      <ImageBackground
+        source={require("@/assets/marketing/compound-street.jpg")}
+        style={styles.hero}
+        imageStyle={styles.heroImage}
+      >
+        <View style={styles.scrim} />
+        <View style={styles.brand}>
+          <BrandWordmark tone="light" />
+          <Text accessibilityRole="header" style={styles.title}>{t("brand.taglineLong")}</Text>
+          <Text style={styles.subtitle}>{t("brand.taglineAuth")}</Text>
+        </View>
+      </ImageBackground>
       <View style={styles.actions}>
         <Button accessibilityLabel={t("auth.continueWithPhone")} onPress={() => router.push("/auth/phone-login")} size="large">
           {t("auth.continueWithPhone")}
@@ -33,10 +40,13 @@ export default function AuthSelectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { justifyContent: "center", paddingVertical: spacing[8] },
-  brand: { marginBottom: spacing[10] },
-  title: { color: "#2D2D2A", fontSize: 32, lineHeight: 40, fontWeight: "700", letterSpacing: -0.5 },
-  subtitle: { color: "#707070", fontSize: 16, lineHeight: 24, marginTop: spacing[3] },
-  actions: { gap: spacing[3] },
-  terms: { color: "#A3A3A3", fontSize: 12, lineHeight: 16, textAlign: "center", marginTop: spacing[6] },
+  screen: { paddingTop: 0, paddingHorizontal: 0 },
+  hero: { minHeight: 360, justifyContent: "flex-end", padding: spacing[6] },
+  heroImage: { resizeMode: "cover" },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(16,33,30,0.55)" },
+  brand: { marginBottom: spacing[2] },
+  title: { color: "#FFFFFF", fontSize: 32, lineHeight: 40, fontWeight: "700", letterSpacing: -0.5, marginTop: spacing[4] },
+  subtitle: { color: "rgba(255,255,255,0.88)", fontSize: 16, lineHeight: 24, marginTop: spacing[3] },
+  actions: { gap: spacing[3], paddingHorizontal: spacing[4], marginTop: spacing[6] },
+  terms: { color: "#A3A3A3", fontSize: 12, lineHeight: 16, textAlign: "center", marginTop: spacing[6], paddingHorizontal: spacing[4] },
 });

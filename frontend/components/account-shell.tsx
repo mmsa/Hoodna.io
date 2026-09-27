@@ -4,7 +4,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Settings, User } from "lucide-react"
 
-import { AppShell, PageHeader, PageLayout } from "@/components/ui/page-layout"
+import { AppShell, PageLayout } from "@/components/ui/page-layout"
+import { ResidentBanner } from "@/components/resident-banner"
 import { cn } from "@/lib/utils"
 
 const accountLinks = [
@@ -28,7 +29,9 @@ export function AccountShell({
   return (
     <AppShell>
       <PageLayout width="md" className="space-y-8">
-        <PageHeader
+        <ResidentBanner
+          src="/marketing/neighbours-welcome.jpg"
+          alt=""
           eyebrow="Account"
           title={title}
           description={description}

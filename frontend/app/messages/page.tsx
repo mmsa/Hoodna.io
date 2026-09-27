@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { useTranslation } from '@/components/locale-provider'
 import { formatRelativeTime } from '@hoodna/i18n'
 import { useRouter } from 'next/navigation'
+import { ResidentBanner } from '@/components/resident-banner'
 
 interface Conversation {
   id: number
@@ -75,26 +76,21 @@ export default function MessagesPage() {
       <div className="max-w-5xl mx-auto">
         {/* Enhanced Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-              <MessageCircle className="w-7 h-7 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-bold text-foreground">
-                  {t('messages.title')}
-                </h1>
-                {hasUnread && (
-                  <span className="px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-full animate-pulse">
+          <ResidentBanner
+            src="/marketing/balcony-phone.jpg"
+            alt={t('landing.altBalcony')}
+            title={
+              <span className="inline-flex flex-wrap items-center gap-3">
+                {t('messages.title')}
+                {hasUnread ? (
+                  <span className="rounded-full bg-red-500 px-3 py-1 text-sm font-bold text-white">
                     {unreadCount} {t('messages.unreadLabel')}
                   </span>
-                )}
-              </div>
-              <p className="text-gray-600 mt-1">
-                {t('messages.subtitle')}
-              </p>
-            </div>
-          </div>
+                ) : null}
+              </span>
+            }
+            description={t('messages.subtitle')}
+          />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
