@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.schemas.auth import (
     UserSignup, UserLogin, TokenResponse, RefreshTokenRequest, 
     ForgotPasswordRequest, ResetPasswordRequest, ResetPasswordPhoneRequest,
+    AccountRecoveryRequest, AccountRecoveryResponse,
     PhoneAuthStartRequest, PhoneAuthStartResponse, PhoneAuthVerifyRequest,
     CompletePhoneSignupRequest,
     ConfirmPhoneOtpRequest, ConfirmEmailOtpRequest,
@@ -100,6 +101,7 @@ async def redeem_registration_referral(
 @router.options("/logout")
 @router.options("/me")
 @router.options("/forgot-password")
+@router.options("/recover")
 @router.options("/reset-password")
 @router.options("/reset-password-phone")
 @router.options("/start")
@@ -708,11 +710,19 @@ async def signup(
         message="Too many sign-up attempts. Please try again later.",
     )
 
-    phone_normalized = normalize_phone(user_data.phone)
-    if not phone_normalized:
+    phone_normalized = None
+    if user_data.phone:
+        phone_normalized = normalize_phone(user_data.phone)
+        if not phone_normalized:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid phone number",
+            )
+
+    if not phone_normalized and not user_data.email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid phone number",
+            detail="Enter a phone number or an email address",
         )
 
     feature_key = (
@@ -726,15 +736,16 @@ async def signup(
             detail="User registration is currently unavailable",
         )
 
-    existing_phone = await get_user_by_phone(db, phone_normalized)
-    if existing_phone:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "This phone is already registered. Sign in with a verification "
-                "code, or use Forgot password."
-            ),
-        )
+    if phone_normalized:
+        existing_phone = await get_user_by_phone(db, phone_normalized)
+        if existing_phone:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "This phone is already registered. Sign in with your "
+                    "password, or use Forgot password."
+                ),
+            )
 
     if user_data.email:
         email_lower = user_data.email.lower().strip()
@@ -750,6 +761,7 @@ async def signup(
         user_data.email = f"phone_{phone_normalized}@hoodna.local"
 
     user_data.phone = phone_normalized
+    has_phone = bool(phone_normalized)
 
     from app.models.enums import UserRole
 
@@ -781,7 +793,7 @@ async def signup(
             if user_data.referral_code
             else None
         ),
-        phone_verified=False,
+        phone_verified=not has_phone,
         email_verified=not has_real_email,
     )
     from app.services.growth import apply_first_touch_attribution
@@ -797,9 +809,9 @@ async def signup(
             db, user_data.referral_code.strip(), user.id
         )
 
-    # Send phone OTP (required before onboarding). A delivery failure does not
-    # roll back the account; the user can request another code.
-    await _issue_phone_otp(phone_normalized, client_ip=None, required=False)
+    # Verification only. Password is how they sign in afterwards.
+    if has_phone and phone_normalized:
+        await _issue_phone_otp(phone_normalized, client_ip=None, required=False)
 
     email_otp_code = None
     if has_real_email:
@@ -887,8 +899,8 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=(
-                "This account does not have a password. Sign in with a "
-                "verification code sent to your phone."
+                "This account does not have a password. Use Forgot password "
+                "to set one."
             ),
         )
 
@@ -1829,64 +1841,127 @@ async def unload_my_compound_sample_content(
     return SampleContentActionResponse(message=message, loaded=False)
 
 
+def _send_password_reset_for_user(user: User) -> tuple[bool, Optional[str]]:
+    """Email a single-use reset link. Returns (delivered, link)."""
+    reset_token = create_password_reset_token(
+        data={
+            "sub": user.id,
+            "email": user.email,
+            "pwd": _password_fingerprint(user.password_hash),
+        }
+    )
+    reset_link = f"{settings.effective_frontend_url}/auth/reset-password?token={reset_token}"
+    email_sent = send_password_reset_email(user.email, reset_link)
+    if not email_sent:
+        logger.warning(
+            "Password reset email NOT delivered for %s. Link: %s",
+            user.email,
+            reset_link,
+        )
+        if settings.ENVIRONMENT != "production":
+            print(f"\n{'='*80}")
+            print(f"PASSWORD RESET for {user.email}:")
+            print(f"Reset Link: {reset_link}")
+            print(f"{'='*80}\n")
+    return email_sent, reset_link
+
+
+def _recovery_rate_limit(http_request: Request, identifier: str) -> None:
+    too_many = "Too many password reset requests. Please try again later."
+    rate_limit.enforce(
+        "forgot_password_ip",
+        rate_limit.client_ip(http_request),
+        limit=FORGOT_PASSWORD_LIMIT_PER_IP,
+        window_seconds=HOUR_SECONDS,
+        message=too_many,
+    )
+    rate_limit.enforce(
+        "forgot_password_email",
+        identifier.casefold().strip(),
+        limit=FORGOT_PASSWORD_LIMIT_PER_EMAIL,
+        window_seconds=HOUR_SECONDS,
+        message=too_many,
+    )
+
+
+@router.post("/recover", response_model=AccountRecoveryResponse)
+async def recover_account(
+    request: AccountRecoveryRequest,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset access without spending a phone code when an email exists.
+
+    Email identifiers always take the email path. A phone with a real email
+    on the account does too. A phone-only account gets a code so the user
+    can set a password or sign in with that code. Unknown numbers are not
+    texted.
+    """
+    from app.utils.phone import normalize_phone
+
+    identifier = request.identifier.strip()
+    _recovery_rate_limit(http_request, identifier)
+
+    email_message = (
+        "If an account with that email exists, a password reset link has been sent."
+    )
+    phone_email_message = (
+        "If this account has an email, a password reset link has been sent."
+    )
+    phone_message = (
+        "If this number is registered without an email, we sent a code."
+    )
+
+    if "@" in identifier:
+        user = await get_user_by_email(db, identifier.lower())
+        if user and not _is_placeholder_email(user.email):
+            _send_password_reset_for_user(user)
+        return AccountRecoveryResponse(channel="email", message=email_message)
+
+    phone_normalized = normalize_phone(identifier)
+    if not phone_normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Enter a valid email or phone number",
+        )
+
+    user = await get_user_by_phone(db, phone_normalized)
+    if user and not _is_placeholder_email(user.email):
+        _send_password_reset_for_user(user)
+        return AccountRecoveryResponse(channel="email", message=phone_email_message)
+
+    dev_code = None
+    if user:
+        _sent, dev_code = await _issue_phone_otp(
+            phone_normalized,
+            rate_limit.client_ip(http_request),
+            required=True,
+        )
+    return AccountRecoveryResponse(
+        channel="phone",
+        message=phone_message,
+        otp_code=dev_code,
+        resend_after_seconds=_resend_after_seconds() if user else 0,
+    )
+
+
 @router.post("/forgot-password")
 async def forgot_password(
     request: ForgotPasswordRequest,
     http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Request a password reset. Sends reset token (in production, via email)."""
-    rate_limit.enforce(
-        "forgot_password_ip",
-        rate_limit.client_ip(http_request),
-        limit=FORGOT_PASSWORD_LIMIT_PER_IP,
-        window_seconds=HOUR_SECONDS,
-        message="Too many password reset requests. Please try again later.",
-    )
-    rate_limit.enforce(
-        "forgot_password_email",
-        request.email.casefold().strip(),
-        limit=FORGOT_PASSWORD_LIMIT_PER_EMAIL,
-        window_seconds=HOUR_SECONDS,
-        message="Too many password reset requests. Please try again later.",
-    )
-
-    # Normalize email
+    """Request a password reset email. Always succeeds so emails cannot be enumerated."""
     email_lower = request.email.lower().strip()
+    _recovery_rate_limit(http_request, email_lower)
+
     user = await get_user_by_email(db, email_lower)
-    
+
     email_sent = False
     reset_link: Optional[str] = None
-    
-    # Always return success to prevent email enumeration
     if user:
-        # Binding the token to the current password hash makes it single-use:
-        # once the password changes the token no longer validates.
-        reset_token = create_password_reset_token(
-            data={
-                "sub": user.id,
-                "email": user.email,
-                "pwd": _password_fingerprint(user.password_hash),
-            }
-        )
-        frontend = settings.effective_frontend_url
-        reset_link = f"{frontend}/auth/reset-password?token={reset_token}"
-        
-        # Send password reset email
-        email_sent = send_password_reset_email(user.email, reset_link)
-        
-        if not email_sent:
-            logger.warning(
-                "Password reset email NOT delivered for %s. Link: %s",
-                user.email,
-                reset_link,
-            )
-            if settings.ENVIRONMENT != "production":
-                print(f"\n{'='*80}")
-                print(f"PASSWORD RESET for {user.email}:")
-                print(f"Reset Link: {reset_link}")
-                print(f"{'='*80}\n")
-    
+        email_sent, reset_link = _send_password_reset_for_user(user)
+
     response: dict = {
         "message": "If an account with that email exists, a password reset link has been sent."
     }

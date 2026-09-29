@@ -18,18 +18,36 @@ import { AuthStage } from '@/components/auth-stage'
 import { passwordSchema } from '@hoodna/shared'
 import { getWebFirstTouch } from '@/lib/attribution-store'
 
-const signupSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(80),
-  phone: z.string().min(7, 'Phone number is required'),
-  password: passwordSchema,
-  email: z
-    .string()
-    .trim()
-    .optional()
-    .refine((v) => !v || z.string().email().safeParse(v).success, {
-      message: 'Invalid email address',
-    }),
-})
+const signupSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Name must be at least 2 characters').max(80),
+    phone: z.string().trim().optional(),
+    password: passwordSchema,
+    email: z
+      .string()
+      .trim()
+      .optional()
+      .refine((v) => !v || z.string().email().safeParse(v).success, {
+        message: 'Invalid email address',
+      }),
+  })
+  .superRefine((value, ctx) => {
+    const phoneDigits = (value.phone || '').replace(/\D/g, '')
+    const email = (value.email || '').trim()
+    if (phoneDigits.length < 7 && !email) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['phone'],
+        message: 'Enter a phone number or an email address',
+      })
+    } else if (value.phone?.trim() && phoneDigits.length < 7) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['phone'],
+        message: 'Invalid phone number',
+      })
+    }
+  })
 
 type SignupForm = z.infer<typeof signupSchema>
 
@@ -91,8 +109,8 @@ export default function SignupPage() {
       const firstTouch = getWebFirstTouch()
       const response = await api.post('/api/auth/signup', {
         name: data.name,
-        phone: data.phone,
         password: data.password,
+        ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
         ...(data.email?.trim() ? { email: data.email.trim() } : {}),
         ...(referralCode || firstTouch?.referralCode
           ? { referral_code: referralCode || firstTouch?.referralCode }
@@ -162,8 +180,8 @@ export default function SignupPage() {
                 <p>{error}</p>
                 {/already registered/i.test(error) && (
                   <p>
-                    <Link href="/auth/phone-login" className="text-primary hover:underline">
-                      {t('auth.continueWithPhone')}
+                    <Link href="/auth/login" className="text-primary hover:underline">
+                      {t('auth.signIn')}
                     </Link>
                   </p>
                 )}
@@ -185,6 +203,7 @@ export default function SignupPage() {
                 <p className="text-sm text-red-600">{errors.name.message}</p>
               )}
             </div>
+            <p className="text-sm text-muted-foreground">{t('auth.signupContactHint')}</p>
             <div className="space-y-2">
               <Label htmlFor="phone">{t('auth.phone')}</Label>
               <Input
@@ -198,7 +217,7 @@ export default function SignupPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">{t('auth.emailOptional')}</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"

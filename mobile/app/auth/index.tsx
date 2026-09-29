@@ -24,11 +24,8 @@ export default function AuthSelectionScreen() {
         </View>
       </ImageBackground>
       <View style={styles.actions}>
-        <Button accessibilityLabel={t("auth.continueWithPhone")} onPress={() => router.push("/auth/phone-login")} size="large">
-          {t("auth.continueWithPhone")}
-        </Button>
-        <Button accessibilityLabel={t("auth.signInWithEmail")} onPress={() => router.push("/auth/login")} size="large" variant="outline">
-          {t("auth.signInWithEmail")}
+        <Button accessibilityLabel={t("auth.signIn")} onPress={() => router.push("/auth/login")} size="large">
+          {t("auth.signIn")}
         </Button>
         <Button accessibilityLabel={t("auth.createAccount")} onPress={() => router.push("/auth/signup")} variant="ghost">
           {t("auth.createAccount")}

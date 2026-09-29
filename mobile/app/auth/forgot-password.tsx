@@ -6,14 +6,24 @@ import { MIN_PASSWORD_LENGTH, normalizePhone } from "@hoodna/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LocaleContext";
 
+const fieldStyle = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 12,
+  paddingHorizontal: 16,
+  paddingVertical: 14,
+  fontSize: 16,
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+  color: "#1B1B1B",
+} as const;
+
 export default function ForgotPasswordScreen() {
-  const [method, setMethod] = useState<"email" | "phone">("phone");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [phoneStep, setPhoneStep] = useState<"request" | "reset">("request");
+  const [step, setStep] = useState<"request" | "email" | "phone">("request");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -21,46 +31,33 @@ export default function ForgotPasswordScreen() {
   const { apiClient } = useAuth();
   const { t } = useTranslation();
 
-  async function handleEmailSubmit() {
-    if (!email || !email.includes("@")) {
-      setError(t("auth.validEmailRequired"));
+  async function handleRecover() {
+    const raw = identifier.trim();
+    if (!raw) {
+      setError(t("auth.enterEmailOrPhone"));
       return;
     }
-
-    setLoading(true);
-    setError("");
-    try {
-      await apiClient.forgotPassword({ email: email.trim().toLowerCase() });
-      setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || t("auth.resetEmailFailed"));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSendPhoneCode() {
-    const normalized = normalizePhone(phone);
-    if (!normalized) {
+    const payload = raw.includes("@") ? raw.toLowerCase() : normalizePhone(raw);
+    if (!payload) {
       setError(t("auth.enterPhone"));
       return;
     }
+
     setLoading(true);
     setError("");
     try {
-      await apiClient.phoneAuthStart({ phone: normalized });
-      setPhone(normalized);
-      setPhoneStep("reset");
-    } catch (err: any) {
-      const message = String(err?.message || "");
-      const lower = message.toLowerCase();
-      if (lower.includes("too many") || lower.includes("429")) {
-        setError(t("auth.otpRateLimited"));
-      } else if (lower.includes("not configured") || lower.includes("503")) {
-        setError(t("auth.otpNotConfigured"));
-      } else {
-        setError(message.trim() || t("auth.otpFailed"));
+      const response = await apiClient.recoverAccount({ identifier: payload });
+      if (response.channel === "email") {
+        setStep("email");
+        return;
       }
+      setPhone(payload);
+      if (response.otp_code && /^\d{6}$/.test(response.otp_code)) {
+        setOtp(response.otp_code);
+      }
+      setStep("phone");
+    } catch (err: any) {
+      setError(err.message || t("auth.otpFailed"));
     } finally {
       setLoading(false);
     }
@@ -95,6 +92,8 @@ export default function ForgotPasswordScreen() {
     }
   }
 
+  const done = success || step === "email";
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9F8F1" }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
@@ -111,7 +110,7 @@ export default function ForgotPasswordScreen() {
             </Text>
           </View>
 
-          {success ? (
+          {done ? (
             <View style={{ flex: 1, justifyContent: "center" }}>
               <View
                 style={{
@@ -122,7 +121,7 @@ export default function ForgotPasswordScreen() {
                 }}
               >
                 <Text style={{ fontSize: 14, color: "#065F46", lineHeight: 20 }}>
-                  {method === "email" ? t("auth.resetLinkSent") : t("auth.passwordResetSuccess")}
+                  {step === "email" ? t("auth.resetLinkSent") : t("auth.passwordResetSuccess")}
                 </Text>
               </View>
               <TouchableOpacity
@@ -141,49 +140,6 @@ export default function ForgotPasswordScreen() {
             </View>
           ) : (
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 24 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    alignItems: "center",
-                    backgroundColor: method === "phone" ? "#158074" : "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: method === "phone" ? "#158074" : "#E5E7EB",
-                  }}
-                  onPress={() => {
-                    setMethod("phone");
-                    setError("");
-                    setSuccess(false);
-                  }}
-                >
-                  <Text style={{ color: method === "phone" ? "#FFFFFF" : "#1B1B1B", fontWeight: "600" }}>
-                    {t("auth.usePhone")}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    alignItems: "center",
-                    backgroundColor: method === "email" ? "#158074" : "#FFFFFF",
-                    borderWidth: 1,
-                    borderColor: method === "email" ? "#158074" : "#E5E7EB",
-                  }}
-                  onPress={() => {
-                    setMethod("email");
-                    setError("");
-                    setSuccess(false);
-                  }}
-                >
-                  <Text style={{ color: method === "email" ? "#FFFFFF" : "#1B1B1B", fontWeight: "600" }}>
-                    {t("auth.useEmail")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
               {error ? (
                 <View
                   style={{
@@ -197,31 +153,21 @@ export default function ForgotPasswordScreen() {
                 </View>
               ) : null}
 
-              {method === "email" ? (
+              {step === "request" ? (
                 <>
                   <View style={{ marginBottom: 24 }}>
                     <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                      {t("auth.email")}
+                      {t("auth.emailOrPhone")}
                     </Text>
                     <TextInput
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        fontSize: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        color: "#1B1B1B",
-                      }}
-                      placeholder={t("auth.emailPlaceholder")}
+                      style={fieldStyle}
+                      placeholder={t("auth.emailOrPhonePlaceholder")}
                       placeholderTextColor="#9CA3AF"
-                      value={email}
+                      value={identifier}
                       onChangeText={(text) => {
-                        setEmail(text);
+                        setIdentifier(text);
                         setError("");
                       }}
-                      keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
                     />
@@ -233,7 +179,7 @@ export default function ForgotPasswordScreen() {
                       paddingVertical: 16,
                       alignItems: "center",
                     }}
-                    onPress={handleEmailSubmit}
+                    onPress={handleRecover}
                     disabled={loading}
                     activeOpacity={0.8}
                   >
@@ -241,54 +187,7 @@ export default function ForgotPasswordScreen() {
                       <ActivityIndicator color="#FFFFFF" />
                     ) : (
                       <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                        {t("auth.sendResetLink")}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </>
-              ) : phoneStep === "request" ? (
-                <>
-                  <View style={{ marginBottom: 24 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                      {t("auth.phone")}
-                    </Text>
-                    <TextInput
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        fontSize: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        color: "#1B1B1B",
-                      }}
-                      placeholder={t("auth.phonePlaceholder")}
-                      placeholderTextColor="#9CA3AF"
-                      value={phone}
-                      onChangeText={(text) => {
-                        setPhone(text);
-                        setError("");
-                      }}
-                      keyboardType="phone-pad"
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: "#158074",
-                      borderRadius: 12,
-                      paddingVertical: 16,
-                      alignItems: "center",
-                    }}
-                    onPress={handleSendPhoneCode}
-                    disabled={loading}
-                    activeOpacity={0.8}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
-                        {t("auth.sendResetCode")}
+                        {t("auth.continueAction")}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -303,18 +202,7 @@ export default function ForgotPasswordScreen() {
                       {t("auth.enterOtp")}
                     </Text>
                     <TextInput
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        fontSize: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        color: "#1B1B1B",
-                        letterSpacing: 4,
-                        textAlign: "center",
-                      }}
+                      style={{ ...fieldStyle, letterSpacing: 4, textAlign: "center" }}
                       placeholder={t("auth.otpPlaceholder")}
                       placeholderTextColor="#9CA3AF"
                       value={otp}
@@ -328,16 +216,7 @@ export default function ForgotPasswordScreen() {
                       {t("auth.newPassword")}
                     </Text>
                     <TextInput
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        fontSize: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        color: "#1B1B1B",
-                      }}
+                      style={fieldStyle}
                       placeholder={t("auth.passwordPlaceholder")}
                       placeholderTextColor="#9CA3AF"
                       value={password}
@@ -350,16 +229,7 @@ export default function ForgotPasswordScreen() {
                       {t("auth.confirmPassword")}
                     </Text>
                     <TextInput
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 14,
-                        fontSize: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        color: "#1B1B1B",
-                      }}
+                      style={fieldStyle}
                       placeholder={t("auth.passwordPlaceholder")}
                       placeholderTextColor="#9CA3AF"
                       value={confirmPassword}
@@ -373,6 +243,7 @@ export default function ForgotPasswordScreen() {
                       borderRadius: 12,
                       paddingVertical: 16,
                       alignItems: "center",
+                      marginBottom: 12,
                     }}
                     onPress={handlePhoneReset}
                     disabled={loading}
@@ -385,6 +256,28 @@ export default function ForgotPasswordScreen() {
                         {t("auth.resetPassword")}
                       </Text>
                     )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      borderRadius: 12,
+                      paddingVertical: 16,
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: "#158074",
+                    }}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/auth/otp-verify",
+                        params: {
+                          phone,
+                          ...(otp ? { otpCode: otp } : {}),
+                        },
+                      })
+                    }
+                  >
+                    <Text style={{ color: "#158074", fontSize: 16, fontWeight: "600" }}>
+                      {t("auth.signInWithCode")}
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}

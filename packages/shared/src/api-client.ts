@@ -6,6 +6,8 @@ import {
   UserLogin,
   UserSignup,
   ForgotPasswordRequest,
+  AccountRecoveryRequest,
+  AccountRecoveryResponse,
   ResetPasswordRequest,
   ResetPasswordPhoneRequest,
 } from "./schemas/auth";
@@ -173,6 +175,13 @@ export class ApiClient {
       method: "POST",
       body: JSON.stringify({ refresh_token: refreshToken }),
       skipAuthRefresh: true,
+    });
+  }
+
+  async recoverAccount(data: AccountRecoveryRequest): Promise<AccountRecoveryResponse> {
+    return this.request<AccountRecoveryResponse>("/api/auth/recover", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   }
 

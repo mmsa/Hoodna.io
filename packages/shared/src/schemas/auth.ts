@@ -62,7 +62,7 @@ export const UserLoginSchema = z.object({
 
 export const UserSignupSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  phone: z.string().min(7, "Phone number is required"),
+  phone: z.string().optional().or(z.literal("")),
   password: passwordSchema,
   email: z
     .string()
@@ -75,6 +75,34 @@ export const UserSignupSchema = z.object({
   referral_code: z.string().trim().min(4).max(64).optional(),
   platform: RegistrationPlatformSchema.optional(),
   attribution: AttributionPayloadSchema,
+}).superRefine((value, ctx) => {
+  const phoneDigits = (value.phone || "").replace(/\D/g, "");
+  const email = (value.email || "").trim();
+  if (phoneDigits.length < 7 && !email) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone"],
+      message: "Enter a phone number or an email address",
+    });
+  }
+  if (value.phone && value.phone.trim() && phoneDigits.length < 7) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["phone"],
+      message: "Invalid phone number",
+    });
+  }
+});
+
+export const AccountRecoveryRequestSchema = z.object({
+  identifier: z.string().trim().min(3).max(255),
+});
+
+export const AccountRecoveryResponseSchema = z.object({
+  channel: z.enum(["email", "phone"]),
+  message: z.string(),
+  otp_code: z.string().optional(),
+  resend_after_seconds: z.number().int().nonnegative().optional(),
 });
 
 export const ForgotPasswordRequestSchema = z.object({
@@ -98,6 +126,8 @@ export type PhoneAuthStartResponse = z.infer<typeof PhoneAuthStartResponseSchema
 export type PhoneAuthVerifyRequest = z.infer<typeof PhoneAuthVerifyRequestSchema>;
 export type UserLogin = z.infer<typeof UserLoginSchema>;
 export type UserSignup = z.infer<typeof UserSignupSchema>;
+export type AccountRecoveryRequest = z.infer<typeof AccountRecoveryRequestSchema>;
+export type AccountRecoveryResponse = z.infer<typeof AccountRecoveryResponseSchema>;
 export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequestSchema>;
 export type ResetPasswordPhoneRequest = z.infer<typeof ResetPasswordPhoneRequestSchema>;

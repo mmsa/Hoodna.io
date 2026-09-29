@@ -414,7 +414,8 @@ async def test_login_without_password_prompts_phone_otp(async_client: AsyncClien
     )
     assert response.status_code == 401
     detail = response.json()["detail"].lower()
-    assert "verification code" in detail
+    assert "does not have a password" in detail
+    assert "forgot password" in detail
 
 
 @pytest.mark.asyncio
@@ -441,7 +442,113 @@ async def test_signup_duplicate_phone_points_to_otp_login(async_client: AsyncCli
     assert duplicate.status_code == 400
     detail = duplicate.json()["detail"].lower()
     assert "already registered" in detail
-    assert "verification code" in detail
+    assert "forgot password" in detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_signup_with_email_only(async_client: AsyncClient):
+    """Email and a password are enough. No phone code is sent."""
+    from app.api.auth import otp_storage
+
+    otp_storage.clear()
+    response = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "Email Only",
+            "email": "email-only@example.com",
+            "password": "password123",
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["user"]["email"] == "email-only@example.com"
+    assert body["user"]["phone"] in (None, "")
+    assert body["user"]["phone_verified"] is True
+    assert body["user"]["email_verified"] is False
+    assert otp_storage == {}
+
+    login = await async_client.post(
+        "/api/auth/login",
+        json={"email": "email-only@example.com", "password": "password123"},
+    )
+    assert login.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_recover_uses_email_when_the_account_has_one(
+    async_client: AsyncClient, monkeypatch
+):
+    sent: dict[str, str] = {}
+
+    def fake_send(email: str, link: str) -> bool:
+        sent["email"] = email
+        sent["link"] = link
+        return True
+
+    monkeypatch.setattr("app.api.auth.send_password_reset_email", fake_send)
+
+    phone = "+201777777771"
+    signup = await async_client.post(
+        "/api/auth/signup",
+        json={
+            "name": "Has Email",
+            "phone": phone,
+            "email": "has-email@example.com",
+            "password": "password123",
+        },
+    )
+    assert signup.status_code == 201
+
+    from app.api.auth import otp_storage
+    from app.utils.phone import normalize_phone
+
+    otp_storage.clear()
+    response = await async_client.post(
+        "/api/auth/recover",
+        json={"identifier": phone},
+    )
+    assert response.status_code == 200
+    assert response.json()["channel"] == "email"
+    assert sent["email"] == "has-email@example.com"
+    assert normalize_phone(phone) not in otp_storage
+
+
+@pytest.mark.asyncio
+@pytest.mark.unit
+async def test_recover_phone_only_sends_otp_and_unknown_numbers_do_not(
+    async_client: AsyncClient, monkeypatch
+):
+    from app.api.auth import otp_storage
+    from app.utils.phone import normalize_phone
+
+    monkeypatch.setattr("app.services.akedly.akedly_configured", lambda: False)
+    monkeypatch.setattr("app.services.sms.settings.OTP_RESEND_COOLDOWN_SECONDS", 0)
+    monkeypatch.setattr("app.api.auth.settings.ENVIRONMENT", "development")
+
+    phone = "+201777777772"
+    signup = await async_client.post(
+        "/api/auth/signup",
+        json={"name": "Phone Only", "phone": phone, "password": "password123"},
+    )
+    assert signup.status_code == 201
+
+    otp_storage.clear()
+    response = await async_client.post("/api/auth/recover", json={"identifier": phone})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["channel"] == "phone"
+    assert body["otp_code"] and len(body["otp_code"]) == 6
+    assert normalize_phone(phone) in otp_storage
+
+    unknown = "+201777777773"
+    otp_storage.clear()
+    missing = await async_client.post("/api/auth/recover", json={"identifier": unknown})
+    assert missing.status_code == 200
+    assert missing.json()["channel"] == "phone"
+    assert not missing.json().get("otp_code")
+    assert normalize_phone(unknown) not in otp_storage
 
 
 @pytest.mark.asyncio

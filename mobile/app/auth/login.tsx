@@ -78,7 +78,6 @@ export default function LoginScreen() {
           {t("auth.welcomeBack")}
         </Text>
         <Text style={styles.subtitle}>{t("auth.signInSubtitle")}</Text>
-        <Text style={[styles.subtitle, { marginTop: 12 }]}>{t("auth.importedAccountHint")}</Text>
       </View>
 
       <View style={styles.form}>
@@ -112,9 +111,6 @@ export default function LoginScreen() {
         </Button>
         <Button onPress={() => router.push("/auth/forgot-password")} variant="ghost">
           {t("auth.forgotPassword")}
-        </Button>
-        <Button onPress={() => router.push("/auth/phone-login")} variant="outline">
-          {t("auth.continueWithPhone")}
         </Button>
       </View>
 

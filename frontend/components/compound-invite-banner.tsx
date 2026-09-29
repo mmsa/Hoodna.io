@@ -37,7 +37,7 @@ export function CompoundInviteBanner() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['compound-invites'] })
       await refreshUser()
-      toast({ title: 'Joined compound', description: 'Your chat-import invite was confirmed.' })
+      toast({ title: 'Joined compound', description: 'You now have access to this compound.' })
     },
     onError: (error: any) => {
       toast({
@@ -76,7 +76,7 @@ export function CompoundInviteBanner() {
                 Join {formatCompoundName(invite.compound_name)}?
               </p>
               <p className="text-sm text-muted-foreground">
-                You were invited from the compound group chat. Confirm to unlock community access.
+                Confirm to unlock community access.
               </p>
             </div>
           </div>

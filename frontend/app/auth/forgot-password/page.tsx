@@ -11,69 +11,53 @@ import api from '@/lib/api'
 import Link from 'next/link'
 import { useTranslation } from '@/components/locale-provider'
 
-function otpErrorMessage(err: any, fallback: string): string {
-  const status = err?.response?.status
+function recoveryErrorMessage(err: any, fallback: string): string {
   const detail = String(err?.response?.data?.detail || err?.message || '')
-  const lower = detail.toLowerCase()
-  if (status === 429 || lower.includes('too many')) return detail
   if (detail.trim()) return detail
   return fallback
 }
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
-  const [method, setMethod] = useState<'email' | 'phone'>('phone')
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [phoneStep, setPhoneStep] = useState<'request' | 'reset'>('request')
+  const [step, setStep] = useState<'request' | 'email' | 'phone'>('request')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const { t } = useTranslation()
 
-  const sendEmailReset = async (e: React.FormEvent) => {
+  const sendRecovery = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess(false)
-    if (!email.includes('@')) {
-      setError(t('auth.validEmailRequired'))
+    const raw = identifier.trim()
+    if (!raw) {
+      setError(t('auth.enterEmailOrPhone'))
       return
     }
-    setLoading(true)
-    try {
-      await api.post('/api/auth/forgot-password', {
-        email: email.trim().toLowerCase(),
-      })
-      setSuccess(true)
-    } catch (err: any) {
-      setError(err.response?.data?.detail || t('auth.resetEmailFailed'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const sendPhoneCode = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    const normalized = normalizePhone(phone)
-    if (!normalized) {
+    const payload = raw.includes('@') ? raw.toLowerCase() : normalizePhone(raw)
+    if (!payload) {
       setError(t('auth.enterPhone'))
       return
     }
     setLoading(true)
     try {
-      const response = await api.post('/api/auth/start', { phone: normalized })
-      setPhone(normalized)
+      const response = await api.post('/api/auth/recover', { identifier: payload })
+      if (response.data?.channel === 'email') {
+        setStep('email')
+        return
+      }
+      setPhone(typeof payload === 'string' && payload.startsWith('+') ? payload : raw)
       const otpCode = response.data?.otp_code
       if (otpCode && /^\d{6}$/.test(otpCode)) {
         setOtp(otpCode)
       }
-      setPhoneStep('reset')
+      setStep('phone')
     } catch (err: any) {
-      setError(otpErrorMessage(err, t('auth.otpFailed')))
+      setError(recoveryErrorMessage(err, t('auth.otpFailed')))
     } finally {
       setLoading(false)
     }
@@ -110,6 +94,12 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  const signInWithCode = () => {
+    const params = new URLSearchParams({ phone })
+    if (/^\d{6}$/.test(otp)) params.set('otpCode', otp)
+    router.push(`/auth/otp-verify?${params.toString()}`)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
@@ -121,7 +111,18 @@ export default function ForgotPasswordPage() {
           {success ? (
             <div className="space-y-4">
               <div className="p-3 bg-green-50 text-green-700 rounded-md text-sm">
-                {method === 'email' ? t('auth.resetLinkSent') : t('auth.passwordResetSuccess')}
+                {t('auth.passwordResetSuccess')}
+              </div>
+              <div className="text-center text-sm">
+                <Link href="/auth/login" className="text-primary hover:underline">
+                  {t('auth.backToLogin')}
+                </Link>
+              </div>
+            </div>
+          ) : step === 'email' ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-green-50 text-green-700 rounded-md text-sm">
+                {t('auth.resetLinkSent')}
               </div>
               <div className="text-center text-sm">
                 <Link href="/auth/login" className="text-primary hover:underline">
@@ -131,66 +132,25 @@ export default function ForgotPasswordPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={method === 'phone' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setMethod('phone')
-                    setError('')
-                    setSuccess(false)
-                  }}
-                >
-                  {t('auth.usePhone')}
-                </Button>
-                <Button
-                  type="button"
-                  variant={method === 'email' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setMethod('email')
-                    setError('')
-                    setSuccess(false)
-                  }}
-                >
-                  {t('auth.useEmail')}
-                </Button>
-              </div>
-
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>
               )}
 
-              {method === 'email' ? (
-                <form onSubmit={sendEmailReset} className="space-y-4">
+              {step === 'request' ? (
+                <form onSubmit={sendRecovery} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">{t('auth.email')}</Label>
+                    <Label htmlFor="identifier">{t('auth.emailOrPhone')}</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder={t('auth.emailPlaceholder')}
+                      id="identifier"
+                      type="text"
+                      autoComplete="username"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder={t('auth.emailOrPhonePlaceholder')}
                     />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? t('auth.signingIn') : t('auth.sendResetLink')}
-                  </Button>
-                </form>
-              ) : phoneStep === 'request' ? (
-                <form onSubmit={sendPhoneCode} className="space-y-4">
-                  <p className="text-sm text-gray-600">{t('auth.enterPhoneSubtitle')}</p>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">{t('auth.phone')}</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder={t('auth.phonePlaceholder')}
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? t('auth.signingIn') : t('auth.sendResetCode')}
+                    {loading ? t('auth.signingIn') : t('auth.continueAction')}
                   </Button>
                 </form>
               ) : (
@@ -230,6 +190,9 @@ export default function ForgotPasswordPage() {
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? t('auth.signingIn') : t('auth.resetPassword')}
+                  </Button>
+                  <Button type="button" variant="outline" className="w-full" onClick={signInWithCode}>
+                    {t('auth.signInWithCode')}
                   </Button>
                 </form>
               )}

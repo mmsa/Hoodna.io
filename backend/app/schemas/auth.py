@@ -1,5 +1,5 @@
 from typing import Optional, Literal
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from app.models.enums import UserRole
 from app.schemas.user import UserResponse
 
@@ -35,7 +35,8 @@ class AttributionIn(BaseModel):
 
 class UserSignup(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
-    phone: str = Field(..., min_length=7, max_length=32)
+    # At least one of phone or email is required. Password covers both.
+    phone: Optional[str] = Field(default=None, max_length=32)
     password: str
     email: Optional[EmailStr] = None
     role: Optional[UserRole] = None
@@ -53,10 +54,26 @@ class UserSignup(BaseModel):
             raise ValueError("Name must be at least 2 characters")
         return cleaned
 
+    @field_validator("phone")
+    @classmethod
+    def blank_phone_to_none(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
     @field_validator("password")
     @classmethod
     def check_password(cls, value: str) -> str:
         return _validate_password(value)
+
+    @model_validator(mode="after")
+    def require_phone_or_email(self) -> "UserSignup":
+        if self.phone and len(self.phone) < 7:
+            raise ValueError("Invalid phone number")
+        if not self.phone and not self.email:
+            raise ValueError("Enter a phone number or an email address")
+        return self
 
 
 class UserLogin(BaseModel):
@@ -81,6 +98,19 @@ class RefreshTokenRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+
+
+class AccountRecoveryRequest(BaseModel):
+    """Email or phone. A real email is preferred over a phone code."""
+
+    identifier: str = Field(..., min_length=3, max_length=255)
+
+
+class AccountRecoveryResponse(BaseModel):
+    channel: Literal["email", "phone"]
+    message: str
+    otp_code: Optional[str] = None
+    resend_after_seconds: int = 0
 
 
 class ResetPasswordRequest(BaseModel):

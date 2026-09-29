@@ -28,11 +28,13 @@ export default function PhoneLoginPage() {
   const { t } = useTranslation()
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setEmailSent(false)
     const normalized = normalizePhone(phone)
     if (!normalized) {
       setError(t('auth.enterPhone'))
@@ -41,7 +43,11 @@ export default function PhoneLoginPage() {
 
     setLoading(true)
     try {
-      const response = await api.post('/api/auth/start', { phone: normalized })
+      const response = await api.post('/api/auth/recover', { identifier: normalized })
+      if (response.data?.channel === 'email') {
+        setEmailSent(true)
+        return
+      }
       const params = new URLSearchParams({ phone: normalized })
       const otpCode = response.data?.otp_code
       if (otpCode && /^\d{6}$/.test(otpCode)) {
@@ -62,6 +68,11 @@ export default function PhoneLoginPage() {
   return (
     <AuthStage scene="arrive" title={t('auth.phoneLogin')} subtitle={t('auth.enterPhoneSubtitle')}>
       <form onSubmit={onSubmit} className="space-y-4">
+            {emailSent && (
+              <div className="p-3 bg-green-50 text-green-700 rounded-md text-sm">
+                {t('auth.resetLinkSent')}
+              </div>
+            )}
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>
             )}
@@ -79,7 +90,7 @@ export default function PhoneLoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t('auth.signingIn') : t('auth.sendCode')}
+              {loading ? t('auth.signingIn') : t('auth.continueAction')}
             </Button>
             <div className="text-center text-sm space-y-2">
               <div>

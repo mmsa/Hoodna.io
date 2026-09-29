@@ -10,6 +10,7 @@ import { AuthPhoto } from "@/components/auth-photo";
 
 export default function PhoneLoginScreen() {
   const [phone, setPhone] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { apiClient } = useAuth();
   const router = useRouter();
@@ -29,10 +30,17 @@ export default function PhoneLoginScreen() {
 
     setLoading(true);
     try {
-      await apiClient.phoneAuthStart({ phone: normalizedPhone });
+      const response = await apiClient.recoverAccount({ identifier: normalizedPhone });
+      if (response.channel === "email") {
+        setEmailSent(true);
+        return;
+      }
       router.push({
         pathname: "/auth/otp-verify",
-        params: { phone: normalizedPhone },
+        params: {
+          phone: normalizedPhone,
+          ...(response.otp_code ? { otpCode: response.otp_code } : {}),
+        },
       });
     } catch (error: any) {
       const message = String(error?.message || "");
@@ -91,6 +99,12 @@ export default function PhoneLoginScreen() {
         {t("auth.enterPhoneSubtitle")}
       </Text>
 
+      {emailSent ? (
+        <Text style={{ fontSize: 16, color: "#047857", marginBottom: 24, lineHeight: 24 }}>
+          {t("auth.resetLinkSent")}
+        </Text>
+      ) : null}
+
       <TextInput
         style={{
           backgroundColor: '#FFFFFF',
@@ -124,7 +138,7 @@ export default function PhoneLoginScreen() {
         disabled={loading}
       >
         <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-          {loading ? t("auth.signingIn") : t("auth.sendCode")}
+          {loading ? t("auth.signingIn") : t("auth.continueAction")}
         </Text>
       </TouchableOpacity>
 

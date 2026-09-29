@@ -102,18 +102,6 @@ function LoginFormInner() {
   return (
     <AuthStage scene="arrive" title={t('auth.welcomeBack')} subtitle={t('brand.taglineAuth')}>
       <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">{t('auth.importedAccountHint')}</p>
-          <Button asChild className="w-full" size="lg">
-            <Link href="/auth/phone-login">{t('auth.continueWithPhone')}</Link>
-          </Button>
-          <div className="relative py-1">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">{t('auth.orDivider')}</span>
-            </div>
-          </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
@@ -146,8 +134,8 @@ function LoginFormInner() {
                 <p className="text-sm text-red-600">{errors.password.message}</p>
               )}
             </div>
-            <Button type="submit" variant="outline" className="w-full" disabled={loading}>
-              {loading ? t('auth.signingIn') : t('auth.signInWithEmail')}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
             <div className="text-center text-sm space-y-2">
               <div>

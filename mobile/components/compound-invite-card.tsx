@@ -47,7 +47,7 @@ export function CompoundInviteCard() {
                 Join {formatCompoundName(invite.compound_name)}?
               </Text>
               <Text style={styles.body}>
-                You were invited from the compound group chat. Confirm to unlock access.
+                Confirm to unlock access.
               </Text>
             </View>
           </View>

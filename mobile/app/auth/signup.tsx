@@ -56,10 +56,13 @@ export default function SignupScreen() {
       newErrors.name = t("auth.nameMinLength");
     }
     const phoneDigits = phone.replace(/\D/g, "");
-    if (!phone || phoneDigits.length < 7) {
+    const emailValue = email.trim();
+    if (phoneDigits.length < 7 && !emailValue) {
+      newErrors.phone = t("auth.contactRequired");
+    } else if (phone.trim() && phoneDigits.length < 7) {
       newErrors.phone = t("auth.enterPhone");
     }
-    if (email.trim() && !email.includes("@")) {
+    if (emailValue && !emailValue.includes("@")) {
       newErrors.email = t("auth.invalidEmail");
     }
     if (!password || password.length < MIN_PASSWORD_LENGTH) {
@@ -78,8 +81,8 @@ export default function SignupScreen() {
       const code = referralCode || firstTouch?.referralCode;
       const response = await apiClient.signup({
         name,
-        phone,
         password,
+        ...(phone.trim() ? { phone } : {}),
         ...(email.trim() ? { email: email.trim() } : {}),
         referral_code: code,
         platform: Platform.OS === "android" ? "android" : "ios",
@@ -148,7 +151,7 @@ export default function SignupScreen() {
               {t("auth.signUp")}
             </Text>
             <Text style={{ fontSize: 16, color: "#6C757D", lineHeight: 24 }}>
-              {t("auth.signupSubtitle")}
+              {t("auth.signupContactHint")}
             </Text>
           </View>
 
@@ -221,7 +224,7 @@ export default function SignupScreen() {
             {/* Email (Optional) */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#1B1B1B", marginBottom: 8 }}>
-                {t("auth.emailOptional")}
+                {t("auth.email")}
               </Text>
               <TextInput
                 style={{
