@@ -20,6 +20,7 @@ import { useTranslation } from '@/components/locale-provider'
 import { SiteFooter } from '@/components/site-footer'
 import { BrandLockup } from '@/components/brand-lockup'
 import { CompoundThread } from '@/components/compound-thread'
+import { StoreBadges } from '@/components/store-badges'
 
 export default function Home() {
   const { isAuthenticated } = useAuth()
@@ -172,6 +173,7 @@ export default function Home() {
               {t('landing.subtitle')}
             </p>
             <div className="flex flex-col items-start gap-3 sm:flex-row">{actions}</div>
+            <StoreBadges className="mt-6" />
             <div className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-white/20 pt-8">
               <div>
                 <p className="text-3xl font-bold">100%</p>
@@ -412,6 +414,7 @@ export default function Home() {
               </Link>
             </div>
           )}
+          <StoreBadges align="center" className="mt-8" />
         </div>
       </section>
 

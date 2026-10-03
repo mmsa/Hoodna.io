@@ -7,6 +7,9 @@ export const ELJIRAN_SUPPORT_MAILTO = `mailto:${ELJIRAN_SUPPORT_EMAIL}`;
 export const ELJIRAN_PRIVACY_URL = `${ELJIRAN_WEB_ORIGIN}/privacy`;
 export const ELJIRAN_TERMS_URL = `${ELJIRAN_WEB_ORIGIN}/terms`;
 export const ELJIRAN_SUPPORT_URL = `${ELJIRAN_WEB_ORIGIN}/support`;
+export const ELJIRAN_APP_STORE_URL = "https://apps.apple.com/app/eljiran/id6789875474";
+export const ELJIRAN_PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.eljiran.mobile";
 
 export type EljiranRoute =
   | { type: "home" }
